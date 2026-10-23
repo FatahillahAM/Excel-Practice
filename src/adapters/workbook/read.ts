@@ -1,7 +1,8 @@
-import { XMLParser } from "fast-xml-parser";
+import { createHash } from "node:crypto";
+import { XMLParser, XMLValidator } from "fast-xml-parser";
 import JSZip from "jszip";
 import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula.ts";
-import { readSheetParts, resolvePartName, vbaProjectSha256 } from "./template-patch.ts";
+import { readSheetParts, resolvePartName } from "./template-patch.ts";
 
 /**
  * Workbook reading for WorkbookIO (AD-4): what a saved `.xlsm`/`.xlsx` holds per
@@ -25,11 +26,14 @@ export interface CellReading {
 }
 
 export interface WorkbookReading {
-  /** Per sheet name, in workbook order, per A1 reference (`H3`): only cells with a formula or a value. */
+  /** Per sheet name, per A1 reference (`H3`): only cells with a formula or a value. */
   sheets: Record<string, Record<string, CellReading>>;
   /** Custom document properties as text. */
   properties: Record<string, string>;
-  /** Lowercase hex SHA-256 of `xl/vbaProject.bin`; `null` for a workbook without macros. */
+  /**
+   * Lowercase hex SHA-256 of `xl/vbaProject.bin`; `null` for a workbook without macros.
+   * S2: Excel rewrites this part on every save (VBA source unchanged), so it cannot identify a submitted file.
+   */
   vbaProjectSha256: string | null;
 }
 
@@ -70,8 +74,14 @@ export async function readWorkbook(bytes: Uint8Array): Promise<WorkbookReading> 
   return {
     sheets: Object.fromEntries(sheets),
     properties: await readCustomProperties(zip),
-    vbaProjectSha256: zip.file(VBA_PROJECT_PART) === null ? null : await vbaProjectSha256(bytes),
+    vbaProjectSha256: await readVbaProjectSha256(zip),
   };
+}
+
+async function readVbaProjectSha256(zip: JSZip): Promise<string | null> {
+  const file = zip.file(VBA_PROJECT_PART);
+  if (file === null) return null;
+  return createHash("sha256").update(await file.async("uint8array")).digest("hex");
 }
 
 // ---------------------------------------------------------------------------
@@ -189,13 +199,14 @@ function cellValue(
       return { value: Number(trimmed), type: "number" };
     }
     case "s": {
+      if (raw.trim() === "") throw new Error(`Cell ${where}: shared string index is empty`);
       const index = Number(raw.trim());
       const value = Number.isInteger(index) ? sharedStrings[index] : undefined;
       if (value === undefined) throw new Error(`Cell ${where}: shared string ${raw} does not exist`);
       return { value, type: "string" };
     }
     case "str":
-      return { value: raw, type: "string" };
+      return { value: decodeEscapes(raw), type: "string" };
     case "b":
       if (raw.trim() !== "0" && raw.trim() !== "1") throw new Error(`Cell ${where}: boolean "${raw}" is not 0 or 1`);
       return { value: raw.trim() === "1", type: "boolean" };
@@ -273,6 +284,11 @@ const parser = new XMLParser({
 });
 
 function parseXml(xml: string, part: string): XmlNode {
+  // The parser itself accepts truncated or non-XML text and returns what it got.
+  const valid = XMLValidator.validate(xml);
+  if (valid !== true) {
+    throw new NotAWorkbookError(`${part} is not well-formed XML (${valid.err.msg}, line ${valid.err.line})`);
+  }
   try {
     return parser.parse(xml) as XmlNode;
   } catch (error) {

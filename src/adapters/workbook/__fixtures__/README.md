@@ -13,7 +13,7 @@ Spike S2 membuktikan bahwa server membaca teks rumus (termasuk rumus hasil fill 
 
 ### 2. Pemisah argumen
 
-Rumus di bawah memakai koma (`,`) sebagai pemisah argumen. Bila Excel menolak rumus dengan pesan "There's a problem with this formula", Windows memakai pengaturan regional dengan titik koma: ganti setiap `,` dengan `;` lalu ketik ulang. Excel tetap menyimpan rumusnya dengan koma di dalam file, jadi hasil tes sama.
+Rumus di bawah memakai koma (`,`) sebagai pemisah argumen. Bila Excel menolak rumus dengan pesan "There's a problem with this formula", Windows memakai pengaturan regional dengan titik koma: ganti setiap `,` dengan `;` lalu ketik ulang. Excel tetap menyimpan rumusnya dengan koma di dalam file, jadi hasil tes sama. Dengan pengaturan regional yang sama, Excel bisa menampilkan desimal dengan koma (`1250,5`, `0,022999`); itu nilai yang sama dengan tabel di bawah.
 
 ### 3. Sheet `Instructions`: ketik C6:C10
 
@@ -24,7 +24,7 @@ Klik tiap sel, ketik isinya persis, tekan **Enter**.
 | C6 | `=SUMIFS(Data!E2:E11,Data!B2:B11,"Lini A")` | 4125 |
 | C7 | `=SUMIFS(Data!F2:F11,Data!C2:C11,"Malam")` | 226 |
 | C8 | `=AVERAGEIFS(Data!G2:G11,Data!D2:D11,"Baut M8")` | 1250.5 |
-| C9 | `=SUM(Data!F2:F11)/SUM(Data!E2:E11)` | 0.022999 (atau mirip, tergantung lebar kolom) |
+| C9 | `=SUM(Data!F2:F11/SUM(Data!E2:E11))` | 0.022999 (atau mirip, tergantung lebar kolom) |
 | C10 | `226` (angka biasa, **tanpa** `=`) | 226 |
 
 ### 4. Sheet `Data`: kolom H, I, J dengan fill down

@@ -2,6 +2,8 @@
  * Exam template registry (AD-4). Each version is one file under
  * `assets/templates/` plus the SHA-256 of its `xl/vbaProject.bin`; a submitted
  * workbook whose hash differs from its attempt's version is IDENTITY_ALTERED (AD-6).
+ * S2 found that Excel rewrites `vbaProject.bin` on every save (VBA source unchanged), so this byte hash
+ * cannot identify a submitted file; the AD-6 fingerprint change is deferred.
  */
 
 export interface TemplateInfo {

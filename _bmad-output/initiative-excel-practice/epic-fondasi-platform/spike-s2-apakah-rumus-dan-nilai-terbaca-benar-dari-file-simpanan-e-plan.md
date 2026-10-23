@@ -3,7 +3,7 @@ title: 'S2: Apakah rumus dan nilai terbaca benar dari file simpanan Excel 2021?'
 type: 'feature'
 ticket: '3'
 created: '2026-10-23'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -76,6 +76,8 @@ context:
 - Excel menyimpan shared formula dari fill down di H, I, J (master + anak `si`), prefiks `_xlfn.` untuk XLOOKUP, IFS, UNIQUE, dan spill UNIQUE dengan rumus hanya di L6. Teks hasil patch S1 (inline string) menjadi `sharedStrings.xml` setelah disimpan; `calcChain.xml` dan `metadata.xml` muncul.
 - SheetJS tidak dibandingkan: `cdn.sheetjs.com` ditolak proxy (connect_rejected); npm hanya punya `xlsx` 0.18.5.
 - `vbaProject.bin` berubah setelah Excel menyimpan (`9618df59…8ec4` ≠ registry `d8aa9aa6…a9df`). Per stream (olefile): `PROJECT` berubah karena `ID=` GUID project dan nilai `CMG`/`DPB`/`GC` dibuat ulang; `dir`, `_VBA_PROJECT`, `__SRP_*`, dan `VBA/Sheet1` (cache) berubah atau bertambah; `VBA/modFinish` byte-identik, dan sumber VBA hasil dekompresi semua modul identik (olevba). Jadi sidik jari AD-6 harus memakai sumber VBA per modul, bukan byte `vbaProject.bin`. Ini perubahan spine, dicatat di deferred-work.
+
+- Patch review P1–P11 diterapkan oleh subagent implementasi: validasi XML sebelum parse, `<v>` kosong pada `t="s"` ditolak, `_xHHHH_` di-decode pada `t="str"`, hash `vbaProject.bin` dari zip yang sudah dimuat, tes entitas dan DOCTYPE, tes `sharedStrings.xml` hilang, tes fixture wajib jalan plus cek bentuk simpanan (shared, array, `_xlfn.`), README C9 dan koma desimal, dok urutan sheet dan peringatan hash. Verifikasi ulang: Vitest 65/65, lint dan `tsc --noEmit` bersih, `node scripts/spike-s2.ts` semua cocok (openpyxl 126 sel) exit 0, registry S1 `match`, `next build` sukses.
 
 ## Review Triage Log
 

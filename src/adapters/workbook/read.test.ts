@@ -7,6 +7,7 @@ import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { cellMismatch, S2_FIXTURE, s2Expected } from "./__fixtures__/s2-expected";
 import { NotAWorkbookError, readWorkbook } from "./read";
+import { readSheetParts } from "./template-patch";
 
 // A synthetic .xlsm shaped like an Excel 2021 save: shared strings, shared and
 // dynamic-array formulas, and a stale <dimension>/spans as S1 found in files
@@ -150,6 +151,37 @@ describe("readWorkbook", () => {
     expect(sheets.Data.I2).toEqual({ formula: 'IF(H2>3%,"Periksa","OK")', value: "OK", type: "string" });
   });
 
+  it("decodes _xHHHH_ in a formula string result", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet1.xml": sheetXml('<row r="1"><c r="A1" t="str"><f>"a"&amp;CHAR(13)</f><v>a_x000D_</v></c></row>'),
+    });
+    const { sheets } = await readWorkbook(bytes);
+    expect(sheets.Instructions.A1).toEqual({ formula: '"a"&CHAR(13)', value: "a\r", type: "string" });
+  });
+
+  it("decodes entities exactly once, in shared and inline strings", async () => {
+    const bytes = await makeWorkbook({
+      "xl/sharedStrings.xml": `${XML_HEAD}<sst ${MAIN_NS}><si><t>R&amp;amp;D &amp;lt;5</t></si></sst>`,
+      "xl/worksheets/sheet1.xml": sheetXml(
+        '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="inlineStr"><is><t>R&amp;amp;D &amp;lt;5</t></is></c></row>',
+      ),
+      "xl/worksheets/sheet2.xml": sheetXml(""),
+    });
+    const { sheets } = await readWorkbook(bytes);
+    expect(sheets.Instructions.A1.value).toBe("R&amp;D &lt;5");
+    expect(sheets.Instructions.B1.value).toBe("R&amp;D &lt;5");
+  });
+
+  it("does not expand DOCTYPE entities", async () => {
+    const bytes = await makeWorkbook({
+      "xl/sharedStrings.xml": `${XML_HEAD}<!DOCTYPE sst [<!ENTITY x "boom">]><sst ${MAIN_NS}><si><t>&x;</t></si></sst>`,
+      "xl/worksheets/sheet1.xml": sheetXml('<row r="1"><c r="A1" t="s"><v>0</v></c></row>'),
+      "xl/worksheets/sheet2.xml": sheetXml(""),
+    });
+    const { sheets } = await readWorkbook(bytes);
+    expect(sheets.Instructions.A1.value).toBe("&x;");
+  });
+
   it("reads shared strings, joining rich text runs and decoding entities and _xHHHH_", async () => {
     const { sheets } = await readWorkbook(await makeWorkbook());
     expect(sheets.Data.A1).toEqual({ formula: null, value: "Kode Batch", type: "string" });
@@ -258,6 +290,25 @@ describe("readWorkbook", () => {
       );
     });
 
+    it("rejects a shared strings part that the relationships name but the zip lacks", async () => {
+      const bytes = await makeWorkbook({ "xl/sharedStrings.xml": null });
+      await expect(readWorkbook(bytes)).rejects.toThrow(NotAWorkbookError);
+      await expect(readWorkbook(bytes)).rejects.toThrow(/xl\/sharedStrings\.xml is missing/);
+    });
+
+    it("rejects a truncated sheet part", async () => {
+      const xml = sheetXml(DATA_ROWS);
+      // Cut after a complete cell: the parser alone would return rows 1–2 without complaint.
+      const bytes = await makeWorkbook({ "xl/worksheets/sheet2.xml": xml.slice(0, xml.indexOf('<c r="H2"')) });
+      await expect(readWorkbook(bytes)).rejects.toThrow(NotAWorkbookError);
+      await expect(readWorkbook(bytes)).rejects.toThrow(/xl\/worksheets\/sheet2\.xml is not well-formed XML/);
+    });
+
+    it("rejects a sheet part that is not XML", async () => {
+      const bytes = await makeWorkbook({ "xl/worksheets/sheet2.xml": "Kode Batch,Lini\nB-2610-01,Lini A\n" });
+      await expect(readWorkbook(bytes)).rejects.toThrow(/xl\/worksheets\/sheet2\.xml is not well-formed XML/);
+    });
+
     it("rejects a sheet whose part is missing", async () => {
       await expect(readWorkbook(await makeWorkbook({ "xl/worksheets/sheet2.xml": null }))).rejects.toThrow(
         /sheet "Data" points to missing part xl\/worksheets\/sheet2\.xml/,
@@ -282,6 +333,13 @@ describe("readWorkbook", () => {
     await expect(readWorkbook(bytes)).rejects.toThrow(/Instructions!P2: shared formula si="0" has a second master/);
   });
 
+  it("fails on an empty shared string index", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet1.xml": sheetXml('<row r="1"><c r="A1" t="s"><v></v></c></row>'),
+    });
+    await expect(readWorkbook(bytes)).rejects.toThrow(/Instructions!A1: shared string index is empty/);
+  });
+
   it("fails on a shared string index that does not exist", async () => {
     const bytes = await makeWorkbook({
       "xl/worksheets/sheet1.xml": sheetXml('<row r="1"><c r="A1" t="s"><v>99</v></c></row>'),
@@ -291,14 +349,21 @@ describe("readWorkbook", () => {
 });
 
 // The real thing: the S1 file filled in and saved by Excel 2021 (README.md).
-// Skipped only while the file is not in the repo yet.
+// It is committed, so a missing file fails instead of skipping.
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
 const fixturePath = path.join(repoRoot, S2_FIXTURE);
 
+async function readFixture(): Promise<Uint8Array> {
+  if (!existsSync(fixturePath)) {
+    throw new Error(`Fixture ${S2_FIXTURE} is missing: create it with src/adapters/workbook/__fixtures__/README.md`);
+  }
+  return readFile(fixturePath);
+}
+
 describe("s2-excel2021.xlsm (saved by Excel 2021)", () => {
-  it.skipIf(!existsSync(fixturePath))("matches the expected formula, value and type of every fixture cell", async () => {
-    const reading = await readWorkbook(await readFile(fixturePath));
+  it("matches the expected formula, value and type of every fixture cell", async () => {
+    const reading = await readWorkbook(await readFixture());
     const mismatches: string[] = [];
     for (const [sheet, cells] of Object.entries(s2Expected)) {
       for (const [ref, expected] of Object.entries(cells)) {
@@ -311,5 +376,19 @@ describe("s2-excel2021.xlsm (saved by Excel 2021)", () => {
     expect(reading.vbaProjectSha256).toMatch(/^[0-9a-f]{64}$/);
     // Whether Excel rewrote vbaProject.bin on save is an observation for S3,
     // not a pass criterion: scripts/spike-s2.ts prints it against the registry.
+  });
+
+  it("stores what S2 reads: fill-down as shared formulas, UNIQUE as a spill anchor, _xlfn. prefixes", async () => {
+    const zip = await JSZip.loadAsync(await readFixture());
+    const part = (await readSheetParts(zip)).get("Data");
+    const xml = part === undefined ? "" : ((await zip.file(part)?.async("string")) ?? "");
+    // Excel saved H3:J3 as the shared masters (H2:J2 as plain formulas); rows 4–11 are their children.
+    for (const column of "HIJ") {
+      for (let row = 4; row <= 11; row++) {
+        expect(xml, `${column}${row}`).toMatch(new RegExp(`<c r="${column}${row}"[^>]*><f t="shared" si="\\d+"/>`));
+      }
+    }
+    expect(xml).toMatch(/<c r="L6"[^>]*><f t="array" ref="L6:L8">/);
+    expect(xml).toContain("_xlfn.");
   });
 });

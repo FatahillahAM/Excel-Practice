@@ -2,7 +2,7 @@ import type { CellReading, CellType } from "../read.ts";
 
 /**
  * Spike S2 expected reading of `s2-excel2021.xlsm`: the S1 test file with the
- * formulas from `README.md` typed and filled down in Excel 2021, then saved.
+ * formulas from `README.md` typed in Excel 2021 (H:J filled down), then saved.
  * Formulas are in normalized form; numbers match within `NUMBER_TOLERANCE`.
  */
 
@@ -68,8 +68,8 @@ export const s2Expected: Readonly<Record<string, Readonly<Record<string, Expecte
     C6: formula('SUMIFS(DATA!E2:E11,DATA!B2:B11,"Lini A")', 4125),
     C7: formula('SUMIFS(DATA!F2:F11,DATA!C2:C11,"Malam")', 226),
     C8: formula('AVERAGEIFS(DATA!G2:G11,DATA!D2:D11,"Baut M8")', 1250.5),
-    // Typed with a shifted parenthesis; same value. Excel 2021 saved it as a
-    // one-cell dynamic-array formula (`<f t="array" ref="C9">`, `cm="1"`).
+    // Same value as SUM(F)/SUM(E). Excel 2021 saves it as a one-cell
+    // dynamic-array formula (`<f t="array" ref="C9">`, `cm="1"`).
     C9: formula("SUM(DATA!F2:F11/SUM(DATA!E2:E11))", 0.022998872604284102),
     C10: value(226),
   },
