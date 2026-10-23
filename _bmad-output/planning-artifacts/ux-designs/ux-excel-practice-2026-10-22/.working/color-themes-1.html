@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tema Warna Excel</title>
+<style>
+/* ===== Variasi 1: Excel Brand =====
+   Register: Tenang dan profesional, seperti aplikasi Microsoft 365 modern: hijau Excel yang bersih di atas kanvas netral.
+   [light]
+     --background: #F5F5F5;
+     --foreground: #242424;
+     --card: #FFFFFF;
+     --muted: #F0F0F0;
+     --muted-foreground: #616161;
+     --border: #E0E0E0;
+     --primary: #107C41;
+     --primary-foreground: #FFFFFF;
+     --accent: #E6F2EB;
+     --success: #0E7A0D;
+     --destructive: #C42B1C;
+     --warning: #9D5D00;
+     --streak: #E8590C;
+     --chart-1: #107C41;
+     --chart-2: #33C481;
+     --chart-3: #185C37;
+   [dark]
+     --background: #1B1B1B;
+     --foreground: #F3F3F3;
+     --card: #262626;
+     --muted: #2F2F2F;
+     --muted-foreground: #ADADAD;
+     --border: #3B3B3B;
+     --primary: #3BB36E;
+     --primary-foreground: #0A2015;
+     --accent: #1C3527;
+     --success: #6CCB5F;
+     --destructive: #FF8A80;
+     --warning: #F2C661;
+     --streak: #FF8C42;
+     --chart-1: #3BB36E;
+     --chart-2: #9FE0B8;
+     --chart-3: #21A366;
+*/
+/* ===== Variasi 2: Ribbon Klasik =====
+   Register: Seperti duduk di dalam Excel desktop: garis grid abu-abu, sel header, dan kotak seleksi hijau dengan fill handle.
+   [light]
+     --background: #FFFFFF;
+     --foreground: #1E1E1E;
+     --card: #FFFFFF;
+     --muted: #E6E6E6;
+     --muted-foreground: #595959;
+     --border: #D4D4D4;
+     --primary: #217346;
+     --primary-foreground: #FFFFFF;
+     --accent: #D3F0E0;
+     --success: #1E7145;
+     --destructive: #C00000;
+     --warning: #9C6500;
+     --streak: #D35400;
+     --chart-1: #217346;
+     --chart-2: #5FA777;
+     --chart-3: #A9D18E;
+   [dark]
+     --background: #1E1E1E;
+     --foreground: #E6E6E6;
+     --card: #252525;
+     --muted: #333333;
+     --muted-foreground: #A6A6A6;
+     --border: #3D3D3D;
+     --primary: #4CAF7A;
+     --primary-foreground: #0D1F15;
+     --accent: #22402F;
+     --success: #6FCF97;
+     --destructive: #FF6B6B;
+     --warning: #E3B341;
+     --streak: #F4A15D;
+     --chart-1: #4CAF7A;
+     --chart-2: #8FD1A8;
+     --chart-3: #C9E4B4;
+*/
+/* ===== Variasi 3: Office Theme Palette =====
+   Register: Ceria dan penuh warna seperti grafik Excel default: hijau Excel sebagai brand, aksen biru-oranye-emas untuk data.
+   [light]
+     --background: #FAFAF7;
+     --foreground: #262626;
+     --card: #FFFFFF;
+     --muted: #F2F2F2;
+     --muted-foreground: #595959;
+     --border: #E7E6E6;
+     --primary: #217346;
+     --primary-foreground: #FFFFFF;
+     --accent: #DAE3F3;
+     --success: #548235;
+     --destructive: #C00000;
+     --warning: #BF8F00;
+     --streak: #ED7D31;
+     --chart-1: #4472C4;
+     --chart-2: #ED7D31;
+     --chart-3: #A5A5A5;
+   [dark]
+     --background: #1B1D22;
+     --foreground: #F2F2F2;
+     --card: #24272E;
+     --muted: #2E323A;
+     --muted-foreground: #A6A6A6;
+     --border: #3A3F48;
+     --primary: #70AD47;
+     --primary-foreground: #10200A;
+     --accent: #2A3A5C;
+     --success: #A9D18E;
+     --destructive: #FF7C7C;
+     --warning: #FFD966;
+     --streak: #FF9A4D;
+     --chart-1: #5B9BD5;
+     --chart-2: #ED7D31;
+     --chart-3: #FFC000;
+   Catatan: Aksen Office lengkap (chart-4..6): Gold #FFC000 · Light Blue #5B9BD5 · Green #70AD47
+*/
+/* ===== Variasi 4: Conditional Formatting =====
+   Register: Register umpan-balik data: benar/salah/peringatan terbaca seketika lewat warna lampu lalu lintas khas Excel.
+   [light]
+     --background: #F7F8F7;
+     --foreground: #1F2421;
+     --card: #FFFFFF;
+     --muted: #F0F2F0;
+     --muted-foreground: #5F6B63;
+     --border: #DDE3DE;
+     --primary: #1D6F42;
+     --primary-foreground: #FFFFFF;
+     --accent: #E6F2EA;
+     --success: #006100;
+     --destructive: #9C0006;
+     --warning: #9C5700;
+     --streak: #E8590C;
+     --chart-1: #63BE7B;
+     --chart-2: #FFEB84;
+     --chart-3: #F8696B;
+     --success-soft: #C6EFCE;
+     --destructive-soft: #FFC7CE;
+     --warning-soft: #FFEB9C;
+   [dark]
+     --background: #161A17;
+     --foreground: #E8EDE9;
+     --card: #1E2420;
+     --muted: #262D28;
+     --muted-foreground: #9AA59D;
+     --border: #333C36;
+     --primary: #4FBF7F;
+     --primary-foreground: #0B1F12;
+     --accent: #1F3A2A;
+     --success: #8FE0A0;
+     --destructive: #FF9AA5;
+     --warning: #FFD67A;
+     --streak: #FF8A4C;
+     --chart-1: #63BE7B;
+     --chart-2: #FFEB84;
+     --chart-3: #F8696B;
+     --success-soft: #12351C;
+     --destructive-soft: #3D1418;
+     --warning-soft: #3A2C0A;
+   Catatan: Fill status (soft): light benar #C6EFCE · salah #FFC7CE · hint #FFEB9C — dark #12351C · #3D1418 · #3A2C0A. Chart = color scale 3 warna Excel (hijau-kuning-merah); data bar #63C384.
+*/
+/* ===== Variasi 5: Dark Excel =====
+   Register: Gelap, enerjik, dan premium ala website iPhone: hijau menyala di atas backstage abu-abu gelap.
+   [light]
+     --background: #F5F5F7;
+     --foreground: #1D1D1F;
+     --card: #FFFFFF;
+     --muted: #EDEDF0;
+     --muted-foreground: #6E6E73;
+     --border: #D9D9DE;
+     --primary: #13A35A;
+     --primary-foreground: #FFFFFF;
+     --accent: #E3F6EB;
+     --success: #15803D;
+     --destructive: #D92D45;
+     --warning: #A15C00;
+     --streak: #F2600C;
+     --chart-1: #13A35A;
+     --chart-2: #0E9F9E;
+     --chart-3: #65A30D;
+   [dark]
+     --background: #0B0D0C;
+     --foreground: #F5F7F6;
+     --card: #151917;
+     --muted: #1C211E;
+     --muted-foreground: #8E9993;
+     --border: #262D29;
+     --primary: #34D17F;
+     --primary-foreground: #04140B;
+     --accent: #12301F;
+     --success: #4ADE80;
+     --destructive: #FF5C6C;
+     --warning: #FFC34D;
+     --streak: #FF7A1A;
+     --chart-1: #34D17F;
+     --chart-2: #2DD4BF;
+     --chart-3: #A3E635;
+*/
+
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#ECECEC;color:#222;font-family:"Segoe UI",system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;font-size:14px;line-height:1.45}
+.wrap{max-width:1360px;margin:0 auto;padding:28px 16px 64px}
+.top h1{margin:0 0 4px;font-size:22px;letter-spacing:-.01em}
+.top p{margin:0 0 6px;color:#444}
+.top .note{font-size:12px;color:#666}
+section.var{background:#FFFFFF;border:1px solid #D6D6D6;border-radius:10px;margin-top:28px;padding:20px}
+.vh{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.vh .num{font:700 13px/1 system-ui;background:#222;color:#fff;border-radius:6px;padding:5px 8px}
+.vh h2{margin:0;font-size:19px}
+.vh p{margin:4px 0 0;color:#555;flex-basis:100%}
+.extra{font-size:12px;color:#555;margin-top:6px}
+.modes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px;margin-top:16px}
+.mode{border-radius:10px;border:1px solid #CFCFCF;overflow:hidden;background:var(--background)}
+.mode .mh{display:flex;justify-content:space-between;align-items:center;padding:8px 14px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--muted);color:var(--muted-foreground);border-bottom:1px solid var(--border)}
+.mode .mh .main{background:var(--primary);color:var(--primary-foreground);padding:2px 8px;border-radius:99px;text-transform:none;letter-spacing:0}
+.mode .body{background:var(--background);color:var(--foreground);padding:16px}
+.chips{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;margin-bottom:16px}
+.chip{display:flex;gap:8px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:5px}
+.chip .sw{width:26px;height:26px;border-radius:4px;flex:none;box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)}
+.chip .cl{display:flex;flex-direction:column;min-width:0;font-size:11px;line-height:1.25}
+.chip b{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chip i{font-weight:400;color:var(--muted-foreground)}
+.chip code{font-family:Consolas,"SF Mono",Menlo,monospace;color:var(--muted-foreground)}
+.snip-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted-foreground);margin:0 0 8px}
+.row{display:flex;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between;gap:8px}
+.gap{gap:8px}
+.mt{margin-top:10px}
+.small{font-size:12px}
+.muted-t{color:var(--muted-foreground)}
+kbd{font-family:Consolas,"SF Mono",Menlo,monospace;font-size:12px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);border-bottom-width:2px;background:var(--muted);color:var(--foreground)}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--primary);color:var(--primary-foreground);border:0;padding:8px 14px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--foreground);border:1px solid var(--border)}
+.card{background:var(--card);border:1px solid var(--border);padding:14px;margin-bottom:10px}
+.bar{display:block;height:8px;background:var(--muted);overflow:hidden}
+.bar>span{display:block;height:100%;background:var(--primary)}
+
+/* V1 — Fluent, calm */
+.s1 .card{border-radius:8px;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.s1 .eyebrow{font-size:12px;color:var(--muted-foreground);font-weight:600}
+.s1 .pill{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px}
+.s1 .pill.streak{background:var(--streak-soft);color:var(--streak)}
+.s1 .lvl{margin:12px 0}
+.s1 .bar{border-radius:99px;margin-top:6px}.s1 .bar>span{border-radius:99px}
+.s1 .btn{border-radius:4px}
+.s1 .score{font-weight:700;color:var(--primary)}
+.s1 .res{display:flex;gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--border);margin-top:6px}
+.s1 .tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:4px;flex:none}
+.s1 .ok .tag{background:var(--success-soft);color:var(--success)}
+.s1 .bad .tag{background:var(--destructive-soft);color:var(--destructive)}
+.s1 .warn .tag{background:var(--warning-soft);color:var(--warning)}
+.s1 .tips{background:var(--accent);border-color:transparent;display:flex;flex-direction:column;gap:4px}
+
+/* V2 — inside Excel */
+.s2{font-family:Calibri,"Segoe UI",system-ui,sans-serif}
+.s2 .fx{display:flex;border:1px solid var(--border);background:var(--card);font-size:13px}
+.s2 .nb{width:56px;padding:3px 6px;border-right:1px solid var(--border)}
+.s2 .fxl{padding:3px 8px;border-right:1px solid var(--border);font-style:italic;color:var(--muted-foreground)}
+.s2 .fxv{padding:3px 8px;font-family:Consolas,monospace;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.s2 .sheet{margin-top:6px;border-left:1px solid var(--border);border-top:1px solid var(--border);background:var(--card);font-size:13px}
+.s2 .colh,.s2 .r{display:grid;grid-template-columns:30px 1.3fr .9fr 1.4fr}
+.s2 .colh span{background:var(--muted);color:var(--muted-foreground);text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:2px 0;font-size:12px}
+.s2 .colh .selh,.s2 .rn.sel{background:var(--accent);color:var(--primary);font-weight:700;box-shadow:inset 0 -2px 0 var(--primary)}
+.s2 .rn.sel{box-shadow:inset -2px 0 0 var(--primary)}
+.s2 .rn{background:var(--muted);color:var(--muted-foreground);text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:3px 0;font-size:12px}
+.s2 .c{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:3px 6px;position:relative;min-height:26px;display:flex;align-items:center}
+.s2 .c.head{font-weight:700;color:var(--primary)}
+.s2 .selc{outline:2px solid var(--primary);outline-offset:-2px}
+.s2 .fh{position:absolute;right:-4px;bottom:-4px;width:7px;height:7px;background:var(--primary);border:1px solid var(--card)}
+.s2 .bar{width:100%;height:10px}
+.s2 .ok{color:var(--success);font-weight:700}
+.s2 .bad{color:var(--destructive);font-weight:700}
+.s2 .bad-t{color:var(--destructive);font-size:12px}
+.s2 .warn{color:var(--warning);font-weight:600;font-size:12px}
+.s2 .btn{border-radius:2px;padding:6px 14px}
+.s2 .tabs{display:flex;border-top:1px solid var(--border);margin-left:auto}
+.s2 .tab{padding:3px 12px;font-size:12px;color:var(--muted-foreground);border-right:1px solid var(--border)}
+.s2 .tab.on{background:var(--card);color:var(--primary);font-weight:700;border-bottom:3px solid var(--primary)}
+.s2 .tips{margin-top:10px;border:1px solid var(--border);border-left:4px solid var(--streak);background:var(--card);padding:8px 10px}
+
+/* V3 — multi-accent, charts-forward */
+.s3 .card{border-radius:14px}
+.s3 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.s3 .tile{border-radius:14px;padding:12px;color:#fff}
+.s3 .tile .big{font-size:26px;font-weight:800;line-height:1.1}
+.s3 .tile .small{opacity:.9}
+.s3 .t-streak{background:var(--streak)}
+.m-dark .s3 .tile{color:#14161A}
+.s3 .t-lvl{background:var(--chart-1)}
+.s3 .chart{display:flex;align-items:flex-end;gap:8px;height:80px;margin:10px 0 12px;border-bottom:1px solid var(--border)}
+.s3 .chart span{flex:1;border-radius:6px 6px 0 0}
+.s3 .btn{border-radius:99px;width:100%}
+.s3 .res{display:flex;gap:8px;align-items:baseline;padding:4px 0}
+.s3 .dot{width:10px;height:10px;border-radius:50%;flex:none;transform:translateY(1px)}
+.s3 .ok{color:var(--success)}.s3 .ok .dot{background:var(--success)}
+.s3 .bad{color:var(--destructive)}.s3 .bad .dot{background:var(--destructive)}
+.s3 .pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:99px}
+.s3 .pill.warn{background:#FFC000;color:#3D2E00}
+.s3 .tips{background:var(--accent);border-color:transparent}
+
+/* V4 — conditional formatting */
+.s4 .card{border-radius:6px}
+.s4 .cf{font-size:12px;padding:2px 8px;border-radius:3px}
+.s4 .ok-c{background:var(--success-soft);color:var(--success)}
+.s4 .bad-c{background:var(--destructive-soft);color:var(--destructive)}
+.s4 .warn-c{background:var(--warning-soft);color:var(--warning)}
+.s4 .lvl{margin:12px 0}
+.s4 .databar{position:relative;height:20px;margin-top:6px;border:1px solid var(--border);background:var(--card)}
+.s4 .databar span{display:block;height:100%;background:linear-gradient(90deg,#63C384,color-mix(in srgb,#63C384 15%,var(--card)));border-right:1px solid #63C384}
+.s4 .databar em{position:absolute;right:6px;top:1px;font-style:normal;font-size:12px}
+.s4 .btn{border-radius:4px}
+.s4 .grid{display:grid;grid-template-columns:1.1fr .7fr 1.6fr;border-top:1px solid var(--border);border-left:1px solid var(--border);font-size:13px}
+.s4 .g{padding:5px 7px;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.s4 .g.h{background:var(--muted);color:var(--muted-foreground);font-weight:700;font-size:12px}
+.s4 .scale{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted-foreground);margin-top:8px}
+.s4 .scale i{width:22px;height:10px;display:inline-block}
+.s4 .tips{border-color:transparent}
+
+/* V5 — dark premium */
+.s5{letter-spacing:-.01em}
+.s5 .hero{padding:18px 16px;border-radius:22px;margin-bottom:10px;background:radial-gradient(120% 140% at 0% 0%,color-mix(in srgb,var(--primary) 22%,var(--card)),var(--card) 60%);border:1px solid var(--border)}
+.s5 .eyebrow{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--primary)}
+.s5 .huge{font-size:40px;font-weight:800;line-height:1.05;margin:4px 0}
+.s5 .huge span{filter:drop-shadow(0 0 10px var(--streak))}
+.s5 .card{border-radius:20px}
+.s5 .bar{height:6px;border-radius:99px;margin:10px 0 14px}
+.s5 .bar>span{border-radius:99px;background:linear-gradient(90deg,var(--chart-1),var(--chart-3));box-shadow:0 0 12px color-mix(in srgb,var(--primary) 60%,transparent)}
+.s5 .btn{border-radius:99px;width:100%;padding:11px;box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 50%,transparent),0 6px 24px color-mix(in srgb,var(--primary) 35%,transparent)}
+.s5 .score{font-size:30px;font-weight:800;color:var(--primary)}
+.s5 .score small{font-size:14px;color:var(--muted-foreground);font-weight:600}
+.s5 .res{padding:6px 10px;border-radius:10px;margin-top:6px;font-size:13px}
+.s5 .ok{background:var(--success-soft);color:var(--success)}
+.s5 .bad{background:var(--destructive-soft);color:var(--destructive)}
+.s5 .warn{background:var(--warning-soft);color:var(--warning)}
+.s5 .tips{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.s5 .tips kbd{font-size:15px;padding:4px 10px;border-radius:8px}
+
+.v1.m-light{--background:#F5F5F5;--foreground:#242424;--card:#FFFFFF;--muted:#F0F0F0;--muted-foreground:#616161;--border:#E0E0E0;--primary:#107C41;--primary-foreground:#FFFFFF;--accent:#E6F2EB;--success:#0E7A0D;--destructive:#C42B1C;--warning:#9D5D00;--streak:#E8590C;--chart-1:#107C41;--chart-2:#33C481;--chart-3:#185C37;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v1.m-dark{--background:#1B1B1B;--foreground:#F3F3F3;--card:#262626;--muted:#2F2F2F;--muted-foreground:#ADADAD;--border:#3B3B3B;--primary:#3BB36E;--primary-foreground:#0A2015;--accent:#1C3527;--success:#6CCB5F;--destructive:#FF8A80;--warning:#F2C661;--streak:#FF8C42;--chart-1:#3BB36E;--chart-2:#9FE0B8;--chart-3:#21A366;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v2.m-light{--background:#FFFFFF;--foreground:#1E1E1E;--card:#FFFFFF;--muted:#E6E6E6;--muted-foreground:#595959;--border:#D4D4D4;--primary:#217346;--primary-foreground:#FFFFFF;--accent:#D3F0E0;--success:#1E7145;--destructive:#C00000;--warning:#9C6500;--streak:#D35400;--chart-1:#217346;--chart-2:#5FA777;--chart-3:#A9D18E;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v2.m-dark{--background:#1E1E1E;--foreground:#E6E6E6;--card:#252525;--muted:#333333;--muted-foreground:#A6A6A6;--border:#3D3D3D;--primary:#4CAF7A;--primary-foreground:#0D1F15;--accent:#22402F;--success:#6FCF97;--destructive:#FF6B6B;--warning:#E3B341;--streak:#F4A15D;--chart-1:#4CAF7A;--chart-2:#8FD1A8;--chart-3:#C9E4B4;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v3.m-light{--background:#FAFAF7;--foreground:#262626;--card:#FFFFFF;--muted:#F2F2F2;--muted-foreground:#595959;--border:#E7E6E6;--primary:#217346;--primary-foreground:#FFFFFF;--accent:#DAE3F3;--success:#548235;--destructive:#C00000;--warning:#BF8F00;--streak:#ED7D31;--chart-1:#4472C4;--chart-2:#ED7D31;--chart-3:#A5A5A5;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v3.m-dark{--background:#1B1D22;--foreground:#F2F2F2;--card:#24272E;--muted:#2E323A;--muted-foreground:#A6A6A6;--border:#3A3F48;--primary:#70AD47;--primary-foreground:#10200A;--accent:#2A3A5C;--success:#A9D18E;--destructive:#FF7C7C;--warning:#FFD966;--streak:#FF9A4D;--chart-1:#5B9BD5;--chart-2:#ED7D31;--chart-3:#FFC000;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v4.m-light{--background:#F7F8F7;--foreground:#1F2421;--card:#FFFFFF;--muted:#F0F2F0;--muted-foreground:#5F6B63;--border:#DDE3DE;--primary:#1D6F42;--primary-foreground:#FFFFFF;--accent:#E6F2EA;--success:#006100;--destructive:#9C0006;--warning:#9C5700;--streak:#E8590C;--chart-1:#63BE7B;--chart-2:#FFEB84;--chart-3:#F8696B;--success-soft:#C6EFCE;--destructive-soft:#FFC7CE;--warning-soft:#FFEB9C;--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v4.m-dark{--background:#161A17;--foreground:#E8EDE9;--card:#1E2420;--muted:#262D28;--muted-foreground:#9AA59D;--border:#333C36;--primary:#4FBF7F;--primary-foreground:#0B1F12;--accent:#1F3A2A;--success:#8FE0A0;--destructive:#FF9AA5;--warning:#FFD67A;--streak:#FF8A4C;--chart-1:#63BE7B;--chart-2:#FFEB84;--chart-3:#F8696B;--success-soft:#12351C;--destructive-soft:#3D1418;--warning-soft:#3A2C0A;--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v5.m-light{--background:#F5F5F7;--foreground:#1D1D1F;--card:#FFFFFF;--muted:#EDEDF0;--muted-foreground:#6E6E73;--border:#D9D9DE;--primary:#13A35A;--primary-foreground:#FFFFFF;--accent:#E3F6EB;--success:#15803D;--destructive:#D92D45;--warning:#A15C00;--streak:#F2600C;--chart-1:#13A35A;--chart-2:#0E9F9E;--chart-3:#65A30D;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+.v5.m-dark{--background:#0B0D0C;--foreground:#F5F7F6;--card:#151917;--muted:#1C211E;--muted-foreground:#8E9993;--border:#262D29;--primary:#34D17F;--primary-foreground:#04140B;--accent:#12301F;--success:#4ADE80;--destructive:#FF5C6C;--warning:#FFC34D;--streak:#FF7A1A;--chart-1:#34D17F;--chart-2:#2DD4BF;--chart-3:#A3E635;--success-soft:color-mix(in srgb,var(--success) 14%,var(--card));--destructive-soft:color-mix(in srgb,var(--destructive) 14%,var(--card));--warning-soft:color-mix(in srgb,var(--warning) 14%,var(--card));--streak-soft:color-mix(in srgb,var(--streak) 14%,var(--card));}
+</style></head>
+<body><div class="wrap">
+<header class="top"><h1>WORKING HARD with EXCEL — 5 tafsiran "tema warna Excel"</h1>
+<p>Pilih tema yang paling terasa 'Excel' buatmu — boleh campur (mis. warna dari #1 + status dari #4).</p>
+<div class="note">Setiap variasi: token semantik shadcn (light + dark) dengan hex, lalu contoh dashboard, baris hasil, dan kartu tips memakai palet itu. Hex lengkap ada di komentar &lt;style&gt;.</div></header>
+<section class="var" id="v1">
+<div class="vh"><span class="num">#1</span><h2>Excel Brand</h2><p>Tenang dan profesional, seperti aplikasi Microsoft 365 modern: hijau Excel yang bersih di atas kanvas netral.</p></div>
+<div class="modes"><div class="mode v1 m-light">
+<div class="mh"><span>Light mode</span><span class="main">utama</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#F5F5F5"></span><span class="cl"><b>background</b><code>#F5F5F5</code></span></div><div class="chip"><span class="sw" style="background:#242424"></span><span class="cl"><b>foreground</b><code>#242424</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>card</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#F0F0F0"></span><span class="cl"><b>muted</b><code>#F0F0F0</code></span></div><div class="chip"><span class="sw" style="background:#616161"></span><span class="cl"><b>muted-foreground</b><code>#616161</code></span></div><div class="chip"><span class="sw" style="background:#E0E0E0"></span><span class="cl"><b>border</b><code>#E0E0E0</code></span></div><div class="chip"><span class="sw" style="background:#107C41"></span><span class="cl"><b>primary</b><code>#107C41</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>primary-foreground</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#E6F2EB"></span><span class="cl"><b>accent</b><code>#E6F2EB</code></span></div><div class="chip"><span class="sw" style="background:#0E7A0D"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#0E7A0D</code></span></div><div class="chip"><span class="sw" style="background:#C42B1C"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#C42B1C</code></span></div><div class="chip"><span class="sw" style="background:#9D5D00"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#9D5D00</code></span></div><div class="chip"><span class="sw" style="background:#E8590C"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#E8590C</code></span></div><div class="chip"><span class="sw" style="background:#107C41"></span><span class="cl"><b>chart-1</b><code>#107C41</code></span></div><div class="chip"><span class="sw" style="background:#33C481"></span><span class="cl"><b>chart-2</b><code>#33C481</code></span></div><div class="chip"><span class="sw" style="background:#185C37"></span><span class="cl"><b>chart-3</b><code>#185C37</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s1">
+  <div class="card">
+    <div class="row between"><span class="eyebrow">Dashboard</span><span class="pill streak">🔥 Streak 12 hari</span></div>
+    <div class="muted-t small">Freeze tersisa 1/2 minggu ini</div>
+    <div class="lvl"><div class="row between"><b>Level 3 — Hitung bersyarat</b><span class="muted-t small">4/5 latihan</span></div>
+      <div class="bar"><span style="width:80%"></span></div></div>
+    <div class="row gap"><button class="btn">Mulai Latihan</button><button class="btn ghost">Lihat rekor waktu</button></div>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Hasil Latihan</b><span class="score">Skor 85/100</span></div>
+    <div class="res ok"><span class="tag">Benar</span>Soal 1 — VLOOKUP</div>
+    <div class="res bad"><span class="tag">Salah</span>Soal 2 — SUMIFS · angka diketik manual, bukan rumus</div>
+    <div class="res warn"><span class="tag">Hint</span>Hint dipakai 1 (−5)</div>
+  </div>
+  <div class="card tips"><span class="eyebrow">Tips &amp; Trick</span><div>Tips: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div></div>
+</div></div></div><div class="mode v1 m-dark">
+<div class="mh"><span>Dark mode</span><span>sekunder</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#1B1B1B"></span><span class="cl"><b>background</b><code>#1B1B1B</code></span></div><div class="chip"><span class="sw" style="background:#F3F3F3"></span><span class="cl"><b>foreground</b><code>#F3F3F3</code></span></div><div class="chip"><span class="sw" style="background:#262626"></span><span class="cl"><b>card</b><code>#262626</code></span></div><div class="chip"><span class="sw" style="background:#2F2F2F"></span><span class="cl"><b>muted</b><code>#2F2F2F</code></span></div><div class="chip"><span class="sw" style="background:#ADADAD"></span><span class="cl"><b>muted-foreground</b><code>#ADADAD</code></span></div><div class="chip"><span class="sw" style="background:#3B3B3B"></span><span class="cl"><b>border</b><code>#3B3B3B</code></span></div><div class="chip"><span class="sw" style="background:#3BB36E"></span><span class="cl"><b>primary</b><code>#3BB36E</code></span></div><div class="chip"><span class="sw" style="background:#0A2015"></span><span class="cl"><b>primary-foreground</b><code>#0A2015</code></span></div><div class="chip"><span class="sw" style="background:#1C3527"></span><span class="cl"><b>accent</b><code>#1C3527</code></span></div><div class="chip"><span class="sw" style="background:#6CCB5F"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#6CCB5F</code></span></div><div class="chip"><span class="sw" style="background:#FF8A80"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#FF8A80</code></span></div><div class="chip"><span class="sw" style="background:#F2C661"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#F2C661</code></span></div><div class="chip"><span class="sw" style="background:#FF8C42"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#FF8C42</code></span></div><div class="chip"><span class="sw" style="background:#3BB36E"></span><span class="cl"><b>chart-1</b><code>#3BB36E</code></span></div><div class="chip"><span class="sw" style="background:#9FE0B8"></span><span class="cl"><b>chart-2</b><code>#9FE0B8</code></span></div><div class="chip"><span class="sw" style="background:#21A366"></span><span class="cl"><b>chart-3</b><code>#21A366</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s1">
+  <div class="card">
+    <div class="row between"><span class="eyebrow">Dashboard</span><span class="pill streak">🔥 Streak 12 hari</span></div>
+    <div class="muted-t small">Freeze tersisa 1/2 minggu ini</div>
+    <div class="lvl"><div class="row between"><b>Level 3 — Hitung bersyarat</b><span class="muted-t small">4/5 latihan</span></div>
+      <div class="bar"><span style="width:80%"></span></div></div>
+    <div class="row gap"><button class="btn">Mulai Latihan</button><button class="btn ghost">Lihat rekor waktu</button></div>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Hasil Latihan</b><span class="score">Skor 85/100</span></div>
+    <div class="res ok"><span class="tag">Benar</span>Soal 1 — VLOOKUP</div>
+    <div class="res bad"><span class="tag">Salah</span>Soal 2 — SUMIFS · angka diketik manual, bukan rumus</div>
+    <div class="res warn"><span class="tag">Hint</span>Hint dipakai 1 (−5)</div>
+  </div>
+  <div class="card tips"><span class="eyebrow">Tips &amp; Trick</span><div>Tips: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div></div>
+</div></div></div></div></section><section class="var" id="v2">
+<div class="vh"><span class="num">#2</span><h2>Ribbon Klasik</h2><p>Seperti duduk di dalam Excel desktop: garis grid abu-abu, sel header, dan kotak seleksi hijau dengan fill handle.</p></div>
+<div class="modes"><div class="mode v2 m-light">
+<div class="mh"><span>Light mode</span><span class="main">utama</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>background</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#1E1E1E"></span><span class="cl"><b>foreground</b><code>#1E1E1E</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>card</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#E6E6E6"></span><span class="cl"><b>muted</b><code>#E6E6E6</code></span></div><div class="chip"><span class="sw" style="background:#595959"></span><span class="cl"><b>muted-foreground</b><code>#595959</code></span></div><div class="chip"><span class="sw" style="background:#D4D4D4"></span><span class="cl"><b>border</b><code>#D4D4D4</code></span></div><div class="chip"><span class="sw" style="background:#217346"></span><span class="cl"><b>primary</b><code>#217346</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>primary-foreground</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#D3F0E0"></span><span class="cl"><b>accent</b><code>#D3F0E0</code></span></div><div class="chip"><span class="sw" style="background:#1E7145"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#1E7145</code></span></div><div class="chip"><span class="sw" style="background:#C00000"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#C00000</code></span></div><div class="chip"><span class="sw" style="background:#9C6500"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#9C6500</code></span></div><div class="chip"><span class="sw" style="background:#D35400"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#D35400</code></span></div><div class="chip"><span class="sw" style="background:#217346"></span><span class="cl"><b>chart-1</b><code>#217346</code></span></div><div class="chip"><span class="sw" style="background:#5FA777"></span><span class="cl"><b>chart-2</b><code>#5FA777</code></span></div><div class="chip"><span class="sw" style="background:#A9D18E"></span><span class="cl"><b>chart-3</b><code>#A9D18E</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s2">
+  <div class="fx"><span class="nb">C4</span><span class="fxl">fx</span><span class="fxv">=SUMIFS(D2:D40;B2:B40;"Jakarta")</span></div>
+  <div class="sheet">
+    <div class="colh"><span class="corner"></span><span>A</span><span class="selh">B</span><span>C</span></div>
+    <div class="r"><span class="rn">1</span><span class="c head">Dashboard</span><span class="c"></span><span class="c"></span></div>
+    <div class="r"><span class="rn sel">2</span><span class="c">🔥 Streak</span><span class="c selc"><b>12 hari</b><i class="fh"></i></span><span class="c muted-t">Freeze tersisa 1/2</span></div>
+    <div class="r"><span class="rn">3</span><span class="c">Level 3 — Hitung bersyarat</span><span class="c"><span class="bar"><span style="width:80%"></span></span></span><span class="c muted-t">4/5 latihan</span></div>
+    <div class="r"><span class="rn">4</span><span class="c">Soal 1 — VLOOKUP</span><span class="c ok">✓ Benar</span><span class="c"></span></div>
+    <div class="r"><span class="rn">5</span><span class="c">Soal 2 — SUMIFS</span><span class="c bad">✗ Salah</span><span class="c bad-t">angka diketik manual, bukan rumus</span></div>
+    <div class="r"><span class="rn">6</span><span class="c"><b>Skor 85/100</b></span><span class="c warn">Hint dipakai 1 (−5)</span><span class="c"></span></div>
+  </div>
+  <div class="row gap mt"><button class="btn">Mulai Latihan</button><span class="tabs"><span class="tab on">Dashboard</span><span class="tab">Hasil</span><span class="tab">Rekor</span></span></div>
+  <div class="tips"><b>Tips:</b> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div>
+</div></div></div><div class="mode v2 m-dark">
+<div class="mh"><span>Dark mode</span><span>sekunder</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#1E1E1E"></span><span class="cl"><b>background</b><code>#1E1E1E</code></span></div><div class="chip"><span class="sw" style="background:#E6E6E6"></span><span class="cl"><b>foreground</b><code>#E6E6E6</code></span></div><div class="chip"><span class="sw" style="background:#252525"></span><span class="cl"><b>card</b><code>#252525</code></span></div><div class="chip"><span class="sw" style="background:#333333"></span><span class="cl"><b>muted</b><code>#333333</code></span></div><div class="chip"><span class="sw" style="background:#A6A6A6"></span><span class="cl"><b>muted-foreground</b><code>#A6A6A6</code></span></div><div class="chip"><span class="sw" style="background:#3D3D3D"></span><span class="cl"><b>border</b><code>#3D3D3D</code></span></div><div class="chip"><span class="sw" style="background:#4CAF7A"></span><span class="cl"><b>primary</b><code>#4CAF7A</code></span></div><div class="chip"><span class="sw" style="background:#0D1F15"></span><span class="cl"><b>primary-foreground</b><code>#0D1F15</code></span></div><div class="chip"><span class="sw" style="background:#22402F"></span><span class="cl"><b>accent</b><code>#22402F</code></span></div><div class="chip"><span class="sw" style="background:#6FCF97"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#6FCF97</code></span></div><div class="chip"><span class="sw" style="background:#FF6B6B"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#FF6B6B</code></span></div><div class="chip"><span class="sw" style="background:#E3B341"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#E3B341</code></span></div><div class="chip"><span class="sw" style="background:#F4A15D"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#F4A15D</code></span></div><div class="chip"><span class="sw" style="background:#4CAF7A"></span><span class="cl"><b>chart-1</b><code>#4CAF7A</code></span></div><div class="chip"><span class="sw" style="background:#8FD1A8"></span><span class="cl"><b>chart-2</b><code>#8FD1A8</code></span></div><div class="chip"><span class="sw" style="background:#C9E4B4"></span><span class="cl"><b>chart-3</b><code>#C9E4B4</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s2">
+  <div class="fx"><span class="nb">C4</span><span class="fxl">fx</span><span class="fxv">=SUMIFS(D2:D40;B2:B40;"Jakarta")</span></div>
+  <div class="sheet">
+    <div class="colh"><span class="corner"></span><span>A</span><span class="selh">B</span><span>C</span></div>
+    <div class="r"><span class="rn">1</span><span class="c head">Dashboard</span><span class="c"></span><span class="c"></span></div>
+    <div class="r"><span class="rn sel">2</span><span class="c">🔥 Streak</span><span class="c selc"><b>12 hari</b><i class="fh"></i></span><span class="c muted-t">Freeze tersisa 1/2</span></div>
+    <div class="r"><span class="rn">3</span><span class="c">Level 3 — Hitung bersyarat</span><span class="c"><span class="bar"><span style="width:80%"></span></span></span><span class="c muted-t">4/5 latihan</span></div>
+    <div class="r"><span class="rn">4</span><span class="c">Soal 1 — VLOOKUP</span><span class="c ok">✓ Benar</span><span class="c"></span></div>
+    <div class="r"><span class="rn">5</span><span class="c">Soal 2 — SUMIFS</span><span class="c bad">✗ Salah</span><span class="c bad-t">angka diketik manual, bukan rumus</span></div>
+    <div class="r"><span class="rn">6</span><span class="c"><b>Skor 85/100</b></span><span class="c warn">Hint dipakai 1 (−5)</span><span class="c"></span></div>
+  </div>
+  <div class="row gap mt"><button class="btn">Mulai Latihan</button><span class="tabs"><span class="tab on">Dashboard</span><span class="tab">Hasil</span><span class="tab">Rekor</span></span></div>
+  <div class="tips"><b>Tips:</b> <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div>
+</div></div></div></div></section><section class="var" id="v3">
+<div class="vh"><span class="num">#3</span><h2>Office Theme Palette</h2><p>Ceria dan penuh warna seperti grafik Excel default: hijau Excel sebagai brand, aksen biru-oranye-emas untuk data.</p></div><div class="extra">Aksen Office lengkap (chart-4..6): Gold #FFC000 · Light Blue #5B9BD5 · Green #70AD47</div>
+<div class="modes"><div class="mode v3 m-light">
+<div class="mh"><span>Light mode</span><span class="main">utama</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#FAFAF7"></span><span class="cl"><b>background</b><code>#FAFAF7</code></span></div><div class="chip"><span class="sw" style="background:#262626"></span><span class="cl"><b>foreground</b><code>#262626</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>card</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#F2F2F2"></span><span class="cl"><b>muted</b><code>#F2F2F2</code></span></div><div class="chip"><span class="sw" style="background:#595959"></span><span class="cl"><b>muted-foreground</b><code>#595959</code></span></div><div class="chip"><span class="sw" style="background:#E7E6E6"></span><span class="cl"><b>border</b><code>#E7E6E6</code></span></div><div class="chip"><span class="sw" style="background:#217346"></span><span class="cl"><b>primary</b><code>#217346</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>primary-foreground</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#DAE3F3"></span><span class="cl"><b>accent</b><code>#DAE3F3</code></span></div><div class="chip"><span class="sw" style="background:#548235"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#548235</code></span></div><div class="chip"><span class="sw" style="background:#C00000"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#C00000</code></span></div><div class="chip"><span class="sw" style="background:#BF8F00"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#BF8F00</code></span></div><div class="chip"><span class="sw" style="background:#ED7D31"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#ED7D31</code></span></div><div class="chip"><span class="sw" style="background:#4472C4"></span><span class="cl"><b>chart-1</b><code>#4472C4</code></span></div><div class="chip"><span class="sw" style="background:#ED7D31"></span><span class="cl"><b>chart-2</b><code>#ED7D31</code></span></div><div class="chip"><span class="sw" style="background:#A5A5A5"></span><span class="cl"><b>chart-3</b><code>#A5A5A5</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s3">
+  <div class="tiles">
+    <div class="tile t-streak"><div class="big">🔥 12</div><div>Streak 12 hari</div><div class="small">Freeze tersisa 1/2</div></div>
+    <div class="tile t-lvl"><div class="big">3</div><div>Level 3 — Hitung bersyarat</div><div class="small">4/5 latihan</div></div>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Skor 5 latihan terakhir</b><span class="small muted-t">poin</span></div>
+    <div class="chart">
+      <span style="height:60%;background:var(--chart-1)"></span><span style="height:72%;background:var(--chart-2)"></span>
+      <span style="height:55%;background:var(--chart-3)"></span><span style="height:90%;background:var(--chart-1)"></span>
+      <span style="height:85%;background:var(--chart-2)"></span>
+    </div>
+    <button class="btn">Mulai Latihan</button>
+  </div>
+  <div class="card">
+    <div class="res ok"><span class="dot"></span>Soal 1 — VLOOKUP · Benar</div>
+    <div class="res bad"><span class="dot"></span>Soal 2 — SUMIFS · Salah: angka diketik manual, bukan rumus</div>
+    <div class="row between mt"><b>Skor 85/100</b><span class="pill warn">Hint dipakai 1 (−5)</span></div>
+  </div>
+  <div class="card tips">💡 Tips: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div>
+</div></div></div><div class="mode v3 m-dark">
+<div class="mh"><span>Dark mode</span><span>sekunder</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#1B1D22"></span><span class="cl"><b>background</b><code>#1B1D22</code></span></div><div class="chip"><span class="sw" style="background:#F2F2F2"></span><span class="cl"><b>foreground</b><code>#F2F2F2</code></span></div><div class="chip"><span class="sw" style="background:#24272E"></span><span class="cl"><b>card</b><code>#24272E</code></span></div><div class="chip"><span class="sw" style="background:#2E323A"></span><span class="cl"><b>muted</b><code>#2E323A</code></span></div><div class="chip"><span class="sw" style="background:#A6A6A6"></span><span class="cl"><b>muted-foreground</b><code>#A6A6A6</code></span></div><div class="chip"><span class="sw" style="background:#3A3F48"></span><span class="cl"><b>border</b><code>#3A3F48</code></span></div><div class="chip"><span class="sw" style="background:#70AD47"></span><span class="cl"><b>primary</b><code>#70AD47</code></span></div><div class="chip"><span class="sw" style="background:#10200A"></span><span class="cl"><b>primary-foreground</b><code>#10200A</code></span></div><div class="chip"><span class="sw" style="background:#2A3A5C"></span><span class="cl"><b>accent</b><code>#2A3A5C</code></span></div><div class="chip"><span class="sw" style="background:#A9D18E"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#A9D18E</code></span></div><div class="chip"><span class="sw" style="background:#FF7C7C"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#FF7C7C</code></span></div><div class="chip"><span class="sw" style="background:#FFD966"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#FFD966</code></span></div><div class="chip"><span class="sw" style="background:#FF9A4D"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#FF9A4D</code></span></div><div class="chip"><span class="sw" style="background:#5B9BD5"></span><span class="cl"><b>chart-1</b><code>#5B9BD5</code></span></div><div class="chip"><span class="sw" style="background:#ED7D31"></span><span class="cl"><b>chart-2</b><code>#ED7D31</code></span></div><div class="chip"><span class="sw" style="background:#FFC000"></span><span class="cl"><b>chart-3</b><code>#FFC000</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s3">
+  <div class="tiles">
+    <div class="tile t-streak"><div class="big">🔥 12</div><div>Streak 12 hari</div><div class="small">Freeze tersisa 1/2</div></div>
+    <div class="tile t-lvl"><div class="big">3</div><div>Level 3 — Hitung bersyarat</div><div class="small">4/5 latihan</div></div>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Skor 5 latihan terakhir</b><span class="small muted-t">poin</span></div>
+    <div class="chart">
+      <span style="height:60%;background:var(--chart-1)"></span><span style="height:72%;background:var(--chart-2)"></span>
+      <span style="height:55%;background:var(--chart-3)"></span><span style="height:90%;background:var(--chart-1)"></span>
+      <span style="height:85%;background:var(--chart-2)"></span>
+    </div>
+    <button class="btn">Mulai Latihan</button>
+  </div>
+  <div class="card">
+    <div class="res ok"><span class="dot"></span>Soal 1 — VLOOKUP · Benar</div>
+    <div class="res bad"><span class="dot"></span>Soal 2 — SUMIFS · Salah: angka diketik manual, bukan rumus</div>
+    <div class="row between mt"><b>Skor 85/100</b><span class="pill warn">Hint dipakai 1 (−5)</span></div>
+  </div>
+  <div class="card tips">💡 Tips: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div>
+</div></div></div></div></section><section class="var" id="v4">
+<div class="vh"><span class="num">#4</span><h2>Conditional Formatting</h2><p>Register umpan-balik data: benar/salah/peringatan terbaca seketika lewat warna lampu lalu lintas khas Excel.</p></div><div class="extra">Fill status (soft): light benar #C6EFCE · salah #FFC7CE · hint #FFEB9C — dark #12351C · #3D1418 · #3A2C0A. Chart = color scale 3 warna Excel (hijau-kuning-merah); data bar #63C384.</div>
+<div class="modes"><div class="mode v4 m-light">
+<div class="mh"><span>Light mode</span><span class="main">utama</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#F7F8F7"></span><span class="cl"><b>background</b><code>#F7F8F7</code></span></div><div class="chip"><span class="sw" style="background:#1F2421"></span><span class="cl"><b>foreground</b><code>#1F2421</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>card</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#F0F2F0"></span><span class="cl"><b>muted</b><code>#F0F2F0</code></span></div><div class="chip"><span class="sw" style="background:#5F6B63"></span><span class="cl"><b>muted-foreground</b><code>#5F6B63</code></span></div><div class="chip"><span class="sw" style="background:#DDE3DE"></span><span class="cl"><b>border</b><code>#DDE3DE</code></span></div><div class="chip"><span class="sw" style="background:#1D6F42"></span><span class="cl"><b>primary</b><code>#1D6F42</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>primary-foreground</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#E6F2EA"></span><span class="cl"><b>accent</b><code>#E6F2EA</code></span></div><div class="chip"><span class="sw" style="background:#006100"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#006100</code></span></div><div class="chip"><span class="sw" style="background:#9C0006"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#9C0006</code></span></div><div class="chip"><span class="sw" style="background:#9C5700"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#9C5700</code></span></div><div class="chip"><span class="sw" style="background:#E8590C"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#E8590C</code></span></div><div class="chip"><span class="sw" style="background:#63BE7B"></span><span class="cl"><b>chart-1</b><code>#63BE7B</code></span></div><div class="chip"><span class="sw" style="background:#FFEB84"></span><span class="cl"><b>chart-2</b><code>#FFEB84</code></span></div><div class="chip"><span class="sw" style="background:#F8696B"></span><span class="cl"><b>chart-3</b><code>#F8696B</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s4">
+  <div class="card">
+    <div class="row between"><b>🔥 Streak 12 hari</b><span class="cf warn-c">Freeze tersisa 1/2</span></div>
+    <div class="lvl"><div class="row between"><span>Level 3 — Hitung bersyarat</span><span class="small muted-t">4/5 latihan</span></div>
+      <div class="databar"><span style="width:80%"></span><em>80%</em></div></div>
+    <button class="btn">Mulai Latihan</button>
+  </div>
+  <div class="card">
+    <div class="grid">
+      <div class="g h">Soal</div><div class="g h">Status</div><div class="g h">Alasan</div>
+      <div class="g">Soal 1 — VLOOKUP</div><div class="g ok-c">● Benar</div><div class="g">Rumus &amp; hasil cocok</div>
+      <div class="g">Soal 2 — SUMIFS</div><div class="g bad-c">● Salah</div><div class="g bad-c">angka diketik manual, bukan rumus</div>
+      <div class="g"><b>Skor 85/100</b></div><div class="g warn-c">▲ Hint</div><div class="g warn-c">Hint dipakai 1 (−5)</div>
+    </div>
+    <div class="scale"><span>Skala skor:</span><i style="background:var(--chart-3)"></i><i style="background:var(--chart-2)"></i><i style="background:var(--chart-1)"></i><span>0 → 100</span></div>
+  </div>
+  <div class="card tips ok-c">Tips: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div>
+</div></div></div><div class="mode v4 m-dark">
+<div class="mh"><span>Dark mode</span><span>sekunder</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#161A17"></span><span class="cl"><b>background</b><code>#161A17</code></span></div><div class="chip"><span class="sw" style="background:#E8EDE9"></span><span class="cl"><b>foreground</b><code>#E8EDE9</code></span></div><div class="chip"><span class="sw" style="background:#1E2420"></span><span class="cl"><b>card</b><code>#1E2420</code></span></div><div class="chip"><span class="sw" style="background:#262D28"></span><span class="cl"><b>muted</b><code>#262D28</code></span></div><div class="chip"><span class="sw" style="background:#9AA59D"></span><span class="cl"><b>muted-foreground</b><code>#9AA59D</code></span></div><div class="chip"><span class="sw" style="background:#333C36"></span><span class="cl"><b>border</b><code>#333C36</code></span></div><div class="chip"><span class="sw" style="background:#4FBF7F"></span><span class="cl"><b>primary</b><code>#4FBF7F</code></span></div><div class="chip"><span class="sw" style="background:#0B1F12"></span><span class="cl"><b>primary-foreground</b><code>#0B1F12</code></span></div><div class="chip"><span class="sw" style="background:#1F3A2A"></span><span class="cl"><b>accent</b><code>#1F3A2A</code></span></div><div class="chip"><span class="sw" style="background:#8FE0A0"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#8FE0A0</code></span></div><div class="chip"><span class="sw" style="background:#FF9AA5"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#FF9AA5</code></span></div><div class="chip"><span class="sw" style="background:#FFD67A"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#FFD67A</code></span></div><div class="chip"><span class="sw" style="background:#FF8A4C"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#FF8A4C</code></span></div><div class="chip"><span class="sw" style="background:#63BE7B"></span><span class="cl"><b>chart-1</b><code>#63BE7B</code></span></div><div class="chip"><span class="sw" style="background:#FFEB84"></span><span class="cl"><b>chart-2</b><code>#FFEB84</code></span></div><div class="chip"><span class="sw" style="background:#F8696B"></span><span class="cl"><b>chart-3</b><code>#F8696B</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s4">
+  <div class="card">
+    <div class="row between"><b>🔥 Streak 12 hari</b><span class="cf warn-c">Freeze tersisa 1/2</span></div>
+    <div class="lvl"><div class="row between"><span>Level 3 — Hitung bersyarat</span><span class="small muted-t">4/5 latihan</span></div>
+      <div class="databar"><span style="width:80%"></span><em>80%</em></div></div>
+    <button class="btn">Mulai Latihan</button>
+  </div>
+  <div class="card">
+    <div class="grid">
+      <div class="g h">Soal</div><div class="g h">Status</div><div class="g h">Alasan</div>
+      <div class="g">Soal 1 — VLOOKUP</div><div class="g ok-c">● Benar</div><div class="g">Rumus &amp; hasil cocok</div>
+      <div class="g">Soal 2 — SUMIFS</div><div class="g bad-c">● Salah</div><div class="g bad-c">angka diketik manual, bukan rumus</div>
+      <div class="g"><b>Skor 85/100</b></div><div class="g warn-c">▲ Hint</div><div class="g warn-c">Hint dipakai 1 (−5)</div>
+    </div>
+    <div class="scale"><span>Skala skor:</span><i style="background:var(--chart-3)"></i><i style="background:var(--chart-2)"></i><i style="background:var(--chart-1)"></i><span>0 → 100</span></div>
+  </div>
+  <div class="card tips ok-c">Tips: <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd> untuk menyalakan filter</div>
+</div></div></div></div></section><section class="var" id="v5">
+<div class="vh"><span class="num">#5</span><h2>Dark Excel</h2><p>Gelap, enerjik, dan premium ala website iPhone: hijau menyala di atas backstage abu-abu gelap.</p></div>
+<div class="modes"><div class="mode v5 m-dark">
+<div class="mh"><span>Dark mode</span><span class="main">utama</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#0B0D0C"></span><span class="cl"><b>background</b><code>#0B0D0C</code></span></div><div class="chip"><span class="sw" style="background:#F5F7F6"></span><span class="cl"><b>foreground</b><code>#F5F7F6</code></span></div><div class="chip"><span class="sw" style="background:#151917"></span><span class="cl"><b>card</b><code>#151917</code></span></div><div class="chip"><span class="sw" style="background:#1C211E"></span><span class="cl"><b>muted</b><code>#1C211E</code></span></div><div class="chip"><span class="sw" style="background:#8E9993"></span><span class="cl"><b>muted-foreground</b><code>#8E9993</code></span></div><div class="chip"><span class="sw" style="background:#262D29"></span><span class="cl"><b>border</b><code>#262D29</code></span></div><div class="chip"><span class="sw" style="background:#34D17F"></span><span class="cl"><b>primary</b><code>#34D17F</code></span></div><div class="chip"><span class="sw" style="background:#04140B"></span><span class="cl"><b>primary-foreground</b><code>#04140B</code></span></div><div class="chip"><span class="sw" style="background:#12301F"></span><span class="cl"><b>accent</b><code>#12301F</code></span></div><div class="chip"><span class="sw" style="background:#4ADE80"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#4ADE80</code></span></div><div class="chip"><span class="sw" style="background:#FF5C6C"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#FF5C6C</code></span></div><div class="chip"><span class="sw" style="background:#FFC34D"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#FFC34D</code></span></div><div class="chip"><span class="sw" style="background:#FF7A1A"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#FF7A1A</code></span></div><div class="chip"><span class="sw" style="background:#34D17F"></span><span class="cl"><b>chart-1</b><code>#34D17F</code></span></div><div class="chip"><span class="sw" style="background:#2DD4BF"></span><span class="cl"><b>chart-2</b><code>#2DD4BF</code></span></div><div class="chip"><span class="sw" style="background:#A3E635"></span><span class="cl"><b>chart-3</b><code>#A3E635</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s5">
+  <div class="hero">
+    <div class="eyebrow">Streak kamu</div>
+    <div class="huge">12 hari <span>🔥</span></div>
+    <div class="muted-t">Freeze tersisa 1/2 · jangan putus hari ini</div>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Level 3 — Hitung bersyarat</b><span class="muted-t small">4/5 latihan</span></div>
+    <div class="bar"><span style="width:80%"></span></div>
+    <button class="btn">Mulai Latihan</button>
+  </div>
+  <div class="card">
+    <div class="row between"><span class="eyebrow">Hasil</span><span class="score">85<small>/100</small></span></div>
+    <div class="res ok">✓ Soal 1 — VLOOKUP</div>
+    <div class="res bad">✗ Soal 2 — SUMIFS · Salah: angka diketik manual, bukan rumus</div>
+    <div class="res warn">Hint dipakai 1 (−5)</div>
+  </div>
+  <div class="card tips"><span class="eyebrow">Tips &amp; Trick</span><div><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>L</kbd></div><div class="muted-t small">untuk menyalakan filter</div></div>
+</div></div></div><div class="mode v5 m-light">
+<div class="mh"><span>Light mode</span><span>sekunder</span></div>
+<div class="body"><div class="chips"><div class="chip"><span class="sw" style="background:#F5F5F7"></span><span class="cl"><b>background</b><code>#F5F5F7</code></span></div><div class="chip"><span class="sw" style="background:#1D1D1F"></span><span class="cl"><b>foreground</b><code>#1D1D1F</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>card</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#EDEDF0"></span><span class="cl"><b>muted</b><code>#EDEDF0</code></span></div><div class="chip"><span class="sw" style="background:#6E6E73"></span><span class="cl"><b>muted-foreground</b><code>#6E6E73</code></span></div><div class="chip"><span class="sw" style="background:#D9D9DE"></span><span class="cl"><b>border</b><code>#D9D9DE</code></span></div><div class="chip"><span class="sw" style="background:#13A35A"></span><span class="cl"><b>primary</b><code>#13A35A</code></span></div><div class="chip"><span class="sw" style="background:#FFFFFF"></span><span class="cl"><b>primary-foreground</b><code>#FFFFFF</code></span></div><div class="chip"><span class="sw" style="background:#E3F6EB"></span><span class="cl"><b>accent</b><code>#E3F6EB</code></span></div><div class="chip"><span class="sw" style="background:#15803D"></span><span class="cl"><b>success <i>(jawaban benar)</i></b><code>#15803D</code></span></div><div class="chip"><span class="sw" style="background:#D92D45"></span><span class="cl"><b>destructive <i>(jawaban salah)</i></b><code>#D92D45</code></span></div><div class="chip"><span class="sw" style="background:#A15C00"></span><span class="cl"><b>warning <i>(hint / potongan poin)</i></b><code>#A15C00</code></span></div><div class="chip"><span class="sw" style="background:#F2600C"></span><span class="cl"><b>streak <i>(api streak)</i></b><code>#F2600C</code></span></div><div class="chip"><span class="sw" style="background:#13A35A"></span><span class="cl"><b>chart-1</b><code>#13A35A</code></span></div><div class="chip"><span class="sw" style="background:#0E9F9E"></span><span class="cl"><b>chart-2</b><code>#0E9F9E</code></span></div><div class="chip"><span class="sw" style="background:#65A30D"></span><span class="cl"><b>chart-3</b><code>#65A30D</code></span></div></div><div class="snip-label">Contoh UI</div>
+<div class="s5">
+  <div class="hero">
+    <div class="eyebrow">Streak kamu</div>
+    <div class="huge">12 hari <span>🔥</span></div>
+    <div class="muted-t">Freeze tersisa 1/2 · jangan putus hari ini</div>
+  </div>
+  <div class="card">
+    <div class="row between"><b>Level 3 — Hitung bersyarat</b><span class="muted-t small">4/5 latihan</span></div>
+    <div class="bar"><span style="width:80%"></span></div>
+    <button class="btn">Mulai Latihan</button>
+  </div>
+  <div class="card">
+    <div class="row between"><span class="eyebrow">Hasil</span><span class="score">85<small>/100</small></span></div>
+    <div class="res ok">✓ Soal 1 — VLOOKUP</div>
+    <div class="res bad">✗ Soal 2 — SUMIFS · Salah: angka diketik manual, bukan rumus</div>
+    <div class="res warn">Hint dipakai 1 (−5)</div>
+  </div>
+  <div class="card tips"><span class="eyebrow">Tips &amp; Trick</span><div><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>L</kbd></div><div class="muted-t small">untuk menyalakan filter</div></div>
+</div></div></div></div></section>
+</div></body></html>

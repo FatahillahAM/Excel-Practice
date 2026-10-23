@@ -1,0 +1,616 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arah B · Hero Streak</title>
+<style>
+/* =====================================================================
+   ARAH DESAIN B — "HERO STREAK"
+   Tema warna TERKUNCI: Variasi 5 "Dark Excel" (diambil persis dari color-themes-1.html)
+
+   [dark — DEFAULT, yang dirender di file ini]
+     --background:          #0B0D0C
+     --foreground:          #F5F7F6
+     --card:                #151917
+     --muted:               #1C211E
+     --muted-foreground:    #8E9993
+     --border:              #262D29
+     --primary:             #34D17F
+     --primary-foreground:  #04140B
+     --accent:              #12301F
+     --success:             #4ADE80
+     --destructive:         #FF5C6C
+     --warning:             #FFC34D
+     --streak:              #FF7A1A
+     --chart-1:             #34D17F
+     --chart-2:             #2DD4BF
+     --chart-3:             #A3E635
+
+   [light — tersedia lewat toggle matahari/bulan, tidak dirender di sini]
+     --background:          #F5F5F7
+     --foreground:          #1D1D1F
+     --card:                #FFFFFF
+     --muted:               #EDEDF0
+     --muted-foreground:    #6E6E73
+     --border:              #D9D9DE
+     --primary:             #13A35A
+     --primary-foreground:  #FFFFFF
+     --accent:              #E3F6EB
+     --success:             #15803D
+     --destructive:         #D92D45
+     --warning:             #A15C00
+     --streak:              #F2600C
+     --chart-1:             #13A35A
+     --chart-2:             #0E9F9E
+     --chart-3:             #65A30D
+
+   Turunan (alpha dari token, bukan warna baru):
+     glow primary  = rgba(52,209,127, .16 / .35 / .55)   ← #34D17F
+     glow streak   = rgba(255,122,26, .10 / .22 / .45)   ← #FF7A1A
+     gradien angka streak = #FFC34D (warning) → #FF7A1A (streak)
+   Font: system stack saja. Radius kartu 20px, panel hero 28px.
+   ===================================================================== */
+:root{
+  --background:#0B0D0C;--foreground:#F5F7F6;--card:#151917;--muted:#1C211E;--muted-foreground:#8E9993;
+  --border:#262D29;--primary:#34D17F;--primary-foreground:#04140B;--accent:#12301F;--success:#4ADE80;
+  --destructive:#FF5C6C;--warning:#FFC34D;--streak:#FF7A1A;--chart-1:#34D17F;--chart-2:#2DD4BF;--chart-3:#A3E635;
+  --glow:rgba(52,209,127,.35);--glow-soft:rgba(52,209,127,.16);--glow-strong:rgba(52,209,127,.55);
+  --sglow:rgba(255,122,26,.22);--sglow-soft:rgba(255,122,26,.10);--sglow-strong:rgba(255,122,26,.45);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI Variable Display","Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,Consolas,monospace;
+  --r:20px;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --background:#F5F5F7;--foreground:#1D1D1F;--card:#FFFFFF;--muted:#EDEDF0;--muted-foreground:#6E6E73;
+  --border:#D9D9DE;--primary:#13A35A;--primary-foreground:#FFFFFF;--accent:#E3F6EB;--success:#15803D;
+  --destructive:#D92D45;--warning:#A15C00;--streak:#F2600C;--chart-1:#13A35A;--chart-2:#0E9F9E;--chart-3:#65A30D;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--background);color:var(--foreground);font-family:var(--font);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased}
+svg.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- Halaman presentasi ---------- */
+.doc{max-width:1360px;margin:0 auto;padding:56px 16px 0}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--streak);font-weight:600}
+.doc h1{font-size:56px;letter-spacing:-.045em;margin:8px 0 12px;font-weight:800;line-height:1}
+.doc .why{max-width:760px;color:var(--muted-foreground);font-size:18px;margin:0;font-weight:400}
+.doc .why b{color:var(--foreground);font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}
+.chip{border:1px solid var(--border);border-radius:999px;padding:6px 14px;font-size:12px;color:var(--muted-foreground)}
+.chip b{color:var(--foreground);font-weight:600}
+.sec{max-width:1360px;margin:0 auto;padding:64px 16px 0}
+.sec>h2{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 20px;font-weight:600}
+
+/* ---------- Bingkai browser ---------- */
+.stage{overflow-x:auto;padding-bottom:8px}
+.browser{width:1280px;margin:0 auto;border:1px solid var(--border);border-radius:16px;overflow:hidden;background:var(--background);box-shadow:0 60px 140px -50px rgba(0,0,0,.95)}
+.bbar{height:40px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 14px}
+.dots{display:flex;gap:7px}.dots i{width:11px;height:11px;border-radius:50%;background:var(--border);display:block}
+.url{flex:1;max-width:460px;margin:0 auto;height:24px;border-radius:7px;background:var(--background);color:var(--muted-foreground);font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+@media (max-width:1340px){.browser{zoom:.86}}
+@media (max-width:1130px){.browser{zoom:.7}}
+@media (max-width:920px){.browser{zoom:.52}}
+@media (max-width:700px){.browser{zoom:.28}}
+
+/* ---------- App shell ---------- */
+.app{display:flex;min-height:1040px}
+.sb{width:256px;flex:none;background:var(--background);border-right:1px solid var(--border);padding:26px 18px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 22px}
+.logo{width:34px;height:34px;border-radius:10px;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center}
+.logo svg{width:19px;height:19px;stroke-width:2.2}
+.brand b{display:block;font-size:12.5px;letter-spacing:.05em;line-height:1.1;font-weight:700}
+.brand span{display:block;font-size:11px;color:var(--muted-foreground);letter-spacing:.02em}
+.grp{font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);margin:22px 12px 8px;font-weight:600;opacity:.8}
+.nav{display:flex;flex-direction:column;gap:3px}
+.nav a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:12px;color:var(--muted-foreground);text-decoration:none;font-size:14px;transition:background .3s,color .3s}
+.nav a:hover{background:var(--card);color:var(--foreground)}
+.nav a.on{background:var(--primary);color:var(--primary-foreground);font-weight:600;box-shadow:0 0 0 1px var(--glow-strong),0 12px 30px -10px var(--glow-strong)}
+.sbmini{margin-top:auto;padding:14px;border-radius:16px;border:1px solid var(--border);display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted-foreground)}
+.sbmini b{color:var(--streak);font-size:20px;letter-spacing:-.03em}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.hd{height:72px;display:flex;align-items:center;gap:14px;padding:0 48px}
+.search{display:flex;align-items:center;gap:10px;width:300px;height:40px;border-radius:999px;background:var(--card);padding:0 14px;color:var(--muted-foreground);font-size:13.5px}
+.search span{flex:1}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--border);border-radius:6px;padding:1px 6px;color:var(--muted-foreground)}
+.hd .sp{flex:1}
+.theme{display:flex;background:var(--card);border-radius:999px;padding:3px}
+.theme i{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--muted-foreground)}
+.theme i.on{background:var(--muted);color:var(--foreground)}
+.av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--warning),var(--streak));color:var(--primary-foreground);display:grid;place-items:center;font-weight:700;font-size:13px}
+
+.body{padding:8px 48px 56px;display:flex;flex-direction:column;gap:28px}
+
+/* HERO */
+.hero{position:relative;border-radius:28px;overflow:hidden;padding:44px 48px 36px;background:
+  radial-gradient(ellipse 50% 70% at 22% 55%,var(--sglow),transparent 70%),
+  radial-gradient(ellipse 40% 60% at 90% 10%,var(--glow-soft),transparent 70%),
+  var(--card);border:1px solid var(--border);display:grid;grid-template-columns:1.25fr 1fr;gap:40px;align-items:center}
+.hero .kick{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-foreground);font-weight:600}
+.streaknum{display:flex;align-items:flex-end;gap:16px;margin:4px 0 0}
+.huge{font-size:232px;font-weight:800;letter-spacing:-.07em;line-height:.82;background:linear-gradient(180deg,var(--warning) 5%,var(--streak) 75%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 20px 60px var(--sglow-strong));padding-right:.04em}
+.unit{padding-bottom:22px}
+.unit b{display:block;font-size:44px;font-weight:700;letter-spacing:-.035em;line-height:1}
+.unit span{display:block;font-size:17px;color:var(--muted-foreground);margin-top:6px}
+.hero .lead{font-size:20px;letter-spacing:-.01em;color:var(--foreground);margin:22px 0 14px;max-width:440px;font-weight:500}
+.hero .lead span{color:var(--muted-foreground)}
+.fz{display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--chart-2);background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.25);padding:7px 14px;border-radius:999px}
+.week{display:flex;gap:12px;margin-top:26px}
+.wd{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground)}
+.wd i{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--sglow-soft);color:var(--streak);border:1px solid var(--sglow);font-style:normal;font-size:11px;font-weight:700}
+.wd i svg.ic{width:16px;height:16px}
+.wd.fr i{background:rgba(45,212,191,.08);border:1px dashed rgba(45,212,191,.5);color:var(--chart-2)}
+.wd.td i{background:var(--streak);color:var(--primary-foreground);border-color:transparent;box-shadow:0 0 0 4px var(--sglow),0 10px 30px -6px var(--sglow-strong)}
+.wd.td{color:var(--foreground);font-weight:700}
+
+.next{background:rgba(11,13,12,.55);border:1px solid var(--border);border-radius:24px;padding:28px;backdrop-filter:blur(8px)}
+.next .kick{color:var(--primary)}
+.next h3{font-size:40px;letter-spacing:-.04em;margin:6px 0 2px;font-weight:800;line-height:1.05}
+.next p{margin:0;color:var(--muted-foreground);font-size:16px}
+.pips{display:flex;gap:6px;margin:20px 0 6px}
+.pips i{height:8px;flex:1;border-radius:99px;background:var(--muted)}
+.pips i.d{background:var(--primary)}
+.pips i.nx{background:transparent;box-shadow:inset 0 0 0 1.5px var(--primary)}
+.pipl{display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted-foreground)}
+.cta{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;height:62px;margin-top:22px;border-radius:999px;background:var(--primary);color:var(--primary-foreground);font:700 18px var(--font);letter-spacing:-.01em;text-decoration:none;box-shadow:0 18px 50px -14px var(--glow-strong);transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+.cta svg.ic{width:20px;height:20px;fill:currentColor;stroke:none}
+.cta:hover,.cta.is-hover{transform:scale(1.035);box-shadow:0 0 0 6px var(--glow-soft),0 24px 60px -12px var(--glow-strong)}
+.lockt{display:flex;align-items:center;gap:8px;justify-content:center;font-size:13px;color:var(--muted-foreground);margin-top:14px}
+.lockt svg.ic{width:15px;height:15px;color:var(--warning)}
+
+/* kartu tenang */
+.sectl{display:flex;align-items:baseline;justify-content:space-between}
+.sectl h4{margin:0;font-size:24px;letter-spacing:-.03em;font-weight:700}
+.sectl a{color:var(--primary);text-decoration:none;font-size:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:28px;position:relative;overflow:hidden;transition:transform .6s var(--ease),box-shadow .6s var(--ease),border-color .6s}
+.card:hover,.card.is-hover{transform:scale(1.02);border-color:rgba(52,209,127,.4);box-shadow:0 0 0 1px var(--glow-soft),0 30px 70px -24px var(--glow)}
+.lbl{font-size:13px;color:var(--muted-foreground);font-weight:500;display:flex;align-items:center;gap:8px}
+.big{font-size:56px;font-weight:800;letter-spacing:-.05em;line-height:1;margin:14px 0 10px}
+.big small{font-size:20px;color:var(--muted-foreground);font-weight:600;letter-spacing:-.01em}
+.sub{font-size:14px;color:var(--muted-foreground)}
+.card.pri{background:radial-gradient(circle at 100% 0%,rgba(255,255,255,.28),transparent 50%),var(--primary);color:var(--primary-foreground);border-color:transparent;box-shadow:0 24px 60px -24px var(--glow-strong)}
+.card.pri .lbl,.card.pri .sub{color:rgba(4,20,11,.7)}
+.card.pri .pips i{background:rgba(4,20,11,.18)}
+.card.pri .pips i.d{background:var(--primary-foreground)}
+.card.pri .pips i.nx{background:transparent;box-shadow:inset 0 0 0 1.5px var(--primary-foreground)}
+.card.pri:hover{box-shadow:0 0 0 6px var(--glow-soft),0 30px 70px -20px var(--glow-strong)}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600}
+.pill.warn{background:rgba(255,195,77,.12);color:var(--warning)}
+.pill.ok{background:rgba(74,222,128,.12);color:var(--success)}
+.inv{background:radial-gradient(circle at 100% 100%,rgba(52,209,127,.22),transparent 60%),linear-gradient(170deg,var(--accent),var(--primary-foreground) 80%);border-color:rgba(52,209,127,.22)}
+.digits{font-family:var(--mono);font-weight:700;letter-spacing:-.05em;line-height:1;font-variant-numeric:tabular-nums}
+.digits .c{color:var(--primary)}
+.rek{display:grid;gap:18px;margin-top:16px}
+.rek div small{display:block;font-size:13px;color:rgba(245,247,246,.6);margin-top:6px}
+.span2{grid-column:span 2}
+.span3{grid-column:span 3}
+.bars{display:flex;align-items:flex-end;gap:22px;height:172px;margin-top:22px}
+.bc{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;height:100%;justify-content:flex-end}
+.bar{width:100%;max-width:56px;border-radius:14px;background:linear-gradient(180deg,rgba(52,209,127,.55),rgba(52,209,127,.18));transform-origin:bottom}
+.bar.td{background:linear-gradient(180deg,var(--primary),rgba(52,209,127,.55));box-shadow:0 10px 30px -8px var(--glow-strong)}
+.bar.empty{height:8px!important;background:transparent;border:1.5px dashed rgba(45,212,191,.55)}
+.bc span{font-size:12.5px;color:var(--muted-foreground)}
+.bc em{font-style:normal;font-size:12px;font-weight:700;color:var(--foreground)}
+.bc.fr em{color:var(--chart-2);font-weight:600}
+.bc.td span{color:var(--foreground);font-weight:700}
+.uc{background:repeating-linear-gradient(-45deg,rgba(255,195,77,.06) 0 10px,transparent 10px 20px),var(--card);border:1px dashed rgba(255,195,77,.4)}
+.uctag{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--warning);border:1px solid rgba(255,195,77,.4);border-radius:999px;padding:3px 10px}
+.uctag svg.ic{width:13px;height:13px}
+
+/* stepper peta level */
+.stepper{display:flex;align-items:flex-start;margin-top:22px}
+.st{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;text-align:center}
+.st::before{content:"";position:absolute;top:21px;left:-50%;right:50%;height:2px;background:var(--border);z-index:0}
+.st:first-child::before{display:none}
+.st.done::before,.st.act::before{background:var(--primary)}
+.st .dot{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--muted);color:var(--muted-foreground);font-weight:700;font-size:14px;position:relative;z-index:1;border:1px solid var(--border)}
+.st.done .dot{background:var(--accent);color:var(--primary);border-color:rgba(52,209,127,.4)}
+.st.act .dot{background:var(--primary);color:var(--primary-foreground);border-color:transparent;box-shadow:0 0 0 6px var(--glow-soft),0 0 30px var(--glow)}
+.st.ucs .dot{background:repeating-linear-gradient(-45deg,rgba(255,195,77,.12) 0 4px,transparent 4px 8px),var(--background);border:1px dashed rgba(255,195,77,.45);color:var(--warning)}
+.st b{font-size:12.5px;font-weight:600}
+.st small{font-size:11.5px;color:var(--muted-foreground);line-height:1.3}
+.st.act small{color:var(--primary)}
+.st svg.ic{width:16px;height:16px}
+
+/* ---------- Ponsel ---------- */
+.phones{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+.phone{width:390px;max-width:100%;height:844px;border-radius:54px;padding:12px;background:#000;box-shadow:0 0 0 1px var(--border),0 40px 100px -30px rgba(0,0,0,.9);flex:none}
+.pscreen{position:relative;height:100%;border-radius:42px;overflow:hidden;background:radial-gradient(ellipse 90% 45% at 50% 28%,var(--sglow),transparent 70%),var(--background)}
+.pscreen.risk{background:radial-gradient(ellipse 90% 45% at 50% 28%,var(--sglow-soft),transparent 70%),var(--background)}
+.pstatus{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font-size:14px;font-weight:650}
+.island{width:118px;height:34px;border-radius:20px;background:#000;position:absolute;left:50%;top:10px;margin-left:-59px;z-index:9}
+.ptop{display:flex;align-items:center;gap:10px;padding:4px 20px}
+.ptop label{width:40px;height:40px;border-radius:50%;background:var(--card);display:grid;place-items:center;cursor:pointer}
+.ptop .t{flex:1;text-align:center;font-size:13px;color:var(--muted-foreground);font-weight:600;letter-spacing:.04em}
+.ptop .av{width:40px;height:40px}
+.pbody{height:calc(100% - 98px);overflow:auto;padding:10px 22px 120px}
+.phero{text-align:center;padding-top:22px}
+.phero .kick{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted-foreground);font-weight:600}
+.phero .huge{font-size:190px;display:block;margin-top:6px}
+.phero .u{font-size:28px;font-weight:700;letter-spacing:-.03em;margin-top:6px}
+.phero .s{color:var(--muted-foreground);font-size:15px;margin-top:4px}
+.phero .week{justify-content:center;gap:7px;margin-top:22px}
+.phero .wd i{width:36px;height:36px}
+.pcards{display:grid;gap:12px;margin-top:30px}
+.pcards .card{padding:18px;border-radius:18px}
+.pcards .big{font-size:34px;margin:6px 0 4px}
+.pdock{position:absolute;left:0;right:0;bottom:0;padding:16px 20px 30px;background:linear-gradient(transparent,var(--background) 35%)}
+.pdock .cta{margin-top:0;height:58px;font-size:17px}
+.pdock small{display:block;text-align:center;font-size:12px;color:var(--muted-foreground);margin-top:8px}
+.riskbar{display:flex;align-items:center;gap:8px;justify-content:center;margin:18px auto 0;width:max-content;font-size:13px;font-weight:600;color:var(--streak);border:1px solid var(--sglow-strong);background:var(--sglow-soft);border-radius:999px;padding:7px 14px;animation:riskPulse 2.4s ease-in-out infinite}
+@keyframes riskPulse{50%{box-shadow:0 0 0 8px rgba(255,122,26,0)}0%,100%{box-shadow:0 0 0 0 var(--sglow)}}
+.huge.dim{filter:saturate(.55) drop-shadow(0 20px 60px var(--sglow-soft));opacity:.85}
+.dtog{position:absolute;opacity:0;pointer-events:none}
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);opacity:0;pointer-events:none;transition:opacity .5s var(--ease);z-index:5;display:block}
+.drawer{position:absolute;top:0;bottom:0;left:0;width:290px;background:var(--card);z-index:6;transform:translateX(-102%);transition:transform .6s var(--ease);padding:64px 16px 24px;display:flex;flex-direction:column}
+.dtog:checked ~ .scrim{opacity:1;pointer-events:auto}
+.dtog:checked ~ .drawer{transform:none}
+.drawer .x{position:absolute;top:60px;right:16px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--muted);cursor:pointer}
+.pnote{max-width:340px;color:var(--muted-foreground);font-size:15px}
+.pnote h3{color:var(--foreground);font-size:22px;letter-spacing:-.02em;margin:0 0 10px}
+.pnote li{margin:8px 0}
+
+/* ---------- State ---------- */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:24px}
+.state>small{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);font-weight:600;margin-bottom:12px}
+
+/* ---------- Gerak ---------- */
+@property --n{syntax:'<integer>';inherits:false;initial-value:0}
+.cu{counter-reset:n var(--n)}
+.cu::after{content:counter(n)}
+.cu-12{--n:12;animation:cu12 2.2s var(--ease) .5s both}
+.cu-85{--n:85;animation:cu85 2.2s var(--ease) 1s both}
+@keyframes cu12{from{--n:0}to{--n:12}}
+@keyframes cu85{from{--n:0}to{--n:85}}
+.rise{animation:rise 1s var(--ease) backwards;animation-delay:calc(var(--i,0) * 140ms + 150ms)}
+@keyframes rise{from{opacity:0;transform:translateY(40px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+.grow{animation:grow 1.1s var(--ease) backwards;animation-delay:calc(var(--i,0) * 90ms + 900ms)}
+@keyframes grow{from{transform:scaleY(0)}}
+
+.demo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px}
+.demo .card{min-height:230px}
+.dlabel{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--streak);font-weight:700;margin-bottom:8px}
+.demo h3{margin:0;font-size:18px;letter-spacing:-.02em}
+.loopline{display:flex;flex-direction:column;gap:6px;margin-top:20px}
+.loopline span{font-size:26px;font-weight:800;letter-spacing:-.04em;line-height:1.1;animation:loopRise 4.5s var(--ease) infinite both;animation-delay:calc(var(--i) * 180ms)}
+@keyframes loopRise{0%{opacity:0;transform:translateY(30px);filter:blur(8px)}20%,80%{opacity:1;transform:none;filter:none}100%{opacity:0;filter:blur(6px)}}
+.dnum{font-size:96px;margin-top:14px;display:block}
+.cu-loop{--n:12;animation:cuLoop 4s var(--ease) infinite}
+@keyframes cuLoop{0%{--n:0}60%,100%{--n:12}}
+.hovdemo{margin-top:20px;border-radius:18px;padding:22px;background:var(--muted);transition:transform .6s var(--ease),box-shadow .6s var(--ease);cursor:pointer}
+.hovdemo:hover{transform:scale(1.06);box-shadow:0 0 0 6px var(--glow-soft),0 30px 70px -18px var(--glow-strong)}
+
+.scrolly{height:320vh;position:relative;margin-top:32px;border-radius:32px;background:#000;border:1px solid var(--border);view-timeline:--hero block;overflow:clip}
+.sticky{position:sticky;top:0;height:100vh;min-height:600px;display:grid;place-items:center;overflow:hidden;perspective:1100px}
+.glowbg{position:absolute;inset:-20%;background:radial-gradient(circle at 50% 50%,var(--sglow-strong),transparent 45%);opacity:.6}
+.orbit{position:absolute;left:50%;top:50%;translate:-50% -50%;width:min(560px,90vw);aspect-ratio:1;border-radius:50%;border:1px dashed rgba(255,122,26,.35)}
+.orbit i{position:absolute;top:-14px;left:50%;margin-left:-14px;width:28px;height:28px;border-radius:50%;background:var(--streak);display:grid;place-items:center;color:var(--primary-foreground);box-shadow:0 0 30px var(--sglow-strong)}
+.orbit i svg.ic{width:16px;height:16px}
+.coin{position:relative;transform-style:preserve-3d;text-align:center}
+.coin .huge{font-size:clamp(180px,30vw,340px);display:block}
+.coin .u{font-size:clamp(24px,3vw,38px);font-weight:700;letter-spacing:-.03em;margin-top:-6px}
+.reveal{position:absolute;bottom:9vh;left:0;right:0;padding:0 16px;text-align:center;font-size:clamp(22px,3.2vw,40px);font-weight:700;letter-spacing:-.03em;line-height:1.2}
+.reveal span{display:block}
+.reveal span:nth-child(2){color:var(--muted-foreground)}
+.fallback-note{font-size:12px;color:var(--muted-foreground);text-align:center;margin:12px 0 0}
+
+@supports (animation-timeline: view()){
+  .coin{animation:coinTurn linear both;animation-timeline:--hero;animation-range:contain 0% contain 55%}
+  .orbit{animation:orbitSpin linear both;animation-timeline:--hero;animation-range:contain 0% contain 100%}
+  .glowbg{animation:glowUp linear both;animation-timeline:--hero;animation-range:contain 0% contain 60%}
+  .reveal span:nth-child(1){animation:lineIn linear both;animation-timeline:--hero;animation-range:contain 40% contain 58%}
+  .reveal span:nth-child(2){animation:lineIn linear both;animation-timeline:--hero;animation-range:contain 60% contain 78%}
+  .fallback-note{display:none}
+}
+@keyframes coinTurn{from{transform:rotateY(-80deg) rotateX(18deg) scale(.45) translateZ(-200px);opacity:.2}to{transform:none;opacity:1}}
+@keyframes orbitSpin{from{transform:rotate(-120deg) scale(.7);opacity:0}30%{opacity:1}to{transform:rotate(240deg) scale(1);opacity:1}}
+@keyframes glowUp{from{opacity:0;transform:scale(.6)}to{opacity:.7;transform:scale(1)}}
+@keyframes lineIn{from{opacity:0;transform:translateY(40px);filter:blur(10px)}to{opacity:1;transform:none;filter:none}}
+
+.docfoot{max-width:1360px;margin:0 auto;padding:64px 16px 72px;color:var(--muted-foreground);font-size:12px}
+.sw{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.sw span{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);border-radius:999px;padding:3px 10px 3px 4px;font-family:var(--mono);font-size:11px}
+.sw span i{width:16px;height:16px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+  .scrolly{height:auto}
+  .sticky{position:relative;height:auto;min-height:0;padding:120px 0 60px}
+  .reveal{position:relative;bottom:auto;margin-top:36px}
+}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-9-1.5 2-2 3.5-2 5-1.5-1-2.5-3-2.5-5C7 8 5 11.5 5 15c0 4.3 3 7 7 7z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-cone" viewBox="0 0 24 24"><path d="M10 3h4l5 16H5z"/><path d="M3 21h18M7.6 11h8.8M6.3 15.5h11.4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 8h16M4 16h16"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+</svg>
+
+<header class="doc">
+  <div class="eyebrow">Arah desain B · WORKING HARD with EXCEL</div>
+  <h1>Hero Streak</h1>
+  <p class="why"><b>Satu angka yang membuatmu kembali setiap hari.</b> Streak 12 hari tampil raksasa ala halaman produk Apple, berdampingan dengan satu tombol utama “Mulai Latihan 5”, sehingga keputusan di dashboard hanya satu: lanjut latihan. Data lain (level, skor, rekor, aktivitas, peta level, Ujian Akhir) tetap lengkap tetapi diletakkan di grid tenang di bawahnya — premium, lega, dan emosional, terutama saat dibuka di ponsel.</p>
+  <div class="chips">
+    <span class="chip">Kepadatan: <b>rendah, banyak ruang</b></span>
+    <span class="chip">Bobot huruf: <b>800 untuk angka hero (232px), 400–500 teks</b></span>
+    <span class="chip">Gerak: <b>lambat &amp; sinematik (1s, blur-in, 140ms stagger)</b></span>
+    <span class="chip">Hero: <b>angka streak + CTA</b></span>
+  </div>
+</header>
+
+<!-- ================= DESKTOP ================= -->
+<section class="sec">
+  <h2>Dashboard desktop · 1280px</h2>
+  <div class="stage">
+  <div class="browser">
+    <div class="bbar"><div class="dots"><i></i><i></i><i></i></div><div class="url"><svg class="ic" style="width:12px;height:12px"><use href="#i-lock"/></svg>workinghard-excel.app/dashboard</div><div style="width:47px"></div></div>
+    <div class="app">
+      <aside class="sb">
+        <div class="brand"><div class="logo"><svg class="ic"><use href="#i-sheet"/></svg></div><div><b>WORKING HARD</b><span>with EXCEL</span></div></div>
+        <div class="grp">Menu</div>
+        <nav class="nav">
+          <a class="on" href="#"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</a>
+          <a href="#"><svg class="ic"><use href="#i-map"/></svg>Peta Level</a>
+          <a href="#"><svg class="ic"><use href="#i-hist"/></svg>Riwayat</a>
+          <a href="#"><svg class="ic"><use href="#i-trophy"/></svg>Rekor</a>
+          <a href="#"><svg class="ic"><use href="#i-book"/></svg>Panduan Setup</a>
+        </nav>
+        <div class="grp">General</div>
+        <nav class="nav">
+          <a href="#"><svg class="ic"><use href="#i-gear"/></svg>Pengaturan</a>
+          <a href="#"><svg class="ic"><use href="#i-out"/></svg>Keluar</a>
+        </nav>
+        <div class="sbmini"><b>12🔥</b><span>Streak aman hari ini.<br>Sampai jumpa besok.</span></div>
+      </aside>
+
+      <div class="main">
+        <header class="hd">
+          <div class="search"><svg class="ic"><use href="#i-search"/></svg><span>Cari</span><kbd>Ctrl K</kbd></div>
+          <div class="sp"></div>
+          <div class="theme" title="Ganti tema"><i><svg class="ic"><use href="#i-sun"/></svg></i><i class="on"><svg class="ic"><use href="#i-moon"/></svg></i></div>
+          <div class="av">FA</div>
+        </header>
+
+        <div class="body">
+          <section class="hero rise" style="--i:0">
+            <div>
+              <div class="kick">Dashboard · Streak kamu</div>
+              <div class="streaknum">
+                <span class="huge cu cu-12" aria-label="12"></span>
+                <div class="unit"><b>hari 🔥</b><span>berturut-turut</span></div>
+              </div>
+              <p class="lead">Apinya masih menyala. <span>Satu latihan hari ini sudah cukup untuk menjaganya.</span></p>
+              <span class="fz"><svg class="ic" style="width:15px;height:15px"><use href="#i-snow"/></svg>Freeze tersisa 1/2 minggu ini</span>
+              <div class="week">
+                <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>Sen</div>
+                <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>Sel</div>
+                <div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>Rab</div>
+                <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>Kam</div>
+                <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>Jum</div>
+                <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>Sab</div>
+                <div class="wd td"><i><svg class="ic"><use href="#i-flame"/></svg></i>Min</div>
+              </div>
+            </div>
+            <div class="next rise" style="--i:2">
+              <div class="kick">Berikutnya</div>
+              <h3>Latihan 5</h3>
+              <p>Level 3 — Hitung bersyarat</p>
+              <div class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="nx"></i></div>
+              <div class="pipl"><span>4/5 latihan selesai</span><span>lalu Test</span></div>
+              <a class="cta" href="#"><svg class="ic"><use href="#i-play"/></svg>Mulai Latihan 5</a>
+              <div class="lockt"><svg class="ic"><use href="#i-lock"/></svg>Test terbuka setelah 5 latihan</div>
+            </div>
+          </section>
+
+          <div class="sectl rise" style="--i:3"><h4>Ringkasan</h4><a href="#">Lihat riwayat lengkap ›</a></div>
+
+          <div class="grid">
+            <div class="card pri rise" style="--i:4">
+              <div class="lbl"><svg class="ic"><use href="#i-map"/></svg>Level aktif</div>
+              <div class="big">Level 3</div>
+              <div class="sub">Hitung bersyarat</div>
+              <div class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="nx"></i></div>
+              <div class="sub" style="font-weight:600">4/5 latihan · Test menyusul</div>
+            </div>
+            <div class="card rise" style="--i:5">
+              <div class="lbl"><svg class="ic"><use href="#i-check"/></svg>Skor terakhir</div>
+              <div class="big"><span class="cu cu-85" aria-label="85"></span><small>/100</small></div>
+              <div class="sub">Latihan 4 Level 3</div>
+              <div style="margin-top:10px"><span class="pill warn">hint 1 (−5)</span></div>
+            </div>
+            <div class="card inv rise" style="--i:6">
+              <div class="lbl" style="color:rgba(245,247,246,.65)"><svg class="ic"><use href="#i-timer"/></svg>Rekor waktu</div>
+              <div class="rek">
+                <div><span class="digits" style="font-size:48px">08<span class="c">:</span>41</span><small>Test Level 2</small></div>
+                <div><span class="digits" style="font-size:32px">05<span class="c">:</span>12</span><small>Latihan Level 3</small></div>
+              </div>
+            </div>
+
+            <div class="card span2 rise" style="--i:7">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lbl"><svg class="ic"><use href="#i-hist"/></svg>Aktivitas latihan · 7 hari</div><span style="font-size:13px;color:var(--muted-foreground)"><b style="color:var(--foreground);font-size:22px;letter-spacing:-.03em">10</b> percobaan</span></div>
+              <div class="bars">
+                <div class="bc"><em>1</em><div class="bar grow" style="height:34px;--i:0"></div><span>Sen</span></div>
+                <div class="bc"><em>2</em><div class="bar grow" style="height:68px;--i:1"></div><span>Sel</span></div>
+                <div class="bc fr"><em>❄ freeze</em><div class="bar empty"></div><span>Rab</span></div>
+                <div class="bc"><em>1</em><div class="bar grow" style="height:34px;--i:3"></div><span>Kam</span></div>
+                <div class="bc"><em>3</em><div class="bar grow" style="height:102px;--i:4"></div><span>Jum</span></div>
+                <div class="bc"><em>1</em><div class="bar grow" style="height:34px;--i:5"></div><span>Sab</span></div>
+                <div class="bc td"><em>2</em><div class="bar td grow" style="height:68px;--i:6"></div><span>Min</span></div>
+              </div>
+            </div>
+            <div class="card uc rise" style="--i:8">
+              <div style="display:flex;justify-content:space-between;align-items:center"><div class="lbl"><svg class="ic"><use href="#i-target"/></svg>Ujian Akhir</div><span class="uctag"><svg class="ic"><use href="#i-cone"/></svg>V1</span></div>
+              <div class="big" style="color:var(--muted-foreground)">0/5</div>
+              <div class="sub">lolos berturut-turut</div>
+              <div style="margin-top:14px"><span class="uctag">Under Construction</span></div>
+            </div>
+
+            <div class="card span3 rise" style="--i:9">
+              <div style="display:flex;justify-content:space-between;align-items:baseline"><div class="lbl"><svg class="ic"><use href="#i-map"/></svg>Peta level</div><span style="font-size:13px;color:var(--muted-foreground)">2 lulus · Level 3 aktif · Level 4 terkunci</span></div>
+              <div class="stepper">
+                <div class="st done"><span class="dot"><svg class="ic"><use href="#i-check"/></svg></span><b>Level 1</b><small>Lulus</small></div>
+                <div class="st done"><span class="dot"><svg class="ic"><use href="#i-check"/></svg></span><b>Level 2</b><small>Lulus</small></div>
+                <div class="st act"><span class="dot">3</span><b>Level 3</b><small>Aktif · 4/5</small></div>
+                <div class="st"><span class="dot"><svg class="ic"><use href="#i-lock"/></svg></span><b>Level 4</b><small>Terkunci</small></div>
+                <div class="st ucs"><span class="dot">5</span><b>Level 5</b><small>Under Construction</small></div>
+                <div class="st ucs"><span class="dot">6</span><b>Level 6</b><small>Under Construction</small></div>
+                <div class="st ucs"><span class="dot">7</span><b>Level 7</b><small>Under Construction</small></div>
+                <div class="st ucs"><span class="dot">8</span><b>Level 8</b><small>Under Construction</small></div>
+                <div class="st ucs"><span class="dot">9</span><b>Level 9</b><small>Under Construction</small></div>
+                <div class="st ucs"><span class="dot"><svg class="ic"><use href="#i-target"/></svg></span><b>Ujian Akhir</b><small>Under Construction</small></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ================= PONSEL ================= -->
+<section class="sec">
+  <h2>Ponsel · 390px · buka untuk cek streak</h2>
+  <div class="phones">
+    <div class="phone">
+      <div class="pscreen">
+        <div class="island"></div>
+        <input type="checkbox" id="drw1" class="dtog">
+        <div class="pstatus"><span>21.04</span><span>●●● 5G ▮</span></div>
+        <div class="ptop"><label for="drw1" aria-label="Buka menu"><svg class="ic"><use href="#i-menu"/></svg></label><div class="t">STREAK</div><div class="av">FA</div></div>
+        <div class="pbody">
+          <div class="phero">
+            <div class="kick rise" style="--i:0">Sudah latihan hari ini ✓</div>
+            <span class="huge cu cu-12" aria-label="12"></span>
+            <div class="u rise" style="--i:2">hari 🔥</div>
+            <div class="s rise" style="--i:3">Freeze tersisa 1/2 minggu ini</div>
+            <div class="week rise" style="--i:4">
+              <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>R</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>K</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>J</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd td"><i><svg class="ic"><use href="#i-flame"/></svg></i>M</div>
+            </div>
+          </div>
+          <div class="pcards">
+            <div class="card pri rise" style="--i:5"><div class="lbl">Level aktif</div><div class="big">Level 3</div><div class="sub">Hitung bersyarat · 4/5 latihan</div><div class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="nx"></i></div></div>
+            <div class="card rise" style="--i:6"><div class="lbl">Skor terakhir</div><div class="big">85<small>/100</small></div><div class="sub">Latihan 4 Level 3 · hint 1 (−5)</div></div>
+            <div class="card inv rise" style="--i:7"><div class="lbl" style="color:rgba(245,247,246,.65)">Rekor waktu</div><div class="digits" style="font-size:34px;margin-top:8px">08<span class="c">:</span>41</div><div class="sub" style="color:rgba(245,247,246,.6)">Test Level 2 · Latihan Level 3: 05:12</div></div>
+          </div>
+        </div>
+        <div class="pdock"><a class="cta" href="#"><svg class="ic"><use href="#i-play"/></svg>Mulai Latihan 5</a><small>Level 3 · dikerjakan di Excel desktop</small></div>
+        <label for="drw1" class="scrim" aria-label="Tutup menu"></label>
+        <aside class="drawer">
+          <label for="drw1" class="x" aria-label="Tutup"><svg class="ic"><use href="#i-x"/></svg></label>
+          <div class="brand"><div class="logo"><svg class="ic"><use href="#i-sheet"/></svg></div><div><b>WORKING HARD</b><span>with EXCEL</span></div></div>
+          <div class="grp">Menu</div>
+          <nav class="nav"><a class="on" href="#"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</a><a href="#"><svg class="ic"><use href="#i-map"/></svg>Peta Level</a><a href="#"><svg class="ic"><use href="#i-hist"/></svg>Riwayat</a><a href="#"><svg class="ic"><use href="#i-trophy"/></svg>Rekor</a><a href="#"><svg class="ic"><use href="#i-book"/></svg>Panduan Setup</a></nav>
+          <div class="grp">General</div>
+          <nav class="nav"><a href="#"><svg class="ic"><use href="#i-gear"/></svg>Pengaturan</a><a href="#"><svg class="ic"><use href="#i-out"/></svg>Keluar</a></nav>
+          <div class="theme" style="margin-top:auto;align-self:flex-start"><i><svg class="ic"><use href="#i-sun"/></svg></i><i class="on"><svg class="ic"><use href="#i-moon"/></svg></i></div>
+        </aside>
+      </div>
+    </div>
+
+    <div class="phone">
+      <div class="pscreen risk">
+        <div class="island"></div>
+        <div class="pstatus"><span>19.30</span><span>●●● 5G ▮</span></div>
+        <div class="ptop"><label aria-label="Menu"><svg class="ic"><use href="#i-menu"/></svg></label><div class="t">STREAK</div><div class="av">FA</div></div>
+        <div class="pbody">
+          <div class="phero">
+            <div class="kick">Belum latihan hari ini</div>
+            <span class="huge dim">12</span>
+            <div class="u">hari 🔥</div>
+            <div class="riskbar"><svg class="ic" style="width:15px;height:15px"><use href="#i-timer"/></svg>Jaga streak · sisa 4 jam 30 menit</div>
+            <div class="s" style="margin-top:12px">Lewat tengah malam, 1 freeze terpakai otomatis (sisa 1/2).</div>
+            <div class="week">
+              <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>R</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>K</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>J</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd" style="color:var(--streak);font-weight:700"><i style="background:transparent;border:1.5px dashed var(--streak)">?</i>M</div>
+            </div>
+          </div>
+        </div>
+        <div class="pdock"><a class="cta" href="#"><svg class="ic"><use href="#i-play"/></svg>Mulai Latihan 5</a><small>Selesaikan 1 latihan untuk menjadikannya 13 hari</small></div>
+      </div>
+    </div>
+
+    <div class="pnote">
+      <h3>Buka ponsel, lihat angkanya, selesai.</h3>
+      <ul>
+        <li>Angka streak memenuhi layar pertama — tidak perlu scroll.</li>
+        <li>Tombol <b>Mulai Latihan 5</b> menempel di bawah (dock), dalam jangkauan jempol.</li>
+        <li>Ponsel kanan = state <b>streak berisiko</b>: angka meredup, pil oranye berdenyut, hari ini bertanda “?”.</li>
+        <li>Ketuk ikon menu di ponsel kiri untuk membuka drawer (CSS saja).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STATE ================= -->
+<section class="sec">
+  <h2>Variasi state</h2>
+  <div class="states">
+    <div class="state"><small>Kartu · hover (skala + glow)</small>
+      <div class="card is-hover"><div class="lbl">Skor terakhir</div><div class="big">85<small>/100</small></div><div class="sub">Latihan 4 Level 3 · hint 1 (−5)</div></div>
+    </div>
+    <div class="state"><small>CTA · hover</small>
+      <div class="card" style="padding:32px 28px"><a class="cta is-hover" style="margin:0" href="#"><svg class="ic"><use href="#i-play"/></svg>Mulai Latihan 5</a><div class="lockt">Skala 1.035 · cincin glow 6px</div></div>
+    </div>
+    <div class="state"><small>Test terkunci</small>
+      <div class="card"><div class="lbl"><svg class="ic" style="color:var(--warning)"><use href="#i-lock"/></svg>Test · Level 3</div><div class="big" style="font-size:40px;color:var(--muted-foreground)">Terkunci</div><div class="sub">Terbuka setelah 5 latihan — tinggal 1 lagi.</div><div class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="nx"></i></div></div>
+    </div>
+    <div class="state"><small>Hari kosong · freeze</small>
+      <div class="card"><div class="lbl"><svg class="ic" style="color:var(--chart-2)"><use href="#i-snow"/></svg>Rabu</div><div class="big" style="font-size:40px">0 <small>percobaan</small></div><div class="sub">Freeze dipakai otomatis. Streak tetap 12.</div><div class="bars" style="height:40px;margin-top:14px"><div class="bc fr"><div class="bar empty"></div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= DEMO GERAK ================= -->
+<section class="sec">
+  <h2>Demo gerak · CSS saja</h2>
+  <div class="demo">
+    <div class="card"><div class="dlabel">01 · Masuk lembut</div><h3>Naik 40px + blur → tajam, 180ms per baris</h3><div class="loopline"><span style="--i:0">12 hari.</span><span style="--i:1;color:var(--muted-foreground)">Tanpa putus.</span><span style="--i:2;color:var(--primary)">Mulai Latihan 5.</span></div></div>
+    <div class="card"><div class="dlabel">02 · Angka naik</div><h3>Count-up lambat, ease keluar panjang</h3><span class="huge dnum cu cu-loop" aria-label="12"></span></div>
+    <div class="card"><div class="dlabel">03 · Hover</div><h3>Arahkan kursor — membesar pelan</h3><div class="hovdemo"><b style="font-size:20px;letter-spacing:-.02em">Level 3</b><div style="color:var(--muted-foreground);font-size:13px">Hitung bersyarat · 4/5</div></div></div>
+  </div>
+
+  <div class="scrolly">
+    <div class="sticky">
+      <div class="glowbg"></div>
+      <div class="orbit"><i><svg class="ic"><use href="#i-flame"/></svg></i></div>
+      <div class="coin"><span class="huge">12</span><div class="u">hari 🔥</div></div>
+      <div class="reveal"><span>Setiap hari, satu latihan.</span><span>Excel yang kamu kuasai, tumbuh dari sini.</span></div>
+    </div>
+  </div>
+  <p class="fallback-note">Browser ini belum mendukung animation-timeline — angka ditampilkan statis.</p>
+</section>
+
+<footer class="docfoot">
+  Token Dark Excel (variasi 5, dark — default):
+  <div class="sw">
+    <span><i style="background:#0B0D0C"></i>background #0B0D0C</span><span><i style="background:#151917"></i>card #151917</span><span><i style="background:#1C211E"></i>muted #1C211E</span><span><i style="background:#262D29"></i>border #262D29</span><span><i style="background:#F5F7F6"></i>foreground #F5F7F6</span><span><i style="background:#8E9993"></i>muted-fg #8E9993</span><span><i style="background:#34D17F"></i>primary #34D17F</span><span><i style="background:#04140B"></i>primary-fg #04140B</span><span><i style="background:#12301F"></i>accent #12301F</span><span><i style="background:#4ADE80"></i>success #4ADE80</span><span><i style="background:#FF5C6C"></i>destructive #FF5C6C</span><span><i style="background:#FFC34D"></i>warning #FFC34D</span><span><i style="background:#FF7A1A"></i>streak #FF7A1A</span><span><i style="background:#2DD4BF"></i>chart-2 #2DD4BF</span><span><i style="background:#A3E635"></i>chart-3 #A3E635</span>
+  </div>
+</footer>
+</body>
+</html>

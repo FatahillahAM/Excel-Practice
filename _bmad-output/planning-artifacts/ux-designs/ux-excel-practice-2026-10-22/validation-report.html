@@ -1,0 +1,1404 @@
+<!DOCTYPE html>
+<!--
+  UX Design Validation Report — skeleton template.
+
+  This file is a starter the synthesis pass fills in directly. There is no
+  substitution engine. The LLM:
+    1. Reads {doc_workspace}/review-rubric.md and every review-{slug}.md from
+       additional reviewers.
+    2. Copies this skeleton.
+    3. Replaces the placeholder content (everything between TEMPLATE markers)
+       with the consolidated review, preserving the structure and CSS.
+    4. Writes the result to {doc_workspace}/validation-report.html.
+    5. Writes a markdown twin to {doc_workspace}/validation-report.md.
+
+  Visual rules the LLM must preserve:
+    - The container width, the color tokens, the typography.
+    - One dimension = one collapsible <section class="dimension">.
+    - Verdict pill uses the verdict-* class matching its judgment.
+    - Severity badge uses the badge-sev-* class matching its level.
+    - Each extra reviewer (accessibility, adversarial, etc.) gets its own
+      collapsible section below the rubric dimensions.
+    - The footer always shows the artifact paths and timestamp.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>UX Design Validation: WORKING HARD with EXCEL</title>
+<style>
+  :root {
+    --bg: #fafaf9;
+    --surface: #ffffff;
+    --border: #e7e5e4;
+    --text: #1c1917;
+    --muted: #78716c;
+
+    --verdict-strong: #16a34a;
+    --verdict-adequate: #65a30d;
+    --verdict-thin: #d97706;
+    --verdict-broken: #dc2626;
+
+    --sev-low: #64748b;
+    --sev-medium: #ca8a04;
+    --sev-high: #ea580c;
+    --sev-critical: #dc2626;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    font-size: 15px;
+  }
+  .container { max-width: 960px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  header.report-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 24px;
+  }
+  .title h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .title .subtitle { color: var(--muted); font-size: 13px; margin-top: 4px; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+
+  .synthesis {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--muted);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    font-size: 15.5px;
+  }
+  .synthesis p { margin: 0 0 10px; }
+  .synthesis p:last-child { margin-bottom: 0; }
+
+  .dimension-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+  }
+  .dim-card .dim-name { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .dim-card .dim-verdict { font-size: 14px; font-weight: 600; }
+
+  section.dimension, section.reviewer-section { margin-bottom: 14px; }
+  section.dimension details, section.reviewer-section details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  section summary {
+    padding: 14px 20px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  section summary::-webkit-details-marker { display: none; }
+  section summary::before {
+    content: "▸";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform 0.15s ease;
+  }
+  section details[open] summary::before { transform: rotate(90deg); }
+  section summary h2 {
+    display: inline;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    flex: 1;
+  }
+  .verdict-pill {
+    font-size: 11px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: white;
+  }
+  .verdict-strong { background: var(--verdict-strong); }
+  .verdict-adequate { background: var(--verdict-adequate); }
+  .verdict-thin { background: var(--verdict-thin); }
+  .verdict-broken { background: var(--verdict-broken); }
+
+  .dim-body { padding: 4px 20px 18px; }
+  .dim-judgment { color: var(--text); font-size: 14.5px; }
+  .dim-judgment p { margin: 0 0 10px; }
+
+  .findings-list { padding: 0 20px 4px; }
+  article.finding {
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  article.finding:first-child { border-top: none; }
+  article.finding header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .badge {
+    font-size: 10.5px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.4;
+  }
+  .badge-sev-low { background: rgba(100, 116, 139, 0.12); color: var(--sev-low); }
+  .badge-sev-medium { background: rgba(202, 138, 4, 0.14); color: var(--sev-medium); }
+  .badge-sev-high { background: rgba(234, 88, 12, 0.14); color: var(--sev-high); }
+  .badge-sev-critical { background: rgba(220, 38, 38, 0.14); color: var(--sev-critical); }
+  .finding-title { margin: 0; font-size: 15px; font-weight: 500; flex: 1; min-width: 200px; }
+  .finding-location { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .finding-note, .finding-fix { margin-top: 6px; font-size: 14px; }
+  .finding-fix strong { color: var(--muted); font-weight: 500; }
+
+  .reviewer-source {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  .mechanical {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin-top: 24px;
+    font-size: 14px;
+  }
+  .mechanical h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .mechanical ul { margin: 0; padding-left: 20px; }
+  .mechanical li { margin-bottom: 4px; color: var(--text); }
+
+  footer.report-footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  footer .meta { display: flex; gap: 24px; flex-wrap: wrap; }
+  .finding code, .dim-judgment code, .mechanical code, .synthesis code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.88em; background: #f5f5f4; padding: 0 4px; border-radius: 3px; }
+  .finding .reviewer-source { margin-top: 8px; }
+  .xref-head { margin: 12px 0 6px !important; font-size: 13px; color: var(--muted); }
+  ul.xref { margin: 0; padding-left: 18px; font-size: 13.5px; }
+  ul.xref li { margin-bottom: 4px; }
+  .sev-summary { margin-top: -12px; }
+</style>
+</head>
+<body>
+  <div class="container">
+
+    <header class="report-header">
+      <div class="title">
+        <h1>WORKING HARD with EXCEL — UX Design Validation Report</h1>
+        <div class="subtitle">D:\Document\Excel Practice\_bmad-output\planning-artifacts\ux-designs\ux-excel-practice-2026-10-22</div>
+      </div>
+    </header>
+
+    <div class="synthesis">
+      <p>A downstream consumer can extract cleanly from this pair. All 56 color tokens have hex values and light pairs, every <code>{path}</code> reference resolves, all 35 component names match across both spines, and every V1 CAP is covered by a named El Zavier journey with a climax. Three high issues stand between this draft and <code>final</code>. Results breaks the CAP-5 contract by hiding correct questions. Nothing defines what happens when an attempt is running but the exam page is not open. The V1 Theme Toggle ships a light mode that DESIGN.md itself says must not ship. Finalize also has housekeeping left: nothing is promoted to <code>mockups/</code>, and both files are still <code>status: draft</code>.</p>
+      <p>The three extra reviewers make the picture worse than the rubric's mostly-adequate verdicts suggest. Accessibility &amp; Motion recomputed every pair and found light mode broken, not just unfinished: the Primary Button label (3.27), links (3.01) and the Streak Chip (2.77, failing even 3:1) all fail, so the reviewer supplies a corrected light token set anchored on Excel green #107C41. It also finds that heavy motion carries meaning. The Orbit Loader is the only "exam running" signal, the Results score only settles as you scroll, loops never stop (WCAG 2.2.2), and the large scroll-tied 3D rotations have no in-app off switch. Spec consistency says "revise before handoff": the attempt lifecycle and end states are where the spine pair departs from the spec. There is no repeat path once items are complete (critical: records can never be beaten, and the streak dies after ~24 V1 attempts), no route back to a running attempt, no in-Excel UX, no V1 end state after the Level 4 Test, and no home for CAP-15. Reference reconciliation adds mostly low-severity detail lost from the v0 imports, such as the login error lifecycle, orbit geometry and entrance orchestration. After de-duplication: 1 critical, 15 high, 33 medium, 43 low.</p>
+    </div>
+
+    <div class="dimension-summary">
+      <div class="dim-card">
+        <div class="dim-name">Flow coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Token completeness</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Component coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">State coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Visual reference coverage</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Bloat &amp; overspecification</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Inheritance discipline</div>
+        <div class="dim-verdict" style="color: var(--verdict-adequate)">adequate</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Shape fit</div>
+        <div class="dim-verdict" style="color: var(--verdict-strong)">strong</div>
+      </div>
+    </div>
+
+    <div class="dimension-summary sev-summary">
+      <div class="dim-card">
+        <div class="dim-name">Critical findings</div>
+        <div class="dim-verdict" style="color: var(--sev-critical)">1</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">High findings</div>
+        <div class="dim-verdict" style="color: var(--sev-high)">15</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Medium findings</div>
+        <div class="dim-verdict" style="color: var(--sev-medium)">33</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-name">Low findings</div>
+        <div class="dim-verdict" style="color: var(--sev-low)">43</div>
+      </div>
+    </div>
+
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Flow coverage</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: the <code>sources</code> file (SPEC.md) contains CAP-1…CAP-18 and no named UJs. Each V1 CAP (1–12, 16, 17, 18) maps to J0–J5, and every one is covered. All six flows name El Zavier, use numbered steps and have a Climax beat. J0–J4 have failure paths, and J5 is read-only with its failure path marked N/A, which is defensible. Next CAPs 13 and 14 appear as Under Construction states. The rubric's low on CAP-15 is escalated to high here because Spec consistency shows the side track is required on the level map.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">CAP-15 co-authoring side track has no Under Construction home</h3>
+              <span class="finding-location">EXPERIENCE.md § Key Flows intro, § Information Architecture; DESIGN.md § Components › Level Path</span>
+            </header>
+            <div class="finding-note">Key Flows claims CAP-13/14/15 "appear only as Under Construction states", and level-curriculum puts the co-authoring side track on the level map with phase Next ("level berfase Next tampil di peta dengan label Under Construction"). No surface, IA row, Level Path node, card or sidebar item carries CAP-15.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a side-track branch card beside the Level Path, separate from the trail and the gate as CAP-15 requires, with an Under Construction Tag. Optionally add a disabled "Co-authoring" sidebar entry. Or drop CAP-15 from the coverage claim.</div>
+            <div class="reviewer-source">Raised by: Rubric › Flow coverage (low) · Spec consistency (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">J0 climax cites the Streak Hero on a screen that shows the Streak Chip</h3>
+              <span class="finding-location">EXPERIENCE.md § Key Flows › J0 step 7</span>
+            </header>
+            <div class="finding-note">The climax says "the Streak Hero now reads 1" during the move to Results, but the Streak Hero only renders on Dashboard. On Results the user sees the Streak Chip.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Say "Streak Chip in the Header Bar reads 1", or move the beat to the return to Dashboard.</div>
+            <div class="reviewer-source">Raised by: Rubric › Flow coverage (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">J0–J3 drafts never confirmed by the user</h3>
+              <span class="finding-location">EXPERIENCE.md § Open Questions (last bullet); .memlog.md lines 36, 38</span>
+            </header>
+            <div class="finding-note">Both spines are still <code>status: draft</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Confirm the drafts before setting <code>status: final</code>.</div>
+            <div class="reviewer-source">Raised by: Rubric › Flow coverage (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Token completeness</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: 233 frontmatter tokens, including 56 colors (28 roles × dark/light, every one hex with a <code>-light</code> pair) and 13 typography roles. Rounded, spacing and 20 component token sets are present, and 0 references are unresolved. The <code>*-soft</code> and <code>uc-hatch</code> derivations recompute exactly. The tokens are complete, but they aren't yet correct: Accessibility &amp; Motion confirms that the light half fails AA, so treat this category's adequate as conditional on the token fix.</p>
+            <p class="xref-head">Also raised here, merged into one entry elsewhere:</p><ul class="xref"><li><span class="badge badge-sev-high">high</span> Results lists only wrong questions, which breaks CAP-5 "every question shows its reason" <span class="reviewer-source">→ Inheritance discipline</span></li></ul>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Light mode ships in V1 with tokens that fail WCAG AA</h3>
+              <span class="finding-location">DESIGN.md § Colors (frontmatter <code>*-light</code>); EXPERIENCE.md § Foundation, § Component Patterns › Theme Toggle</span>
+            </header>
+            <div class="finding-note">The Theme Toggle commits light mode to V1, while DESIGN.md § Colors says "do not ship light mode before resolving" its AA failures. Recomputed light ratios: Primary Button label 3.27, links and "YOU ARE HERE" 3.01, Streak Chip and Streak Risk Pill 2.77 (fails even 3:1), Freeze Pill 3.24, Login error 4.37, every status-on-soft pair 3.87–4.29. A developer will build the toggle on failing tokens.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Adopt the corrected light-token table in review-accessibility-motion.md §1: <code>primary-light</code> #107C41 (Excel green), <code>streak-light</code> #B93D07, <code>warning-light</code> #8F5200, <code>success-light</code> #137535, <code>destructive-light</code> #BE233B, <code>chart-2-light</code> #0B7473, <code>muted-foreground-light</code> #636368, with soft fills kept on the 14% rule and a new <code>streak-vivid-light</code> #F2600C for decoration only. Every text pair then reaches ≥4.5:1. Otherwise, remove light mode and the Theme Toggle from V1.</div>
+            <div class="reviewer-source">Raised by: Rubric › Token completeness (high) · Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Contrast table measures the wrong surfaces and omits state-bearing pairs</h3>
+              <span class="finding-location">DESIGN.md § Colors › contrast table; § Components › Streak Chip, Freeze Pill, Level Node, Week Strip</span>
+            </header>
+            <div class="finding-note">Streak Chip text sits on <code>streak-soft</code>, not <code>background</code> (2.77 in light). Missing rows: destructive on background (Login error, 4.37), chart-2 Freeze Pill text (3.24 on card, ~2.9 on its own teal fill), muted-foreground on muted (4.34, hover nav), the at-risk dimmed numeral (2.78), primary on accent for the passed-node check (2.91, UI), white on streak for the Week Strip today-done glyph (3.25, small), and the avatar initials (3.09–3.27).</div>
+            <div class="finding-fix"><strong>Fix:</strong> Replace the table with the full pair matrix from review-accessibility-motion.md §1, measured on the surface each component actually uses, and re-verify after the token fix.</div>
+            <div class="reviewer-source">Raised by: Rubric › Token completeness (medium) · Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Freeze fill has no token</h3>
+              <span class="finding-location">DESIGN.md frontmatter <code>components.freeze-pill</code>; § Components › Freeze Pill, Week Strip</span>
+            </header>
+            <div class="finding-note">The Freeze Pill and the frozen Week Strip day use a "faint teal fill with teal hairline border", but there is no <code>chart-2-soft</code> or <code>freeze-soft</code> token, and <code>freeze-pill</code> has no <code>background</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add <code>freeze-soft</code> with a light pair using the 14% rule and reference it. With the corrected <code>chart-2-light</code> #0B7473, the text reaches 4.59 on that fill.</div>
+            <div class="reviewer-source">Raised by: Rubric › Token completeness (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Records Card foreground undefined; the light-mode gradient undoes the "inverted" card</h3>
+              <span class="finding-location">DESIGN.md frontmatter <code>components.records-card</code>; § Components › Records Card</span>
+            </header>
+            <div class="finding-note">Only the colon is specified (<code>{colors.primary}</code>). The text and digit colour is undefined. In light mode the gradient <code>accent-light → primary-foreground-light</code> (#E3F6EB → #FFFFFF) gives a near-white card, so the inversion inherited from the v0 Tasko timer card is gone and the spec contradicts itself.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add <code>records-card.foreground</code>. Keep the dark gradient in both modes (Reference reconciliation's preference), or state the light gradient explicitly and stop calling the card inverted.</div>
+            <div class="reviewer-source">Raised by: Rubric › Token completeness (medium) · Reference reconciliation (T34)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">UI component boundaries and selected/pending states fail 3:1 (WCAG 1.4.11) in both modes</h3>
+              <span class="finding-location">DESIGN.md § Components › Theme Toggle, Practice Pips, Upload Dropzone, Level Path; shadcn Input</span>
+            </header>
+            <div class="finding-note">"Dark mode passes everywhere" holds for text only. <code>border</code> on card is 1.26 dark / 1.41 light (Input, Upload Dropzone, Kbd). <code>muted</code> on card is ~1.09–1.17 (Theme Toggle selected segment, pending Practice Pips), so those states are effectively invisible. The Level Path base trail (<code>border</code> on card) is ~1.3.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add an <code>input-border</code> token (dark #5F6B64, light #86868B) for Input, Dropzone and Kbd, and keep <code>border</code> for decorative card separation. Mark the selected Theme Toggle segment with a 2px <code>primary</code> ring or a filled icon plus <code>aria-pressed</code>. Draw pending pips with a 1.5px <code>muted-foreground</code> outline, or add a label.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium) · Rubric › Token completeness (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><code>streak-glow</code> token has no use site</h3>
+              <span class="finding-location">DESIGN.md § Colors</span>
+            </header>
+            <div class="finding-note">The non-strong <code>streak-glow</code> is never used. The <code>success</code> half of this rubric finding is folded into the CAP-5 entry.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Name a use site, or drop the token.</div>
+            <div class="reviewer-source">Raised by: Rubric › Token completeness (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Component coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: 35 components in DESIGN.md § Components and the same 35 in EXPERIENCE.md § Component Patterns, with identical names and real rules in every row. Shadcn as-is components are declared once. The gaps are state visuals and unnamed composite elements.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Behavioural states with no visual spec in DESIGN</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns vs DESIGN.md § Components › Freeze Pill, Primary Button, Upload Dropzone, Hint Button</span>
+            </header>
+            <div class="finding-note">EXPERIENCE commits states that DESIGN never draws: the Freeze Pill "Use freeze" action and disabled-with-reason state; the Primary Button disabled with a reason line below it; the Upload Dropzone uploading-progress and rejected states; and the Hint Button revealed-hint text block.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add each state's appearance to its DESIGN row, using existing tokens.</div>
+            <div class="reviewer-source">Raised by: Rubric › Component coverage (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Composite elements used in flows with no component row</h3>
+              <span class="finding-location">EXPERIENCE.md § Key Flows › J0 step 3; § State Patterns › Dashboard first run; § Responsive &amp; Platform</span>
+            </header>
+            <div class="finding-note">The Setup Guide prompt card, the Results deduction line next to the Score Badge, the Tips &amp; Tricks level filter and the phone Level Path "active level expanded as a card" have no component row and aren't declared as compositions.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Name each as a composition of existing components (e.g. Stat Card + Primary Button, shadcn Tabs), or add rows.</div>
+            <div class="reviewer-source">Raised by: Rubric › Component coverage (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>State coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: all 15 IA surfaces. Login, Dashboard (first run, loading, four streak states), Level Map and Detail, Exam in progress (10 states), Results (6 variants), collection empty/loading, global sign-out and network error, the Under Construction state and focus are covered well. The gaps cluster around the long-lived exam attempt, where Spec consistency independently reached the same conclusion.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Active-attempt lifecycle undefined: no route back to a running attempt</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns "Active attempt exists", "Signed out / session expired"; § Open Questions</span>
+            </header>
+            <div class="finding-note">The J0, J1 and J4 climaxes depend on the exam page being open to move to Results by itself (CAP-3). Upload (CAP-4, "must always work") lives only on that transient screen. Unspecified: tab closed or navigated away mid-attempt; a graded result arriving while on Dashboard or the other device (CAP-12); pressing Start while an attempt is open; reloading Exam in progress; session expiry mid-exam (the global redirect to Login strands the auto-move, and hints and upload need auth, CAP-17); re-downloading a lost file; abandoning. The v0 Tasko logout confirm (T39) only makes sense in this context too.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Decide before architecture. Add a persistent "Attempt in progress — Back to exam" banner (Header Bar, Level Callout, Dashboard) and a "Result ready" Toast or route. Start becomes "Resume exam" while an attempt is open, and the exam page rehydrates from the server on load. Keep the session alive on Exam in progress and return to the attempt after re-login. Add "Download file again" and "Abandon attempt" (with a spec rule on whether it counts). Optionally confirm Log out while an attempt is active. Add the lifecycle to the spec (candidate 13).</div>
+            <div class="reviewer-source">Raised by: Rubric › State coverage (high, medium) · Spec consistency (high) · Reference reconciliation (T39)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No state for download failure or slow/failed grading</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns › Exam in progress</span>
+            </header>
+            <div class="finding-note">Nothing covers Start or the download failing (the <code>.xlsm</code> never downloads or the browser blocks it), a generating state, or grading that takes long or fails after the file is received.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "Download didn't start — Download again", plus grading-delayed and grading-failed states with retry.</div>
+            <div class="reviewer-source">Raised by: Rubric › State coverage (medium) · Spec consistency (partial)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No first-load failure state on any surface</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns › Any surface / Network error</span>
+            </header>
+            <div class="finding-note">"Network error → last loaded data stays visible" assumes data already exists. Only refresh failures are covered.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a cold-load error treatment, such as an inline retry in the Skeleton area.</div>
+            <div class="reviewer-source">Raised by: Rubric › State coverage (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The phone can start an attempt it can never finish</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Phone Dock; § Open Questions "Start on phone"</span>
+            </header>
+            <div class="finding-note">The Phone Dock carries "Start Practice N". CAP-2 records the start time on Start and Excel desktop is mandatory, so a phone Start creates an unworkable attempt whose time still counts for records (CAP-11 counts failed attempts).</div>
+            <div class="finding-fix"><strong>Fix:</strong> Resolve the open question against the spec. On phone the Dock never starts an attempt. It reads "Start on your laptop" (informational), or "Use freeze" when the streak is at risk.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (medium) · Rubric › State coverage (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Smaller state gaps: Results from History, Level Detail Panel loading</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns</span>
+            </header>
+            <div class="finding-note">Results opened from History (loading and route) and Level Detail Panel loading are unspecified.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Fold these in when the Open Questions are resolved.</div>
+            <div class="reviewer-source">Raised by: Rubric › State coverage (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Visual reference coverage</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: <code>mockups/</code> and <code>wireframes/</code> don't exist. All three imports are linked from EXPERIENCE.md § Inspiration with taken / not-taken lists, and the orbit import is also linked inline at the Orbit Loader. The chosen <code>.working/</code> renders are linked from both spines, and both state that spines win on conflict.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Chosen renders not promoted out of <code>.working/</code></h3>
+              <span class="finding-location">DESIGN.md § Brand &amp; Style, § Colors; EXPERIENCE.md § IA</span>
+            </header>
+            <div class="finding-note">Theme 5 (color-themes-1.html) and directions B and C are linked from the <code>.working/</code> scratch folder, which is not a stable reference location. The Finalize "artifacts promoted" step was not done.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Promote color-themes-1.html, direction-b and direction-c to <code>mockups/</code> and update the links. Leave direction-a in <code>.working/</code>.</div>
+            <div class="reviewer-source">Raised by: Rubric › Visual reference coverage (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The heaviest surfaces have no visual reference</h3>
+              <span class="finding-location">EXPERIENCE.md § IA › Exam in progress, Results, Level Map, Level Detail Panel; .memlog.md</span>
+            </header>
+            <div class="finding-note">Exam in progress (Orbit Loader + Hint + Dropzone + Timer), Results (four variants, 3D scene, Fire Effect), the Level Map 3D scene and the Level Detail Panel have no visual reference. The memlog has no logged spine-only decision for them.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Render key screens for Exam in progress and Results, or log in the memlog that they will be built from the spine alone.</div>
+            <div class="reviewer-source">Raised by: Rubric › Visual reference coverage (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">DESIGN.md links no import; direction-a link has no stated role</h3>
+              <span class="finding-location">DESIGN.md § Components › Login Card, App Sidebar, Records Card, Activity Chart; § Brand &amp; Style</span>
+            </header>
+            <div class="finding-note">These rows derive from login-page.zip and dashboard-page.zip but don't cite them. The direction-a link doesn't say what it illustrates.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add inline links at those rows. Name direction-a's role, or drop the link.</div>
+            <div class="reviewer-source">Raised by: Rubric › Visual reference coverage (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Bloat &amp; overspecification</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: EXPERIENCE keeps product rules out by CAP-id reference and favours tables over narrative. DESIGN's editorial voice stays in Brand &amp; Style. The repeated font stacks are forced by the format. A few leaks follow.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Pixel literals where tokens exist or should exist</h3>
+              <span class="finding-location">DESIGN.md § Components; EXPERIENCE.md § Interaction Primitives › Orbit Loader</span>
+            </header>
+            <div class="finding-note">The Orbit Loader is "320px" in both spines, although <code>{spacing.orbit-size}</code> exists. Other literals: the Phone Dock 52px, <code>primary-button.height</code> 44px, the 4px button edge and the 6px chart stub.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Reference <code>{spacing.orbit-size}</code> and add tokens for the repeated sizes.</div>
+            <div class="reviewer-source">Raised by: Rubric › Bloat &amp; overspecification (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">EXPERIENCE restates visual anatomy</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Orbit Loader; § Component Patterns › Streak Hero</span>
+            </header>
+            <div class="finding-note">The Orbit Loader paragraph repeats the rings, opacity and logo already in DESIGN, and the Streak Hero row cites a typography token.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Keep only the behaviour in EXPERIENCE (orbit periods, linear, no pulse).</div>
+            <div class="reviewer-source">Raised by: Rubric › Bloat &amp; overspecification (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Exam Timer fully specified for a V1-unreachable surface</h3>
+              <span class="finding-location">DESIGN.md § Components › Exam Timer; EXPERIENCE.md § Component Patterns › Exam Timer</span>
+            </header>
+            <div class="finding-note">It is reachable only through Ujian Akhir, which is Under Construction in V1.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Mark it Next in both rows.</div>
+            <div class="reviewer-source">Raised by: Rubric › Bloat &amp; overspecification (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Inheritance discipline</h2>
+          <span class="verdict-pill verdict-adequate">adequate</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: <code>sources</code> resolves, CAP-ids are cited verbatim, level names match <code>level-curriculum.md</code>, component names are identical across both files, and every EXPERIENCE token reference resolves to DESIGN. The English UI chrome over SPEC's Mulai is backed by a memlog <code>change</code> entry. The CAP-5 break is the load-bearing miss, and Spec consistency raised it independently.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Results lists only wrong questions, which breaks CAP-5 "every question shows its reason"</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Wrong Answer Row; § Inspiration "Rejected"; DESIGN.md § Colors <code>success</code>; SPEC CAP-5, exam-bridge</span>
+            </header>
+            <div class="finding-note">CAP-5 success says "setiap soal menampilkan alasannya" and exam-bridge says "benar/salah dan alasannya". Results says "Correct questions are not listed", and Inspiration explicitly rejects listing them. The Tips Carousel covers every question but gives no verdict. The memlog resolved the CAP-8 tension but never CAP-5, so a CAP-5 acceptance test will fail. DESIGN's <code>success</code> role ("Correct marks in Results") has nothing to mark.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Either add a collapsed "Correct (n)" group with ✓ and a one-line reason per question (this also gives <code>success</code> its use site), or amend CAP-5 through correct-course to "every wrong question shows its reason; correct questions are counted" (spec candidate 3). Don't leave both documents as they are.</div>
+            <div class="reviewer-source">Raised by: Rubric › Inheritance discipline (high) · Spec consistency (high, low) · Rubric › Token completeness (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Editable streak time zone contradicts the spec's fixed-zone assumption</h3>
+              <span class="finding-location">EXPERIENCE.md § IA › Settings; SPEC Assumptions (CAP-10)</span>
+            </header>
+            <div class="finding-note">SPEC assumes one fixed zone, captured from the device at first login and shared by both devices. An editable zone moves the day boundary, which can double-count or erase a day. EXPERIENCE doesn't say what happens to today's streak, the freeze window or the at-risk countdown when the zone changes.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Confirm with the spec owner. Show the zone read-only, or let a change take effect at the next day boundary. Record the choice in the spec (candidate 5).</div>
+            <div class="reviewer-source">Raised by: Rubric › Inheritance discipline (medium) · Spec consistency (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">In-file finish button has inconsistent names</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns; § Key Flows; § Open Questions</span>
+            </header>
+            <div class="finding-note">State Patterns says "Selesai did nothing", the flows say "in-file finish button", and the label is still an Open Question. Spec consistency notes the <code>.xlsm</code> content is Indonesian, so Selesai fits, while the web copy mixes both.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Pick one term (Selesai is the natural fit) and use it everywhere. Resolve it together with the in-Excel surface finding.</div>
+            <div class="reviewer-source">Raised by: Rubric › Inheritance discipline (low) · Spec consistency (terminology)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Cited companion specs missing from <code>sources</code></h3>
+              <span class="finding-location">EXPERIENCE.md frontmatter <code>sources</code>; intro</span>
+            </header>
+            <div class="finding-note">The intro cites <code>level-curriculum.md</code> and <code>exam-bridge.md</code>, but neither is in <code>sources</code>. They only resolve indirectly as companions of SPEC.</div>
+            <div class="finding-fix"><strong>Fix:</strong> List them in <code>sources</code>.</div>
+            <div class="reviewer-source">Raised by: Rubric › Inheritance discipline (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="dimension">
+      <details>
+        <summary>
+          <h2>Shape fit</h2>
+          <span class="verdict-pill verdict-strong">strong</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Checked: DESIGN.md has all 8 body sections in canonical order. EXPERIENCE.md has all 8 required defaults in order, plus triggered Inspiration &amp; Anti-patterns (v0 imports, apple.com, Duolingo, memlog rejects) and Responsive &amp; Platform (laptop, office PC, phone at 390). The invented Open Questions section earns its place with 7 live decisions and 5 tagged assumptions. No findings.</p>
+            
+          </div>
+        </div>
+        <div class="findings-list">
+
+        </div>
+      </details>
+    </section>
+
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Accessibility &amp; Motion review</h2>
+          <span class="reviewer-source">review-accessibility-motion.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>"The spines get the intent right: dark mode passes for text, the focus ring has strong contrast, status is mostly not colour-only, they use Sheet focus trapping, and a reduced-motion fallback is promised. The weak spots are where heavy motion carries meaning. The Orbit Loader is the only 'in progress' signal. The Results score only settles as you scroll. Loops never stop, and the large scroll-tied 3D rotations have no in-app off switch. Light mode is broken for text, with more failures than the DESIGN.md table lists."</p><p>Lens verdicts: Color contrast <strong>broken</strong> (light) / adequate (dark) · Motion safety <strong>thin</strong> · Keyboard &amp; focus <strong>thin</strong> · Screen-reader semantics <strong>thin</strong> · Phone performance <strong>thin</strong> · Language <strong>thin</strong>. Reviewer counts: 0 critical · 9 high · 18 medium · 11 low. The corrected light-token table and the per-element reduced-motion table live in the review file and should be lifted verbatim.</p>
+            <p class="xref-head">Also raised here, merged into one entry elsewhere:</p><ul class="xref"><li><span class="badge badge-sev-high">high</span> Light mode ships in V1 with tokens that fail WCAG AA <span class="reviewer-source">→ Token completeness</span></li><li><span class="badge badge-sev-high">high</span> Contrast table measures the wrong surfaces and omits state-bearing pairs <span class="reviewer-source">→ Token completeness</span></li><li><span class="badge badge-sev-medium">medium</span> UI component boundaries and selected/pending states fail 3:1 (WCAG 1.4.11) in both modes <span class="reviewer-source">→ Token completeness</span></li></ul>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The Orbit Loader animation is the only "exam is running" signal</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor; § Interaction Primitives › Orbit Loader</span>
+            </header>
+            <div class="finding-note">Outside reduced-motion mode, the orbit is the only thing that says "the exam is running; the web is waiting for your file". The text "Lagi dikerjakan di Excel…" appears only as the reduced-motion fallback.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Always show a visible <code>role="status"</code> line under the orbit, e.g. "Lagi dikerjakan di Excel… Klik Selesai di file kalau sudah.", and treat the orbit as decorative (<code>aria-hidden</code>).</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Loops run forever beside interactive content with no pause (WCAG 2.2.2, Level A)</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Active pulse, Orbit Loader; DESIGN.md § Components › Streak Risk Pill</span>
+            </header>
+            <div class="finding-note">The active-node pulse rings, <code>glowBeat</code> on the phone's active node, the 2.4s Streak Risk Pill pulse and the Orbit Loader (up to 60 minutes next to Hint and Upload) never stop. Anyone without the OS reduce-motion flag has no way to pause them.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a "Reduce motion" setting (Settings › Appearance, default follows OS) and honour it everywhere. Pulses run three cycles, then settle to a static ring or border. Add a small pause control on the exam screen, or settle the orbit after ~30s.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The Results score only settles as you scroll</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Results scene vs § Component Patterns › Score Badge</span>
+            </header>
+            <div class="finding-note">The Score Badge "rotates in 3D (two full turns) as the score counts up" inside the scroll scene, so the core outcome only settles once you scroll through the stage. This contradicts the time-based Score Badge spec, and "aria-live once count-up finishes" may never fire.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Run the count-up on load, time-based and ≤1.5s, with the final score also as static text in the Results <code>&lt;h1&gt;</code>. If the scroll scene stays, make it decorative and place it after the score, the wrong answers and Tips.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Full-viewport, scroll-tied 3D rotations are vestibular triggers with only the OS flag as an off switch</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Scroll-driven 3D; DESIGN.md § Components › 3D Scroll Scene</span>
+            </header>
+            <div class="finding-note">The Level Map board goes from <code>rotateX(62°) rotateZ(−28°) translateY(120px) scale(.8)</code> to flat, the laptop rotates and opens its lid, the Excel logo turns, and the Score Badge spins 720°. All of it runs inside a 300vh sticky stage.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Drop <code>rotateZ</code>, cap tilt at ~25° and the badge at one turn, and cap the stage at ~150vh. Add a "Skip intro" link and respect the in-app Reduce motion setting. Consider playing the scene once per day and showing the static frame on later visits.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Keyboard users must page through ~3 screens of animation before reaching a Level Node</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Scroll-driven 3D "Level Map"</span>
+            </header>
+            <div class="finding-note">The 300vh sticky stage comes before the real map and has nothing focusable. If the scene's board copy is focusable or exposed, nodes are duplicated.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make the first focusable element a "Skip intro → levels" link. Mark the scene <code>aria-hidden="true"</code> and <code>inert</code> so the board copy never has focusable nodes. Optionally collapse the stage after the first view.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Count-up numbers don't expose their final value to screen readers</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Count-up; renders <code>.cu</code></span>
+            </header>
+            <div class="finding-note">No requirement exposes the final value. The renders build digits from a CSS <code>@property</code> counter in <code>::after</code>, with <code>aria-label</code> on a role-less <code>&lt;span&gt;</code>, which screen readers may read as "0" or skip. This affects the Streak Hero, Stat Cards, Score Badge and Records.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Write it into the Count-up primitive: the real final number lives in the DOM as text (visible or <code>sr-only</code>), and the animated digits are <code>aria-hidden="true"</code>.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">On phone, the Streak Hero entrance delays the streak number by ~2.5–3s</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Streak Hero entrance; DESIGN.md § Components › Streak Hero</span>
+            </header>
+            <div class="finding-note">The phone exists for the streak check (J3), yet its first screen plays a cinematic rise-and-blur entrance (40px, 8px blur, 1s, 140ms per line), a 2.2s count-up and an animated drop-shadow glow on a 190px gradient numeral. A mid-range Android is likely to drop frames.</div>
+            <div class="finding-fix"><strong>Fix:</strong> On phone (<code>max-width: 1023px</code> or <code>pointer: coarse</code>), render the final numeral immediately with at most a ≤300ms opacity fade. Use no blur, and replace the animated drop-shadow with a static, pre-baked radial gradient.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">At-risk dimming drops the streak numeral below 3:1</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns "Streak at risk"; DESIGN.md § Components › Streak Risk Pill</span>
+            </header>
+            <div class="finding-note">Opacity .85 plus saturate .55 pushes the light streak end to 2.78 on card. That is under the 3:1 large-text floor, in the very state the phone exists to show.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Dim by desaturation only and keep opacity ≥.85 against the corrected tokens (4.35 with #B93D07). Write "dims to ≥3:1" as an explicit rule.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Reduced-motion states undefined for most animated elements</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">Reduced motion is defined only for the 3D scenes, count-ups, orbit and fire. Staggered entrances, the Streak Hero rise and blur, the trail draw, pulses, chart grow, hover scale, the Drawer overshoot, the Level Callout float, Tips snap, the stage height and Exam → Results navigation have no reduced state.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add the per-element reduced-motion table from review-accessibility-motion.md §2. Examples: content at its final position with an optional ≤150ms fade; the trail fully drawn; one static ring for pulses; the stage collapses and stops being sticky; focus moves to the Results <code>&lt;h1&gt;</code> with no page transition.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Nothing guards against flashing (WCAG 2.3.1)</h3>
+              <span class="finding-location">DESIGN.md § Components › Fire Effect, Score Badge</span>
+            </header>
+            <div class="finding-note">The Fire Effect flame flicker has no frequency limit. The two-turn Score Badge alternates a large green front face and a saturated red-orange back face, and a fast scroll can scrub four face flips in under a second.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Limit flame flicker to ≤3 luminance changes per second, with low amplitude and the flame area under ~25% of the viewport. Run the badge spin on time (≥1.2s per turn, at most one turn), never scroll-scrubbed.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Level Path tab order and semantics unspecified; phone rail reverses level order</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Level Path, Level Node; render C phone <code>.vpath</code></span>
+            </header>
+            <div class="finding-note">Nothing specifies tab order or semantics for a winding SVG with 10 nodes that sits before the rail. The phone render lists the rail top-down from Under Construction to Level 1, the reverse of level order.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use DOM order Level 1 → Ujian Akhir as an <code>&lt;ol&gt;</code> of buttons inside <code>nav aria-label="Level path"</code>. Put the Level Callout's Primary Button straight after the active node, and consider a roving tabindex. On phone, keep visual and DOM order the same.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Focus rings on SVG Level Nodes aren't solved</h3>
+              <span class="finding-location">DESIGN.md § Components › Level Node; EXPERIENCE.md § Accessibility Floor (focus ring)</span>
+            </header>
+            <div class="finding-note"><code>outline</code> on SVG <code>&lt;g&gt;</code> is inconsistent across browsers. The map card's <code>overflow:hidden</code> can clip a 3px offset, and the white ring sits on green glow halos.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Draw the focus indicator as an SVG circle (r + 5, 2px <code>ring</code>) shown on <code>:focus-visible</code>, apply the hover scale on focus too, and leave room for it inside the card padding.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Sticky chrome can hide focused elements (WCAG 2.4.11)</h3>
+              <span class="finding-location">DESIGN.md § Components › Phone Dock, Header Bar, Level Callout</span>
+            </header>
+            <div class="finding-note">The pinned Phone Dock (~150px with its stats row), the sticky 68px Header Bar and the floating Level Callout can cover focused elements.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Set <code>scroll-padding-top: 68px</code> and <code>scroll-padding-bottom</code> to the dock height. Keep the Callout clear of other nodes, or close it while a different node has focus.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Hint Button focus behaviour costs points and loses focus</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Hint Button; § State Patterns "Hint quota used"</span>
+            </header>
+            <div class="finding-note">Each activation costs 5 points, so a double Enter silently takes −10. When the quota hits 0 the button is hidden and focus drops to <code>&lt;body&gt;</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> After a reveal, move focus to the new hint text (<code>tabindex="-1"</code>) or debounce for ~800ms. At quota 0, keep an <code>aria-disabled</code> button with the reason ("No hints left for this attempt.").</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">The exam screen's only actions are "small", with no size and no keyboard file path</h3>
+              <span class="finding-location">DESIGN.md § Components › Hint Button, Upload Dropzone</span>
+            </header>
+            <div class="finding-note">The Hint Button and Upload Dropzone have no stated size (WCAG 2.5.8). The Dropzone isn't specified as keyboard-operable.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make the hit area at least 24×24 CSS px (40px tall recommended on desktop), with ≥8px between them. The Dropzone is a real <code>&lt;button&gt;</code> or a labelled <code>&lt;input type="file" accept=".xlsm,.xlsx"&gt;</code> reachable by Tab and opened with Enter or Space. Dragging stays optional (2.5.7).</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Tips Carousel keyboard pattern underspecified</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Tips Carousel; § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">"Arrows move" is all the spec says. The Accessibility Floor gives Tips Cards a focus ring, which implies non-interactive cards are tab stops.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make the scroller <code>role="region" aria-roledescription="carousel" aria-label="Tips" tabindex="0"</code>. Add visible Prev/Next buttons (≥24px; ≥44px on phone) and a polite "Tip 3 of 8" status. Cards aren't tab stops, and there's no auto-advance. Use <code>scroll-margin</code> so the edge fade never hides the current card.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Auto-navigation to Results is announced unreliably</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor; § Interaction Primitives › Orbit Loader (auto-move)</span>
+            </header>
+            <div class="finding-note">Results is reached by auto-navigation, and a live region injected along with new page content is announced unreliably.</div>
+            <div class="finding-fix"><strong>Fix:</strong> On route change, set the document <code>&lt;title&gt;</code> and move focus to the Results <code>&lt;h1&gt;</code> carrying the outcome ("Skor 88/100 — Test lulus. Level 4 unlocked!"). Keep live regions for changes within a page.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No aria-live inventory</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">Without an inventory, announcements will be either missing or spammy.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Polite: hint revealed plus hints left, upload started and done, freeze used ("Streak aman — Freeze 0/2 minggu ini"), Settings saved. <code>role="alert"</code>: file rejected, Login errors. Never announce count-up ticks, the per-second Exam Timer (only at 10, 5 and 1 minutes left), Streak Risk countdown ticks or the orbit.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Decorative duplicates aren't hidden from assistive tech</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › 3D Scroll Scene</span>
+            </header>
+            <div class="finding-note">"The real map/score is always in the DOM" implies duplicate scene copies exist, but nothing says to hide them.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Mark these <code>aria-hidden="true"</code> (plus <code>inert</code> where they contain copies of controls): the 3D laptop, Excel logo, scene board and badge copies, Orbit rings, dots and centre logo, Fire Effect, glows and pulse rings, grid background, and the A–J column strip.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Some states are still colour- or shape-only</h3>
+              <span class="finding-location">DESIGN.md § Components › Week Strip, Practice Pips, Theme Toggle, Activity Chart</span>
+            </header>
+            <div class="finding-note">The Week Strip uses single-letter days, has no missed-day state, and tells done from today-done by fill alone. Practice Pips separate done, next and pending by colour and hatch. Theme Toggle selection is a fill only. The Activity Chart marks its peak and freeze day by colour.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Give each Week Strip day an accessible name ("Senin: selesai", "Rabu: freeze", "Hari ini: belum") and add a visible missed-day state. Make the "4/5 practices done" text mandatory wherever pips appear. Add <code>aria-pressed</code> to the toggle, and give the chart a text summary or table.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">"If the device struggles, show the static frame" can't be tested</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor (phone performance); .memlog.md assumption</span>
+            </header>
+            <div class="finding-note">The fallback trigger is subjective, so neither a developer nor QA can verify it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use a deterministic rule: show the static frame when <code>prefers-reduced-motion</code>, the in-app setting, <code>max-width: 1023px</code>, <code>pointer: coarse</code>, <code>saveData</code> or <code>deviceMemory ≤ 4</code> applies. Lazy-load scene assets with IntersectionObserver after the map data, and never block LCP or the first interaction.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">3D scene rendering technique and budget undecided</h3>
+              <span class="finding-location">DESIGN.md § Components › 3D Scroll Scene</span>
+            </header>
+            <div class="finding-note">CSS preserve-3d boxes, WebGL and a pre-rendered image sequence (the apple.com approach) cost very different amounts, and the spec doesn't choose.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Decide now and record a budget: a scrubbed image sequence or <code>&lt;video&gt;</code>, or CSS 3D with ≤6 layers; ≤300 KB of scene assets; 60fps on a mid-range phone; <code>will-change</code> only while the stage is in view.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Several animations repaint every frame</h3>
+              <span class="finding-location">DESIGN.md § Components › Level Callout; renders (<code>glowBeat</code>, <code>riskPulse</code>)</span>
+            </header>
+            <div class="finding-note"><code>glowBeat</code> and <code>riskPulse</code> animate <code>box-shadow</code> forever, entrances animate <code>filter: blur()</code>, and the Level Callout uses <code>backdrop-filter</code> over the map.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Animate the opacity or transform of a pseudo-element glow instead of <code>box-shadow</code>. Remove blur from entrances on phone, and drop <code>backdrop-filter</code> below lg (use a solid <code>card</code> fill).</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">No <code>lang</code> strategy for the English-chrome / Indonesian-content split</h3>
+              <span class="finding-location">EXPERIENCE.md § Voice and Tone (language split); renders line 2</span>
+            </header>
+            <div class="finding-note">Both renders ship <code>&lt;html lang="id"&gt;</code> even though the UI chrome is now English, so screen readers pronounce one language with the other's rules.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use <code>&lt;html lang="en"&gt;</code> for the chrome and <code>lang="id"</code> on every Indonesian container: question instructions, hint text, Wrong Answer reasons, Tips Card bodies, full-sentence system messages, the Orbit status line, toasts and curriculum level names.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title"><code>label</code> token is very small for meaning-carrying eyebrows</h3>
+              <span class="finding-location">DESIGN.md frontmatter <code>typography.label</code></span>
+            </header>
+            <div class="finding-note">10.5px uppercase mono passes on ratio, but it carries meaning in "YOU ARE HERE" and the Under Construction Tag.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Set an 11–12px floor, or limit 10.5px to purely decorative eyebrows.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Pass/fail must never depend on fire or glow</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns › Results</span>
+            </header>
+            <div class="finding-note">On Results, celebration versus calm is a mood, not a statement of the outcome.</div>
+            <div class="finding-fix"><strong>Fix:</strong> The Results heading always states the outcome ("Test lulus — 88/100", "Belum lulus — butuh 80"). "Level N unlocked!" renders even when the Fire Effect is skipped.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Mobile Drawer and Level Detail Panel: focus, size, name and timing</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Mobile Drawer, Level Detail Panel</span>
+            </header>
+            <div class="finding-note">Focus on open and close isn't specified. The render's drawer close button is 34px, under the 44px phone floor. The menu button lacks the v0 "Open menu" name, and close isn't faster than open as it is in v0 (500ms / 300ms).</div>
+            <div class="finding-fix"><strong>Fix:</strong> On open, focus the Sheet heading or first item; on close, return focus to the trigger. Close buttons ≥44px on phone. Name the menu button "Open menu". Close in ~0.25s with no bounce.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low) · Reference reconciliation (T8, T9)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"Use freeze" tap target is too small on phone</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Freeze Pill; § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">On phone the Pill becomes an action that spends quota, but the render pill is ~31px tall.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make it a real <code>&lt;button&gt;</code> ≥44px tall. At quota, keep it focusable with <code>aria-disabled</code> and the reason in <code>aria-describedby</code>.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Theme Toggle semantics and Activity Chart tooltip (WCAG 1.4.13)</h3>
+              <span class="finding-location">DESIGN.md § Components › Theme Toggle; EXPERIENCE.md § Component Patterns › Activity Chart</span>
+            </header>
+            <div class="finding-note">The toggle has no keyboard or semantics spec. The chart tooltip isn't dismissible, hoverable or persistent.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make the toggle a <code>radiogroup</code> or a pair of <code>aria-pressed</code> buttons. Make tooltips dismissible with Esc, hoverable and persistent; better still, add an sr-only table of the 7 days rather than making each bar a tab stop.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Glyphs and emoji read inconsistently</h3>
+              <span class="finding-location">DESIGN.md § Components › Streak Hero, Wrong Answer Row</span>
+            </header>
+            <div class="finding-note">"🔥", "✗", "✓", "❄" and menu-path arrows come out as "multiplication x", "fire" and so on.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Mark glyphs <code>aria-hidden</code> and pair each with text ("Salah", "Freeze"). Give the Hint Button a name such as "Hint, minus 5 points, 2 left".</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Small semantic gaps</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">There is no <code>aria-current</code>, no locked-reason description, no Streak Chip name and no per-surface title.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add <code>aria-current="page"</code> on the active nav item and <code>aria-current="step"</code> on the active Level Node, the locked or Test-locked reason in <code>aria-describedby</code>, the Streak Chip name "Streak 12 hari", and a <code>&lt;title&gt;</code> for every surface.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">190px phone streak numeral overflows with 3 digits</h3>
+              <span class="finding-location">DESIGN.md frontmatter <code>typography.display-streak-mobile</code></span>
+            </header>
+            <div class="finding-note">A 3-digit streak (e.g. 365) nearly fills the 358px content width and overflows at 200% text size (WCAG 1.4.10 / 1.4.4).</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use <code>font-size: clamp(96px, 48vw, 190px)</code> and test with 3-digit values.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Accessible names mix languages</h3>
+              <span class="finding-location">EXPERIENCE.md § Accessibility Floor</span>
+            </header>
+            <div class="finding-note">"Level 3, Hitung bersyarat, active, 4 of 5 practices done" mixes English and Indonesian, and an <code>aria-label</code> can't carry a partial <code>lang</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Build the name with <code>aria-labelledby</code> pointing at visible spans that each carry their own <code>lang</code>.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">English Excel terms inside Indonesian sentences</h3>
+              <span class="finding-location">EXPERIENCE.md § Voice and Tone</span>
+            </header>
+            <div class="finding-note"><code>SUMIFS</code>, <code>Data &gt; Remove Duplicates</code> and <code>Ctrl + T</code> will be pronounced with Indonesian rules.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Wrap functions in <code>&lt;code lang="en"&gt;</code>, keys in <code>&lt;kbd&gt;</code>, and menu paths in <code>&lt;kbd lang="en"&gt;</code>.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Day and date locale inconsistent</h3>
+              <span class="finding-location">DESIGN.md § Components › Week Strip</span>
+            </header>
+            <div class="finding-note">The spec says Mon–Sun, while the render shows "S S R K J S M". Live regions that carry Indonesian sentences need <code>lang="id"</code>.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Pick one locale for days and times (and the risk-countdown format). Use full day names in accessible names, and set <code>lang</code> on each live region to match its message.</div>
+            <div class="reviewer-source">Raised by: Accessibility &amp; Motion (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Spec consistency review</h2>
+          <span class="reviewer-source">review-spec-consistency.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>"<strong>Revise before handoff.</strong> The UX honours the hard product rules well: hint quota/−5/web-only, Test gate, Under Construction for Level 5–9 + Ujian Akhir, manual freeze 2/week, failed attempts counted for records, file-rejected inline on upload, upload fallback always visible, single login with no sign-up. No rule is silently inverted. The gaps are in attempt lifecycle and end states."</p><p>CAP coverage: 6 covered · 9 partial · 2 correct Under Construction · 1 missing (CAP-15). Reviewer counts: 1 critical · 6 high · 5 medium · 11 low, plus 19 spec update candidates to flow back through <code>bmad-spec</code>. That list (Tips &amp; Tricks page, History, phone as a third device, no notifications, and others) is in the review file and isn't repeated here.</p>
+            <p class="xref-head">Also raised here, merged into one entry elsewhere:</p><ul class="xref"><li><span class="badge badge-sev-high">high</span> Results lists only wrong questions, which breaks CAP-5 "every question shows its reason" <span class="reviewer-source">→ Inheritance discipline</span></li><li><span class="badge badge-sev-high">high</span> Active-attempt lifecycle undefined: no route back to a running attempt <span class="reviewer-source">→ State coverage</span></li><li><span class="badge badge-sev-high">high</span> CAP-15 co-authoring side track has no Under Construction home <span class="reviewer-source">→ Flow coverage</span></li><li><span class="badge badge-sev-medium">medium</span> No state for download failure or slow/failed grading <span class="reviewer-source">→ State coverage</span></li><li><span class="badge badge-sev-medium">medium</span> Editable streak time zone contradicts the spec's fixed-zone assumption <span class="reviewer-source">→ Inheritance discipline</span></li><li><span class="badge badge-sev-medium">medium</span> The phone can start an attempt it can never finish <span class="reviewer-source">→ State coverage</span></li><li><span class="badge badge-sev-low">low</span> In-file finish button has inconsistent names <span class="reviewer-source">→ Inheritance discipline</span></li></ul>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-critical">critical</span>
+              <h3 class="finding-title">No repeat path once items are complete: records can't be beaten and the streak dies when V1 content runs out</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Level Detail Panel, Practice Pips, Level Callout; SPEC CAP-9/10/11</span>
+            </header>
+            <div class="finding-note">The Level Detail Panel only offers "Start for the next item", Practice Pips cap at 5, and a passed Test has no retake. CAP-11 ("a faster attempt replaces the record") can never happen once an item is done. After ~24 V1 attempts (4 levels × 5 practices + 1 Test) nothing is startable, so CAP-10's daily streak cannot be kept. The spec is silent on attempts beyond 5 practices or after passing.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "Practice again" on completed practice rows and "Retake Test" on a passed Test row. Repeats count for streak and records, not for Pips or the gate. Once a level is complete, the Level Callout's Primary Button becomes "Practice again". Flow the rule back to the spec (candidate 12).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (critical)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">The in-Excel half of the bridge has no UX</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns, § State Patterns (upload rejection only); SPEC CAP-3, CAP-18</span>
+            </header>
+            <div class="finding-note">The <code>.xlsm</code> is a user-facing surface (scenario, data, perintah soal, Selesai button). Nothing covers its layout, the button label (still an Open Question), or what the macro shows on sent, send failed (offline, server down) or rejected under CAP-18 (already graded, unknown token). CAP-18 requires a rejection with a reason on the macro path too. Today the user clicks Selesai, Excel closes, and the browser keeps orbiting.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add an "In-file (.xlsm)" surface: instructions-sheet layout, button label, and MsgBox copy for sent / send failed ("Upload file lewat web, ya") / rejected (with reason). Don't close the workbook on failure. The exam screen also shows a macro-path rejection when it learns of one.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">No V1 end state after passing the Level 4 Test</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns › Results "Test passed"; § Component Patterns › Fire Effect, Level Callout</span>
+            </header>
+            <div class="finding-note">"Level N unlocked!" after the Level 4 Test announces Level 5, which CAP-1 says is Under Construction and not startable. The Dashboard Level Callout and Primary Button have no next target once all V1 levels are passed.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a "Test passed — next level under construction" variant (Fire still plays; "Level 4 done! Level 5 is under construction"). Add a Dashboard "all available levels done" state whose Callout says "Keep your streak — practise any level", with the Primary Button set to "Practice again" (ties to the critical repeat-path finding).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-high">high</span>
+              <h3 class="finding-title">Setup Guide and J0 skip where the downloaded file must live</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Setup Steps; § Key Flows › J0 steps 5–6; SPEC Assumptions; exam-bridge "File sumber"</span>
+            </header>
+            <div class="finding-note">Trusted Location only enables macros for files opened from that folder. Browser downloads land in Downloads, and Unblock is a per-file action, not the "one-time" setup CAP-16 promises. The spec assumes one fixed working folder that doubles as the Trusted Location, which Level 8 and Ujian Akhir also rely on. J0 jumps from the download (step 5) straight to Selesai working (step 6), and that jump is the CAP-16 success test.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Setup Steps name the fixed folder and add a step that makes the browser save there (or "ask where to save"). The exam screen shows a one-line folder reminder, and J0 gets a "save into folder" step. Promote the folder assumption to a V1 decision (candidate 17).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (high)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">One rejection message covers every CAP-18 reason</h3>
+              <span class="finding-location">EXPERIENCE.md § Voice and Tone; § State Patterns "File rejected"; SPEC CAP-18</span>
+            </header>
+            <div class="finding-note">The spec lists missing identity, altered, already graded and unknown, each "dengan pesan alasan". The single verbatim message ("bukan dari percobaan yang sedang berjalan") misleads for an altered or stripped token (for example a Save As <code>.xlsx</code>) and for a re-upload after a successful macro submit. Wrong file type is unhandled.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Write a small message set per reason, in the same tone. Keep the decided message for "other attempt", and add "sudah dinilai — lihat hasilnya di History", "identitas file rusak/hilang — jangan Save As ke .xlsx" and "bukan file Excel".</div>
+            <div class="reviewer-source">Raised by: Spec consistency (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Hint targeting undefined</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Hint Button; SPEC CAP-7</span>
+            </header>
+            <div class="finding-note">"Each tap reveals the next hint" means a fixed sequence per attempt, so a user stuck on question 4 may spend −5 on question 1's hint. The spec only defines quota and cost.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a hint picker by question number (or "hint for the question you're on"). Record the ordering rule in the spec (candidate 11).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Phone collapse rule hard-codes which levels are Under Construction</h3>
+              <span class="finding-location">EXPERIENCE.md § Responsive &amp; Platform; DESIGN.md § Components › Level Path</span>
+            </header>
+            <div class="finding-note">"Level 5–9 + Ujian Akhir collapsed into one Under Construction node" has to change when CAP-13 ships levels one at a time. That conflicts with the constraint "menambah level tidak boleh mengubah … UI peta level".</div>
+            <div class="finding-fix"><strong>Fix:</strong> Make it data-driven: consecutive Under Construction nodes collapse into one node.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (medium)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Tips Cards aren't tied to their question</h3>
+              <span class="finding-location">DESIGN.md § Components › Tips Card</span>
+            </header>
+            <div class="finding-note">Cards carry a level tag, title and body, but no question number or ✓/✗. CAP-8's "relevant to its task" is hard to see in a carousel that sits apart from the Wrong Answer Rows.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add "Soal N" and a status mark. Link each Wrong Answer Row to its card.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Office 2021-only rule doesn't cover Tips and hints</h3>
+              <span class="finding-location">SPEC Constraints; EXPERIENCE.md § Component Patterns › Tips Card, Hint Button</span>
+            </header>
+            <div class="finding-note">The rule covers curriculum, perintah soal and answer keys, but not Tips or hint text, so a Tip could suggest TEXTSPLIT.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Extend the rule to Tips and hint content (candidate 16).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">"Still blocked? Use Upload file" has no target without a running attempt</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Setup Steps, Upload Dropzone</span>
+            </header>
+            <div class="finding-note">Listing the Upload Dropzone under "Setup Guide link" is ambiguous.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Link to the running attempt, or explain "Upload appears on the exam screen after Start".</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Login footer link has no target; no password recovery</h3>
+              <span class="finding-location">DESIGN.md § Components › Login Card</span>
+            </header>
+            <div class="finding-note">The "small footer link" kept from the v0 import has no named target. It must not be sign-up (CAP-17), and the single account has no forgot-password path.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Specify the link (e.g. Setup Guide or app version), or drop it. Add password recovery and lockout to the spec questions (candidate 19).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low) · Reference reconciliation (L13)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Freeze copy reads as "used" while the Pill shows "remaining"</h3>
+              <span class="finding-location">EXPERIENCE.md § Key Flows › J3; § Voice and Tone; DESIGN.md § Components › Freeze Pill</span>
+            </header>
+            <div class="finding-note">"Freeze 1/2 this week" → "Freeze 0/2 this week" is ambiguous.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use "1 of 2 freezes left".</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">J0 says "Excel closes"</h3>
+              <span class="finding-location">EXPERIENCE.md § Key Flows › J0 step 6</span>
+            </header>
+            <div class="finding-note">CAP-3 closes the workbook, and closes Excel only if no other workbook is open.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Write "the workbook closes (Excel too, if nothing else is open)".</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Test retake after failure is unconfirmed in the spec</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns › Results "Test not passed"</span>
+            </header>
+            <div class="finding-note">"Try the Test again" is immediate, but the spec doesn't say whether a retake needs more practices.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Confirm immediate retake in the spec (candidate 18).</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">No "streak restarted" moment</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Streak Hero states</span>
+            </header>
+            <div class="finding-note">CAP-10 resets on a missed day, but the UX only has a zero state, with no calm message the next day.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a one-time, non-scolding message in the Streak Hero.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Header search (Ctrl K) has no spec capability behind it</h3>
+              <span class="finding-location">EXPERIENCE.md § Open Questions</span>
+            </header>
+            <div class="finding-note">It is still an open question, and the v0 Tasko search was carried over only partially.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Drop it for V1. If kept, reuse the primary focus-glow token.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low) · Reference reconciliation (T10)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">First-run Setup Guide prompt: placement and dismissal undecided</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns › Dashboard first run; § Key Flows › J0</span>
+            </header>
+            <div class="finding-note">State Patterns marks it "[ASSUMPTION — placement not decided]", but J0 asserts a rail card. Dismissal is undefined.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Decide the placement. Hide the prompt after the first graded macro submit or on manual dismiss.</div>
+            <div class="reviewer-source">Raised by: Spec consistency (low)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+    <section class="reviewer-section">
+      <details>
+        <summary>
+          <h2>Reference reconciliation</h2>
+          <span class="reviewer-source">reconcile-v0-references.md</span>
+        </summary>
+        <div class="dim-body">
+          <div class="dim-judgment">
+            <p>Read-only reconciliation of the three v0 imports against the spines. Nothing structural was silently lost. The Login look, the Tasko shell and the orbit's "waiting room" meaning all landed, and most other differences are deliberate memlog replacements. What fell through is <em>detail</em>: the login error lifecycle, motion orchestration, and the orbit's exact geometry and implementation traps.</p><p>Tally (yes / partial / replaced / dropped / n/a): Login 8 / 2 / 6 / 6 / 0 · Tasko 10 / 8 / 13 / 11 / 1 · Orbit 5 / 5 / 1 / 4 / 1. This reviewer assigns no severities. They are assigned here by downstream impact: medium where a builder would ship a defect or a contradiction, and low for dropped polish. Its "worth adding" items appear below, or are merged into another reviewer's entry where they overlap (listed under "Also raised here").</p>
+            <p class="xref-head">Also raised here, merged into one entry elsewhere:</p><ul class="xref"><li><span class="badge badge-sev-high">high</span> Active-attempt lifecycle undefined: no route back to a running attempt <span class="reviewer-source">→ State coverage</span></li><li><span class="badge badge-sev-medium">medium</span> Records Card foreground undefined; the light-mode gradient undoes the "inverted" card <span class="reviewer-source">→ Token completeness</span></li><li><span class="badge badge-sev-low">low</span> Login footer link has no target; no password recovery <span class="reviewer-source">→ Spec consistency review</span></li><li><span class="badge badge-sev-low">low</span> Header search (Ctrl K) has no spec capability behind it <span class="reviewer-source">→ Spec consistency review</span></li><li><span class="badge badge-sev-low">low</span> Mobile Drawer and Level Detail Panel: focus, size, name and timing <span class="reviewer-source">→ Accessibility &amp; Motion review</span></li></ul>
+          </div>
+        </div>
+        <div class="findings-list">
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Login error lifecycle lost from the v0 reference</h3>
+              <span class="finding-location">DESIGN.md § Components › Login Card; EXPERIENCE.md § State Patterns › Login, Toast rule</span>
+            </header>
+            <div class="finding-note">The v0 login clears its inline error on retry (<code>setError(null)</code>) and shows every cause in the same slot under the button. The spines dropped the clear. The Toast rule sends network and server errors to a toast on a page with no app shell, where it gets missed. They also don't say the button is disabled while pending, so a second Enter can fire twice.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Clear the error on resubmit or field edit (keep the username, clear the password). Show network and server failures inline in the same slot, with their own Indonesian message. State that the button is disabled while "Signing in…".</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (L7, L9, L10)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Three entrance systems with no shared timeline, plus a stagger flash defect</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Motion (staggered entrance, Streak Hero, trail draw)</span>
+            </header>
+            <div class="finding-note">The card stagger, the Streak Hero cinematic and the trail draw + node pop have no defined relative start. The v0 Tasko stagger also used <code>forwards</code> with <code>animationDelay</code>, so delayed cards flash visible and then jump. That defect should not be copied.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use one page timeline in reading order (header → Level Path → rail), capped at ~1s total. Use <code>animation-fill-mode: both</code> (or start hidden) for every staggered item.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T20, T21)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-medium">medium</span>
+              <h3 class="finding-title">Orbit implementation traps from the v0 SVG</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Orbit Loader; DESIGN.md § Components › Orbit Loader</span>
+            </header>
+            <div class="finding-note">The v0 orbit is pure CSS inside an SVG loaded as <code>&lt;img&gt;</code>, with hard-coded black and white. It can't read app tokens or the class-based theme toggle. Its rotation depends on the viewBox transform box: under <code>fill-box</code>, the dots spin in place and look frozen. It also sets the dot radius with CSS <code>r</code>, which older Safari ignores, so the dots vanish.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Inline the SVG as a component so it can use tokens and reduced motion. Keep the viewBox centred at 50,50 with <code>transform-box: view-box</code>, and set <code>r</code> as an attribute.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (O13, O14, O15)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Signed-in visitor on <code>/login</code> isn't redirected</h3>
+              <span class="finding-location">EXPERIENCE.md § State Patterns (global)</span>
+            </header>
+            <div class="finding-note">Only "signed out → Login" exists. The v0 shows a signed-in visitor the welcome state instead of the form.</div>
+            <div class="finding-fix"><strong>Fix:</strong> <code>/login</code> with a live session redirects to Dashboard.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (L17)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Login entrance timings dropped</h3>
+              <span class="finding-location">EXPERIENCE.md § Key Flows › J0 step 1; DESIGN.md § Brand &amp; Style (easing)</span>
+            </header>
+            <div class="finding-note">"Fades and slides up" survives without the v0's two-layer timings, and Login has no easing assigned.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Column 0.5s fade with 10px rise, form block 0.4s with 20px rise, cinematic easing.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (L15)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Sidebar hover nudge dropped</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Motion; DESIGN.md § Components › App Sidebar</span>
+            </header>
+            <div class="finding-note">The memlog noted "hover geser kanan" from v0, but the spines don't have it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Inactive nav items shift 4px right on hover over 300ms. The active item doesn't move.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T5)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">↗ arrow chip for navigating cards dropped</h3>
+              <span class="finding-location">DESIGN.md § Components › Records Card; History "View all"</span>
+            </header>
+            <div class="finding-note">The memlog lists "ikon panah berputar 45°", but the spines don't have it.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add the chip, rotating 45° on hover, to clickable cards only (Records Card, History "View all"). Read-only Stat Cards stay without it.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T18)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Hover scale applied to large containers</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Motion (card hover)</span>
+            </header>
+            <div class="finding-note">"Lift 2px + scale 1.02" applies to all Cards, and a 640px card at 1.02 jumps. The v0 scales only small cards.</div>
+            <div class="finding-fix"><strong>Fix:</strong> No scale on large containers (Level Path card, Streak Hero, Results panels); use the glow border only. Scale small clickable cards and nodes.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T19)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Clickable rows have no hover state</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › History List, Records, Level Detail Panel rows</span>
+            </header>
+            <div class="finding-note">The v0 list rows change background and nudge their icon on hover. The spines dropped this.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use a <code>muted</code> background on hover plus a small icon scale. Skip the v0's 12° rotation.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T36)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Activity Chart polish dropped</h3>
+              <span class="finding-location">EXPERIENCE.md § Component Patterns › Activity Chart</span>
+            </header>
+            <div class="finding-note">Dropped from v0: the Average + Peak footer, the full day name in the tooltip, the hovered-bar brighten, and turning off Recharts' grey hover band, which shows on dark.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Add a footer such as "Avg 1.4/day · Peak Wed 4", a full-day tooltip, a brighten-plus-glow on hover and focus, and turn the cursor band off.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T28, T29, T30)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Count-up duration only defined for the streak</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Count-up</span>
+            </header>
+            <div class="finding-note">Only the Streak count-up (~2.2s) has a duration. The v0's +1 per 30ms means a score of 100 would take 3s.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Use a fixed duration (~1s, cinematic) for every count-up whatever the value.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T33)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Secondary pages have no entrance spec</h3>
+              <span class="finding-location">EXPERIENCE.md § Interaction Primitives › Motion</span>
+            </header>
+            <div class="finding-note">Motion covers Dashboard only.</div>
+            <div class="finding-fix"><strong>Fix:</strong> History, Records, Tips &amp; Tricks, Setup Guide and Settings use a single 0.2s fade with an 8px drop. The stagger stays on Dashboard only.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T38)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">No tablet tier</h3>
+              <span class="finding-location">EXPERIENCE.md § Responsive &amp; Platform</span>
+            </header>
+            <div class="finding-note">"Below lg → one column" leaves md–lg as one long rail.</div>
+            <div class="finding-fix"><strong>Fix:</strong> At md–lg, show the rail cards 2-up.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (T23)</div>
+          </article>
+          <article class="finding">
+            <header>
+              <span class="badge badge-sev-low">low</span>
+              <h3 class="finding-title">Orbit geometry survives only as ranges</h3>
+              <span class="finding-location">DESIGN.md § Components › Orbit Loader; EXPERIENCE.md § Interaction Primitives › Orbit Loader</span>
+            </header>
+            <div class="finding-note">Only ranges landed ("2–10% opacity", "14s–44s", "6 small dots"). The exact radii, per-ring opacity, one dot per ring, per-ring periods, start angles, direction, dot styling and centre-logo size were dropped. Without start angles the dots begin in a line on first paint.</div>
+            <div class="finding-fix"><strong>Fix:</strong> Radii 49/40/30/20/15/10; opacity 2/3/4/4/8/10% (inner brightest); one dot per ring at 44/40/36/14/16/15s; start angles 0/90/180/0/270/90°; clockwise. Use ~5px solid <code>foreground</code> dots with a <code>border</code>-colour hairline, and a centre tile ≤40px inside the r10 ring.</div>
+            <div class="reviewer-source">Raised by: Reference reconciliation (O5, O6, O7, O8, O9, O11, O12)</div>
+          </article>
+        </div>
+      </details>
+    </section>
+
+    <div class="mechanical">
+      <h3>Mechanical notes</h3>
+      <ul>
+        <li><code>sources</code> resolves for both spines. Both are <code>status: draft</code>, <code>updated: 2026-10-22</code>. DESIGN frontmatter adds <code>status</code>, <code>updated</code> and <code>sources</code>, which are outside the Google spec but harmless.</li>
+        <li>Token refs: 0 unresolved across both files. 56 color tokens, every one with a <code>-light</code> pair. The memlog "104 tokens" figure counts differently from the 233 frontmatter leaves and is not an error.</li>
+        <li>The contrast table was re-measured by both the rubric walker and Accessibility &amp; Motion. Stated values match to within 0.1; the missing and mis-surfaced pairs are in the contrast-table finding.</li>
+        <li>Component names: 35/35 identical in DESIGN § Components and EXPERIENCE § Component Patterns; the frontmatter uses kebab-case equivalents for 20 of them.</li>
+        <li>The finish-button term is inconsistent ("Selesai" vs "in-file finish button").</li>
+        <li>The spines-win-on-conflict statement appears once per spine. That is acceptable, though the rubric expects it once overall.</li>
+        <li><code>fontWeight: '850'</code> falls back to 700/800 on the Arial and Roboto fallbacks. This only matters off Windows and Apple devices.</li>
+        <li>There are no Mermaid diagrams. The imports are zipped (<code>animation-page.zip</code>, <code>dashboard-page.zip</code>, <code>login-page.zip</code>).</li>
+      </ul>
+    </div>
+
+    <footer class="report-footer">
+      <div class="meta">
+        <span>Rubric: D:\Document\Excel Practice\_bmad-output\planning-artifacts\ux-designs\ux-excel-practice-2026-10-22\review-rubric.md</span>
+        <span>DESIGN.md: D:\Document\Excel Practice\_bmad-output\planning-artifacts\ux-designs\ux-excel-practice-2026-10-22\DESIGN.md</span>
+        <span>EXPERIENCE.md: D:\Document\Excel Practice\_bmad-output\planning-artifacts\ux-designs\ux-excel-practice-2026-10-22\EXPERIENCE.md</span>
+        <span>Generated: 2026-10-22T14:14:26+07:00</span>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
