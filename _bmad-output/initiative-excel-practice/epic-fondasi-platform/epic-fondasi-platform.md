@@ -6,6 +6,7 @@ covers: [CAP-17]
 after: []
 assignee: ""
 risk: high
+status: in-progress
 ---
 
 # Fondasi platform dan bukti jembatan Excel
@@ -56,5 +57,6 @@ Platform baseline + bukti jembatan Excel. Bukan: siklus percobaan, Start/Finish 
 - Decision: tracer bullet = entry 1 (scaffold ter-deploy ke Production); entry 2–4 (spike) dan 5–8 (platform) adalah dua jalur paralel; entry 9 menyatukannya (2026-10-23).
 - Decision: Refactor sweep (entry 10) dipakai di akhir epic (user, 2026-10-23).
 - Decision: bila S1 atau S2 gagal, fallback adapter WorkbookIO Python/openpyxl lewat Vercel Services; spine diperbarui lewat `bmad-architecture` (2026-10-23).
+- Decision: versi seed dari entry 1, dipin di `package.json`: Next.js 16.4.2, React 19.3.1, TypeScript `^5` (terpasang 5.9.3; dipin starter, bukan 7.x), Tailwind CSS 4.3.3, `@supabase/ssr` 0.12.7, `@supabase/supabase-js` 2.118.0, `eslint-config-next` 16.4.2, ESLint `^9` (`eslint-plugin-react` 7.37.5 belum mendukung ESLint 10), Node.js 24.x (2026-10-23).
 - Unknown: apakah Supabase Before User Created hook berjalan untuk sign-up Google OAuth; entry 7 membuktikannya, cek `ALLOWED_EMAIL` di callback tetap wajib.
 - Unknown: apakah PC kantor mengizinkan Excel mengirim lewat HTTPS; S3 hanya menguji laptop, PC kantor diuji di epic 2 (upload tetap jalur cadangan).

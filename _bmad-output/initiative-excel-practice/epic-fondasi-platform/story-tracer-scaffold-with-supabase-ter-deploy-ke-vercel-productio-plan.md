@@ -3,7 +3,7 @@ title: 'Tracer: scaffold with-supabase ter-deploy ke Vercel Production'
 type: 'chore'
 ticket: '1'
 created: '2026-10-23'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
