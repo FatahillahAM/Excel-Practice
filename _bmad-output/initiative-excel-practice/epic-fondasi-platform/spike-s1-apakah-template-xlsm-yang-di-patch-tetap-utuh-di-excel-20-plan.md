@@ -3,12 +3,12 @@ title: 'S1: Apakah template .xlsm yang di-patch tetap utuh di Excel 2021?'
 type: 'feature'
 ticket: '2'
 created: '2026-10-23'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '295610272f9112689f1c020d27059e4b59049cf3'
 context:
