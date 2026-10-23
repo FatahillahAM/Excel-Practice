@@ -92,7 +92,8 @@ typography:
   # System stacks only (no web font) — as rendered in directions B and C.
   display-streak:
     fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif'
-    fontSize: 232px
+    # Fluid: ≈153px in the ±300px Dashboard rail at 1280, full 232px on wide screens.
+    fontSize: clamp(120px, 12vw, 232px)
     fontWeight: '800'
     lineHeight: '0.82'
     letterSpacing: -0.07em
@@ -169,10 +170,13 @@ spacing:
   page-padding: 32px
   page-padding-mobile: 16px
   card-padding: 16px
-  hero-padding: 44px
+  # Streak Hero panel padding in the Dashboard rail.
+  hero-padding: 24px
   grid-gap: 20px
   rail-gap: 14px
   map-column: 640px
+  results-column: 880px
+  panel-width: 430px
   orbit-size: 320px
   orbit-logo: 40px
   button-height: 44px
@@ -293,6 +297,11 @@ components:
     background: '{colors.warning-soft}'
     radius: '{rounded.md}'
     height: '{spacing.exam-control-height}'
+  hint-select:
+    background: '{colors.card}'
+    border: '{colors.input-border}'
+    radius: '{rounded.md}'
+    height: '{spacing.exam-control-height}'
   upload-dropzone:
     border: '{colors.input-border}'
     drag-over-border: '{colors.primary}'
@@ -337,6 +346,7 @@ A one-person Excel gym with the swagger of an apple.com product page. Dark "back
 
 - **UI system:** shadcn/ui on Next.js + Tailwind. All unlisted shadcn components keep their defaults; this file lists the deltas.
 - **Composition:** structure from direction C "Level Journey" (Level Path as dashboard hero + right stats rail) — [.working/direction-c-level-journey.html](.working/direction-c-level-journey.html); giant fire-gradient streak numeral, phone first screen and streak-at-risk look from direction B "Hero Streak" — [.working/direction-b-hero-streak.html](.working/direction-b-hero-streak.html). Direction A ([.working/direction-a-tasko-dark.html](.working/direction-a-tasko-dark.html)) is the not-chosen dense Tasko-style alternative; use it only for its rendered focus ring.
+- **Key-screen mocks** (1:1, dark default with light and reduced-motion toggles): [mockups/key-dashboard.html](mockups/key-dashboard.html) · [mockups/key-exam.html](mockups/key-exam.html) · [mockups/key-results.html](mockups/key-results.html) · [mockups/key-level-map.html](mockups/key-level-map.html). They supersede the direction renders where they differ; the spines still win over the mocks.
 - **Spreadsheet DNA:** the Level Path sits on a faint Excel grid (column letters A–J header, cell lines in `{colors.border}` at 45%). Logo = sheet/grid glyph on a `{colors.primary}` tile with green glow.
 - **Motion register (visual level only; timing, triggers and reduced-motion states in `EXPERIENCE.md`):** two easings, never mixed on one element.
   - *Bouncy* `cubic-bezier(.34,1.56,.64,1)` — game-like objects: Level Nodes popping, buttons, small-card hover, drawer opening.
@@ -415,7 +425,7 @@ System font stacks only (Segoe UI Variable on the Windows laptop/office PC, SF o
 
 | Token | Where |
 |---|---|
-| `display-streak` / `display-streak-mobile` | Streak Hero numeral only (desktop 232px; phone fluid `clamp(96px, 48vw, 190px)` so 3-digit streaks fit) |
+| `display-streak` / `display-streak-mobile` | Streak Hero numeral only (desktop fluid `clamp(120px, 12vw, 232px)`, ≈153px in the rail at 1280; phone fluid `clamp(96px, 48vw, 190px)`; 3-digit streaks fit both) |
 | `display-lg` | Score Badge / Results score, large stat callouts |
 | `headline` | Page title ("Dashboard", "Level Map", …), Results `<h1>` |
 | `stat-hero` | Big value inside rail cards |
@@ -431,12 +441,14 @@ System font stacks only (Segoe UI Variable on the Windows laptop/office PC, SF o
 Tailwind 4-based scale inherited. Named tokens in frontmatter.
 
 - **Desktop shell (≥ lg):** fixed App Sidebar `{spacing.sidebar-width}` + sticky Header Bar `{spacing.header-height}` + content padded `{spacing.page-padding}`.
-- **Dashboard grid:** two columns — Level Path card at `{spacing.map-column}` + stats rail (`1fr`, cards stacked with `{spacing.rail-gap}`). Rail order: Attempt Card (only while an attempt is open) → Streak Hero → Setup Guide prompt (first run only) → 2-up Stat Cards (last score, Ujian Akhir 0/5) → Records Card → Activity Chart → History List.
+- **Dashboard grid:** two columns — Level Path card at `{spacing.map-column}` + stats rail (`1fr`, cards stacked with `{spacing.rail-gap}`). Rail order: Attempt Card (only while an attempt is open) → Streak Hero → Setup Guide prompt (first run only) → 2-up Stat Cards (last score, Ujian Akhir 0/5) → Records Card → Activity Chart → History List. Above the grid: page title + one-line status ("Level 3 — Hitung bersyarat · 1 practice until the Test"), no action buttons — Start lives in the Level Callout. — [mockups/key-dashboard.html](mockups/key-dashboard.html)
 - **Tablet (md–lg):** one column; rail cards 2-up.
 - **Phone (390):** gutter `{spacing.page-padding-mobile}`; Streak Hero numeral fills screen one; Attempt Card directly below it when present; Level Path becomes a vertical rail; Phone Dock pinned to the bottom. Every Primary Button below `sm` is full width.
 - **Level Path card:** column-letter header strip, grid background, winding trail Level 1 → Ujian Akhir, Level Callout anchored to the active node; card padding leaves room for the node focus ring.
-- **Level Map:** 3D Scroll Scene stage (≤150vh) above the Level Path; the CAP-15 side-track node sits beside the main path, off the trail.
-- **Exam in progress:** single centered column — Orbit Loader, Exam Status Line, then Hint Button and Upload Dropzone side by side (≥8px apart; stacked on phone).
+- **Level Map:** title row → 3D Scroll Scene stage (≤150vh) → Level Path card at full content width (column strip A–O). The CAP-15 side-track node sits right of the main path, off the trail, joined to Level 8 (Lintas file) by a dashed spur. Final scene frame: laptop left, map board center, Excel logo right. Level Detail Panel: `{spacing.panel-width}` Sheet on desktop. — [mockups/key-level-map.html](mockups/key-level-map.html)
+- **Exam in progress:** single centered column — Orbit Loader, Exam Status Line, then the hint group (Hint Select + Hint Button) and Upload Dropzone side by side (≥8px apart; stacked on phone); revealed hint below them; Setup Guide link last. No visible page heading. — [mockups/key-exam.html](mockups/key-exam.html)
+- **Results:** single centered column `{spacing.results-column}`: Outcome panel (Score Badge in a 200px column on the left with the deduction line under it; label, `<h1>`, correct count, time + "New record", action on the right) → Wrong Answer Rows → Tips Carousel. — [mockups/key-results.html](mockups/key-results.html)
+- **App Sidebar on Exam in progress and Results:** no item is active (neither is a menu item).
 
 ## Elevation & Depth
 
@@ -474,15 +486,15 @@ Brand layer:
 | Theme Toggle | Segmented sun/moon pair in a `{colors.card}` well; selected segment = filled icon + 2px `{colors.primary}` ring. |
 | Primary Button | See frontmatter `primary-button`. Label `body` weight 700. Disabled: `{colors.muted}` fill, `{colors.muted-foreground}` label, no edge, no glow; reason line in `caption` `{colors.muted-foreground}` below. Outline/ghost/secondary inherit shadcn. |
 | Stat Card | `{colors.card}`, `label` key with icon, `stat-value` value, `caption` meta. Hover: `{colors.glow}` border (+ lift/scale only when clickable). |
-| Streak Hero | `{rounded.xl}` panel, `{colors.streak-glow}` radial glow (static, pre-baked on phone). Numeral `display-streak` with vertical gradient `{colors.warning}` → `{colors.streak}` + drop glow `{colors.streak-glow-strong}` (desktop only); unit "day streak" + decorative flame icon; Freeze Pill; Week Strip. At risk: numeral desaturated (opacity ≥.85, stays ≥3:1). Restarted: one-line message in `body` `{colors.muted-foreground}`. |
+| Streak Hero | `{rounded.xl}` panel, padding `{spacing.hero-padding}`, `{colors.streak-glow}` radial glow (static, pre-baked on phone). Numeral `display-streak` with vertical gradient `{colors.warning}` → `{colors.streak}` + drop glow `{colors.streak-glow-strong}` (desktop only); unit "day streak" + decorative flame icon; Freeze Pill; Week Strip. At risk: numeral desaturated (opacity ≥.85, stays ≥3:1). Restarted: one-line message in `body` `{colors.muted-foreground}`. |
 | Freeze Pill | `{colors.chart-2}` text + snowflake icon on `{colors.freeze-soft}` fill with `{colors.chart-2}` hairline, `{rounded.full}`: "1 of 2 freezes left". **Use freeze** (at risk): same fill, 1.5px solid `{colors.chart-2}` border, label "Use freeze", real button ≥ `{spacing.touch-target}` tall on phone. **Disabled**: `{colors.input-border}` border, `{colors.muted-foreground}` text, reason `caption` below. |
-| Week Strip | 7 circular day dots, English initials M–S. Done = `{colors.streak-soft}` fill + streak text; today done = solid `{colors.streak}` with `{colors.primary-foreground}` check; frozen = dashed `{colors.chart-2}` border + snowflake; missed = `{colors.input-border}` outline + "–"; today pending = "?" in `{colors.muted-foreground}`. |
+| Week Strip | 7 circular day dots, English initials M–S, always Mon–Sun. Done = `{colors.streak-soft}` fill + streak text; today done = solid `{colors.streak}` with `{colors.primary-foreground}` check; frozen = dashed `{colors.chart-2}` border + snowflake; missed = `{colors.input-border}` outline + "–"; today pending = "?" in `{colors.muted-foreground}`; future day = empty circle, 1px `{colors.border}` line, no glyph, initial in `{colors.muted-foreground}`. |
 | Level Path | Grid-backed SVG; base trail dotted `{colors.border}` (decorative); completed trail solid `{colors.primary}` with green drop-glow; ends in Ujian Akhir flag. Phone: vertical rail, Level 1 at top; consecutive Under Construction nodes collapse into one node. |
 | Level Node | Circle with level number. Variants (frontmatter): passed (accent fill, primary stroke, check), active (primary fill, larger numeral, two pulse rings, "YOU ARE HERE" in `label`/primary), locked (card fill, lock icon), under construction (hatched `{colors.uc-hatch}`, dashed warning stroke). Side track (CAP-15, Level Map only): under-construction variant labelled "Co-authoring", joined to the path by a dashed `{colors.border}` spur, never on the trail. Focus: SVG circle r + 5, 2px `{colors.ring}`, plus the hover scale. Label beside node: level name in `title` + status in `caption`. |
 | Level Callout | Floating card at the active node; `{colors.glow}` border; "Active level" key, level name, Practice Pips + "x/5 practices done", Primary Button, lock line for Test. All levels done: "Level 4 complete — Level 5 is coming soon" + "Practice again". |
 | Practice Pips | 5 segments: done `{colors.primary}`; next = diagonal hatch of `{colors.glow}`; pending = `{colors.card}` with 1.5px `{colors.muted-foreground}` outline. Always paired with "x/5 practices done" text. |
 | Under Construction Tag | Uppercase mono, `{colors.warning}` text + border, cone icon. Cards in this state: dashed warning border + 7% warning stripes. |
-| Level Detail Panel | shadcn `Sheet` (right on desktop, bottom on phone): level header, 5 practice rows (status, best score, record time, "Start Practice N" or "Practice again"), Test row (locked / open / passed + "Practice again"), Primary Button. Rows hover `{colors.muted}`. |
+| Level Detail Panel | shadcn `Sheet` (right on desktop at `{spacing.panel-width}`, bottom on phone with a grab handle): level header (label "Level N · Active", level name in `headline`, curriculum functions in mono `caption`), Practice Pips + "x/5 practices done", 5 practice rows (status, best score, record time, "Start Practice N" or "Practice again"), Test row (locked / open / passed + "Practice again"), Primary Button. Rows hover `{colors.muted}`. |
 | Activity Chart | 7 rounded bars (from [imports/dashboard-page.zip](imports/dashboard-page.zip)); non-peak `{colors.accent}` with primary inner line, peak `{colors.primary}` + glow; hovered/focused bar brightens + glow; empty/freeze day = 6px `{colors.chart-2}` outline stub; no grey hover band; tooltip inverted (`{colors.foreground}` fill, `{colors.background}` text) with full day name + count; footer `caption` "Avg 1.4/day · Peak Wed 4" with peak in `{colors.primary}`. |
 | Records Card | Inverted card, dark in both modes (from [imports/dashboard-page.zip](imports/dashboard-page.zip) timer card): gradient `{colors.records-surface}` → `{colors.records-surface-end}`, text and mono digits `{colors.records-foreground}`, colon and dashed row hairlines `{colors.records-accent}`; ↗ arrow chip top-right. |
 | History List | Rows: attempt name + level (`body`), score right (`stat-value`); Test rows carry a "passed" Badge; row hover `{colors.muted}` + icon scale. "View all" carries the ↗ arrow chip. |
@@ -492,16 +504,17 @@ Brand layer:
 | Attempt Card | `{colors.card}`, `{colors.glow}` border, `{rounded.lg}`: "Attempt in progress" key in `label`, attempt name + elapsed time (`stat-value`), Primary Button "Resume" + outline "Abandon". |
 | Orbit Loader | From [imports/animation-page.zip](imports/animation-page.zip), built as an inline SVG component (not `<img>`), `{spacing.orbit-size}`, viewBox 0 0 100 100 centered 50,50. 6 rings r 49/40/30/20/15/10, stroke 0.3 units `{colors.foreground}` at 2/3/4/4/8/10% opacity (inner brightest). One dot per ring: ~5px (r 0.75, set as attribute) solid `{colors.foreground}` at full opacity with a hairline outline in `{colors.border}`. Center: app logo tile `{colors.primary}` ≤ `{spacing.orbit-logo}`, inside the r10 ring. Pause/play ghost icon button (≥ `{spacing.target-min}`) at the bottom-right of the stage. Decorative (`aria-hidden`). |
 | Exam Status Line | Under the Orbit Loader, centered: line 1 `body` `{colors.foreground}` "Excel is open — Practice 5 · 12:34" (time in mono tabular); line 2 `body` `{colors.muted-foreground}` Indonesian instruction; then "Download didn't start? Download again" link in `{colors.primary}`. Grading: line 1 reads "File received — grading…". |
-| Hint Button | Under the status line: `{colors.warning-soft}` fill, warning text "Hint (−5)" + "2 left", height `{spacing.exam-control-height}`. Revealed hint: block below in `{colors.card}` with 3px `{colors.warning}` left border, "Hint 1" in `label` warning, text `body` `{colors.foreground}`. Quota used: `{colors.muted}` fill, `{colors.muted-foreground}` "No hints left". |
+| Hint Select | Left of the Hint Button: shadcn `Select` showing "Soal N", `{colors.card}` fill, `{colors.input-border}` boundary, `{rounded.md}`, height `{spacing.exam-control-height}`. |
+| Hint Button | Under the status line, right of the Hint Select: `{colors.warning-soft}` fill, warning text "Hint (−5)" + "2 left" (mono, after a hairline divider), height `{spacing.exam-control-height}`. Pending: spinner replaces the bulb icon, 70% opacity. Revealed hint: block below in `{colors.card}` with 3px `{colors.warning}` left border, "Hint 1" in `label` warning, text `body` `{colors.foreground}`. Quota used: `{colors.muted}` fill, `{colors.muted-foreground}` "No hints left". |
 | Upload Dropzone | Beside the Hint Button: dashed `{colors.input-border}`, upload icon, `caption` "Upload file (.xlsm)", min height `{spacing.exam-control-height}`. Drag-over: `{colors.primary}` border + `{colors.glow-soft}`. Uploading: `{colors.primary}` progress bar on `{colors.muted}` + percentage. Received: `{colors.success}` check + "File received". Rejected: `{colors.destructive-soft}` fill, `{colors.destructive}` border, "✗" + message in `{colors.foreground}`. |
 | Exam Timer | **Next (CAP-14)** — Ujian Akhir only: mono `stat-value` "mm:ss left" in `{colors.muted-foreground}`, replacing the elapsed time in the Exam Status Line. |
 | Exam Workbook | The `.xlsm` (Excel's own light theme). First sheet "Instructions": attempt name as title, scenario paragraph, numbered perintah soal; **Finish** button = Excel shape at the top right, fill `{colors.primary-light}`, label `{colors.primary-foreground-light}`, two rows tall. Data on following sheets. Macro messages are native Excel message boxes (no styling). |
-| Score Badge | Coin-like disc: front face `{colors.primary}` with score in `display-lg`, back face `{colors.streak}`; real 3D rotation (one turn), glow `{colors.glow-strong}`. Low-score and History variants: no glow, flat. |
+| Score Badge | Coin-like disc (168px): front face `{colors.primary}` with score in `display-lg` + "/100" in `label`, back face `{colors.streak}` with flame; real 3D rotation (one turn), glow `{colors.glow-strong}`. Low-score and History variants: flat `{colors.muted}` face, `{colors.foreground}` score, 2px `{colors.input-border}` ring, no glow. |
 | Wrong Answer Row | `{colors.destructive-soft}` fill, destructive "✗" + "Soal N", reason text in `body` `{colors.foreground}`, "See tip" link to its Tips Card. |
 | Tips Card | `{colors.card}`, `{rounded.lg}`; level tag, "Soal N" + status mark (✓ `{colors.success}` / ✗ `{colors.destructive}`, each with text), title, Indonesian body, shortcut keys in `kbd-tips`. |
 | Tips Carousel | Horizontal row of Tips Cards with snap; edge fade into `{colors.background}`; Prev/Next icon buttons (≥ `{spacing.target-min}`, ≥ `{spacing.touch-target}` on phone); "Tip 3 of 8" in `caption`. |
 | Fire Effect | Flames `{colors.warning}` → `{colors.streak-vivid}` rising behind the Score Badge with `{colors.streak-glow-strong}` haze; flame area ≤25% of the viewport; Test passed only. |
-| 3D Scroll Scene | Sticky stage (≤150vh) on `{colors.card}` with green radial haze. Level Map objects: 3D laptop (black lid, screen shows the app), 3D Excel logo, map board (tilt ≤25°, no Z spin). Results objects: the Wrong Answer Rows and Tips Carousel lifting in with a light 3D tilt. Phone: transform/opacity only, no blur, no `backdrop-filter`. |
+| 3D Scroll Scene | Sticky stage (≤150vh) on `{colors.card}` with green radial haze. Level Map objects: 3D laptop (black lid, dark deck with keyboard and trackpad, screen shows the app), 3D Excel logo (stand-in tile until the asset question is settled), map board (tilt ≤25°, no Z spin); final frame places laptop left, board center, logo right. Results objects: the Wrong Answer Rows and Tips Carousel lifting in with a light 3D tilt. Phone: transform/opacity only, no blur, no `backdrop-filter`. |
 | Setup Steps | Numbered shadcn `Card` list; step number in a `{colors.primary}` circle; the fixed working folder path and Excel menu paths in `kbd` style (e.g. `File > Options > Trust Center`). |
 | Toast | shadcn Sonner; destructive variant for failures. |
 | Kbd | `{colors.muted}` fill, `{colors.input-border}` border with 2px bottom, `kbd` type. |
@@ -517,7 +530,7 @@ Brand layer:
 | Reserve the Fire Effect for Test passed | Celebrate a low score — low score is calm, no glow, no red |
 | Use `{colors.input-border}` for any boundary that marks a control | Rely on `{colors.border}` or `{colors.muted}` alone to show a control or a state |
 | Keep `{colors.streak-vivid}` for flames and decoration | Put text on `{colors.streak-vivid}` |
-| Cap 3D tilt at ~25° and the Score Badge at one turn | Spin, Z-rotate or scroll-scrub large objects |
+| Cap 3D tilt at ~25° and the Score Badge at one turn | Spin or Z-rotate large objects, or scroll-scrub an outcome (score, badge, pass/fail) |
 | Animate glows via a pseudo-element's opacity/transform | Animate `box-shadow` or `filter: blur()` in loops |
 | Write Excel menus and functions exactly as English Excel shows them (`Data > Remove Duplicates`, `SUMIFS`) | Translate Excel names into Indonesian |
 | Show "El Zavier" / "EZ" for the user | Ship renderer placeholder names ("Fatahillah", "FA") |

@@ -20,7 +20,7 @@
                     · Key Flows J1 steps 2-3, J2 steps 3-4 + failure
    Source of the orbit geometry: imports/animation-page.zip (v0 orbit), rebuilt inline per DESIGN.md.
    Hint targeting: decision "(a) El Zavier picks the question" (memlog) — rendered as a shadcn
-   Select left of the Hint Button [ASSUMPTION, logged].
+   Select left of the Hint Button; label "Soal N" confirmed by the user.
    Inline CSS, system fonts, no JS, no network.
    ===================================================================== */
 :root{
@@ -416,7 +416,7 @@ html:has(#rm:checked) *,html:has(#rm:checked) *::before,html:has(#rm:checked) *:
 <footer class="docfoot" lang="id">
   <b>Catatan render:</b>
   <ul>
-    <li><b>Pemilih soal untuk hint</b> digambar sebagai shadcn <code>Select</code> ("Soal 3") di kiri Hint Button — komponen ini belum ada di tabel Component Patterns; nama accessible "Hint for Soal 3, minus 5 points, 2 left". Perlu konfirmasi: label <i>Soal</i> (sama dengan Results/Tips) atau <i>Question</i>.</li>
+    <li><b>Pemilih soal untuk hint:</b> shadcn <code>Select</code> ("Soal 3") di kiri Hint Button; nama accessible "Hint for Soal 3, minus 5 points, 2 left". Label <i>Soal N</i> dikonfirmasi user (sama dengan Results/Tips).</li>
     <li>Sidebar tidak punya item aktif karena Exam in progress bukan item menu. Spine belum menyebut ini secara eksplisit.</li>
     <li>Tidak ada judul halaman yang terlihat (h1 hanya untuk pembaca layar) supaya orbit tetap jadi fokus — sesuai keputusan "animasi di tengah sebagai fokus".</li>
     <li>Exam Timer (Ujian Akhir, Next) tidak dirender.</li>
