@@ -20,6 +20,12 @@ Siapa membuat apa dalam setiap soal, dan kapan. Dirujuk oleh CAP-6, CAP-13, CAP-
 
 Runtime via Claude API butuh API key (disimpan di server) dan biaya kecil per ujian.
 
+## Bahasa
+
+- Cerita, perintah soal, keterangan soal salah, hint, dan kartu Tips: bahasa Indonesia santai, menyapa *kamu*.
+- Nama menu, tab, fungsi, dan shortcut Excel ditulis persis seperti Excel berbahasa Inggris (mis. `Data > Remove Duplicates`, `SUMIFS`, `Ctrl + T`).
+- Keterangan menyebut sel, fungsi, dan alasan yang tepat (bukan "jawaban salah"). Contoh dan pesan lengkap: `EXPERIENCE.md` › Voice and Tone.
+
 ## Domain data
 
 Produksi, maintenance, kaizen (improvement), time study, kapasitas gudang (warehouse / finished goods). Tidak ada data generik (penjualan toko, nilai siswa).

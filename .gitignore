@@ -16,3 +16,17 @@ desktop.ini
 .env
 .env.*
 .claude/settings.local.json
+!.env.example
+
+# Next.js / Vercel
+/.next/
+/out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+*.pem
+npm-debug.log*
+
+# BMad render output (regenerated per run)
+_bmad/render/

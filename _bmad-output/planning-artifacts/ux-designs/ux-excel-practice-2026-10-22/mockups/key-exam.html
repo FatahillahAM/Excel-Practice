@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key screen · Exam in progress</title>
+<style>
+/* =====================================================================
+   KEY SCREEN 2/4 — EXAM IN PROGRESS (+ file rejected)
+   Governing spine sections (spines win on conflict with this mock):
+     DESIGN.md      Layout & Spacing (Exam in progress: single centered column) · Components:
+                    Orbit Loader, Exam Status Line, Hint Button, Upload Dropzone, Primary Button,
+                    Header Bar, App Sidebar · Colors (warning = hints/deductions, destructive =
+                    rejection, success = file received) · Do's and Don'ts
+     EXPERIENCE.md  IA (Exam in progress) · Component Patterns: Orbit Loader, Exam Status Line,
+                    Hint Button, Upload Dropzone · State Patterns (Exam in progress: waiting,
+                    hint opened, hint quota used, uploading, file rejected, grading, grading
+                    slow, grading failed) · Voice and Tone (system message set) · Interaction
+                    Primitives (Orbit) · Accessibility Floor (live regions, targets ≥40px / 8px apart)
+                    · Key Flows J1 steps 2-3, J2 steps 3-4 + failure
+   Source of the orbit geometry: imports/animation-page.zip (v0 orbit), rebuilt inline per DESIGN.md.
+   Hint targeting: decision "(a) El Zavier picks the question" (memlog) — rendered as a shadcn
+   Select left of the Hint Button; label "Soal N" confirmed by the user.
+   Inline CSS, system fonts, no JS, no network.
+   ===================================================================== */
+:root{
+  --background:#0B0D0C;--foreground:#F5F7F6;--card:#151917;--muted:#1C211E;--muted-foreground:#8E9993;
+  --border:#262D29;--input-border:#5F6B64;--primary:#34D17F;--primary-foreground:#04140B;--accent:#12301F;
+  --success:#4ADE80;--destructive:#FF5C6C;--warning:#FFC34D;--streak:#FF7A1A;--streak-vivid:#FF7A1A;
+  --chart-1:#34D17F;--chart-2:#2DD4BF;--chart-3:#A3E635;--ring:#F5F7F6;
+  --success-soft:#1C3526;--destructive-soft:#362223;--warning-soft:#36311F;--streak-soft:#362717;--freeze-soft:#18332F;
+  --uc-hatch:#3F3821;--primary-edge:#1F8A52;
+  --glow-soft:#34D17F29;--glow:#34D17F59;--glow-strong:#34D17FB3;--streak-glow:#FF7A1A38;--streak-glow-strong:#FF7A1A73;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,monospace;
+  --bounce:cubic-bezier(.34,1.56,.64,1);--cine:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+html:has(#light:checked){
+  --background:#F5F5F7;--foreground:#1D1D1F;--card:#FFFFFF;--muted:#EDEDF0;--muted-foreground:#636368;
+  --border:#D9D9DE;--input-border:#86868B;--primary:#107C41;--primary-foreground:#FFFFFF;--accent:#E3F6EB;
+  --success:#137535;--destructive:#BE233B;--warning:#8F5200;--streak:#B93D07;--streak-vivid:#F2600C;
+  --chart-1:#107C41;--chart-2:#0B7473;--chart-3:#4D7C0F;--ring:#1D1D1F;
+  --success-soft:#DEECE3;--destructive-soft:#F6E0E4;--warning-soft:#EFE7DB;--streak-soft:#F5E4DC;--freeze-soft:#DDECEB;
+  --uc-hatch:#EBE0D1;--primary-edge:#0A512A;
+  --glow-soft:#13A35A29;--glow:#13A35A59;--glow-strong:#13A35AB3;--streak-glow:#F2600C38;--streak-glow-strong:#F2600C73;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--background);color:var(--foreground);font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+svg.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+code{font-family:var(--mono);font-size:.92em;background:var(--muted);border-radius:5px;padding:0 4px}
+
+/* ---------- Presentation wrapper (not product UI) ---------- */
+.doc{max-width:1360px;margin:0 auto;padding:40px 16px 0}
+.eyebrow{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--primary)}
+.doc h1{font-size:44px;letter-spacing:-.03em;margin:8px 0 10px;font-weight:850}
+.doc .why{max-width:860px;color:var(--muted-foreground);font-size:16px;margin:0}
+.doc .why b{color:var(--foreground)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{border:1px solid var(--border);background:var(--card);border-radius:8px;padding:5px 10px;font:12px var(--mono);color:var(--muted-foreground)}
+.chip b{color:var(--foreground);font-weight:600}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.ctl label{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--input-border);border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:600}
+.ctl input{accent-color:var(--primary);width:16px;height:16px}
+.sec{max-width:1360px;margin:0 auto;padding:48px 16px 0}
+.sec>h2{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 16px;display:flex;align-items:center;gap:10px}
+.sec>h2::before{content:"▸";color:var(--primary)}
+.sec>p.note{color:var(--muted-foreground);max-width:860px;margin:-6px 0 16px}
+.dag{color:var(--warning);font-weight:700}
+.docfoot{max-width:1360px;margin:0 auto;padding:56px 16px 64px;color:var(--muted-foreground);font-size:13px}
+.docfoot li{margin:4px 0}
+.docfoot b{color:var(--foreground)}
+
+/* ---------- Browser frame ---------- */
+.stage{overflow-x:auto;padding-bottom:8px}
+.browser{width:1280px;margin:0 auto;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--background);box-shadow:0 40px 120px -40px rgba(0,0,0,.6)}
+.bbar{height:40px;background:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 14px}
+.dots{display:flex;gap:7px}.dots i{width:11px;height:11px;border-radius:50%;background:var(--input-border);opacity:.5;display:block}
+.url{flex:1;max-width:460px;margin:0 auto;height:24px;border-radius:7px;background:var(--background);border:1px solid var(--border);color:var(--muted-foreground);font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+@media (max-width:1340px){.browser{zoom:.86}}
+@media (max-width:1130px){.browser{zoom:.7}}
+@media (max-width:920px){.browser{zoom:.52}}
+@media (max-width:700px){.browser{zoom:.28}}
+
+/* ---------- App shell ---------- */
+.app{display:flex;min-height:860px}
+.sb{width:256px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;box-shadow:0 6px 18px -4px var(--glow-strong)}
+.logo svg{width:20px;height:20px;stroke-width:2.2}
+.brand b{display:block;font-size:13px;letter-spacing:.04em;line-height:1.1;font-weight:800}
+.brand span{display:block;font-size:11px;color:var(--primary);font-weight:700;letter-spacing:.02em}
+.grp{font:700 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin:18px 12px 8px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:var(--muted-foreground);text-decoration:none;font-weight:550;transition:background .2s,color .2s,transform .3s}
+.nav a:hover{background:var(--muted);color:var(--foreground);transform:translateX(4px)}
+.nav .cnt{margin-left:auto;font:11px var(--mono);background:var(--muted);color:var(--muted-foreground);border-radius:6px;padding:1px 6px}
+.xp{margin-top:auto;border-radius:16px;padding:14px;background:var(--muted);border:1px solid var(--border)}
+.xp small{font:700 11px var(--mono);color:var(--muted-foreground);letter-spacing:.1em;text-transform:uppercase}
+.xp b{display:block;font-size:15px;margin:4px 0 8px}
+.xpbar{height:8px;border-radius:99px;background:var(--background);overflow:hidden;box-shadow:inset 0 0 0 1px var(--border)}
+.xpbar i{display:block;height:100%;width:22%;background:linear-gradient(90deg,var(--primary),var(--chart-3));border-radius:99px}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.hd{height:68px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 32px}
+.hd .sp{flex:1}
+.streakchip{display:flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:12px;background:var(--streak-soft);color:var(--streak);font:800 16px var(--mono)}
+.streakchip svg.ic{width:16px;height:16px}
+.theme{display:flex;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px}
+.theme i{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--muted-foreground)}
+.theme i.on{background:var(--muted);color:var(--foreground);box-shadow:inset 0 0 0 2px var(--primary)}
+.theme i.on svg.ic{fill:currentColor}
+.av{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--chart-3));color:var(--primary-foreground);display:grid;place-items:center;font-weight:800}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;font:700 14px var(--font);border:1px solid transparent;text-decoration:none;cursor:pointer;transition:transform .25s var(--bounce),box-shadow .25s;white-space:nowrap}
+.btn svg.ic{width:16px;height:16px}
+.btn.pri{background:var(--primary);color:var(--primary-foreground);box-shadow:0 4px 0 0 var(--primary-edge),0 14px 30px -12px var(--glow-strong)}
+.btn.pri:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 0 0 var(--primary-edge),0 0 0 4px var(--glow-soft),0 18px 36px -8px var(--glow-strong)}
+.link{color:var(--primary);font-weight:700;text-decoration:none}
+.link:hover{text-decoration:underline}
+
+/* ---------- Exam column ---------- */
+.exam{flex:1;display:flex;flex-direction:column;align-items:center;padding:28px 32px 40px}
+.col{width:600px;display:flex;flex-direction:column;align-items:center}
+.ostage{position:relative;width:320px;height:320px}
+.orbit{width:320px;height:320px;display:block;color:var(--foreground)}
+.orbit .ring{fill:none;stroke:currentColor;stroke-width:.3}
+.orbit .dot{fill:var(--foreground);stroke:var(--border);stroke-width:.15}
+.orbit .o{transform-box:view-box;transform-origin:50% 50%;animation:orbit linear infinite}
+.orbit .o1{animation-duration:44s}.orbit .o2{animation-duration:40s}.orbit .o3{animation-duration:36s}
+.orbit .o4{animation-duration:14s}.orbit .o5{animation-duration:16s}.orbit .o6{animation-duration:15s}
+@keyframes orbit{to{transform:rotate(360deg)}}
+.orbit .ctr{fill:var(--primary)}
+.orbit .ctrglow{fill:var(--glow-soft)}
+.orbit .ctric{fill:none;stroke:var(--primary-foreground);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.pp{position:absolute;right:0;bottom:6px;width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:var(--muted-foreground);background:transparent;border:1px solid transparent;cursor:pointer}
+.pp:hover{background:var(--muted);color:var(--foreground)}
+.pp svg.ic{width:16px;height:16px}
+.status{text-align:center;margin-top:18px}
+.status .l1{font-size:15px;font-weight:600;color:var(--foreground)}
+.status .l1 b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:700}
+.status .l2{color:var(--muted-foreground);margin-top:4px}
+.status .l3{margin-top:8px;font-size:13px;color:var(--muted-foreground)}
+.ctrls{display:flex;gap:12px;align-items:stretch;width:100%;margin-top:26px}
+.hintgrp{display:flex;gap:8px;flex:none}
+.sel{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 10px 0 12px;border-radius:12px;background:var(--card);border:1px solid var(--input-border);color:var(--foreground);font:600 14px var(--font);cursor:pointer;min-width:104px;justify-content:space-between}
+.sel svg.ic{width:14px;height:14px;color:var(--muted-foreground)}
+.hintbtn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px;border-radius:12px;background:var(--warning-soft);color:var(--warning);border:0;font:700 14px var(--font);cursor:pointer;white-space:nowrap}
+.hintbtn svg.ic{width:16px;height:16px}
+.hintbtn small{font:700 12px var(--mono);opacity:.9;border-left:1px solid color-mix(in srgb,var(--warning) 40%,transparent);padding-left:8px}
+.hintbtn.off{background:var(--muted);color:var(--muted-foreground);cursor:not-allowed}
+.hintbtn.pend{opacity:.7;cursor:progress}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.drop{flex:1;min-height:40px;border:1.5px dashed var(--input-border);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--muted-foreground);font-size:13px;font-weight:600;padding:0 14px;cursor:pointer;background:transparent;font-family:var(--font)}
+.drop svg.ic{width:16px;height:16px}
+.drop:hover{border-color:var(--primary);color:var(--foreground)}
+.drop.over{border-color:var(--primary);border-style:solid;background:var(--glow-soft);color:var(--foreground)}
+.drop.up{flex-direction:column;align-items:stretch;gap:6px;padding:8px 14px;border-style:solid;border-color:var(--input-border);cursor:default}
+.drop.up .row{display:flex;justify-content:space-between;font-size:12px;color:var(--foreground)}
+.drop.up .row b{font-family:var(--mono)}
+.bar{height:6px;border-radius:99px;background:var(--muted);overflow:hidden}
+.bar i{display:block;height:100%;width:64%;background:var(--primary);border-radius:99px}
+.drop.ok{border-style:solid;border-color:var(--success);background:var(--success-soft);color:var(--success);cursor:default}
+.drop.rej{flex-direction:column;align-items:stretch;gap:8px;padding:12px 14px;border:1.5px solid var(--destructive);background:var(--destructive-soft);color:var(--foreground);cursor:default;text-align:left}
+.drop.rej .msg{display:flex;gap:8px;font-size:14px;font-weight:500;line-height:1.45}
+.drop.rej .x{color:var(--destructive);font-weight:800;flex:none}
+.drop.rej .again{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;height:40px;padding:0 12px;border-radius:10px;border:1.5px dashed var(--input-border);color:var(--foreground);font-weight:600;font-size:13px;background:var(--card)}
+.revealed{width:100%;margin-top:14px;background:var(--card);border:1px solid var(--border);border-left:3px solid var(--warning);border-radius:12px;padding:12px 14px;outline:none}
+.revealed .lab{display:flex;align-items:center;justify-content:space-between;font:700 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--warning)}
+.revealed p{margin:6px 0 0;color:var(--foreground)}
+.revealed.focus{box-shadow:0 0 0 2px var(--background),0 0 0 4px var(--ring)}
+.help{margin-top:22px;font-size:13px;color:var(--muted-foreground);display:flex;align-items:center;gap:6px}
+.help svg.ic{width:14px;height:14px}
+
+/* ---------- Crop + states ---------- */
+.crop{max-width:760px;margin:0 auto;border:1px solid var(--border);border-radius:14px;background:var(--background);padding:28px 24px 34px;display:flex;justify-content:center;box-shadow:0 40px 120px -40px rgba(0,0,0,.6)}
+.crop .ostage,.crop .orbit{width:220px;height:220px}
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;align-items:start}
+.state>small{display:block;font:700 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin-bottom:10px}
+.state .card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.state .lbl{font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted-foreground)}
+.state p{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.msgline{font-size:14px;color:var(--muted-foreground);text-align:center}
+.failmsg{font-size:14px;color:var(--destructive);text-align:center;font-weight:600}
+.rejlist{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.rejlist li{background:var(--destructive-soft);border-radius:10px;padding:8px 10px;font-size:13px;display:grid;gap:2px}
+.rejlist li b{font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--destructive)}
+
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+html:has(#rm:checked) *,html:has(#rm:checked) *::before,html:has(#rm:checked) *::after{animation:none!important;transition:none!important}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-9-1.5 2-2 3.5-2 5-1.5-1-2.5-3-2.5-5C7 8 5 11.5 5 15c0 4.3 3 7 7 7z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+</svg>
+
+<header class="doc" lang="id">
+  <div class="eyebrow">Key screen 2/4 · WORKING HARD with EXCEL</div>
+  <h1>Exam in progress</h1>
+  <p class="why"><b>Orbit jadi fokus, kontrol tetap ada.</b> Saat El Zavier mengerjakan soal di Excel, web hanya menampilkan Orbit Loader yang tenang. Di bawahnya: Exam Status Line (waktu sejak Start + instruksi), lalu Hint Button dengan pemilih soal dan Upload Dropzone berdampingan. State kanonik = <b>J1 langkah 3</b>: Practice 5 Level 3, satu hint sudah dibuka untuk Soal 3, sisa 2. Bagian kedua = <b>J2 gagal</b>: di PC kantor, file lama ditolak.</p>
+  <div class="chips">
+    <span class="chip">Orbit: <b>320px · 6 cincin · periode 44/40/36/14/16/15 s</b></span>
+    <span class="chip">Kontrol: <b>tinggi 40px · jarak ≥8px</b></span>
+    <span class="chip">Live region: <b>hint/upload polite · penolakan alert</b></span>
+  </div>
+  <div class="ctl">
+    <label><input type="checkbox" id="light"> Mode terang (token AA)</label>
+    <label><input type="checkbox" id="rm"> Reduce motion (orbit diam)</label>
+  </div>
+</header>
+
+<!-- ================= CANONICAL ================= -->
+<section class="sec">
+  <h2>Desktop · 1280px · J1 langkah 3 · hint dibuka untuk Soal 3</h2>
+  <div class="stage">
+  <div class="browser">
+    <div class="bbar"><div class="dots"><i></i><i></i><i></i></div><div class="url"><svg class="ic" style="width:12px;height:12px"><use href="#i-lock"/></svg>workinghard-excel.app/exam/practice-5</div><div style="width:47px"></div></div>
+    <div class="app">
+      <aside class="sb">
+        <div class="brand"><div class="logo"><svg class="ic"><use href="#i-sheet"/></svg></div><div><b>WORKING HARD</b><span>with EXCEL</span></div></div>
+        <div class="grp">Menu</div>
+        <nav class="nav" aria-label="Menu">
+          <a href="#"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</a>
+          <a href="#"><svg class="ic"><use href="#i-map"/></svg>Level Map<span class="cnt">L3</span></a>
+          <a href="#"><svg class="ic"><use href="#i-hist"/></svg>History</a>
+          <a href="#"><svg class="ic"><use href="#i-trophy"/></svg>Records</a>
+          <a href="#"><svg class="ic"><use href="#i-bulb"/></svg>Tips &amp; Tricks</a>
+          <a href="#"><svg class="ic"><use href="#i-book"/></svg>Setup Guide</a>
+        </nav>
+        <div class="grp">General</div>
+        <nav class="nav" aria-label="General">
+          <a href="#"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+          <a href="#"><svg class="ic"><use href="#i-out"/></svg>Log out</a>
+        </nav>
+        <div class="xp"><small>Curriculum</small><b>2 of 9 levels passed</b><div class="xpbar"><i></i></div></div>
+      </aside>
+
+      <div class="main">
+        <header class="hd">
+          <div class="sp"></div>
+          <div class="streakchip" aria-label="12-day streak"><svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg>12</div>
+          <div class="theme" role="group" aria-label="Theme"><i aria-pressed="false"><svg class="ic"><use href="#i-sun"/></svg></i><i class="on" aria-pressed="true"><svg class="ic"><use href="#i-moon"/></svg></i></div>
+          <div class="av">EZ</div>
+        </header>
+
+        <main class="exam">
+          <h1 class="sr">Practice 5 — Level 3, in progress</h1>
+          <div class="col">
+            <div class="ostage">
+              <svg class="orbit" viewBox="0 0 100 100" aria-hidden="true">
+                <circle class="ring" cx="50" cy="50" r="49" stroke-opacity=".02"/>
+                <circle class="ring" cx="50" cy="50" r="40" stroke-opacity=".03"/>
+                <circle class="ring" cx="50" cy="50" r="30" stroke-opacity=".04"/>
+                <circle class="ring" cx="50" cy="50" r="20" stroke-opacity=".04"/>
+                <circle class="ring" cx="50" cy="50" r="15" stroke-opacity=".08"/>
+                <circle class="ring" cx="50" cy="50" r="10" stroke-opacity=".10"/>
+                <g class="o o1"><g transform="rotate(0 50 50)"><circle class="dot" cx="50" cy="1" r=".75"/></g></g>
+                <g class="o o2"><g transform="rotate(90 50 50)"><circle class="dot" cx="50" cy="10" r=".75"/></g></g>
+                <g class="o o3"><g transform="rotate(180 50 50)"><circle class="dot" cx="50" cy="20" r=".75"/></g></g>
+                <g class="o o4"><g transform="rotate(0 50 50)"><circle class="dot" cx="50" cy="30" r=".75"/></g></g>
+                <g class="o o5"><g transform="rotate(270 50 50)"><circle class="dot" cx="50" cy="35" r=".75"/></g></g>
+                <g class="o o6"><g transform="rotate(90 50 50)"><circle class="dot" cx="50" cy="40" r=".75"/></g></g>
+                <circle class="ctrglow" cx="50" cy="50" r="9"/>
+                <rect class="ctr" x="43.75" y="43.75" width="12.5" height="12.5" rx="3.4"/>
+                <svg x="45.6" y="45.6" width="8.8" height="8.8" viewBox="0 0 24 24"><g class="ctric"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18"/></g></svg>
+              </svg>
+              <button class="pp" type="button" aria-label="Pause animation" title="Pause animation"><svg class="ic"><use href="#i-pause"/></svg></button>
+            </div>
+
+            <div class="status" role="status">
+              <div class="l1">Excel is open — Practice 5 · <b>12:34</b></div>
+              <div class="l2" lang="id">Klik Finish di file kalau sudah selesai, ya.</div>
+              <div class="l3">Download didn't start? <a class="link" href="#">Download again</a></div>
+            </div>
+
+            <div class="ctrls">
+              <div class="hintgrp">
+                <span class="sel" role="combobox" aria-label="Hint for" aria-expanded="false"><span lang="id">Soal 3</span><svg class="ic"><use href="#i-chev"/></svg></span>
+                <button class="hintbtn" type="button" aria-label="Hint for Soal 3, minus 5 points, 2 left"><svg class="ic"><use href="#i-bulb"/></svg>Hint (−5)<small>2 left</small></button>
+              </div>
+              <button class="drop" type="button"><svg class="ic"><use href="#i-upload"/></svg>Upload file (.xlsm)</button>
+            </div>
+
+            <div class="revealed focus" tabindex="-1">
+              <div class="lab"><span>Hint 1 · <span lang="id">Soal 3</span></span><span>−5</span></div>
+              <p lang="id">Pakai <code lang="en">SUMIFS</code> dengan dua kriteria: kolom Region dan kolom Bulan. Urutan argumennya <code lang="en">sum_range</code> dulu, baru pasangan <code lang="en">criteria_range</code> + <code lang="en">criteria</code>.</p>
+            </div>
+
+            <div class="help"><svg class="ic"><use href="#i-book"/></svg>Finish not working? <a class="link" href="#">Setup Guide</a> <span class="dag">†</span></div>
+          </div>
+        </main>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ================= REJECTED (J2) ================= -->
+<section class="sec">
+  <h2>J2 gagal · PC kantor · file lama ditolak (CAP-18)</h2>
+  <p class="note" lang="id">Potongan kolom tengah pada lebar asli (orbit diperkecil hanya untuk potongan ini). Macro diblokir, El Zavier memilih file lama dari Downloads. Pesan tampil di dalam Dropzone sebagai <code>role="alert"</code>; percobaan tetap terbuka dan Dropzone langsung siap menerima file yang benar.</p>
+  <div class="crop">
+    <div class="col">
+      <div class="ostage">
+        <svg class="orbit" viewBox="0 0 100 100" aria-hidden="true">
+          <circle class="ring" cx="50" cy="50" r="49" stroke-opacity=".02"/><circle class="ring" cx="50" cy="50" r="40" stroke-opacity=".03"/><circle class="ring" cx="50" cy="50" r="30" stroke-opacity=".04"/><circle class="ring" cx="50" cy="50" r="20" stroke-opacity=".04"/><circle class="ring" cx="50" cy="50" r="15" stroke-opacity=".08"/><circle class="ring" cx="50" cy="50" r="10" stroke-opacity=".10"/>
+          <g class="o o1"><g transform="rotate(0 50 50)"><circle class="dot" cx="50" cy="1" r=".75"/></g></g><g class="o o2"><g transform="rotate(90 50 50)"><circle class="dot" cx="50" cy="10" r=".75"/></g></g><g class="o o3"><g transform="rotate(180 50 50)"><circle class="dot" cx="50" cy="20" r=".75"/></g></g><g class="o o4"><g transform="rotate(0 50 50)"><circle class="dot" cx="50" cy="30" r=".75"/></g></g><g class="o o5"><g transform="rotate(270 50 50)"><circle class="dot" cx="50" cy="35" r=".75"/></g></g><g class="o o6"><g transform="rotate(90 50 50)"><circle class="dot" cx="50" cy="40" r=".75"/></g></g>
+          <circle class="ctrglow" cx="50" cy="50" r="9"/><rect class="ctr" x="43.75" y="43.75" width="12.5" height="12.5" rx="3.4"/>
+          <svg x="45.6" y="45.6" width="8.8" height="8.8" viewBox="0 0 24 24"><g class="ctric"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18"/></g></svg>
+        </svg>
+        <button class="pp" type="button" aria-label="Pause animation"><svg class="ic"><use href="#i-pause"/></svg></button>
+      </div>
+      <div class="status" role="status">
+        <div class="l1">Excel is open — Practice 5 · <b>08:15</b></div>
+        <div class="l2" lang="id">Klik Finish di file kalau sudah selesai, ya.</div>
+        <div class="l3">Download didn't start? <a class="link" href="#">Download again</a></div>
+      </div>
+      <div class="ctrls" style="align-items:flex-start">
+        <div class="hintgrp">
+          <span class="sel"><span lang="id">Soal 1</span><svg class="ic"><use href="#i-chev"/></svg></span>
+          <button class="hintbtn" type="button" aria-label="Hint for Soal 1, minus 5 points, 3 left"><svg class="ic"><use href="#i-bulb"/></svg>Hint (−5)<small>3 left</small></button>
+        </div>
+        <div class="drop rej" role="alert">
+          <div class="msg"><span class="x" aria-hidden="true">✗</span><span lang="id">File ini bukan dari percobaan yang sedang berjalan. Upload file yang kamu unduh waktu klik Start, ya.</span></div>
+          <span class="again"><svg class="ic"><use href="#i-upload"/></svg>Upload file (.xlsm)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STATES ================= -->
+<section class="sec">
+  <h2>State kontrol &amp; status yang belum pernah dirender</h2>
+  <p class="note" lang="id">Komponen pada ukuran asli. Teks bertanda <span class="dag">†</span> = contoh, belum diputuskan di memlog.</p>
+  <div class="states">
+    <div class="state"><small>Hint Button</small>
+      <div class="card">
+        <span class="lbl">Tersedia</span>
+        <div class="hintgrp"><span class="sel"><span lang="id">Soal 3</span><svg class="ic"><use href="#i-chev"/></svg></span><button class="hintbtn" type="button"><svg class="ic"><use href="#i-bulb"/></svg>Hint (−5)<small>3 left</small></button></div>
+        <span class="lbl">Menunggu server (anti double-Enter)</span>
+        <div class="hintgrp"><span class="sel"><span lang="id">Soal 3</span><svg class="ic"><use href="#i-chev"/></svg></span><button class="hintbtn pend" type="button" disabled><span class="spin" aria-hidden="true"></span>Hint (−5)<small>3 left</small></button></div>
+        <span class="lbl">Jatah habis</span>
+        <div class="hintgrp"><span class="sel"><span lang="id">Soal 6</span><svg class="ic"><use href="#i-chev"/></svg></span><button class="hintbtn off" type="button" aria-disabled="true"><svg class="ic"><use href="#i-bulb"/></svg>No hints left</button></div>
+      </div>
+      <p lang="id">Setelah hint terbuka, fokus pindah ke teks hint (lihat cincin fokus di mock utama). Ujian Akhir: tidak ada Hint Button.</p>
+    </div>
+
+    <div class="state"><small>Upload Dropzone</small>
+      <div class="card">
+        <span class="lbl">Siap</span>
+        <button class="drop" type="button"><svg class="ic"><use href="#i-upload"/></svg>Upload file (.xlsm)</button>
+        <span class="lbl">Drag-over</span>
+        <div class="drop over"><svg class="ic"><use href="#i-upload"/></svg>Drop to upload <span class="dag">†</span></div>
+        <span class="lbl">Uploading</span>
+        <div class="drop up" role="status"><div class="row"><span>Uploading…</span><b>64%</b></div><div class="bar"><i></i></div></div>
+        <span class="lbl">Diterima</span>
+        <div class="drop ok" role="status"><svg class="ic" style="stroke-width:2.6"><use href="#i-check"/></svg>File received</div>
+      </div>
+      <p lang="id">Orbit tetap berjalan selama upload. "Uploading" dan "File received" diumumkan polite.</p>
+    </div>
+
+    <div class="state"><small>Exam Status Line · penilaian</small>
+      <div class="card">
+        <span class="lbl">Grading</span>
+        <div class="status" style="margin:0"><div class="l1">File received — grading…</div></div>
+        <span class="lbl">Grading lambat</span>
+        <div class="status" style="margin:0"><div class="l1">File received — grading…</div><div class="l2" lang="id">Penilaian agak lama, tunggu sebentar ya.</div></div>
+        <span class="lbl">Grading gagal</span>
+        <div class="failmsg" role="alert" lang="id">Penilaian gagal. Coba lagi, ya — file kamu aman.</div>
+        <a class="btn pri" href="#" style="align-self:center"><svg class="ic"><use href="#i-refresh"/></svg>Try again</a>
+      </div>
+      <p lang="id">Selesai dinilai → pindah sendiri ke Results (fade singkat, fokus ke <code>&lt;h1&gt;</code>). Batas waktu "lambat" diatur di arsitektur.</p>
+    </div>
+
+    <div class="state"><small>Penolakan file · 4 alasan + bukan Excel</small>
+      <div class="card">
+        <ul class="rejlist" lang="id">
+          <li><b lang="en">Not this attempt</b>File ini bukan dari percobaan yang sedang berjalan. Upload file yang kamu unduh waktu klik Start, ya.</li>
+          <li><b lang="en">Already graded</b>File ini sudah dinilai. Hasilnya ada di History, ya.</li>
+          <li><b lang="en">Identity altered / damaged</b>Identitas file ini rusak atau berubah. Pakai file .xlsm asli dari Start dan jangan Save As ke format lain, ya.</li>
+          <li><b lang="en">Attempt closed</b>Percobaan ini sudah ditutup, jadi file-nya nggak bisa dinilai. Mulai percobaan baru, ya.</li>
+          <li><b lang="en">Not an Excel file</b>Ini bukan file Excel. Pilih file .xlsm dari percobaan ini, ya.</li>
+        </ul>
+      </div>
+      <p lang="id">Semua tampil di slot Dropzone yang sama (gaya "ditolak"). Hanya "Attempt closed" yang menutup percobaan.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot" lang="id">
+  <b>Catatan render:</b>
+  <ul>
+    <li><b>Pemilih soal untuk hint:</b> shadcn <code>Select</code> ("Soal 3") di kiri Hint Button; nama accessible "Hint for Soal 3, minus 5 points, 2 left". Label <i>Soal N</i> dikonfirmasi user (sama dengan Results/Tips).</li>
+    <li>Sidebar tidak punya item aktif karena Exam in progress bukan item menu. Spine belum menyebut ini secara eksplisit.</li>
+    <li>Tidak ada judul halaman yang terlihat (h1 hanya untuk pembaca layar) supaya orbit tetap jadi fokus — sesuai keputusan "animasi di tengah sebagai fokus".</li>
+    <li>Exam Timer (Ujian Akhir, Next) tidak dirender.</li>
+  </ul>
+</footer>
+</body>
+</html>

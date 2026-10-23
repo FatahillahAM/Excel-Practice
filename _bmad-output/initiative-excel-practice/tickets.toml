@@ -1,0 +1,56 @@
+# Epic initiative-excel-practice, urutan build. id tidak pernah dipakai ulang.
+
+[[epic]]
+id = 1
+slug = "epic-fondasi-platform"
+title = "Fondasi platform dan bukti jembatan Excel"
+covers = ["CAP-17"]
+
+[[epic]]
+id = 2
+slug = "epic-percobaan-kiriman-file"
+title = "Percobaan dan kiriman file"
+covers = ["CAP-2", "CAP-3", "CAP-4", "CAP-16", "CAP-18", "CAP-20"]
+after = [{ epic = 1, needs = "scaffold, environment, login, adapter WorkbookIO pilihan spike S2, dan template exam.v1.xlsm" }]
+
+[[epic]]
+id = 3
+slug = "epic-penilaian-hasil-tips"
+title = "Penilaian, hasil, dan Tips"
+covers = ["CAP-5", "CAP-7", "CAP-8", "CAP-21"]
+after = [{ epic = 2, needs = "kontrak LevelModule, snapshot percobaan, dan file berstatus received" }]
+
+[[epic]]
+id = 4
+slug = "epic-progres-streak-dashboard"
+title = "Progres, streak, dan Dashboard"
+covers = ["CAP-1", "CAP-9", "CAP-10", "CAP-11", "CAP-12", "CAP-19"]
+after = [{ epic = 3, needs = "percobaan berstatus graded dengan Result tersimpan" }]
+
+[[epic]]
+id = 5
+slug = "epic-konten-level-1-4"
+title = "Konten Level 1–4"
+covers = ["CAP-6"]
+after = [{ epic = 3, needs = "pemeriksa rumus di core dan penilaian yang memakai poin per soal" }]
+
+[[epic]]
+id = 6
+slug = "epic-level-5-9"
+title = "Level 5–9 (Next)"
+covers = ["CAP-13"]
+after = [{ epic = 5, needs = "pola modul level yang sudah terbukti di Level 1–4" }]
+
+[[epic]]
+id = 7
+slug = "epic-ujian-akhir"
+title = "Ujian Akhir (Next)"
+covers = ["CAP-14"]
+after = [{ epic = 6, needs = "Level 9 dan penilaian Pivot" }]
+
+[[epic]]
+id = 8
+slug = "epic-jalur-co-authoring"
+title = "Jalur co-authoring (Next)"
+covers = ["CAP-15"]
+after = [{ epic = 4, needs = "node side track Under Construction di Level Map" }]

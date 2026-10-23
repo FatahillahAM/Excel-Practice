@@ -1,6 +1,6 @@
 # Jembatan Exam
 
-Bagaimana web dan Excel desktop terhubung untuk latihan, Test, dan Ujian Akhir. Dirujuk oleh CAP-2, CAP-3, CAP-4, CAP-5, CAP-7, CAP-16, CAP-17, CAP-18.
+Bagaimana web dan Excel desktop terhubung untuk latihan, Test, dan Ujian Akhir. Dirujuk oleh CAP-2, CAP-3, CAP-4, CAP-5, CAP-7, CAP-16, CAP-17, CAP-18, CAP-19, CAP-20. Layar dan pesan per state: `EXPERIENCE.md`.
 
 Browser tidak bisa membuka Excel desktop lalu mendeteksi saat Excel ditutup, jadi dibutuhkan jembatan.
 
@@ -9,7 +9,7 @@ Browser tidak bisa membuka Excel desktop lalu mendeteksi saat Excel ditutup, jad
 | Opsi | Status | Alasan |
 |---|---|---|
 | A. Aplikasi pendamping lokal (buka Excel, deteksi tutup, nilai, kirim) | Ditolak | Paling mirip impian awal (Excel tertutup otomatis), tetapi butuh instalasi; berisiko di PC kantor. |
-| B. File `.xlsm` + tombol *Selesai* (macro) | **Jalur utama** | Tanpa instalasi; tombol membuat titik akhir timer jelas dan adil. |
+| B. File `.xlsm` + tombol *Finish* (macro) | **Jalur utama** | Tanpa instalasi; tombol membuat titik akhir timer jelas dan adil. |
 | C. Unduh lalu upload manual | **Cadangan** | Jalan di mana saja, termasuk saat macro diblokir. |
 | D. Office Add-in (panel web di dalam Excel) | Tidak dilanjutkan | Disebut di awal diskusi, tidak masuk pilihan akhir. |
 
@@ -20,23 +20,27 @@ sequenceDiagram
     actor U as User
     participant W as Web (server)
     participant X as Excel desktop
-    U->>W: Mulai (latihan / Test)
+    U->>W: Start (latihan / Test / Practice again)
     W->>W: generator buat data + kunci; ambil skenario; catat waktu mulai; sematkan identitas percobaan
-    W-->>U: unduh file soal .xlsm
-    U->>X: buka & kerjakan
+    W-->>U: unduh file soal .xlsm (sheet Instructions + data + tombol Finish)
+    U->>X: simpan di folder kerja, buka & kerjakan
     opt butuh bantuan
-        U->>W: buka hint di web (−5 poin, dalam jatah level, dicatat untuk percobaan ini)
+        U->>W: pilih soal, buka hint di web (−5 poin, satu jatah, dicatat untuk percobaan ini)
     end
     alt Jalur B — macro aktif
-        U->>X: tombol Selesai
+        U->>X: tombol Finish
         X->>X: simpan file
         X->>W: kirim file (mis. HTTP POST dari VBA)
-        X->>X: tutup workbook; tutup Excel bila tak ada workbook lain
+        alt terkirim
+            X->>X: pesan terkirim; tutup workbook; tutup Excel bila tak ada workbook lain
+        else gagal kirim
+            X->>X: pesan gagal, workbook tetap terbuka → upload lewat web
+        end
     else Jalur C — macro diblokir/gagal
         U->>X: simpan
         U->>W: upload file lewat web
     end
-    W->>W: verifikasi kepemilikan & percobaan; tolak bila tidak cocok
+    W->>W: verifikasi kepemilikan & percobaan; tolak dengan alasan bila tidak cocok
     W->>W: nilai (aturan sama untuk B & C)
     W-->>U: skor, waktu, keterangan per soal, kartu Tips
 ```
@@ -50,9 +54,18 @@ sequenceDiagram
 
 ## Verifikasi kepemilikan (CAP-17, CAP-18)
 
-- Web hanya untuk satu akun yang sudah login; tidak ada pendaftaran.
-- Setiap kiriman, lewat macro maupun upload, harus terbukti berasal dari percobaan aktif milik user; yang tidak cocok ditolak dengan alasan dan tidak dinilai.
-- Kandidat cara (bukan keharusan): token unik per percobaan disematkan di file saat *Mulai*; server mencocokkan token dengan percobaan aktif, lalu menandai percobaan selesai agar file yang sama tidak dinilai dua kali. Macro tidak menyimpan password atau kunci API.
+- Web hanya untuk satu akun Google yang diizinkan (*Sign in with Google*); tidak ada pendaftaran dan tidak ada password.
+- Setiap kiriman, lewat macro maupun upload, harus terbukti berasal dari percobaan aktif milik user. Yang tidak cocok ditolak dan tidak dinilai, dengan pesan berbeda per alasan: bukan dari percobaan yang sedang berjalan, sudah dinilai, identitas diubah/rusak, percobaan sudah ditutup. Percobaan tetap terbuka kecuali alasannya percobaan sudah ditutup.
+- Diputuskan (spine AD-4, AD-6): token unik per percobaan disematkan di file saat *Start* (custom document property, plus sidik jari `vbaProject.bin` template untuk mendeteksi file yang diubah); server mencocokkan token dengan percobaan aktif, lalu menandai percobaan selesai agar file yang sama tidak dinilai dua kali. Macro tidak menyimpan password atau kunci API.
+
+## Siklus percobaan (CAP-20)
+
+- Satu percobaan terbuka (belum dinilai) di semua perangkat; selama terbuka, *Start* dan *Practice again* lain terkunci.
+- *Resume* membuka lagi layar percobaan (waktu sejak *Start*, hint yang sudah dibuka) dari server, termasuk setelah halaman dimuat ulang atau login ulang.
+- *Abandon* (dengan konfirmasi) membatalkan percobaan; tidak dinilai, tidak dihitung untuk streak atau rekor.
+- Unduh ulang memberi file yang sama; waktu mulai tidak berubah.
+- Penilaian gagal → *Try again* meminta penilaian ulang atas file yang sudah diterima; percobaan tetap terbuka.
+- *Start* di HP tidak membuat percobaan (CAP-12).
 
 ## Risiko teknis
 
@@ -63,7 +76,7 @@ sequenceDiagram
 
 - Semua file satu percobaan dikerjakan di satu folder kerja lokal di perangkat user.
 - Excel menyimpan workbook link relatif terhadap workbook tujuan bila memungkinkan ([Microsoft KB 328440](https://support.microsoft.com/en-us/kb/328440)), jadi link tetap jalan di laptop maupun PC kantor selama posisi relatif file sama.
-- Usulan: folder kerja satu nama tetap yang sekaligus dijadikan *Trusted Location* lewat panduan CAP-16.
+- Usulan: folder kerja satu nama tetap yang sekaligus dijadikan *Trusted Location* lewat panduan CAP-16 (di V1 sudah jadi lokasi simpan setiap `.xlsm`).
 - Server hanya menerima workbook utama; penilaian link memeriksa nama file sumber yang dirujuk.
 
 ## Batas waktu Ujian Akhir (CAP-14)

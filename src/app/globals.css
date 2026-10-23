@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* Dark Excel (DESIGN.md): dark is the default; the light pair lands with the app shell. */
+:root {
+  --background: #0b0d0c;
+  --foreground: #f5f7f6;
+  --card: #151917;
+  --muted-foreground: #8e9993;
+  --border: #262d29;
+  --primary: #34d17f;
+  --success: #4ade80;
+  --destructive: #ff5c6c;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-destructive: var(--destructive);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}

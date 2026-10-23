@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cara Kerja Aplikasi</title>
+<style>
+/* Penjelasan visual arsitektur WORKING HARD with EXCEL untuk El Zavier.
+   Sumber kebenaran: ARCHITECTURE-SPINE.md (AD-1 … AD-13). Halaman ini hanya menjelaskan.
+   Token warna dari DESIGN.md (Dark Excel). Tanpa JS, tanpa jaringan. */
+:root{
+  --bg:#0B0D0C;--fg:#F5F7F6;--card:#151917;--muted:#1C211E;--mfg:#8E9993;--border:#262D29;--ib:#5F6B64;
+  --primary:#34D17F;--pfg:#04140B;--accent:#12301F;--warning:#FFC34D;--streak:#FF7A1A;--destructive:#FF5C6C;
+  --success:#4ADE80;--teal:#2DD4BF;--wsoft:#36311F;--dsoft:#362223;--ssoft:#1C3526;--glow:#34D17F59;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+html:has(#light:checked){
+  --bg:#F5F5F7;--fg:#1D1D1F;--card:#FFFFFF;--muted:#EDEDF0;--mfg:#636368;--border:#D9D9DE;--ib:#86868B;
+  --primary:#107C41;--pfg:#FFFFFF;--accent:#E3F6EB;--warning:#8F5200;--streak:#B93D07;--destructive:#BE233B;
+  --success:#137535;--teal:#0B7473;--wsoft:#EFE7DB;--dsoft:#F6E0E4;--ssoft:#DEECE3;--glow:#13A35A59;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+main{max-width:1040px;margin:0 auto;padding:48px 16px 72px}
+header.top{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end;justify-content:space-between}
+.eyebrow{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--primary)}
+h1{font-size:clamp(32px,5vw,48px);line-height:1.05;letter-spacing:-.03em;margin:8px 0 12px;font-weight:850}
+.lead{max-width:760px;color:var(--mfg);font-size:18px;margin:0}
+.lead b{color:var(--fg)}
+.toggle{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--ib);border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:600;font-size:14px}
+.toggle input{accent-color:var(--primary)}
+nav.toc{display:flex;flex-wrap:wrap;gap:8px;margin:28px 0 8px}
+nav.toc a{font:600 13px var(--font);color:var(--fg);text-decoration:none;border:1px solid var(--border);background:var(--card);border-radius:999px;padding:6px 12px}
+nav.toc a:hover{border-color:var(--primary)}
+section{margin-top:56px}
+h2{font-size:26px;letter-spacing:-.02em;margin:0 0 6px;font-weight:800;display:flex;gap:12px;align-items:baseline}
+h2 .n{font:800 13px var(--mono);color:var(--pfg);background:var(--primary);border-radius:8px;padding:2px 8px;letter-spacing:0}
+.sub{color:var(--mfg);margin:0 0 20px;max-width:760px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px}
+svg.dia{width:100%;height:auto;display:block}
+svg text{font-family:var(--font);fill:var(--fg)}
+svg .cap{font-size:12px;fill:var(--mfg)}
+svg .lbl{font-size:14px;font-weight:700}
+svg .mono{font-family:var(--mono);font-size:11px;fill:var(--mfg)}
+.ad{font:700 11px var(--mono);color:var(--primary);border:1px solid var(--glow);border-radius:6px;padding:1px 6px;white-space:nowrap}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px;counter-reset:s}
+.step{position:relative;background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px 16px 14px 16px}
+.step::before{counter-increment:s;content:counter(s);position:absolute;top:14px;right:14px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:800 12px var(--mono);background:var(--muted);color:var(--mfg)}
+.step h3{margin:0 34px 6px 0;font-size:16px;font-weight:800;line-height:1.3}
+.step p{margin:0;color:var(--mfg);font-size:14px}
+.step .who{display:inline-block;font:700 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+.who.web{color:var(--primary)}.who.xl{color:var(--teal)}.who.srv{color:var(--warning)}
+.step.hl{border-color:var(--glow);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 12%,transparent)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.pill{display:inline-flex;align-items:center;gap:6px;font:700 12px var(--mono);border-radius:999px;padding:3px 10px}
+.pill.ok{background:var(--ssoft);color:var(--success)}
+.pill.bad{background:var(--dsoft);color:var(--destructive)}
+.pill.warn{background:var(--wsoft);color:var(--warning)}
+ul.clean{margin:10px 0 0;padding-left:18px}
+ul.clean li{margin:6px 0}
+.codes{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.codes li{display:grid;grid-template-columns:minmax(0,190px) 1fr;gap:10px;align-items:start;background:var(--muted);border-radius:10px;padding:8px 12px;font-size:14px}
+.codes code{font:700 12px var(--mono);color:var(--destructive);word-break:break-all}
+.why{border-left:3px solid var(--primary);padding:4px 0 4px 14px;color:var(--mfg);margin:16px 0 0;font-size:15px}
+.why b{color:var(--fg)}
+.spikes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
+.spike h3{margin:6px 0 6px;font-size:17px}
+.spike p{margin:0;color:var(--mfg);font-size:14px}
+.spike .fb{margin-top:10px;font-size:13px;color:var(--fg)}
+dl.gl{display:grid;grid-template-columns:minmax(0,200px) 1fr;gap:10px 18px;margin:0}
+dl.gl dt{font-weight:800}
+dl.gl dd{margin:0;color:var(--mfg)}
+footer{margin-top:64px;color:var(--mfg);font-size:13px;border-top:1px solid var(--border);padding-top:16px}
+footer code{font-family:var(--mono)}
+@media (max-width:640px){dl.gl{grid-template-columns:1fr}.codes li{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<header class="top">
+  <div>
+    <div class="eyebrow">Arsitektur · WORKING HARD with EXCEL</div>
+    <h1>Cara kerja aplikasimu</h1>
+    <p class="lead">Ringkasan visual dari spine arsitektur. Isinya: <b>apa saja bagiannya</b>, <b>apa yang terjadi dari Start sampai skor</b>, dan <b>aturan apa yang menjaga semuanya tetap konsisten</b>. Kode <span class="ad">AD-n</span> merujuk ke keputusan di <code>ARCHITECTURE-SPINE.md</code>.</p>
+  </div>
+  <label class="toggle"><input type="checkbox" id="light"> Mode terang</label>
+</header>
+
+<nav class="toc" aria-label="Isi">
+  <a href="#peta">1 · Gambaran besar</a><a href="#alur">2 · Dari Start sampai skor</a><a href="#lapisan">3 · Isi aplikasi</a><a href="#status">4 · Status percobaan</a><a href="#progres">5 · Progres</a><a href="#env">6 · Production & Preview</a><a href="#spike">7 · Uji dulu</a><a href="#istilah">8 · Istilah</a>
+</nav>
+
+<section id="peta">
+  <h2><span class="n">1</span>Gambaran besar</h2>
+  <p class="sub">Satu aplikasi web di Vercel. Data, login, dan file disimpan di Supabase. Excel di laptop berbicara langsung ke aplikasi saat kamu menekan Finish.</p>
+  <div class="card">
+    <svg class="dia" viewBox="0 -34 960 434" role="img" aria-labelledby="t1">
+      <title id="t1">Perangkat terhubung ke aplikasi di Vercel, yang memakai Supabase untuk login, database, dan file</title>
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--mfg)"/></marker></defs>
+      <!-- devices -->
+      <g>
+        <rect x="16" y="30" width="230" height="96" rx="14" style="fill:var(--muted);stroke:var(--border)"/>
+        <text x="34" y="62" class="lbl">Laptop pribadi</text><text x="34" y="84" class="cap">Browser + Excel 2021</text><text x="34" y="104" class="cap">Mengerjakan soal</text>
+        <rect x="16" y="152" width="230" height="96" rx="14" style="fill:var(--muted);stroke:var(--border)"/>
+        <text x="34" y="184" class="lbl">PC kantor</text><text x="34" y="206" class="cap">Macro bisa diblokir</text><text x="34" y="226" class="cap">→ pakai Upload</text>
+        <rect x="16" y="274" width="230" height="96" rx="14" style="fill:var(--muted);stroke:var(--border)"/>
+        <text x="34" y="306" class="lbl">HP</text><text x="34" y="328" class="cap">Cek streak + pasang freeze</text><text x="34" y="348" class="cap">Tidak bisa Start</text>
+      </g>
+      <!-- app -->
+      <rect x="340" y="90" width="270" height="220" rx="18" style="fill:var(--accent);stroke:var(--primary)"/>
+      <text x="362" y="126" class="lbl" style="fill:var(--primary)">Vercel · aplikasi Next.js</text>
+      <text x="362" y="156" class="cap">Halaman (Dashboard, Level Map, …)</text>
+      <text x="362" y="180" class="cap">Inti: aturan nilai, streak, percobaan</text>
+      <text x="362" y="204" class="cap">Level 1–4 sebagai modul konten</text>
+      <text x="362" y="228" class="cap">Pintu kiriman: macro &amp; upload</text>
+      <text x="362" y="262" class="mono">AD-1 · AD-2 · AD-6</text>
+      <!-- supabase -->
+      <rect x="704" y="40" width="240" height="320" rx="18" style="fill:var(--card);stroke:var(--border)"/>
+      <text x="724" y="74" class="lbl">Supabase</text>
+      <rect x="724" y="92" width="200" height="66" rx="12" style="fill:var(--muted);stroke:var(--border)"/>
+      <text x="740" y="120" class="lbl" style="font-size:13px">Login Google</text><text x="740" y="142" class="cap">Hanya akunmu</text>
+      <rect x="724" y="172" width="200" height="66" rx="12" style="fill:var(--muted);stroke:var(--border)"/>
+      <text x="740" y="200" class="lbl" style="font-size:13px">Database</text><text x="740" y="222" class="cap">Percobaan, hint, freeze</text>
+      <rect x="724" y="252" width="200" height="66" rx="12" style="fill:var(--muted);stroke:var(--border)"/>
+      <text x="740" y="280" class="lbl" style="font-size:13px">File</text><text x="740" y="302" class="cap">.xlsm yang dibuat &amp; dikirim</text>
+      <text x="724" y="344" class="mono">AD-9 · privat, server-only</text>
+      <!-- arrows -->
+      <path d="M246 78 C300 78 300 150 338 160" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah)"/>
+      <path d="M246 200 L338 200" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah)"/>
+      <path d="M246 322 C300 322 300 250 338 240" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah)"/>
+      <path d="M200 30 C260 0 420 0 470 88" style="fill:none;stroke:var(--teal);stroke-width:1.6;stroke-dasharray:5 5" marker-end="url(#ah)"/>
+      <text x="250" y="-14" class="cap" style="fill:var(--teal)">Finish: Excel mengirim file + token langsung ke aplikasi</text>
+      <path d="M610 200 L702 200" style="fill:none;stroke:var(--primary);stroke-width:2" marker-end="url(#ah)"/>
+    </svg>
+  </div>
+</section>
+
+<section id="alur">
+  <h2><span class="n">2</span>Dari Start sampai skor</h2>
+  <p class="sub">Satu latihan dari awal sampai akhir. Warna label menunjukkan siapa yang bekerja: <b style="color:var(--primary)">web</b>, <b style="color:var(--teal)">Excel</b>, atau <b style="color:var(--warning)">server</b>.</p>
+  <div class="steps">
+    <div class="step"><span class="who web">Web</span><h3>Kamu klik Start Practice 5</h3><p>Hanya bisa kalau tidak ada percobaan lain yang masih terbuka.</p></div>
+    <div class="step"><span class="who srv">Server</span><h3>Soal baru dibuat</h3><p>Data acak + kunci jawaban dihitung program, lalu disimpan sebagai "snapshot" percobaan. <span class="ad">AD-3</span></p></div>
+    <div class="step"><span class="who srv">Server</span><h3>File .xlsm diisi</h3><p>Template yang sama (dengan tombol Finish) diisi data, ditandai token unik dan alamat server. <span class="ad">AD-4</span></p></div>
+    <div class="step"><span class="who xl">Excel</span><h3>Kamu mengerjakan</h3><p>Butuh bantuan? Pilih soal dan buka hint di web: −5 poin, dicatat di server. <span class="ad">AD-5</span></p></div>
+    <div class="step"><span class="who xl">Excel</span><h3>Klik Finish</h3><p>Macro menyimpan dan mengirim file. Kalau diblokir, upload lewat web, hasilnya sama persis. <span class="ad">AD-6</span></p></div>
+    <div class="step"><span class="who srv">Server</span><h3>Identitas dicek</h3><p>Token dan "sidik jari" macro harus cocok. Kalau tidak, file ditolak dengan alasan yang jelas.</p></div>
+    <div class="step"><span class="who srv">Server</span><h3>"File terkirim"</h3><p>Server langsung membalas, lalu menilai di belakang layar supaya Excel tidak menunggu. <span class="ad">AD-11</span></p></div>
+    <div class="step hl"><span class="who web">Web</span><h3>Results muncul sendiri</h3><p>Layar exam mengecek status tiap 2 detik dan pindah ke Results begitu nilai selesai.</p></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div style="font-weight:800;margin-bottom:10px">Alasan file ditolak (sama di macro, upload, dan web)</div>
+    <ul class="codes">
+      <li><code>NOT_EXCEL</code><span>Bukan file Excel.</span></li>
+      <li><code>IDENTITY_ALTERED</code><span>Token hilang atau macro berubah, misalnya karena di-Save As ke .xlsx.</span></li>
+      <li><code>NOT_THIS_ATTEMPT</code><span>File dari percobaan lain.</span></li>
+      <li><code>ALREADY_GRADED</code><span>Percobaan ini sudah dinilai.</span></li>
+      <li><code>ATTEMPT_CLOSED</code><span>Percobaan sudah dibatalkan atau ditutup.</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="lapisan">
+  <h2><span class="n">3</span>Isi aplikasi: empat bagian</h2>
+  <p class="sub">Aturan penting ada di satu tempat (inti). Bagian lain hanya boleh memakai inti, tidak boleh membuat aturannya sendiri.</p>
+  <div class="card">
+    <svg class="dia" viewBox="0 0 960 360" role="img" aria-labelledby="t3">
+      <title id="t3">Tampilan dan adapter memakai inti; level-level dipasang ke inti sebagai modul</title>
+      <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--primary)"/></marker></defs>
+      <rect x="20" y="40" width="250" height="110" rx="16" style="fill:var(--muted);stroke:var(--border)"/>
+      <text x="40" y="74" class="lbl">Tampilan</text><text x="40" y="98" class="cap">Halaman &amp; tombol (shadcn)</text><text x="40" y="120" class="cap">Tidak menghitung nilai sendiri</text>
+      <rect x="20" y="200" width="250" height="110" rx="16" style="fill:var(--muted);stroke:var(--border)"/>
+      <text x="40" y="234" class="lbl">Adapter</text><text x="40" y="258" class="cap">Supabase, file Excel, login</text><text x="40" y="280" class="cap">Bisa diganti tanpa ubah inti</text>
+      <rect x="355" y="80" width="250" height="190" rx="20" style="fill:var(--accent);stroke:var(--primary);stroke-width:2"/>
+      <text x="380" y="120" class="lbl" style="fill:var(--primary);font-size:17px">Inti</text>
+      <text x="380" y="148" class="cap">Status percobaan</text><text x="380" y="170" class="cap">Penilaian &amp; pemeriksa rumus</text><text x="380" y="192" class="cap">Streak, rekor, level terbuka</text><text x="380" y="214" class="cap">Tanpa Next.js / database</text>
+      <text x="380" y="248" class="mono">AD-1 · AD-3 · AD-7</text>
+      <path d="M270 95 L352 140" style="fill:none;stroke:var(--primary);stroke-width:2" marker-end="url(#ah3)"/>
+      <path d="M270 255 L352 215" style="fill:none;stroke:var(--primary);stroke-width:2" marker-end="url(#ah3)"/>
+      <text x="690" y="60" class="lbl">Level = modul konten</text><text x="690" y="80" class="cap">Dipasang ke inti lewat satu kontrak <tspan class="mono">AD-2</tspan></text>
+      <g>
+        <rect x="690" y="96" width="120" height="40" rx="10" style="fill:var(--accent);stroke:var(--primary)"/><text x="704" y="121" style="font-size:13px;font-weight:700">L1 Fondasi</text>
+        <rect x="820" y="96" width="120" height="40" rx="10" style="fill:var(--accent);stroke:var(--primary)"/><text x="834" y="121" style="font-size:13px;font-weight:700">L2 Logika</text>
+        <rect x="690" y="146" width="120" height="40" rx="10" style="fill:var(--accent);stroke:var(--primary)"/><text x="704" y="171" style="font-size:13px;font-weight:700">L3 Hitung</text>
+        <rect x="820" y="146" width="120" height="40" rx="10" style="fill:var(--accent);stroke:var(--primary)"/><text x="834" y="171" style="font-size:13px;font-weight:700">L4 Cari data</text>
+        <rect x="690" y="196" width="250" height="40" rx="10" style="fill:var(--wsoft);stroke:var(--warning);stroke-dasharray:5 4"/><text x="704" y="221" style="font-size:13px;font-weight:700;fill:var(--warning)">L5–L9, Ujian Akhir · nanti</text>
+        <rect x="690" y="246" width="250" height="40" rx="10" style="fill:var(--wsoft);stroke:var(--warning);stroke-dasharray:5 4"/><text x="704" y="271" style="font-size:13px;font-weight:700;fill:var(--warning)">Co-authoring · nanti</text>
+      </g>
+      <path d="M688 190 L608 175" style="fill:none;stroke:var(--primary);stroke-width:2;stroke-dasharray:4 4" marker-end="url(#ah3)"/>
+    </svg>
+    <p class="why"><b>Kenapa begini?</b> Spec meminta "menambah level tidak mengubah mesin" dan "file yang sama selalu dapat skor yang sama". Dengan inti tunggal, jalur macro dan upload pasti memakai aturan yang sama, dan Level 5–9 nanti cukup dipasang sebagai modul baru.</p>
+  </div>
+</section>
+
+<section id="status">
+  <h2><span class="n">4</span>Status satu percobaan</h2>
+  <p class="sub">Hanya satu bagian kode yang boleh mengubah status ini <span class="ad">AD-5</span>. Database memastikan hanya ada satu percobaan aktif di semua perangkat.</p>
+  <div class="card">
+    <svg class="dia" viewBox="0 0 960 300" role="img" aria-labelledby="t4">
+      <title id="t4">Status: open, received, graded; atau grading_failed lalu dicoba lagi; atau abandoned</title>
+      <defs><marker id="ah4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 10 5 0 10z" style="fill:var(--mfg)"/></marker></defs>
+      <g style="font-size:13px">
+        <rect x="30" y="110" width="170" height="64" rx="32" style="fill:var(--accent);stroke:var(--primary)"/><text x="115" y="138" text-anchor="middle" class="lbl">open</text><text x="115" y="158" text-anchor="middle" class="cap">sedang dikerjakan</text>
+        <rect x="320" y="110" width="170" height="64" rx="32" style="fill:var(--muted);stroke:var(--ib)"/><text x="405" y="138" text-anchor="middle" class="lbl">received</text><text x="405" y="158" text-anchor="middle" class="cap">file diterima, dinilai</text>
+        <rect x="610" y="110" width="170" height="64" rx="32" style="fill:var(--ssoft);stroke:var(--success)"/><text x="695" y="138" text-anchor="middle" class="lbl" style="fill:var(--success)">graded</text><text x="695" y="158" text-anchor="middle" class="cap">masuk progres</text>
+        <rect x="320" y="226" width="170" height="56" rx="28" style="fill:var(--dsoft);stroke:var(--destructive)"/><text x="405" y="250" text-anchor="middle" class="lbl" style="fill:var(--destructive)">grading_failed</text><text x="405" y="269" text-anchor="middle" class="cap">bisa "Try again"</text>
+        <rect x="30" y="18" width="170" height="56" rx="28" style="fill:var(--card);stroke:var(--ib)"/><text x="115" y="42" text-anchor="middle" class="lbl">abandoned</text><text x="115" y="61" text-anchor="middle" class="cap">dibatalkan, tidak dinilai</text>
+        <rect x="30" y="226" width="170" height="56" rx="28" style="fill:var(--wsoft);stroke:var(--warning);stroke-dasharray:5 4"/><text x="115" y="250" text-anchor="middle" class="lbl" style="fill:var(--warning)">closed</text><text x="115" y="269" text-anchor="middle" class="cap">waktu habis · nanti</text>
+      </g>
+      <path d="M200 142 L316 142" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah4)"/><text x="214" y="132" class="cap">Finish / upload</text>
+      <path d="M490 142 L606 142" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah4)"/><text x="508" y="132" class="cap">nilai selesai</text>
+      <path d="M115 110 L115 78" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah4)"/><text x="124" y="98" class="cap">Abandon</text>
+      <path d="M115 174 L115 222" style="fill:none;stroke:var(--mfg);stroke-width:1.6;stroke-dasharray:4 4" marker-end="url(#ah4)"/>
+      <path d="M380 174 L380 222" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah4)"/><text x="300" y="204" class="cap">error</text>
+      <path d="M432 222 L432 178" style="fill:none;stroke:var(--mfg);stroke-width:1.6" marker-end="url(#ah4)"/><text x="440" y="204" class="cap">Try again</text>
+      <text x="610" y="210" class="cap">Practice again = percobaan baru,</text><text x="610" y="228" class="cap">mulai lagi dari "open".</text>
+    </svg>
+  </div>
+</section>
+
+<section id="progres">
+  <h2><span class="n">5</span>Progres dihitung, bukan disimpan</h2>
+  <p class="sub">Streak, rekor, level yang terbuka, dan pips selalu dihitung ulang dari riwayat percobaan yang sudah dinilai, ditambah daftar freeze <span class="ad">AD-7</span>.</p>
+  <div class="grid2">
+    <div class="card">
+      <div style="font-weight:800">Riwayat (satu-satunya sumber)</div>
+      <ul class="clean">
+        <li>Practice 4 · Level 3 — <span class="pill ok">graded 85</span> Sabtu</li>
+        <li>Practice 3 · Level 3 — <span class="pill ok">graded 92</span> Jumat</li>
+        <li>Rabu — <span class="pill warn">freeze</span></li>
+        <li>Practice 5 · Level 3 — <span class="pill bad">abandoned</span> tidak dihitung</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div style="font-weight:800">Yang terlihat di Dashboard</div>
+      <ul class="clean">
+        <li><b style="color:var(--streak)">Streak 12</b>: hari dengan ≥1 percobaan dinilai, dihitung per tanggal di zona waktumu yang tetap <span class="ad">AD-8</span></li>
+        <li><b>Rekor</b>: waktu tercepat per item, lulus atau gagal</li>
+        <li><b>Level terbuka</b> dan <b>pips 4/5</b> dihitung dari percobaan yang sudah dinilai</li>
+      </ul>
+    </div>
+  </div>
+  <p class="why"><b>Kenapa?</b> Hasil bisa datang dari macro, upload, penilaian ulang, Practice again, atau perangkat lain. Kalau angka disimpan dan di-update di banyak tempat, cepat atau lambat angkanya tidak cocok lagi. Dihitung dari riwayat, angkanya selalu benar.</p>
+</section>
+
+<section id="env">
+  <h2><span class="n">6</span>Production dan Preview</h2>
+  <p class="sub">Versi yang kamu pakai sehari-hari terpisah dari versi uji. Setiap file Excel tahu ke server mana ia harus mengirim <span class="ad">AD-13</span>.</p>
+  <div class="grid2">
+    <div class="card" style="border-color:var(--glow)">
+      <div class="eyebrow">Dipakai latihan</div>
+      <div style="font-weight:800;font-size:18px;margin:6px 0">Production</div>
+      <ul class="clean"><li>Vercel, cabang <code>main</code></li><li>Supabase project <code>prod</code></li><li>File dari sini mengirim ke sini</li></ul>
+    </div>
+    <div class="card">
+      <div class="eyebrow" style="color:var(--warning)">Untuk mencoba fitur</div>
+      <div style="font-weight:800;font-size:18px;margin:6px 0">Preview &amp; lokal</div>
+      <ul class="clean"><li>Vercel, cabang lain</li><li>Supabase project <code>dev</code></li><li>Perubahan database lewat file migrasi, dicoba di dev dulu</li></ul>
+    </div>
+  </div>
+  <p class="why"><b>Catatan biaya:</b> semuanya memakai paket gratis. Project Supabase gratis akan pause kalau tidak dipakai 7 hari. Kalau itu terjadi, buka dashboard Supabase dan klik restore.</p>
+</section>
+
+<section id="spike">
+  <h2><span class="n">7</span>Tiga hal yang diuji paling awal</h2>
+  <p class="sub">Sebelum soal-soal dibuat, tiga hal ini dibuktikan dulu dengan Excel 2021 di laptopmu.</p>
+  <div class="spikes">
+    <div class="card spike"><span class="pill ok">S1</span><h3>File hasil isian tetap utuh</h3><p>Template yang diisi data masih membuka tombol Finish dan macro-nya di Excel 2021.</p><div class="fb">Kalau gagal: ganti mesin file ke Python, tanpa mengubah bagian lain.</div></div>
+    <div class="card spike"><span class="pill ok">S2</span><h3>Rumus terbaca benar</h3><p>Server membaca rumus dan nilai dari file yang disimpan Excel, termasuk rumus yang di-copy ke bawah.</p><div class="fb">Kalau gagal: sama seperti S1.</div></div>
+    <div class="card spike"><span class="pill ok">S3</span><h3>Finish bisa mengirim</h3><p>Macro mengirim file lewat HTTPS dari laptop dan menampilkan pesan terkirim atau gagal.</p><div class="fb">Kalau gagal: Upload tetap jalan sampai diperbaiki.</div></div>
+  </div>
+</section>
+
+<section id="istilah">
+  <h2><span class="n">8</span>Istilah singkat</h2>
+  <div class="card">
+    <dl class="gl">
+      <dt>Token percobaan</dt><dd>Kode acak di dalam file .xlsm yang menandai "file ini milik percobaan nomor sekian".</dd>
+      <dt>Snapshot</dt><dd>Salinan soal, poin, dan kunci jawaban yang disimpan saat Start, supaya nilai tidak berubah walau konten diperbarui.</dd>
+      <dt>Inti</dt><dd>Bagian kode yang berisi aturan (nilai, streak, status). Tidak tahu apa-apa soal tampilan atau database.</dd>
+      <dt>Adapter</dt><dd>Penghubung inti ke dunia luar: Supabase, file Excel, login Google.</dd>
+      <dt>Modul level</dt><dd>Satu folder per level berisi skenario, pembuat data, kunci, hint, dan Tips.</dd>
+      <dt>RLS</dt><dd>Kunci di database: setiap baris hanya bisa dibaca pemiliknya.</dd>
+      <dt>Spike</dt><dd>Percobaan kecil untuk membuktikan bagian yang berisiko sebelum membangun semuanya.</dd>
+    </dl>
+  </div>
+</section>
+
+<footer>Sumber: <code>ARCHITECTURE-SPINE.md</code> (AD-1 sampai AD-13) di folder yang sama. Kalau halaman ini berbeda dengan spine, yang berlaku spine.</footer>
+</main>
+</body>
+</html>

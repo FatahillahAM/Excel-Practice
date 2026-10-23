@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key screen · Dashboard</title>
+<style>
+/* =====================================================================
+   KEY SCREEN 1/4 — DASHBOARD
+   Governing spine sections (spines win on conflict with this mock):
+     DESIGN.md      Colors (Theme 5 "Dark Excel", AA light set) · Typography · Layout & Spacing
+                    (Desktop shell, Dashboard grid, Phone) · Components: App Sidebar, Header Bar,
+                    Streak Chip, Theme Toggle, Primary Button, Stat Card, Streak Hero, Freeze Pill,
+                    Week Strip, Level Path, Level Node, Level Callout, Practice Pips, Under Construction
+                    Tag, Records Card, Activity Chart, History List, Phone Dock, Streak Risk Pill,
+                    Attempt Card · Do's and Don'ts
+     EXPERIENCE.md  IA (Dashboard) · Component Patterns (same names) · State Patterns (Dashboard,
+                    Phone) · Interaction Primitives (Page entrance, Streak Hero entrance, Count-up,
+                    Active pulse, Hover, Chart grow) · Key Flows J1 step 1, J3 steps 1-5
+   Composition: direction C (Level Path hero + right rail) + direction B (fire streak numeral,
+   phone first screen, at-risk look) — .working/direction-c-level-journey.html, direction-b-hero-streak.html
+   Tokens: DESIGN.md frontmatter (dark default; light via the doc toggle).
+   Inline CSS, system fonts, no JS, no network.
+   ===================================================================== */
+:root{
+  --background:#0B0D0C;--foreground:#F5F7F6;--card:#151917;--muted:#1C211E;--muted-foreground:#8E9993;
+  --border:#262D29;--input-border:#5F6B64;--primary:#34D17F;--primary-foreground:#04140B;--accent:#12301F;
+  --success:#4ADE80;--destructive:#FF5C6C;--warning:#FFC34D;--streak:#FF7A1A;--streak-vivid:#FF7A1A;
+  --chart-1:#34D17F;--chart-2:#2DD4BF;--chart-3:#A3E635;--ring:#F5F7F6;
+  --success-soft:#1C3526;--destructive-soft:#362223;--warning-soft:#36311F;--streak-soft:#362717;--freeze-soft:#18332F;
+  --uc-hatch:#3F3821;--primary-edge:#1F8A52;
+  --glow-soft:#34D17F29;--glow:#34D17F59;--glow-strong:#34D17FB3;--streak-glow:#FF7A1A38;--streak-glow-strong:#FF7A1A73;
+  --records-surface:#12301F;--records-surface-end:#04140B;--records-foreground:#F5F7F6;--records-accent:#34D17F;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI Variable Text","Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI Variable Display","Segoe UI",system-ui,Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Menlo,Consolas,monospace;
+  --bounce:cubic-bezier(.34,1.56,.64,1);--cine:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+html:has(#light:checked){
+  --background:#F5F5F7;--foreground:#1D1D1F;--card:#FFFFFF;--muted:#EDEDF0;--muted-foreground:#636368;
+  --border:#D9D9DE;--input-border:#86868B;--primary:#107C41;--primary-foreground:#FFFFFF;--accent:#E3F6EB;
+  --success:#137535;--destructive:#BE233B;--warning:#8F5200;--streak:#B93D07;--streak-vivid:#F2600C;
+  --chart-1:#107C41;--chart-2:#0B7473;--chart-3:#4D7C0F;--ring:#1D1D1F;
+  --success-soft:#DEECE3;--destructive-soft:#F6E0E4;--warning-soft:#EFE7DB;--streak-soft:#F5E4DC;--freeze-soft:#DDECEB;
+  --uc-hatch:#EBE0D1;--primary-edge:#0A512A;
+  --glow-soft:#13A35A29;--glow:#13A35A59;--glow-strong:#13A35AB3;--streak-glow:#F2600C38;--streak-glow-strong:#F2600C73;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--background);color:var(--foreground);font-family:var(--font);font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+svg.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.nic{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- Presentation wrapper (not product UI) ---------- */
+.doc{max-width:1360px;margin:0 auto;padding:40px 16px 0}
+.eyebrow{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--primary)}
+.doc h1{font-size:44px;letter-spacing:-.03em;margin:8px 0 10px;font-weight:850}
+.doc .why{max-width:860px;color:var(--muted-foreground);font-size:16px;margin:0}
+.doc .why b{color:var(--foreground)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{border:1px solid var(--border);background:var(--card);border-radius:8px;padding:5px 10px;font:12px var(--mono);color:var(--muted-foreground)}
+.chip b{color:var(--foreground);font-weight:600}
+.ctl{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+.ctl label{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--input-border);border-radius:12px;padding:8px 12px;cursor:pointer;font-weight:600}
+.ctl input{accent-color:var(--primary);width:16px;height:16px}
+.sec{max-width:1360px;margin:0 auto;padding:48px 16px 0}
+.sec>h2{font:700 12px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted-foreground);margin:0 0 16px;display:flex;align-items:center;gap:10px}
+.sec>h2::before{content:"▸";color:var(--primary)}
+.sec>p.note{color:var(--muted-foreground);max-width:860px;margin:-6px 0 16px}
+.dag{color:var(--warning);font-weight:700}
+.docfoot{max-width:1360px;margin:0 auto;padding:56px 16px 64px;color:var(--muted-foreground);font-size:13px}
+.docfoot li{margin:4px 0}
+.docfoot b{color:var(--foreground)}
+
+/* ---------- Browser frame ---------- */
+.stage{overflow-x:auto;padding-bottom:8px}
+.browser{width:1280px;margin:0 auto;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--background);box-shadow:0 40px 120px -40px rgba(0,0,0,.6)}
+.bbar{height:40px;background:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;padding:0 14px}
+.dots{display:flex;gap:7px}.dots i{width:11px;height:11px;border-radius:50%;background:var(--input-border);opacity:.5;display:block}
+.url{flex:1;max-width:460px;margin:0 auto;height:24px;border-radius:7px;background:var(--background);border:1px solid var(--border);color:var(--muted-foreground);font-size:12px;display:flex;align-items:center;justify-content:center;gap:6px}
+@media (max-width:1340px){.browser{zoom:.86}}
+@media (max-width:1130px){.browser{zoom:.7}}
+@media (max-width:920px){.browser{zoom:.52}}
+@media (max-width:700px){.browser{zoom:.28}}
+
+/* ---------- App shell ---------- */
+.app{display:flex;min-height:1060px}
+.sb{width:256px;flex:none;background:var(--card);border-right:1px solid var(--border);padding:22px 16px;display:flex;flex-direction:column}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--primary);color:var(--primary-foreground);display:grid;place-items:center;box-shadow:0 6px 18px -4px var(--glow-strong)}
+.logo svg{width:20px;height:20px;stroke-width:2.2}
+.brand b{display:block;font-size:13px;letter-spacing:.04em;line-height:1.1;font-weight:800}
+.brand span{display:block;font-size:11px;color:var(--primary);font-weight:700;letter-spacing:.02em}
+.grp{font:700 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin:18px 12px 8px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;color:var(--muted-foreground);text-decoration:none;font-weight:550;transition:background .2s,color .2s,transform .3s}
+.nav a:not(.on):hover{background:var(--muted);color:var(--foreground);transform:translateX(4px)}
+.nav a.on{background:var(--primary);color:var(--primary-foreground);font-weight:700;box-shadow:0 0 0 1px var(--glow-strong),0 10px 26px -8px var(--glow-strong)}
+.nav .cnt{margin-left:auto;font:11px var(--mono);background:var(--muted);color:var(--muted-foreground);border-radius:6px;padding:1px 6px}
+.xp{margin-top:auto;border-radius:16px;padding:14px;background:var(--muted);border:1px solid var(--border)}
+.xp small{font:700 11px var(--mono);color:var(--muted-foreground);letter-spacing:.1em;text-transform:uppercase}
+.xp b{display:block;font-size:15px;margin:4px 0 8px}
+.xpbar{height:8px;border-radius:99px;background:var(--background);overflow:hidden;box-shadow:inset 0 0 0 1px var(--border)}
+.xpbar i{display:block;height:100%;width:22%;background:linear-gradient(90deg,var(--primary),var(--chart-3));border-radius:99px}
+
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.hd{height:68px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 32px;position:sticky;top:0;background:var(--background);z-index:3}
+.hd .sp{flex:1}
+.streakchip{display:flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:12px;background:var(--streak-soft);color:var(--streak);font:800 16px var(--mono)}
+.streakchip svg.ic{width:16px;height:16px}
+.theme{display:flex;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px}
+.theme i{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;color:var(--muted-foreground)}
+.theme i.on{background:var(--muted);color:var(--foreground);box-shadow:inset 0 0 0 2px var(--primary)}
+.theme i.on svg.ic{fill:currentColor}
+.av{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--chart-3));color:var(--primary-foreground);display:grid;place-items:center;font-weight:800}
+
+.body{padding:24px 32px 32px;display:flex;flex-direction:column;gap:18px}
+.title h2{font-size:32px;letter-spacing:-.025em;margin:0;font-weight:850;line-height:1.1}
+.title p{margin:6px 0 0;color:var(--muted-foreground)}
+.title p b{color:var(--foreground);font-weight:700}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 18px;border-radius:12px;font:700 14px var(--font);border:1px solid transparent;text-decoration:none;cursor:pointer;transition:transform .25s var(--bounce),box-shadow .25s;white-space:nowrap}
+.btn svg.ic{width:16px;height:16px}
+.btn.pri{background:var(--primary);color:var(--primary-foreground);box-shadow:0 4px 0 0 var(--primary-edge),0 14px 30px -12px var(--glow-strong)}
+.btn.pri svg.ic{fill:currentColor;stroke:none}
+.btn.pri:hover{transform:translateY(-2px) scale(1.03);box-shadow:0 6px 0 0 var(--primary-edge),0 0 0 4px var(--glow-soft),0 18px 36px -8px var(--glow-strong)}
+.btn.pri:active{transform:translateY(3px);box-shadow:0 1px 0 0 var(--primary-edge)}
+.btn.out{background:var(--card);color:var(--foreground);border-color:var(--input-border)}
+.btn.ghost{background:transparent;color:var(--muted-foreground)}
+.btn[aria-disabled="true"]{background:var(--muted);color:var(--muted-foreground);box-shadow:none;cursor:not-allowed;transform:none}
+.reason{font-size:12px;color:var(--muted-foreground);margin-top:6px;line-height:1.4}
+
+.layout{display:grid;grid-template-columns:640px 1fr;gap:20px;align-items:start}
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;position:relative;overflow:hidden;transition:transform .3s var(--bounce),box-shadow .3s,border-color .3s}
+a.card,.card.click{cursor:pointer;color:inherit;text-decoration:none;display:block}
+a.card:hover,.card.click:hover{transform:translateY(-2px) scale(1.02);border-color:var(--glow);box-shadow:0 16px 40px -18px var(--glow)}
+.k{font:700 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);display:flex;align-items:center;gap:6px}
+.k svg.ic{width:14px;height:14px}
+.chipar{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:9px;display:grid;place-items:center;background:var(--muted);color:var(--foreground);transition:transform .3s var(--bounce)}
+.chipar svg.ic{width:14px;height:14px}
+a.card:hover .chipar{transform:rotate(45deg)}
+
+/* LEVEL PATH */
+.mapcard{padding:0}
+.mapcard:hover{border-color:var(--glow)}
+.maphd{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--border)}
+.maphd h3{margin:0;font-size:16px;font-weight:800}
+.lg{margin-left:auto;display:flex;gap:12px;font-size:12px;color:var(--muted-foreground)}
+.lg span{display:flex;align-items:center;gap:5px}
+.lg i{width:10px;height:10px;border-radius:50%;display:block}
+.mapwrap{position:relative;height:790px;background:radial-gradient(circle at 80% 72%,var(--glow-soft),transparent 40%)}
+.mapwrap::before{content:"";position:absolute;inset:22px 0 0 0;opacity:.45;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:64px 28px;pointer-events:none}
+.cols{position:absolute;top:0;left:0;right:0;height:22px;display:grid;grid-template-columns:repeat(10,64px);font:10px var(--mono);color:var(--muted-foreground);background:var(--muted);border-bottom:1px solid var(--border)}
+.cols span{display:grid;place-items:center;border-right:1px solid var(--border)}
+.map{position:absolute;left:0;top:10px;width:640px;height:780px;overflow:visible}
+.trail-bg{fill:none;stroke:var(--border);stroke-width:6;stroke-linecap:round;stroke-dasharray:1 12}
+.trail-bg2{fill:none;stroke:var(--muted);stroke-width:16;stroke-linecap:round;opacity:.7}
+.trail{fill:none;stroke:var(--primary);stroke-width:6;stroke-linecap:round;stroke-dasharray:100;stroke-dashoffset:0;filter:drop-shadow(0 0 6px var(--glow-strong))}
+.node .core{fill:var(--muted);stroke:var(--border);stroke-width:2}
+.node .num{font:800 16px var(--font);fill:var(--muted-foreground);text-anchor:middle;dominant-baseline:central}
+.node.done{color:var(--primary)}
+.node.done .core{fill:var(--accent);stroke:var(--primary)}
+.node.act .core{fill:var(--primary);stroke:none;filter:drop-shadow(0 0 18px var(--glow-strong))}
+.node.act .num{fill:var(--primary-foreground);font-size:24px}
+.node.lock{color:var(--muted-foreground)}
+.node.lock .core{fill:var(--card);stroke:var(--muted-foreground)}
+.node.ucn{color:var(--warning)}
+.node.ucn .core{fill:url(#hatch);stroke:var(--warning);stroke-dasharray:5 4}
+.node.ucn .num{fill:var(--warning)}
+.node{cursor:pointer}
+.node .hov{transition:transform .3s var(--bounce);transform-box:fill-box;transform-origin:center}
+.node:hover .hov{transform:scale(1.14)}
+.pulse{fill:none;stroke:var(--primary);stroke-width:2;transform-box:fill-box;transform-origin:center;opacity:0;animation:pulse 2.4s ease-out 2 both}
+.pulse.p2{animation-delay:1.2s}
+.ringstatic{fill:none;stroke:var(--primary);stroke-width:1.5;opacity:.45}
+@keyframes pulse{from{transform:scale(1);opacity:.8}to{transform:scale(2);opacity:0}}
+.focusring{fill:none;stroke:var(--ring);stroke-width:2}
+.lb .t1{font:750 13px var(--font);fill:var(--foreground)}
+.lb .t2{font:500 12px var(--font);fill:var(--muted-foreground)}
+.lb.ok .t2{fill:var(--primary)}
+.lb.uc .t1{fill:var(--muted-foreground)}
+.lb.uc .t2{fill:var(--warning);font:700 11px var(--mono);letter-spacing:.04em}
+.here{font:800 11px var(--mono);letter-spacing:.1em;fill:var(--primary)}
+.callout{position:absolute;left:20px;top:468px;width:280px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(6px);border:1px solid var(--glow);border-radius:16px;padding:14px;box-shadow:0 0 0 4px var(--glow-soft),0 20px 50px -18px rgba(0,0,0,.7)}
+.callout .k{color:var(--primary)}
+.callout h4{margin:4px 0 2px;font-size:16px;font-weight:800;line-height:1.3}
+.callout p{margin:0;font-size:12px;color:var(--muted-foreground)}
+.pips{display:flex;gap:4px;margin:10px 0 4px}
+.pips i{height:8px;flex:1;border-radius:3px;background:var(--card);box-shadow:inset 0 0 0 1.5px var(--muted-foreground)}
+.pips i.d{background:var(--primary);box-shadow:none}
+.pips i.nx{background:repeating-linear-gradient(-45deg,var(--glow) 0 3px,transparent 3px 6px);box-shadow:inset 0 0 0 1.5px var(--primary)}
+.callout .btn{width:100%;margin-top:10px}
+.lockline{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted-foreground);margin-top:12px}
+.lockline svg.ic{width:13px;height:13px;color:var(--warning)}
+
+/* RAIL */
+.rail{display:flex;flex-direction:column;gap:14px}
+.shero{position:relative;border-radius:28px;padding:22px 24px 22px;background:radial-gradient(ellipse 80% 60% at 30% 40%,var(--streak-glow),transparent 70%),var(--card);border:1px solid var(--border);overflow:hidden;transition:border-color .3s}
+.shero:hover{border-color:var(--glow)}
+.huge{font-family:var(--font-display);font-weight:800;letter-spacing:-.07em;line-height:.82;background:linear-gradient(180deg,var(--warning) 5%,var(--streak) 75%);-webkit-background-clip:text;background-clip:text;color:transparent;padding-right:.05em;display:inline-block}
+.shero .huge{font-size:150px; /* display-streak = clamp(120px, 12vw, 232px) → ≈153px at 1280 */filter:drop-shadow(0 16px 44px var(--streak-glow-strong));margin-top:10px}
+.unit{display:flex;align-items:center;gap:6px;font-size:18px;font-weight:800;letter-spacing:-.02em;margin-top:6px}
+.unit svg.ic{width:18px;height:18px;color:var(--streak)}
+.fz{display:inline-flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--chart-2);background:var(--freeze-soft);border:1px solid var(--chart-2);padding:6px 12px;border-radius:999px;margin-top:14px;font-family:var(--font)}
+.fz svg.ic{width:15px;height:15px}
+button.fz{cursor:pointer;border-width:1.5px;min-height:44px;padding:0 18px;font-size:14px;font-weight:700}
+.fz.off{color:var(--muted-foreground);border-color:var(--input-border);background:var(--freeze-soft);cursor:not-allowed}
+.week{display:flex;gap:6px;margin-top:16px}
+.wd{display:flex;flex-direction:column;align-items:center;gap:5px;font:600 11px var(--mono);color:var(--muted-foreground);flex:1}
+.wd i{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--streak-soft);color:var(--streak);font:700 12px var(--mono)}
+.wd i svg.ic{width:14px;height:14px}
+.wd.fr i{background:transparent;border:1.5px dashed var(--chart-2);color:var(--chart-2)}
+.wd.mi i{background:transparent;border:1.5px solid var(--input-border);color:var(--muted-foreground)}
+.wd.td{color:var(--foreground);font-weight:800}
+.wd.td i{background:var(--streak);color:var(--primary-foreground);box-shadow:0 0 0 4px var(--streak-glow)}
+.wd.tq i{background:transparent;border:1.5px dashed var(--muted-foreground);color:var(--muted-foreground)}
+.wd.fu i{background:transparent;border:1px solid var(--border)}
+.wd.tf i{background:var(--freeze-soft);border:1.5px dashed var(--chart-2);color:var(--chart-2)}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mv{font:800 26px var(--mono);letter-spacing:-.04em;margin:8px 0 2px;font-variant-numeric:tabular-nums}
+.mv small{font-size:12px;color:var(--muted-foreground);font-weight:600;letter-spacing:0}
+.mm{font-size:12px;color:var(--muted-foreground)}
+.pill{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:1px 6px;font:700 11px var(--mono)}
+.pill.warn{background:var(--warning-soft);color:var(--warning)}
+.uc{background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--warning) 7%,transparent) 0 8px,transparent 8px 16px),var(--card);border:1px dashed var(--warning)}
+.uctag{display:inline-flex;align-items:center;gap:5px;font:700 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--warning);border:1px solid var(--warning);border-radius:6px;padding:2px 6px}
+.uctag svg.ic{width:12px;height:12px}
+.inv{background:linear-gradient(160deg,var(--records-surface),var(--records-surface-end) 75%);border-color:color-mix(in srgb,var(--records-accent) 25%,transparent);color:var(--records-foreground)}
+.inv .k{color:color-mix(in srgb,var(--records-foreground) 70%,transparent)}
+.inv .chipar{background:color-mix(in srgb,var(--records-foreground) 12%,transparent);color:var(--records-foreground)}
+.inv .row{display:flex;align-items:baseline;justify-content:space-between;padding:8px 0;border-top:1px dashed color-mix(in srgb,var(--records-accent) 35%,transparent)}
+.inv .row:first-of-type{border-top:0}
+.inv .row span{font-size:12px;color:color-mix(in srgb,var(--records-foreground) 72%,transparent)}
+.digits{font-family:var(--mono);font-weight:800;letter-spacing:-.04em;font-variant-numeric:tabular-nums;font-size:28px;color:var(--records-foreground)}
+.digits .c{color:var(--records-accent)}
+.mbars{display:flex;align-items:flex-end;gap:6px;height:76px;margin-top:12px}
+.mb{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;font:10px var(--mono);color:var(--muted-foreground);height:100%}
+.mb i{width:100%;border-radius:6px;background:var(--accent);box-shadow:inset 0 0 0 1px var(--glow);transform-origin:bottom}
+.mb i.hi{background:var(--primary);box-shadow:0 0 12px -2px var(--glow-strong)}
+.mb i.e{height:6px!important;background:transparent;box-shadow:inset 0 0 0 1.5px var(--chart-2)}
+.mb.fr{color:var(--chart-2);font-weight:800}
+.mb.td{color:var(--foreground);font-weight:800}
+.foot{font-size:12px;color:var(--muted-foreground);margin-top:8px}
+.foot b{color:var(--primary)}
+.hl{display:grid;gap:2px;margin-top:8px}
+.hl a{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;margin:0 -8px;border-radius:10px;color:inherit;text-decoration:none;font-size:13px}
+.hl a:hover{background:var(--muted)}
+.hl b{font:800 15px var(--mono);font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:4px;border-radius:6px;padding:1px 6px;font:700 11px var(--mono);background:var(--success-soft);color:var(--success)}
+.viewall{display:inline-flex;align-items:center;gap:6px;color:var(--primary);text-decoration:none;font-weight:700;font-size:13px}
+.viewall i{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:var(--muted);transition:transform .3s var(--bounce)}
+.viewall:hover i{transform:rotate(45deg)}
+.viewall svg.ic{width:12px;height:12px}
+
+/* ATTEMPT CARD (state) */
+.attempt{border-color:var(--glow);box-shadow:0 0 0 3px var(--glow-soft)}
+.attempt .k{color:var(--primary)}
+.attempt .live{width:8px;height:8px;border-radius:50%;background:var(--primary);box-shadow:0 0 0 3px var(--glow-soft)}
+.attempt .t{font-weight:800;font-size:16px;margin:6px 0 0}
+.attempt .el{display:flex;align-items:baseline;gap:8px;margin:2px 0 12px}
+.attempt .el b{font:800 26px var(--mono);letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+.attempt .acts{display:flex;gap:8px}
+.attempt .acts .btn{flex:1}
+
+/* ---------- Phones ---------- */
+.phones{display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start;justify-content:center}
+.pcol{display:flex;flex-direction:column;gap:14px;align-items:center;max-width:390px}
+.pcap{font-size:13px;color:var(--muted-foreground);max-width:360px;text-align:center}
+.pcap b{color:var(--foreground)}
+.phone{width:390px;max-width:100%;height:844px;border-radius:54px;padding:12px;background:#000;box-shadow:0 0 0 1px var(--border),0 40px 100px -30px rgba(0,0,0,.6);flex:none}
+.pscreen{position:relative;height:100%;border-radius:42px;overflow:hidden;background:radial-gradient(ellipse 90% 40% at 50% 26%,var(--streak-glow),transparent 70%),var(--background)}
+.pscreen.risk{background:radial-gradient(ellipse 90% 40% at 50% 26%,color-mix(in srgb,var(--streak-glow) 50%,transparent),transparent 70%),var(--background)}
+.pstatus{height:50px;display:flex;align-items:center;justify-content:space-between;padding:0 30px;font-size:14px;font-weight:650}
+.island{width:118px;height:34px;border-radius:20px;background:#000;position:absolute;left:50%;top:10px;margin-left:-59px;z-index:9}
+.ptop{display:flex;align-items:center;gap:10px;padding:4px 16px}
+.ptop .mbtn{width:44px;height:44px;border-radius:12px;background:var(--card);border:1px solid var(--border);display:grid;place-items:center;color:var(--foreground)}
+.ptop .t{flex:1;text-align:center;font-weight:800;font-size:15px}
+.ptop .av{width:40px;height:40px;font-size:13px}
+.pbody{height:calc(100% - 102px);overflow:auto;padding:6px 16px 210px;scrollbar-width:none}
+.phero{text-align:center;padding-top:8px}
+.phero .k{justify-content:center}
+.phero .huge{font-size:175px;display:inline-block;margin-top:12px}
+.phero .unit{justify-content:center;font-size:24px;margin-top:8px}
+.phero .week{gap:5px;margin-top:18px}
+.phero .wd i{width:36px;height:36px}
+.huge.dim{filter:saturate(.55);opacity:.85}
+.riskpill{position:relative;display:inline-flex;align-items:center;gap:7px;margin-top:14px;font:700 13px var(--font);color:var(--streak);border:1px solid var(--streak-glow-strong);background:var(--streak-soft);border-radius:999px;padding:7px 14px}
+.riskpill b{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.riskpill svg.ic{width:15px;height:15px}
+.riskpill::after{content:"";position:absolute;inset:-1px;border-radius:inherit;box-shadow:0 0 0 0 var(--streak-glow-strong);animation:riskPulse 2.4s ease-out 2}
+@keyframes riskPulse{from{box-shadow:0 0 0 0 var(--streak-glow-strong)}to{box-shadow:0 0 0 10px transparent}}
+.fzcap{display:block;font-size:12px;color:var(--muted-foreground);margin-top:6px}
+.okmsg{margin:14px auto 0;max-width:300px;font-size:14px;font-weight:600;color:var(--success);background:var(--success-soft);border-radius:12px;padding:8px 12px}
+.vpath{position:relative;padding-left:58px;display:flex;flex-direction:column;gap:12px;margin-top:26px;text-align:left}
+.vpath::before{content:"";position:absolute;left:25px;top:22px;bottom:22px;width:4px;border-radius:4px;background:linear-gradient(to bottom,var(--primary) 0 38%,var(--border) 38%)}
+.vn{position:relative;min-height:52px;display:flex;flex-direction:column;justify-content:center}
+.vn .dot{position:absolute;left:-58px;top:50%;margin-top:-26px;width:54px;height:52px;display:grid;place-items:center}
+.vn .dot b{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--muted);border:2px solid var(--border);font-weight:850;color:var(--muted-foreground)}
+.vn.done .dot b{background:var(--accent);border-color:var(--primary);color:var(--primary)}
+.vn.lock .dot b{background:var(--card);border-color:var(--muted-foreground)}
+.vn.ucv .dot b{background:repeating-linear-gradient(-45deg,var(--uc-hatch) 0 4px,var(--card) 4px 8px);border:2px dashed var(--warning);color:var(--warning)}
+.vn.act .dot{top:18px;margin-top:0}
+.vn.act .dot b{width:52px;height:52px;background:var(--primary);border:0;color:var(--primary-foreground);font-size:20px;box-shadow:0 0 0 6px var(--glow-soft),0 0 28px var(--glow-strong)}
+.vn .tt{font-weight:750;font-size:14px}
+.vn .ss{font-size:12px;color:var(--muted-foreground)}
+.vn.done .ss{color:var(--primary)}
+.vn.ucv .ss{color:var(--warning);font:700 11px var(--mono)}
+.vn .card{border-color:var(--glow);box-shadow:0 0 0 3px var(--glow-soft)}
+.pdock{position:absolute;left:0;right:0;bottom:0;padding:24px 16px 26px;background:linear-gradient(transparent,var(--background) 26%)}
+.pdock .row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.pdock .row div{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:8px 10px}
+.pdock .row b{display:block;font:800 16px var(--mono);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.pdock .row small{font-size:11px;color:var(--muted-foreground)}
+.pdock .btn{width:100%;height:52px;font-size:15px}
+.pmsg{font-size:14px;line-height:1.4;background:var(--card);border:1px solid var(--input-border);border-radius:12px;padding:10px 12px;margin-bottom:10px;display:flex;gap:8px;align-items:flex-start}
+.pmsg svg.ic{color:var(--primary);margin-top:1px}
+
+/* ---------- States ---------- */
+.states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:18px;align-items:start}
+.state>small{display:block;font:700 11px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin-bottom:10px}
+.state>p{font-size:12px;color:var(--muted-foreground);margin:10px 0 0}
+.state svg.mini{width:100%;height:150px;display:block}
+.restart{font-size:14px;color:var(--muted-foreground);margin:12px 0 0;line-height:1.4}
+
+/* ---------- Motion (entrance, count-up) ---------- */
+@property --n{syntax:'<integer>';inherits:false;initial-value:0}
+.cu{counter-reset:n var(--n)}
+.cu::after{content:counter(n)}
+.cu-12{--n:12;animation:cu12 1s var(--cine) .25s both}
+.cu-85{--n:85;animation:cu85 1s var(--cine) .35s both}
+@keyframes cu12{from{--n:0}to{--n:12}}
+@keyframes cu85{from{--n:0}to{--n:85}}
+.rise{animation:rise .5s var(--bounce) both;animation-delay:calc(var(--i,0) * 70ms + 120ms)}
+@keyframes rise{from{opacity:0;transform:translateY(24px) scale(.97)}to{opacity:1;transform:none}}
+.shero.rise{animation:heroIn .9s var(--cine) both;animation-delay:.18s}
+@keyframes heroIn{from{opacity:0;transform:translateY(40px);filter:blur(8px)}to{opacity:1;transform:none;filter:none}}
+.pop{transform-box:fill-box;transform-origin:center;animation:pop .25s var(--bounce) both;animation-delay:calc(var(--i,0) * 90ms)}
+@keyframes pop{from{transform:scale(0);opacity:0}}
+.draw{animation:draw .8s cubic-bezier(.6,0,.2,1) .05s both}
+@keyframes draw{from{stroke-dashoffset:100}}
+.grow{animation:grow .5s var(--bounce) both;animation-delay:calc(var(--i,0) * 60ms + 400ms)}
+@keyframes grow{from{transform:scaleY(0)}}
+.pfade{animation:pfade .3s ease-out both}
+@keyframes pfade{from{opacity:0}}
+
+/* Reduced motion: OS flag or the doc toggle (= Settings "Reduce motion") */
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+html:has(#rm:checked) *,html:has(#rm:checked) *::before,html:has(#rm:checked) *::after{animation:none!important;transition:none!important}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" style="fill:var(--card)"/><rect width="3" height="8" style="fill:var(--uc-hatch)"/></pattern>
+  </defs>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.6"/><rect x="14" y="3" width="7" height="7" rx="1.6"/><rect x="3" y="14" width="7" height="7" rx="1.6"/><rect x="14" y="14" width="7" height="7" rx="1.6"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></symbol>
+  <symbol id="i-hist" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5z"/><path d="M4 19a2 2 0 0 1 2-2h13"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5M21 12H9"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 22c4 0 7-2.7 7-7 0-4-3-6.5-4-9-1.5 2-2 3.5-2 5-1.5-1-2.5-3-2.5-5C7 8 5 11.5 5 15c0 4.3 3 7 7 7z"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></symbol>
+  <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
+  <symbol id="i-cone" viewBox="0 0 24 24"><path d="M10 3h4l5 16H5z"/><path d="M3 21h18M7.6 11h8.8M6.3 15.5h11.4"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-snow" viewBox="0 0 24 24"><path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/></symbol>
+  <symbol id="i-sheet" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+  <symbol id="i-laptop" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M2 19h20"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></symbol>
+</svg>
+
+<header class="doc" lang="id">
+  <div class="eyebrow">Key screen 1/4 · WORKING HARD with EXCEL</div>
+  <h1>Dashboard</h1>
+  <p class="why"><b>Struktur C + streak B.</b> Level Path (jalur level di atas grid sel Excel) jadi hero di kiri; rail kanan dibuka Streak Hero dengan angka api raksasa, lalu Stat Card, Records Card (gelap di dua mode), Activity Chart, dan History List. State kanonik = <b>J1 langkah 1</b>: El Zavier di Level 3 — Hitung bersyarat dengan 4/5 latihan, streak 12 hari aman hari ini. Di HP, angka streak memenuhi layar pertama (J3).</p>
+  <div class="chips">
+    <span class="chip">Desktop: <b>1280 · sidebar 256 · peta 640 + rail</b></span>
+    <span class="chip">HP: <b>390 · streak dulu, jalur vertikal, Phone Dock</b></span>
+    <span class="chip">Mode: <b>gelap default · terang lewat toggle</b></span>
+    <span class="chip">Isi: <b>skor, rekor, aktivitas = contoh</b></span>
+  </div>
+  <div class="ctl">
+    <label><input type="checkbox" id="light"> Mode terang (token AA)</label>
+    <label><input type="checkbox" id="rm"> Reduce motion (frame statis)</label>
+    <span class="chip" style="align-self:center">Muat ulang halaman untuk memutar ulang gerak masuk</span>
+  </div>
+</header>
+
+<!-- ================= DESKTOP ================= -->
+<section class="sec">
+  <h2>Desktop · 1280px · J1 langkah 1 · streak aman hari ini</h2>
+  <div class="stage">
+  <div class="browser">
+    <div class="bbar"><div class="dots"><i></i><i></i><i></i></div><div class="url"><svg class="ic" style="width:12px;height:12px"><use href="#i-lock"/></svg>workinghard-excel.app/dashboard</div><div style="width:47px"></div></div>
+    <div class="app">
+      <aside class="sb">
+        <div class="brand"><div class="logo"><svg class="ic"><use href="#i-sheet"/></svg></div><div><b>WORKING HARD</b><span>with EXCEL</span></div></div>
+        <div class="grp">Menu</div>
+        <nav class="nav" aria-label="Menu">
+          <a class="on" href="#" aria-current="page"><svg class="ic"><use href="#i-grid"/></svg>Dashboard</a>
+          <a href="#"><svg class="ic"><use href="#i-map"/></svg>Level Map<span class="cnt">L3</span></a>
+          <a href="#"><svg class="ic"><use href="#i-hist"/></svg>History</a>
+          <a href="#"><svg class="ic"><use href="#i-trophy"/></svg>Records</a>
+          <a href="#"><svg class="ic"><use href="#i-bulb"/></svg>Tips &amp; Tricks</a>
+          <a href="#"><svg class="ic"><use href="#i-book"/></svg>Setup Guide</a>
+        </nav>
+        <div class="grp">General</div>
+        <nav class="nav" aria-label="General">
+          <a href="#"><svg class="ic"><use href="#i-gear"/></svg>Settings</a>
+          <a href="#"><svg class="ic"><use href="#i-out"/></svg>Log out</a>
+        </nav>
+        <div class="xp"><small>Curriculum</small><b>2 of 9 levels passed</b><div class="xpbar"><i></i></div></div>
+      </aside>
+
+      <div class="main">
+        <header class="hd rise" style="--i:0">
+          <div class="sp"></div>
+          <div class="streakchip" aria-label="12-day streak"><svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg>12</div>
+          <div class="theme" role="group" aria-label="Theme"><i aria-pressed="false" title="Light"><svg class="ic"><use href="#i-sun"/></svg></i><i class="on" aria-pressed="true" title="Dark"><svg class="ic"><use href="#i-moon"/></svg></i></div>
+          <div class="av" title="El Zavier">EZ</div>
+        </header>
+
+        <div class="body">
+          <div class="title rise" style="--i:0">
+            <h2>Dashboard</h2>
+            <p><b>Level 3 — <span lang="id">Hitung bersyarat</span></b> · 1 practice until the Test</p>
+          </div>
+
+          <div class="layout">
+            <!-- LEVEL PATH (hero) -->
+            <nav class="card mapcard rise" style="--i:1" aria-label="Level path">
+              <div class="maphd"><svg class="ic" style="color:var(--primary)"><use href="#i-map"/></svg><h3>Level Path</h3>
+                <div class="lg" aria-hidden="true"><span><i style="background:var(--accent);box-shadow:inset 0 0 0 1.5px var(--primary)"></i>Passed</span><span><i style="background:var(--primary);box-shadow:0 0 8px var(--primary)"></i>Active</span><span><i style="border:1.5px solid var(--muted-foreground)"></i>Locked</span><span><i style="background:repeating-linear-gradient(-45deg,var(--warning) 0 2px,transparent 2px 4px)"></i>Under Construction</span></div>
+              </div>
+              <div class="mapwrap">
+                <div class="cols" aria-hidden="true"><span>A</span><span>B</span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span><span>I</span><span>J</span></div>
+                <svg class="map" viewBox="0 0 640 780" aria-hidden="true">
+                  <path class="trail-bg2" d="M140 710 C140 675 330 675 330 640 C330 605 510 605 510 570 C510 535 430 533 430 498 C430 464 250 464 250 430 C250 395 130 395 130 360 C130 326 290 326 290 292 C290 258 480 258 480 224 C480 190 400 190 400 156 C400 118 250 118 250 80"/>
+                  <path class="trail-bg" d="M140 710 C140 675 330 675 330 640 C330 605 510 605 510 570 C510 535 430 533 430 498 C430 464 250 464 250 430 C250 395 130 395 130 360 C130 326 290 326 290 292 C290 258 480 258 480 224 C480 190 400 190 400 156 C400 118 250 118 250 80"/>
+                  <path class="trail draw" pathLength="100" d="M140 710 C140 675 330 675 330 640 C330 605 510 605 510 570"/>
+                  <line x1="300" y1="552" x2="474" y2="568" stroke="var(--primary)" stroke-opacity=".5" stroke-width="1.5" stroke-dasharray="4 4"/>
+                  <text x="140" y="764" text-anchor="middle" class="here" style="fill:var(--muted-foreground)">START</text>
+
+                  <g transform="translate(140 710)"><g class="node done pop" style="--i:0"><g class="hov"><circle r="26" class="core"/><use href="#i-check" x="-11" y="-11" width="22" height="22" class="nic"/></g></g></g>
+                  <text class="lb ok" x="180" y="706"><tspan class="t1">Level 1 — Fondasi</tspan><tspan class="t2" x="180" dy="16">Passed</tspan></text>
+
+                  <g transform="translate(330 640)"><g class="node done pop" style="--i:1"><g class="hov"><circle r="26" class="core"/><use href="#i-check" x="-11" y="-11" width="22" height="22" class="nic"/></g></g></g>
+                  <text class="lb ok" x="370" y="650"><tspan class="t1">Level 2 — Logika</tspan><tspan class="t2" x="370" dy="16">Passed · Test 91</tspan></text>
+
+                  <g transform="translate(510 570)">
+                    <circle r="34" class="ringstatic"/><circle r="34" class="pulse"/><circle r="34" class="pulse p2"/>
+                    <g class="node act pop" style="--i:2"><g class="hov"><circle r="34" class="core"/><text class="num">3</text></g></g>
+                  </g>
+                  <text class="here" x="530" y="630" text-anchor="middle">YOU ARE HERE</text>
+
+                  <g transform="translate(430 498)"><g class="node lock pop" style="--i:3"><g class="hov"><circle r="26" class="core"/><use href="#i-lock" x="-10" y="-10" width="20" height="20" class="nic"/></g></g></g>
+                  <text class="lb" x="470" y="494"><tspan class="t1">Level 4 — Cari data</tspan><tspan class="t2" x="470" dy="16">Locked</tspan></text>
+
+                  <g transform="translate(250 430)"><g class="node ucn pop" style="--i:4"><g class="hov"><circle r="24" class="core"/><text class="num">5</text></g></g></g>
+                  <text class="lb uc" x="212" y="426" text-anchor="end"><tspan class="t1">Level 5 — Rapikan data</tspan><tspan class="t2" x="212" dy="15">UNDER CONSTRUCTION</tspan></text>
+                  <g transform="translate(130 360)"><g class="node ucn pop" style="--i:5"><g class="hov"><circle r="24" class="core"/><text class="num">6</text></g></g></g>
+                  <text class="lb uc" x="168" y="354"><tspan class="t1">Level 6 — Rumus modern</tspan><tspan class="t2" x="168" dy="14">UNDER CONSTRUCTION</tspan></text>
+                  <g transform="translate(290 292)"><g class="node ucn pop" style="--i:6"><g class="hov"><circle r="24" class="core"/><text class="num">7</text></g></g></g>
+                  <text class="lb uc" x="326" y="300"><tspan class="t1">Level 7 — Pivot</tspan><tspan class="t2" x="326" dy="15">UNDER CONSTRUCTION</tspan></text>
+                  <g transform="translate(480 224)"><g class="node ucn pop" style="--i:7"><g class="hov"><circle r="24" class="core"/><text class="num">8</text></g></g></g>
+                  <text class="lb uc" x="444" y="220" text-anchor="end"><tspan class="t1">Level 8 — Lintas file</tspan><tspan class="t2" x="444" dy="15">UNDER CONSTRUCTION</tspan></text>
+                  <g transform="translate(400 156)"><g class="node ucn pop" style="--i:8"><g class="hov"><circle r="24" class="core"/><text class="num">9</text></g></g></g>
+                  <text class="lb uc" x="436" y="152"><tspan class="t1">Level 9 — Summary</tspan><tspan class="t2" x="436" dy="15">UNDER CONSTRUCTION</tspan></text>
+
+                  <g transform="translate(250 80)"><g class="node ucn pop" style="--i:9"><g class="hov"><polygon class="core" points="34,-19.6 34,19.6 0,39 -34,19.6 -34,-19.6 0,-39"/><use href="#i-target" x="-13" y="-13" width="26" height="26" class="nic"/></g></g></g>
+                  <text class="lb uc" x="296" y="68"><tspan class="t1" style="fill:var(--foreground);font-size:15px">Ujian Akhir</tspan><tspan class="t2" x="296" dy="17">UNDER CONSTRUCTION</tspan><tspan class="t2" x="296" dy="15" style="fill:var(--muted-foreground);font-family:var(--font);letter-spacing:0">0/5 passes in a row</tspan></text>
+                </svg>
+
+                <div class="callout rise" style="--i:3">
+                  <div class="k"><svg class="ic"><use href="#i-flame"/></svg>Active level</div>
+                  <h4>Level 3 — <span lang="id">Hitung bersyarat</span></h4>
+                  <div class="pips" aria-hidden="true"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="nx"></i></div>
+                  <p>4/5 practices done</p>
+                  <a class="btn pri" href="#"><svg class="ic"><use href="#i-play"/></svg>Start Practice 5</a>
+                  <div class="lockline"><svg class="ic"><use href="#i-lock"/></svg>Test opens after 5 practices — 1 to go.</div>
+                </div>
+              </div>
+            </nav>
+
+            <!-- RAIL -->
+            <aside class="rail" aria-label="Stats">
+              <section class="shero rise" aria-label="Streak">
+                <div class="k"><svg class="ic" style="color:var(--streak)"><use href="#i-flame"/></svg>Streak</div>
+                <span class="huge cu cu-12" aria-hidden="true"></span><span class="sr">12</span>
+                <div class="unit">day streak <svg class="ic" aria-hidden="true"><use href="#i-flame"/></svg></div>
+                <span class="fz"><svg class="ic" aria-hidden="true"><use href="#i-snow"/></svg>1 of 2 freezes left</span>
+                <div class="week" aria-label="This week">
+                  <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>M</div>
+                  <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div>
+                  <div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>W</div>
+                  <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div>
+                  <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>F</div>
+                  <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div>
+                  <div class="wd td"><i><svg class="ic" style="stroke-width:3"><use href="#i-check"/></svg></i>S</div>
+                </div>
+              </section>
+
+              <div class="r2">
+                <div class="card rise" style="--i:4">
+                  <div class="k">Last score</div>
+                  <div class="mv"><span class="cu cu-85" aria-hidden="true"></span><span class="sr">85</span><small>/100</small></div>
+                  <div class="mm">Practice 4 · Level 3</div>
+                  <div style="margin-top:6px"><span class="pill warn">Hint −5</span></div>
+                </div>
+                <div class="card uc rise" style="--i:5">
+                  <div class="k"><svg class="ic"><use href="#i-target"/></svg>Ujian Akhir</div>
+                  <div class="mv" style="color:var(--muted-foreground)">0/5</div>
+                  <div class="mm">passes in a row</div>
+                  <div style="margin-top:6px"><span class="uctag"><svg class="ic"><use href="#i-cone"/></svg>Under Construction</span></div>
+                </div>
+              </div>
+
+              <a class="card inv rise" style="--i:6" href="#">
+                <div class="k"><svg class="ic"><use href="#i-timer"/></svg>Record times</div>
+                <span class="chipar" aria-hidden="true"><svg class="ic"><use href="#i-arrow"/></svg></span>
+                <div class="row" style="margin-top:6px"><span>Test · Level 2</span><span class="digits">08<span class="c">:</span>41</span></div>
+                <div class="row"><span>Practice 4 · Level 3</span><span class="digits">05<span class="c">:</span>12</span></div>
+              </a>
+
+              <div class="card rise" style="--i:7">
+                <div class="k" style="justify-content:space-between"><span style="display:flex;gap:6px;align-items:center"><svg class="ic"><use href="#i-chart"/></svg>Activity · 7 days</span><span style="color:var(--foreground)">10 attempts</span></div>
+                <div class="mbars" aria-hidden="true">
+                  <div class="mb"><i class="grow" style="height:18px;--i:0"></i>M</div>
+                  <div class="mb"><i class="grow" style="height:36px;--i:1"></i>T</div>
+                  <div class="mb fr"><i class="e"></i>W</div>
+                  <div class="mb"><i class="grow" style="height:18px;--i:3"></i>T</div>
+                  <div class="mb"><i class="grow" style="height:18px;--i:4"></i>F</div>
+                  <div class="mb"><i class="hi grow" style="height:54px;--i:5"></i>S</div>
+                  <div class="mb td"><i class="grow" style="height:36px;--i:6"></i>S</div>
+                </div>
+                <div class="foot">Avg 1.4/day · Peak <b>Sat 3</b> · <span style="color:var(--chart-2)">❄ Wed frozen</span></div>
+                <table class="sr"><caption>Attempts, last 7 days</caption><tr><th>Monday</th><td>1</td></tr><tr><th>Tuesday</th><td>2</td></tr><tr><th>Wednesday</th><td>0, frozen</td></tr><tr><th>Thursday</th><td>1</td></tr><tr><th>Friday</th><td>1</td></tr><tr><th>Saturday</th><td>3</td></tr><tr><th>Sunday</th><td>2</td></tr></table>
+              </div>
+
+              <div class="card rise" style="--i:8">
+                <div class="k" style="justify-content:space-between"><span style="display:flex;gap:6px;align-items:center"><svg class="ic"><use href="#i-hist"/></svg>History</span><a class="viewall" href="#">View all <i aria-hidden="true"><svg class="ic"><use href="#i-arrow"/></svg></i></a></div>
+                <div class="hl">
+                  <a href="#"><span>Practice 4 · Level 3</span><b>85</b></a>
+                  <a href="#"><span>Practice 3 · Level 3</span><b>92</b></a>
+                  <a href="#"><span>Test · Level 2 <span class="badge">passed</span></span><b>91</b></a>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+</section>
+
+<!-- ================= PHONES ================= -->
+<section class="sec">
+  <h2>HP · 390px · cek &amp; selamatkan streak (J3)</h2>
+  <p class="note" lang="id">Tiga momen di HP yang sama. Kiri: layar pertama saat streak aman (angka final tampil ≤0,5 detik, tanpa count-up). Tengah: J3 langkah 1–3 — belum latihan, angka meredup, Streak Risk Pill, Freeze Pill berubah jadi tombol <b>Use freeze</b>, dan pesan HP muncul di atas tombol setelah El Zavier mengetuk Start. Kanan: klimaks J3 — freeze dipakai, angka menyala lagi, hari ini jadi kepingan salju.</p>
+  <div class="phones">
+    <!-- Phone A: safe -->
+    <div class="pcol">
+      <div class="phone"><div class="pscreen">
+        <div class="island"></div>
+        <div class="pstatus"><span>21.04</span><span>●●● 5G ▮</span></div>
+        <div class="ptop"><span class="mbtn" aria-label="Open menu"><svg class="ic"><use href="#i-menu"/></svg></span><div class="t">Dashboard</div><div class="av">EZ</div></div>
+        <div class="pbody">
+          <div class="phero pfade">
+            <div class="k"><svg class="ic" style="color:var(--streak)"><use href="#i-flame"/></svg>Streak</div>
+            <span class="huge">12</span>
+            <div class="unit">day streak <svg class="ic"><use href="#i-flame"/></svg></div>
+            <span class="fz"><svg class="ic"><use href="#i-snow"/></svg>1 of 2 freezes left</span>
+            <div class="week">
+              <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>M</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div><div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>W</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>F</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd td"><i><svg class="ic" style="stroke-width:3"><use href="#i-check"/></svg></i>S</div>
+            </div>
+          </div>
+          <div class="vpath">
+            <div class="vn done"><span class="dot"><b><svg class="ic"><use href="#i-check"/></svg></b></span><span class="tt">Level 1 — <span lang="id">Fondasi</span></span><span class="ss">Passed</span></div>
+            <div class="vn done"><span class="dot"><b><svg class="ic"><use href="#i-check"/></svg></b></span><span class="tt">Level 2 — <span lang="id">Logika</span></span><span class="ss">Passed · Test 91</span></div>
+            <div class="vn act"><span class="dot"><b>3</b></span>
+              <div class="card">
+                <div class="k" style="color:var(--primary)">You are here</div>
+                <div class="tt" style="font-size:16px;margin-top:2px">Level 3 — <span lang="id">Hitung bersyarat</span></div>
+                <div class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="d"></i><i class="nx"></i></div>
+                <div class="ss">4/5 practices done</div>
+                <div class="lockline" style="margin-top:8px"><svg class="ic"><use href="#i-lock"/></svg>Test opens after 5 practices — 1 to go.</div>
+              </div>
+            </div>
+            <div class="vn lock"><span class="dot"><b><svg class="ic"><use href="#i-lock"/></svg></b></span><span class="tt">Level 4 — <span lang="id">Cari data</span></span><span class="ss">Locked</span></div>
+            <div class="vn ucv"><span class="dot"><b><svg class="ic"><use href="#i-cone"/></svg></b></span><span class="tt">Level 5–9 · Ujian Akhir</span><span class="ss">UNDER CONSTRUCTION</span></div>
+          </div>
+        </div>
+        <div class="pdock">
+          <div class="row"><div><b>85</b><small>Last score</small></div><div><b>08:41</b><small>Record · Test L2</small></div><div><b>10×</b><small>Last 7 days</small></div></div>
+          <a class="btn pri" href="#"><svg class="ic"><use href="#i-play"/></svg>Start Practice 5</a>
+        </div>
+      </div></div>
+      <div class="pcap" lang="id"><b>Aman hari ini.</b> Gulir ke bawah di dalam HP untuk melihat jalur vertikal (Level 1 di atas, Level 5–9 + Ujian Akhir diringkas jadi satu node).</div>
+    </div>
+
+    <!-- Phone B: at risk + phone message -->
+    <div class="pcol">
+      <div class="phone"><div class="pscreen risk">
+        <div class="island"></div>
+        <div class="pstatus"><span>19.30</span><span>●●● 5G ▮</span></div>
+        <div class="ptop"><span class="mbtn" aria-label="Open menu"><svg class="ic"><use href="#i-menu"/></svg></span><div class="t">Dashboard</div><div class="av">EZ</div></div>
+        <div class="pbody">
+          <div class="phero pfade">
+            <div class="k"><svg class="ic" style="color:var(--streak)"><use href="#i-flame"/></svg>Streak</div>
+            <span class="huge dim">12</span>
+            <div class="unit">day streak</div>
+            <div class="riskpill"><svg class="ic"><use href="#i-timer"/></svg>No practice yet today · <b>4h 30m left</b></div>
+            <div><button class="fz" type="button" aria-describedby="fzb"><svg class="ic"><use href="#i-snow"/></svg>Use freeze</button><span class="fzcap" id="fzb">1 of 2 freezes left</span></div>
+            <div class="week">
+              <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>M</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div><div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>W</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>F</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd tq" style="color:var(--foreground);font-weight:800"><i>?</i>S</div>
+            </div>
+          </div>
+        </div>
+        <div class="pdock">
+          <div class="pmsg" role="status" lang="id"><svg class="ic"><use href="#i-laptop"/></svg><span>Latihan dikerjakan di Excel laptop, ya. Buka web ini di laptop untuk mulai.</span></div>
+          <a class="btn pri" href="#"><svg class="ic"><use href="#i-play"/></svg>Start Practice 5</a>
+        </div>
+      </div></div>
+      <div class="pcap" lang="id"><b>Streak terancam, Start sudah diketuk.</b> Tidak ada yang terunduh, tidak ada percobaan dibuat. Angka redup tetap ≥3:1; hitung mundur tidak pernah diumumkan per detik.</div>
+    </div>
+
+    <!-- Phone C: freeze used -->
+    <div class="pcol">
+      <div class="phone"><div class="pscreen">
+        <div class="island"></div>
+        <div class="pstatus"><span>19.31</span><span>●●● 5G ▮</span></div>
+        <div class="ptop"><span class="mbtn" aria-label="Open menu"><svg class="ic"><use href="#i-menu"/></svg></span><div class="t">Dashboard</div><div class="av">EZ</div></div>
+        <div class="pbody">
+          <div class="phero">
+            <div class="k"><svg class="ic" style="color:var(--streak)"><use href="#i-flame"/></svg>Streak</div>
+            <span class="huge">12</span>
+            <div class="unit">day streak <svg class="ic"><use href="#i-flame"/></svg></div>
+            <div class="okmsg" role="status" lang="id">Streak aman! Sisa freeze 0 dari 2 minggu ini.</div>
+            <span class="fz"><svg class="ic"><use href="#i-snow"/></svg>0 of 2 freezes left</span>
+            <div class="week">
+              <div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>M</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div><div class="wd fr"><i><svg class="ic"><use href="#i-snow"/></svg></i>W</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>T</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>F</div><div class="wd"><i><svg class="ic"><use href="#i-flame"/></svg></i>S</div><div class="wd tf" style="color:var(--foreground);font-weight:800"><i><svg class="ic"><use href="#i-snow"/></svg></i>S</div>
+            </div>
+          </div>
+        </div>
+        <div class="pdock">
+          <div class="row"><div><b>85</b><small>Last score</small></div><div><b>08:41</b><small>Record · Test L2</small></div><div><b>9×</b><small>Last 7 days</small></div></div>
+          <a class="btn pri" href="#"><svg class="ic"><use href="#i-play"/></svg>Start Practice 5</a>
+        </div>
+      </div></div>
+      <div class="pcap" lang="id"><b>Klimaks J3.</b> Freeze dipasang manual untuk hari ini (CAP-10); laptop dan PC kantor menampilkan hal yang sama (CAP-12).</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= STATES ================= -->
+<section class="sec">
+  <h2>State Dashboard yang memengaruhi layout</h2>
+  <p class="note" lang="id">Potongan rail &amp; peta pada lebar aslinya. Teks bertanda <span class="dag">†</span> = contoh, belum diputuskan di memlog.</p>
+  <div class="states">
+    <div class="state"><small>Attempt in progress · rail paling atas</small>
+      <div class="card attempt">
+        <div class="k"><span class="live"></span>Attempt in progress</div>
+        <div class="t">Practice 5 · Level 3</div>
+        <div class="el"><b>12:34</b><span class="mm">since Start</span></div>
+        <div class="acts"><a class="btn pri" href="#"><svg class="ic"><use href="#i-play"/></svg>Resume</a><a class="btn out" href="#">Abandon</a></div>
+      </div>
+      <div class="card" style="margin-top:14px;border-color:var(--border)">
+        <div class="k" style="color:var(--primary)"><svg class="ic"><use href="#i-flame"/></svg>Active level</div>
+        <div style="font-weight:800;margin:4px 0 8px">Level 3 — <span lang="id">Hitung bersyarat</span></div>
+        <span class="btn pri" aria-disabled="true" aria-describedby="r1" style="width:100%"><svg class="ic"><use href="#i-play"/></svg>Start Practice 5</span>
+        <div class="reason" id="r1">Resume or abandon the attempt in progress first.</div>
+      </div>
+      <p lang="id">Abandon membuka Dialog konfirmasi; setelah batal, kartu hilang dan Start aktif lagi.</p>
+    </div>
+
+    <div class="state"><small>Freeze quota used · tombol nonaktif</small>
+      <section class="shero" style="padding:18px 20px">
+        <div class="k"><svg class="ic" style="color:var(--streak)"><use href="#i-flame"/></svg>Streak</div>
+        <span class="huge dim" style="font-size:110px;margin-top:8px">12</span>
+        <div><div class="riskpill"><svg class="ic"><use href="#i-timer"/></svg><b>4h 30m left</b></div></div>
+        <div><button class="fz off" type="button" aria-disabled="true" aria-describedby="r2"><svg class="ic"><use href="#i-snow"/></svg>Use freeze</button><span class="fzcap" id="r2">0 of 2 freezes left — resets Monday <span class="dag">†</span></span></div>
+      </section>
+      <p lang="id">Tetap bisa difokus (aria-disabled). Satu-satunya cara menjaga streak: latihan di desktop sebelum 00:00.</p>
+    </div>
+
+    <div class="state"><small>Streak restarted · sekali, kunjungan pertama</small>
+      <section class="shero" style="padding:18px 20px;background:var(--card)">
+        <div class="k"><svg class="ic" style="color:var(--streak)"><use href="#i-flame"/></svg>Streak</div>
+        <span class="huge" style="font-size:110px;margin-top:8px">0</span>
+        <div class="unit" style="font-size:16px">day streak</div>
+        <p class="restart" lang="id">Streak mulai lagi dari 0 — yuk, latihan hari ini.</p>
+        <div class="week">
+          <div class="wd mi"><i>–</i>M</div><div class="wd mi"><i>–</i>T</div><div class="wd tq" style="color:var(--foreground);font-weight:800"><i>?</i>W</div><div class="wd fu"><i></i>T</div><div class="wd fu"><i></i>F</div><div class="wd fu"><i></i>S</div><div class="wd fu"><i></i>S</div>
+        </div>
+      </section>
+      <p lang="id">Hari mendatang (Kamis–Minggu) = lingkaran kosong tanpa ikon, huruf hari abu-abu — diputuskan setelah render.</p>
+    </div>
+
+    <div class="state"><small>First run · Setup Guide prompt</small>
+      <div class="card">
+        <div class="k"><svg class="ic"><use href="#i-book"/></svg>Setup Guide</div>
+        <div style="font-weight:800;font-size:16px;margin:6px 0 2px">Set up Excel first <span class="dag">†</span></div>
+        <p style="margin:0 0 12px;color:var(--muted-foreground)" lang="id">Biar tombol Finish di file bisa langsung kirim jawaban. <span class="dag">†</span></p>
+        <div style="display:flex;gap:8px"><a class="btn pri" href="#" style="flex:1"><svg class="ic"><use href="#i-book"/></svg>Open Setup Guide</a><a class="btn ghost" href="#">Dismiss</a></div>
+      </div>
+      <p lang="id">Di rail setelah Streak Hero; hilang setelah percobaan pertama dinilai lewat macro.</p>
+    </div>
+
+    <div class="state"><small>Level Node · fokus keyboard</small>
+      <div class="card"><svg class="mini" viewBox="0 0 260 150" aria-hidden="true">
+        <g transform="translate(70 75)"><g class="node done"><g class="hov" style="transform:scale(1.14)"><circle r="26" class="core"/><use href="#i-check" x="-11" y="-11" width="22" height="22" class="nic"/></g></g><circle r="35" class="focusring"/></g>
+        <text class="lb ok" x="118" y="70"><tspan class="t1">Level 2 — Logika</tspan><tspan class="t2" x="118" dy="16">Passed · Test 91</tspan></text>
+      </svg></div>
+      <p lang="id">Ring 2px warna <code>ring</code> sebagai lingkaran SVG (r + 5 setelah skala 1,14). Callout menutup saat node lain difokus.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="docfoot" lang="id">
+  <b>Temuan saat merender (sudah diputuskan — lihat memlog):</b>
+  <ul>
+    <li><b>Angka streak desktop:</b> rail di layar 1280 hanya ±300px, jadi 232px tidak muat. Diputuskan: <code>display-streak</code> = <code>clamp(120px, 12vw, 232px)</code> (±153px di 1280) dan padding Streak Hero 24px.</li>
+    <li><b>Week Strip, hari mendatang:</b> diputuskan lingkaran kosong (garis tipis, tanpa ikon), huruf hari abu-abu; strip tetap 7 hari. Lihat contoh <i>Streak restarted</i>.</li>
+    <li>Baris judul halaman: tombol aksi dari arah C (Setup Guide + Start) dihapus supaya Start hanya ada di Level Callout (aturan satu Primary Button per wilayah).</li>
+    <li>Skor riwayat, waktu rekor, dan angka aktivitas hanya contoh.</li>
+  </ul>
+</footer>
+</body>
+</html>
