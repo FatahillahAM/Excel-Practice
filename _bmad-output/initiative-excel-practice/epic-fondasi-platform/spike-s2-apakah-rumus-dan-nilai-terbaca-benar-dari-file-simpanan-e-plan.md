@@ -3,12 +3,12 @@ title: 'S2: Apakah rumus dan nilai terbaca benar dari file simpanan Excel 2021?'
 type: 'feature'
 ticket: '3'
 created: '2026-10-23'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '4c5dd855df5a282ff3d0e7626bcbd10889362459'
 context:
