@@ -58,12 +58,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `assets/templates/vba/modFinish.bas` -- `Public Sub Finish()` menampilkan MsgBox berisi tiga property `WHE_*` dari `ThisWorkbook.CustomDocumentProperties`; ASCII, CRLF -- macro uji S1, diperluas S3.
-- [ ] `assets/templates/README.md` -- panduan membuat `exam.v1.xlsm` di Excel 2021: sheet, sel, tombol, impor `.bas`, tiga custom property Text bernilai `TEMPLATE`, simpan `.xlsm` -- user membuat template persis sama.
-- [ ] `src/adapters/workbook/template-patch.ts` -- `patchTemplate(bytes, { properties, cells })` dan `vbaProjectSha256(bytes)` -- inti AD-4.
-- [ ] `src/adapters/workbook/template-patch.test.ts` -- Vitest untuk tiap baris I/O Matrix dengan zip sintetis dari jszip -- bukti tanpa Excel.
-- [ ] `src/adapters/workbook/templates.ts` -- registry `{ 1: { file, vbaProjectSha256 } }`; hash diisi setelah template masuk repo -- dasar `IDENTITY_ALTERED` (AD-6).
-- [ ] `scripts/spike-s1.ts` -- baca template, patch dengan data manufaktur contoh dan token acak, tulis ke folder output di luar repo, cetak kedua hash dan gagal bila berbeda -- artefak uji untuk laptop.
+- [x] `assets/templates/vba/modFinish.bas` -- `Public Sub Finish()` menampilkan MsgBox berisi tiga property `WHE_*` dari `ThisWorkbook.CustomDocumentProperties`; ASCII, CRLF -- macro uji S1, diperluas S3.
+- [x] `assets/templates/README.md` -- panduan membuat `exam.v1.xlsm` di Excel 2021: sheet, sel, tombol, impor `.bas`, tiga custom property Text bernilai `TEMPLATE`, simpan `.xlsm` -- user membuat template persis sama.
+- [x] `src/adapters/workbook/template-patch.ts` -- `patchTemplate(bytes, { properties, cells })` dan `vbaProjectSha256(bytes)` -- inti AD-4.
+- [x] `src/adapters/workbook/template-patch.test.ts` -- Vitest untuk tiap baris I/O Matrix dengan zip sintetis dari jszip -- bukti tanpa Excel.
+- [x] `src/adapters/workbook/templates.ts` -- registry `{ 1: { file, vbaProjectSha256 } }`; hash diisi setelah template masuk repo -- dasar `IDENTITY_ALTERED` (AD-6).
+- [x] `scripts/spike-s1.ts` -- baca template, patch dengan data manufaktur contoh dan token acak, tulis ke folder output di luar repo, cetak kedua hash dan gagal bila berbeda -- artefak uji untuk laptop.
 - [ ] `assets/templates/exam.v1.xlsm` -- dibuat user (hitl), lalu `scripts/spike-s1.ts` dijalankan dan file hasil dikirim ke user.
 
 **Acceptance Criteria:**

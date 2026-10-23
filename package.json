@@ -8,12 +8,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.118.0",
     "clsx": "^2.1.1",
+    "jszip": "3.10.2",
     "next": "16.4.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -27,6 +29,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.2",
     "tailwindcss": "4.3.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "5.0.5"
   }
 }
