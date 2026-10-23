@@ -3,7 +3,7 @@ title: 'S2: Apakah rumus dan nilai terbaca benar dari file simpanan Excel 2021?'
 type: 'feature'
 ticket: '3'
 created: '2026-10-23'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
