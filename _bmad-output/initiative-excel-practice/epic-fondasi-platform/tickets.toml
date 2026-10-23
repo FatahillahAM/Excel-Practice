@@ -1,0 +1,121 @@
+# Breakdown epic-fondasi-platform, urutan build.
+
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer: scaffold with-supabase ter-deploy ke Vercel Production"
+description = "Membuat app dari starter `create-next-app -e with-supabase`, menghubungkannya ke Supabase project `prod`, dan men-deploy branch `main` ke Vercel Production dengan halaman `/health` yang memanggil Supabase dan menampilkan versi build."
+verify = "Membuka `/health` di URL Production menampilkan status OK dari Supabase `prod` dan commit yang ter-deploy."
+covers = ["B1"]
+after = []
+hitl = true
+risk = "low"
+unknown = "Versi Next.js dan TypeScript yang dipin starter; dicatat sebagai versi seed di Notes epic."
+references = ["_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md, sections Stack dan AD-13"]
+
+[[entry]]
+id = 2
+type = "spike"
+title = "S1: Apakah template .xlsm yang di-patch tetap utuh di Excel 2021?"
+description = "Membuat `assets/templates/exam.v1.xlsm` di Excel 2021 (sheet Instructions, tombol Finish, modul VBA, custom property `WHE_AttemptToken`/`WHE_ServerUrl`/`WHE_TemplateVersion`), lalu mem-patch data dan custom property lewat zip di Node tanpa pustaka spreadsheet, dan mencatat hash `vbaProject.bin`."
+verify = "File hasil patch terbuka di Excel 2021 laptop tanpa peringatan perbaikan, tombol Finish menjalankan macro uji, dan VBA membaca `WHE_AttemptToken` yang ditulis server."
+covers = ["S1"]
+after = []
+hitl = true
+risk = "high"
+unknown = "Apakah menulis XML sheet tanpa memperbarui calcChain atau sharedStrings membuat Excel meminta perbaikan."
+references = ["_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md, sections AD-4 dan Required Spikes", "_bmad-output/specs/spec-excel-practice/exam-bridge.md, section Alur"]
+
+[[entry]]
+id = 3
+type = "spike"
+title = "S2: Apakah rumus dan nilai terbaca benar dari file simpanan Excel 2021?"
+description = "Mengisi file S1 di Excel dengan rumus fixture (SUMIFS, IF, shared formula hasil fill down, dan angka diketik), menyimpannya, lalu membandingkan pembacaan SheetJS dari CDN dan parser XML sendiri, dan memilih pustaka di balik port WorkbookIO."
+verify = "Skrip uji mencetak teks rumus ternormalisasi dan nilai cache yang sama dengan isi Excel untuk setiap sel fixture, dan pilihan pustaka tercatat sebagai `Decision:` di Notes epic."
+covers = ["S2"]
+after = [2]
+hitl = true
+risk = "high"
+unknown = "Apakah SheetJS versi CDN masih bisa dipasang dan memperluas shared formula dengan benar."
+
+[[entry]]
+id = 4
+type = "spike"
+title = "S3: Apakah tombol Finish bisa mengirim file ke HTTPS dari laptop?"
+description = "Menambahkan endpoint `POST /api/submissions/macro` di Production yang menerima bytes file dan header `X-Attempt-Token` lalu mencatat ukuran dan token, dan menulis VBA Finish (SaveCopyAs + ServerXMLHTTP) di template S1 yang mengirim ke `WHE_ServerUrl` dan menampilkan status."
+verify = "Dari Excel 2021 di laptop, Finish mengirim file ke Production dan menampilkan pesan terkirim, log server mencatat ukuran dan token yang sama, dan tanpa jaringan Finish menampilkan pesan gagal dengan workbook tetap terbuka."
+covers = ["S3"]
+after = [1, 2]
+hitl = true
+risk = "high"
+unknown = "Apakah antivirus atau kebijakan Windows memblokir ServerXMLHTTP dari Excel."
+references = ["_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md, sections AD-6 dan AD-13"]
+
+[[entry]]
+id = 5
+type = "story"
+title = "Environment dev: Supabase dev, Preview ke dev, dan migrasi SQL"
+description = "Membuat Supabase project `dev`, mengarahkan env var Vercel Preview dan `.env.local` ke `dev`, menyiapkan `supabase/migrations` dengan migrasi pertama tabel `app_meta` (versi skema), dan memperluas `/health` agar menampilkan versi skema."
+verify = "Deploy Preview dari branch lain menampilkan versi skema dari Supabase `dev`, dan `supabase migration list` menunjukkan migrasi yang sama di `dev` dan `prod`."
+covers = ["B2"]
+after = [1]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "CI: lint dengan aturan impor core, typecheck, dan Vitest"
+description = "Menambahkan GitHub Actions yang menjalankan lint (ESLint `no-restricted-imports` untuk `src/core`), typecheck, dan Vitest di setiap push, dengan satu tes contoh di `src/core`."
+verify = "Push yang mengimpor `next` ke `src/core` gagal di CI, dan push bersih lulus."
+covers = ["B3"]
+after = [5]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 7
+type = "story"
+title = "Sign in with Google dengan allowlist satu akun"
+description = "Mengaktifkan login Google di Supabase `prod` dan `dev`, memasang Before User Created hook dan cek `ALLOWED_EMAIL` di auth callback, membuat tabel `profiles` dengan `time_zone` dari browser saat login pertama lewat migrasi, membangun halaman Login sesuai Login Card, menjaga semua route dengan sesi kecuali `/api/submissions/macro` dari entry 4, dan mengatur refresh sesi minimal 30 hari."
+verify = "Di Production akun Google El Zavier masuk dan `profiles.time_zone` terisi, akun Google lain ditolak tanpa sesi dengan pesan inline, halaman terlindungi mengalihkan ke Login setelah Log out, dan endpoint entry 4 tetap menerima POST tanpa sesi."
+covers = ["CAP-17"]
+after = [4, 5]
+hitl = true
+risk = "medium"
+unknown = "Apakah Before User Created hook berjalan untuk sign-up Google OAuth."
+references = ["_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md, sections AD-8 dan AD-9", "_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md, sections Component Patterns › Login Card dan State Patterns › Login"]
+
+[[entry]]
+id = 8
+type = "story"
+title = "App shell: tema Dark Excel, sidebar, header, dan toggle tema"
+description = "Memasang token warna DESIGN.md ke Tailwind dan shadcn, App Sidebar, Mobile Drawer, dan Header Bar dengan Theme Toggle dan avatar EZ, cookie preferensi tema dan Reduce motion, serta hook `useMotionPreference()`; Streak Chip ditambahkan oleh epic Progres."
+verify = "Setelah login di Production, shell tampil gelap sesuai mockup Dashboard tanpa isi, toggle ke terang bertahan setelah reload, dan di lebar HP sidebar menjadi drawer."
+covers = ["B4"]
+after = [7]
+hitl = false
+risk = "low"
+references = ["_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/mockups/key-dashboard.html"]
+
+[[entry]]
+id = 9
+type = "story"
+title = "Bukti ujung-ke-ujung: unduh dari Production, Finish, server membaca token dan rumus"
+description = "Membuat adapter `src/adapters/workbook` (patch dan baca, pustaka pilihan entry 3) dan halaman `/dev/bridge-proof` untuk user yang login, yang mengunduh `exam.v1.xlsm` berisi token dan `WHE_ServerUrl`; endpoint entry 4 lalu membaca token dan teks rumus lewat adapter itu dan mencatatnya."
+verify = "Di laptop, file yang diunduh dari Production dikirim lewat Finish, dan `/dev/bridge-proof` menampilkan token yang cocok serta teks rumus SUMIFS dari sel yang diisi."
+covers = ["S1", "S2", "S3"]
+after = [3, 4, 6, 7]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 10
+type = "story"
+title = "Refactor sweep"
+description = "Membersihkan kode epic ini berdasarkan catatan build dan temuan review yang ditunda; cakupannya ditetapkan saat mulai dan hanya berisi pembersihan."
+verify = "CI hijau, dan setiap temuan yang ditunda di epic ini ditutup atau dipindah ke story baru dengan alasan."
+covers = []
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+hitl = false
+risk = "low"
