@@ -77,6 +77,55 @@ context:
 - SheetJS tidak dibandingkan: `cdn.sheetjs.com` ditolak proxy (connect_rejected); npm hanya punya `xlsx` 0.18.5.
 - `vbaProject.bin` berubah setelah Excel menyimpan (`9618df59…8ec4` ≠ registry `d8aa9aa6…a9df`). Per stream (olefile): `PROJECT` berubah karena `ID=` GUID project dan nilai `CMG`/`DPB`/`GC` dibuat ulang; `dir`, `_VBA_PROJECT`, `__SRP_*`, dan `VBA/Sheet1` (cache) berubah atau bertambah; `VBA/modFinish` byte-identik, dan sumber VBA hasil dekompresi semua modul identik (olevba). Jadi sidik jari AD-6 harus memakai sumber VBA per modul, bukan byte `vbaProject.bin`. Ini perubahan spine, dicatat di deferred-work.
 
+## Review Triage Log
+
+Pass 1 (thorough: blind-hunter, edge-case-hunter, verification-gap, intent-alignment) -- medium 4, low 37, false 3, maybe-false 0 (44 temuan).
+
+- VG-4 XML rusak lolos tanpa error (sheet terpotong terbaca sebagian, part non-XML jadi sheet kosong) -- medium, patch P5: dibuktikan probe; fast-xml-parser tanpa validator tidak melempar error. `XMLValidator.validate` sebelum parse.
+- VG-1 tes fixture di-skip diam-diam bila file hilang -- medium, patch P2: cek utama spike bisa hilang tanpa merah.
+- BH-3 sama dengan VG-1 -- medium, patch P2.
+- BH-13 dok `vbaProjectSha256` dan `templates.ts` tidak memperingatkan bahwa hash berubah tiap save -- medium, patch P11: konsumen berikut akan menolak semua kiriman asli.
+- BH-2 tes fixture tidak memeriksa bentuk simpanan (shared, array, `_xlfn.`) -- low, patch P2b: tambahan tes kecil yang mengunci klaim spike.
+- BH-1 README C9 berbeda dengan `s2-expected.ts`; komentar header tidak benar lagi -- low, patch P1.
+- IA-3 harapan C9 berasal dari file yang diuji, bukan dari README -- low, patch P1 (akar sama).
+- ECH-16 sama dengan BH-1 -- low, patch P1.
+- BH-15 README tidak menyebut koma desimal pada regional Indonesia -- low, patch P8: satu kalimat.
+- VG-2 `processEntities: false` tidak dikunci tes (entitas ganda, DOCTYPE) -- low, patch P3: celah tes terverifikasi lewat mutasi.
+- VG-3 error `sharedStrings.xml is missing` tanpa tes -- low, patch P4.
+- ECH-3 `<v/>` kosong pada `t="s"` terbaca sebagai shared string pertama -- low, patch P6: dibuktikan probe; koreksi satu baris.
+- BH-7 `_xHHHH_` tidak di-decode pada nilai `t="str"` -- low, patch P7: dibuktikan probe (`a_x000D_`).
+- ECH-4 sama dengan BH-7 -- low, patch P7.
+- BH-12 zip dimuat dua kali untuk hash -- low, patch P10: koreksi langsung.
+- BH-8 klaim urutan sheet salah untuk nama mirip angka -- low, patch P9: hapus klaim di dok.
+- IA-5 `CellReading` tidak menandai sel spill/array -- low, ditolak: sesuai baris Spill di I/O Matrix beku dan belum ada konsumen; dicatat sebagai batasan untuk grader epic 3/Level 6.
+- BH-6 sama dengan IA-5 (termasuk array CSE multi-sel) -- low, ditolak.
+- BH-4 spasi operator interseksi terhapus -- low, ditolak: aturan normalisasi beku mewajibkan tanpa spasi; kurikulum V1 tidak memakai interseksi.
+- ECH-1 sama dengan BH-4 -- low, ditolak.
+- IA-6 normalisasi lossy, teks mentah tidak dikembalikan -- low, ditolak: belum ada konsumen umpan balik; aturan beku.
+- BH-5 `_xlfn.ANCHORARRAY`/`SINGLE` tidak dipetakan ke `#`/`@` -- low, ditolak: AD-3 menilai lewat checker fungsi dan nilai, bukan kesamaan rumus penulis.
+- ECH-2 sama dengan BH-5 -- low, ditolak.
+- BH-9 penemuan sheet via regex melewatkan `<x:sheet>` dan `r:id` tak terselesaikan -- low, ditolak: Excel 2021 menyimpan Transitional tanpa prefiks; hanya file rusak.
+- ECH-5 Strict OOXML tanpa `xmlns:r` → `Error` biasa -- low, ditolak (akar sama dengan BH-9).
+- ECH-6 sheet hilang diam-diam -- low, ditolak (akar sama).
+- IA-7 rels dibaca dua cara -- low, ditolak (akar sama).
+- BH-10 tipe error tidak konsisten; ref ganda saling timpa -- low, ditolak: file simpanan Excel well-formed; use case submit (epic 2) memetakan error pembaca ke `NOT_EXCEL`.
+- ECH-9 ref ganda saling timpa -- low, ditolak (akar sama).
+- BH-11 tanpa batas ukuran (zip bomb) -- low, ditolak: unggahan butuh sesi user tunggal atau token percobaan, body Vercel dibatasi; batas ukuran milik use case submit (epic 2).
+- ECH-11 sama dengan BH-11 -- low, ditolak; bagian parse ganda dicakup P10.
+- BH-14 helper duplikat dan cabang tanpa tes -- low, ditolak: kosmetik, entry 10 (refactor sweep).
+- ECH-7 referensi karakter > U+10FFFF → RangeError -- low, ditolak: gagal keras.
+- ECH-8 baris/sel tanpa `r` melewati batas -- low, ditolak: Excel selalu menulis `r`.
+- ECH-10 root `macrosheet` -- low, ditolak: tidak relevan.
+- ECH-12 skrip spike: `DataTableFormula` memecah `json.dump` -- low, ditolak: alat spike, fixture tanpa data table.
+- ECH-13 skrip spike: format tanggal openpyxl -- low, ditolak (sama).
+- ECH-14 skrip spike: perbandingan registry null/versi -- low, ditolak (sama).
+- ECH-15 skrip spike: `spawnSync` tanpa timeout -- low, ditolak (sama).
+- IA-2 cek openpyxl hanya di skrip manual -- low, ditolak: hasil 126 sel dicatat di Implementation Notes; CI tidak butuh Python.
+- IA-4 tes sintetis beda bentuk dengan file nyata -- low, ditolak: tes fixture nyata menutupnya (P2 membuatnya wajib jalan).
+- IA-1 tidak ada catatan temuan/pilihan pustaka di diff -- false: dicatat di Implementation Notes dan `Decision:` epic lewat ticketing setelah triase (keputusan user).
+- IA-9 hasil fallback Python tidak dinyatakan -- false: sama dengan IA-1.
+- IA-8 cakupan melebihi intent (properties, hash, `NotAWorkbookError`) -- false: tercantum di I/O Matrix beku dan definisi `WorkbookReading` spine.
+
 ## Design Notes
 
 Fixture (Excel menampilkan nilai ini):
