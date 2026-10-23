@@ -12,7 +12,10 @@ export interface TemplateInfo {
 }
 
 export const templates: Readonly<Record<number, TemplateInfo>> = {
-  1: { file: "assets/templates/exam.v1.xlsm", vbaProjectSha256: null },
+  1: {
+    file: "assets/templates/exam.v1.xlsm",
+    vbaProjectSha256: "d8aa9aa6923880439ccd214c559fb48a731091158b0f3e3508c50d35eb11a9df",
+  },
 };
 
 export const CURRENT_TEMPLATE_VERSION = 1;

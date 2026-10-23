@@ -64,12 +64,18 @@ context:
 - [x] `src/adapters/workbook/template-patch.test.ts` -- Vitest untuk tiap baris I/O Matrix dengan zip sintetis dari jszip -- bukti tanpa Excel.
 - [x] `src/adapters/workbook/templates.ts` -- registry `{ 1: { file, vbaProjectSha256 } }`; hash diisi setelah template masuk repo -- dasar `IDENTITY_ALTERED` (AD-6).
 - [x] `scripts/spike-s1.ts` -- baca template, patch dengan data manufaktur contoh dan token acak, tulis ke folder output di luar repo, cetak kedua hash dan gagal bila berbeda -- artefak uji untuk laptop.
-- [ ] `assets/templates/exam.v1.xlsm` -- dibuat user (hitl), lalu `scripts/spike-s1.ts` dijalankan dan file hasil dikirim ke user.
+- [x] `assets/templates/exam.v1.xlsm` -- dibuat user (hitl), lalu `scripts/spike-s1.ts` dijalankan dan file hasil dikirim ke user.
 
 **Acceptance Criteria:**
 - Given file hasil patch dibuka di Excel 2021 laptop, when workbook terbuka, then tidak ada dialog perbaikan dan sheet Instructions tampil dengan data dan teks yang ditulis server.
 - Given macro diizinkan, when tombol Finish diklik, then MsgBox menampilkan `WHE_AttemptToken` yang sama dengan yang dicetak `scripts/spike-s1.ts`.
 - Given template dan file hasil, when hash dihitung, then SHA-256 `vbaProject.bin` keduanya sama dan sama dengan registry.
+
+## Implementation Notes
+
+- Template `exam.v1.xlsm` di-upload user (`c53e68f`, 19.836 byte, 16 part). Diperiksa sebelum patch: sheet `Instructions` dan `Data`; B2 `s="1"`, B4 dan B6:B10 `s="2"`, semuanya kosong; `Data` berisi `<sheetData/>`; tombol Form Control terhubung ke `[0]!Finish`; tiga property `WHE_*` bertipe `vt:lpwstr` bernilai `TEMPLATE`; tidak ada `sharedStrings.xml` atau `calcChain.xml`. `olevba` (oletools 0.60.2, di venv scratchpad) menunjukkan `modFinish` identik dengan `assets/templates/vba/modFinish.bas`, dan modul `ThisWorkbook`, `Sheet1`, `Sheet2` kosong.
+- SHA-256 `vbaProject.bin` v1: `d8aa9aa6923880439ccd214c559fb48a731091158b0f3e3508c50d35eb11a9df`, dicatat di `src/adapters/workbook/templates.ts`.
+- `node scripts/spike-s1.ts`: hash template dan hasil sama, registry `match`, exit 0. File uji `spike-s1-XD3PPwFf.xlsm` dengan token `XD3PPwFf6kNRsEmA7qCUBxatFrCUZxr7IVxIKhFJkng` dikirim ke user. Hanya `docProps/custom.xml`, `sheet1.xml`, `sheet2.xml` yang berubah; semua XML well-formed; openpyxl membaca style bold/wrap, teks dua baris dengan `&`, `<`, `"`, angka sebagai angka, dan ketiga property.
 
 ## Design Notes
 
