@@ -180,10 +180,10 @@ describe("patchTemplate", () => {
   it("escapes special characters, normalizes line breaks and preserves spaces", async () => {
     const patched = await patchTemplate(await makeTemplate(), {
       properties: { WHE_ServerUrl: 'https://x.test/?a=1&b="2"<' },
-      cells: { Data: { A1: ' a < b & "c"\r\nd\re\nf_x0041_ ' } },
+      cells: { Data: { A1: ' a < b & "c"\r\nd\re\nf_x0041_ g_x0041_x0042_' } },
     });
     expect(await sheetData(patched, "xl/worksheets/sheet1.xml")).toBe(
-      '<row r="1"><c r="A1" t="inlineStr"><is><t xml:space="preserve"> a &lt; b &amp; &quot;c&quot;\nd\ne\nf_x005F_x0041_ </t></is></c></row>',
+      '<row r="1"><c r="A1" t="inlineStr"><is><t xml:space="preserve"> a &lt; b &amp; &quot;c&quot;\nd\ne\nf_x005F_x0041_ g_x005F_x0041_x005F_x0042_</t></is></c></row>',
     );
     expect(await readText(patched, "docProps/custom.xml")).toContain(
       'name="WHE_ServerUrl"><vt:lpwstr>https://x.test/?a=1&amp;b=&quot;2&quot;&lt;</vt:lpwstr>',
@@ -194,6 +194,12 @@ describe("patchTemplate", () => {
     await expect(
       patchTemplate(await makeTemplate(), { properties: {}, cells: { Data: { A1: "bell\u0007" } } }),
     ).rejects.toThrow(/Data!A1/);
+  });
+
+  it("rejects a property value XML cannot hold", async () => {
+    await expect(
+      patchTemplate(await makeTemplate(), { properties: { WHE_ServerUrl: "bell\u0007" }, cells: {} }),
+    ).rejects.toThrow(/"WHE_ServerUrl": value contains a control character/);
   });
 
   it("keeps a namespace declared on the property value element", async () => {

@@ -106,6 +106,11 @@ function setCustomProperties(
   xml: string,
   properties: Readonly<Record<string, string>>,
 ): string {
+  for (const [name, value] of Object.entries(properties)) {
+    if (INVALID_XML_CHAR_RE.test(value)) {
+      throw new Error(`Custom document property "${name}": value contains a control character XML cannot hold`);
+    }
+  }
   const pending = new Set(Object.keys(properties));
   const out = xml.replace(PROPERTY_RE, (whole, attrs: string, body: string) => {
     const name = attributeValue(attrs, "name");
@@ -191,7 +196,7 @@ interface RowWrite {
 
 const REF_RE = /^([A-Z]{1,3})([1-9][0-9]*)$/;
 // XML 1.0 forbids C0 controls other than tab, LF and CR, and U+FFFE/U+FFFF.
-const INVALID_XML_CHAR_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/;
+const INVALID_XML_CHAR_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/;
 
 function planSheetWrites(
   sheetName: string,
@@ -410,7 +415,7 @@ function escapeXml(text: string): string {
  */
 function escapeCellText(text: string): string {
   return escapeXml(
-    text.replace(/\r\n?/g, "\n").replace(/_(x[0-9A-Fa-f]{4}_)/g, "_x005F_$1"),
+    text.replace(/\r\n?/g, "\n").replace(/_(?=x[0-9A-Fa-f]{4}_)/g, "_x005F_"),
   );
 }
 

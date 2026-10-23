@@ -3,7 +3,7 @@ title: 'S1: Apakah template .xlsm yang di-patch tetap utuh di Excel 2021?'
 type: 'feature'
 ticket: '2'
 created: '2026-10-23'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -76,6 +76,10 @@ context:
 - Template `exam.v1.xlsm` di-upload user (`c53e68f`, 19.836 byte, 16 part). Diperiksa sebelum patch: sheet `Instructions` dan `Data`; B2 `s="1"`, B4 dan B6:B10 `s="2"`, semuanya kosong; `Data` berisi `<sheetData/>`; tombol Form Control terhubung ke `[0]!Finish`; tiga property `WHE_*` bertipe `vt:lpwstr` bernilai `TEMPLATE`; tidak ada `sharedStrings.xml` atau `calcChain.xml`. `olevba` (oletools 0.60.2, di venv scratchpad) menunjukkan `modFinish` identik dengan `assets/templates/vba/modFinish.bas`, dan modul `ThisWorkbook`, `Sheet1`, `Sheet2` kosong.
 - SHA-256 `vbaProject.bin` v1: `d8aa9aa6923880439ccd214c559fb48a731091158b0f3e3508c50d35eb11a9df`, dicatat di `src/adapters/workbook/templates.ts`.
 - `node scripts/spike-s1.ts`: hash template dan hasil sama, registry `match`, exit 0. File uji `spike-s1-XD3PPwFf.xlsm` dengan token `XD3PPwFf6kNRsEmA7qCUBxatFrCUZxr7IVxIKhFJkng` dikirim ke user. Hanya `docProps/custom.xml`, `sheet1.xml`, `sheet2.xml` yang berubah; semua XML well-formed; openpyxl membaca style bold/wrap, teks dua baris dengan `&`, `<`, `"`, angka sebagai angka, dan ketiga property.
+
+- Uji laptop user, Excel 2021, file `spike-s1-XD3PPwFf.xlsm`: terbuka **tanpa dialog perbaikan**. Sebelum Unblock, klik Finish memberi "Cannot run the macro … all macros may be disabled" karena Mark of the Web memblokir macro dari file unduhan. Setelah Unblock, Finish menampilkan `WHE_AttemptToken` `XD3PPwFf6kNRsEmA7qCUBxatFrCUZxr7IVxIKhFJkng` (sama dengan cetakan skrip), `WHE_ServerUrl` Production, dan `WHE_TemplateVersion` 1. Tampilan teks dan data di sheet belum dikonfirmasi eksplisit oleh user.
+- Temuan spike (sementara, menunggu konfirmasi tampilan sheet): patch level zip di Node lolos S1. `<dimension>` dan `spans` yang basi serta inline string tanpa part `sharedStrings` tidak memicu perbaikan; VBA dan tombol Finish utuh. Unblock atau Trusted Location wajib sebelum Finish bisa jalan, sesuai panduan penyiapan CAP-16. Untuk S2: file hasil generate yang belum disimpan Excel membawa `<dimension>`/`spans` basi, jadi pembaca tidak boleh mengandalkannya. Masih terbuka: apakah Excel mengubah `vbaProject.bin` saat menyimpan (deferred-work).
+- Patch review P1–P5 diterapkan (subagent terhenti oleh restart container, perubahan diperiksa ulang di disk): `templates.test.ts` baru, validasi karakter kontrol pada property, escape `_xHHHH_` dengan lookahead, `.gitattributes` (`*.bas -text`, `*.xlsm binary`), dan README tanpa nama branch. Verifikasi ulang: Vitest 17/17, lint dan `tsc --noEmit` bersih, `node scripts/spike-s1.ts` registry `match` exit 0. Patch tidak mengubah isi file uji yang sudah dibuka user.
 
 ## Review Triage Log
 
