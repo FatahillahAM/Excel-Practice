@@ -8,6 +8,7 @@ companions:
   - stack.md
   - ../../planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/DESIGN.md
   - ../../planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md
+  - ../../planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md
 sources:
   - ../../planning-artifacts/briefs/brief-excel-practice-2026-10-22/brief.md
   - ../../planning-artifacts/briefs/brief-excel-practice-2026-10-22/addendum.md
@@ -24,7 +25,7 @@ sources:
 
 ## Capabilities
 
-Fase: **V1** = build pertama; **Next** = build berikutnya (via `bmad-build`). Aturan per level, Test, dan Ujian Akhir: `level-curriculum.md`. Alur Exam: `exam-bridge.md`. Layar, state, dan teks: `EXPERIENCE.md`; tampilan: `DESIGN.md`.
+Fase: **V1** = build pertama; **Next** = build berikutnya (via `bmad-build`). Aturan per level, Test, dan Ujian Akhir: `level-curriculum.md`. Alur Exam: `exam-bridge.md`. Layar, state, dan teks: `EXPERIENCE.md`; tampilan: `DESIGN.md`; batas antar-bagian, stack, dan aturan konsistensi build: `ARCHITECTURE-SPINE.md`.
 
 - **CAP-1** (V1)
   - **intent:** User melihat peta 9 level + Ujian Akhir dan membuka level secara bertahap.
@@ -40,7 +41,7 @@ Fase: **V1** = build pertama; **Next** = build berikutnya (via `bmad-build`). At
   - **success:** File yang sama yang dikirim lewat macro dan lewat upload mendapat skor dan keterangan identik; upload berhasil di perangkat dengan macro diblokir.
 - **CAP-5** (V1)
   - **intent:** User menerima skor, waktu, dan keterangan per soal, dinilai dari hasil maupun metode.
-  - **success:** Sel berisi rumus dengan fungsi yang diminta dan hasil benar dinilai benar; sel berisi angka benar yang diketik manual atau fungsi yang salah dinilai salah dengan alasan tertulis; hasil menampilkan jumlah soal benar ("x of y correct") dan alasan untuk setiap soal yang salah.
+  - **success:** Sel berisi rumus dengan fungsi yang diminta dan hasil benar dinilai benar; sel berisi angka benar yang diketik manual atau fungsi yang salah dinilai salah dengan alasan tertulis; tiap soal punya poin sendiri dan total poin satu percobaan = 100; skor = poin soal benar − 5 per hint, minimal 0; hasil menampilkan jumlah soal benar ("x of y correct") dan alasan untuk setiap soal yang salah.
 - **CAP-6** (V1)
   - **intent:** Setiap percobaan memberi soal baru dengan data acak dan kunci jawaban yang dijamin cocok dengan data itu.
   - **success:** Dua percobaan berturut-turut pada level yang sama memakai data berbeda; kunci jawaban sama dengan hasil hitung ulang dari data; perintah soal hanya merujuk kolom/entitas yang ada di data; bank berisi minimal 10 skenario per level.
@@ -133,5 +134,4 @@ Fase: **V1** = build pertama; **Next** = build berikutnya (via `bmad-build`). At
 
 ## Open Questions
 
-- Bobot skor per soal: sama rata, atau berbeda per soal? Contoh di mock UX ("8 of 10 correct" dengan satu hint −5 = 85) hanya cocok bila bobot tidak rata. (CAP-5)
 - (Next) Setujui penilaian Pivot berlapis di `pivot-grading.md`? Spike dengan file Office 2021 menentukan lapisan mana yang dipakai, sebelum Level 7 dibangun. (CAP-13, CAP-14)

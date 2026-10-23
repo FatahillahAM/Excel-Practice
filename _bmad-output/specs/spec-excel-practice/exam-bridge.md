@@ -56,7 +56,7 @@ sequenceDiagram
 
 - Web hanya untuk satu akun Google yang diizinkan (*Sign in with Google*); tidak ada pendaftaran dan tidak ada password.
 - Setiap kiriman, lewat macro maupun upload, harus terbukti berasal dari percobaan aktif milik user. Yang tidak cocok ditolak dan tidak dinilai, dengan pesan berbeda per alasan: bukan dari percobaan yang sedang berjalan, sudah dinilai, identitas diubah/rusak, percobaan sudah ditutup. Percobaan tetap terbuka kecuali alasannya percobaan sudah ditutup.
-- Kandidat cara (bukan keharusan): token unik per percobaan disematkan di file saat *Start*; server mencocokkan token dengan percobaan aktif, lalu menandai percobaan selesai agar file yang sama tidak dinilai dua kali. Macro tidak menyimpan password atau kunci API.
+- Diputuskan (spine AD-4, AD-6): token unik per percobaan disematkan di file saat *Start* (custom document property, plus sidik jari `vbaProject.bin` template untuk mendeteksi file yang diubah); server mencocokkan token dengan percobaan aktif, lalu menandai percobaan selesai agar file yang sama tidak dinilai dua kali. Macro tidak menyimpan password atau kunci API.
 
 ## Siklus percobaan (CAP-20)
 
