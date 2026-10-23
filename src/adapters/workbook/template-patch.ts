@@ -137,7 +137,8 @@ function setCustomProperties(
 const SHEET_RE = /<sheet\b([^>]*?)\/?>/g;
 const RELATIONSHIP_RE = /<Relationship\b([^>]*?)\/?>/g;
 
-async function readSheetParts(zip: JSZip): Promise<Map<string, string>> {
+/** Sheet name → part name, in workbook order, via `xl/workbook.xml` and its relationships. Shared with the reader. */
+export async function readSheetParts(zip: JSZip): Promise<Map<string, string>> {
   const workbook = await readPart(zip, WORKBOOK_PART);
   const rels = await readPart(zip, WORKBOOK_RELS_PART);
   if (workbook === null || rels === null) {
@@ -174,7 +175,7 @@ function namespacePrefix(xml: string, namespace: string): string | null {
 }
 
 /** Relationship targets in workbook.xml.rels are relative to `xl/` unless absolute. */
-function resolvePartName(target: string): string {
+export function resolvePartName(target: string): string {
   return target.startsWith("/")
     ? path.posix.normalize(target).slice(1)
     : path.posix.normalize(path.posix.join("xl", target));
