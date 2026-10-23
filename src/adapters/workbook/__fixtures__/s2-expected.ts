@@ -68,7 +68,9 @@ export const s2Expected: Readonly<Record<string, Readonly<Record<string, Expecte
     C6: formula('SUMIFS(DATA!E2:E11,DATA!B2:B11,"Lini A")', 4125),
     C7: formula('SUMIFS(DATA!F2:F11,DATA!C2:C11,"Malam")', 226),
     C8: formula('AVERAGEIFS(DATA!G2:G11,DATA!D2:D11,"Baut M8")', 1250.5),
-    C9: formula("SUM(DATA!F2:F11)/SUM(DATA!E2:E11)", 0.022998872604284102),
+    // Typed with a shifted parenthesis; same value. Excel 2021 saved it as a
+    // one-cell dynamic-array formula (`<f t="array" ref="C9">`, `cm="1"`).
+    C9: formula("SUM(DATA!F2:F11/SUM(DATA!E2:E11))", 0.022998872604284102),
     C10: value(226),
   },
   Data: buildData(),
