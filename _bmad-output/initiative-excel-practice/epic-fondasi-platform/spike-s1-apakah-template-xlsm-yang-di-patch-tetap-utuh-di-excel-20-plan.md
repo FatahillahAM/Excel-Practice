@@ -77,6 +77,38 @@ context:
 - SHA-256 `vbaProject.bin` v1: `d8aa9aa6923880439ccd214c559fb48a731091158b0f3e3508c50d35eb11a9df`, dicatat di `src/adapters/workbook/templates.ts`.
 - `node scripts/spike-s1.ts`: hash template dan hasil sama, registry `match`, exit 0. File uji `spike-s1-XD3PPwFf.xlsm` dengan token `XD3PPwFf6kNRsEmA7qCUBxatFrCUZxr7IVxIKhFJkng` dikirim ke user. Hanya `docProps/custom.xml`, `sheet1.xml`, `sheet2.xml` yang berubah; semua XML well-formed; openpyxl membaca style bold/wrap, teks dua baris dengan `&`, `<`, `"`, angka sebagai angka, dan ketiga property.
 
+## Review Triage Log
+
+Pass 1 (thorough: blind-hunter, edge-case-hunter, verification-gap, intent-alignment) -- medium 3, low 20, false 3, maybe-false 1.
+
+- VG-1 `npm test` tidak membaca `exam.v1.xlsm` atau registry -- medium, patch P1: hash registry bisa menyimpang tanpa ada tes yang gagal; dasar AD-6 nanti.
+- BH-6 tes tidak mengikat template nyata ke registry; fixture beda dari file Excel -- medium, patch P1 (akar sama dengan VG-1).
+- IA-2 fixture tidak punya `<drawing>`/`<legacyDrawing>`/`<controls>` tombol Finish -- medium, patch P1: tidak ada tes bahwa markup tombol bertahan.
+- IA-3 fixture punya `sharedStrings`/`calcChain`, file nyata tidak -- low, patch P1 (akar sama).
+- VG-2 nilai property tidak dicek karakter kontrol XML -- low, patch P2: probe dua lensa menulis U+0007 mentah ke `custom.xml`; koreksi langsung.
+- BH-2 sama dengan VG-2 -- low, patch P2.
+- ECH-1 property dengan karakter kontrol atau CR -- low, patch P2 untuk karakter kontrol; bagian CR ditolak: CR sah di XML dan token/URL tidak memuatnya.
+- BH-3 `_xHHHH_` berurutan salah di-escape -- low, patch P3: dibuktikan `_x0041_x0042_` → `_x005F_x0041_x0042_`; regex lookahead.
+- BH-8 tanpa `.gitattributes`, `.bas` bisa berubah ke LF -- low, patch P4: impor VBE butuh CRLF; dua baris konfigurasi.
+- ECH-11 sama dengan BH-8 -- low, patch P4.
+- BH-9 README menulis mati branch sementara; belum ada prosedur v2 -- low; nama branch patch P5 (koreksi langsung); prosedur v2 ditolak, ditulis saat v2 dibuat.
+- BH-1 uji simpan tidak ada: Excel mungkin menulis ulang `vbaProject.bin` saat save -- maybe-false (high bila benar), defer: bukan disebabkan perubahan ini, menyangkut AD-6; terjawab dengan membandingkan hash file yang disimpan Excel. User diminta uji simpan opsional.
+- BH-4 `<dimension>` basi -- low, ditolak: Excel membuka file tanpa dialog perbaikan (user), server membaca file kiriman yang disimpan ulang Excel; perbaikan butuh kode bounding box. Dicatat sebagai batasan S2.
+- ECH-5 sama dengan BH-4 -- low, ditolak.
+- ECH-6 atribut `spans` basi -- low, ditolak (akar sama dengan BH-4).
+- BH-5 teks sel > 32.767 karakter tidak ditolak -- low, ditolak: konten pendek, perbaikan menambah guard.
+- ECH-3 sama dengan BH-5 -- low, ditolak.
+- ECH-4 property > 255 karakter -- low, ditolak: token 43 karakter, URL pendek; guard baru.
+- ECH-2 surrogate tak berpasangan → U+FFFD -- low, ditolak: konten dari kode, guard baru.
+- BH-7 jalur error tanpa tes -- low, ditolak: semua gagal keras. Bagian `<property/>` self-closing false: skema mewajibkan elemen nilai dan Excel tidak menulisnya.
+- BH-10 peringatan `MODULE_TYPELESS_PACKAGE_JSON`; `--template` tetap memberi label v1 -- low, ditolak: kosmetik, khusus skrip spike.
+- BH-11 metadata template (creator, `absPath`, `modified`) ikut ke tiap file -- low, ditolak: app satu user, file kembali ke user yang sama, waktu mulai dicatat server.
+- ECH-9 `--out` symlink ke repo lolos guard -- low, ditolak: butuh symlink sengaja.
+- ECH-10 versi tanpa entri registry → TypeError -- low, ditolak: gagal keras saat start.
+- ECH-7 rumus yang bergantung pada sel tertulis jadi basi -- false: v1 tanpa rumus dan `calcChain`, README melarang rumus.
+- ECH-8 sel di header tabel -- false: v1 tanpa tabel, README melarang isi lain.
+- IA-1 jawaban spike belum ada di diff -- false: hasil laptop sedang diuji user dan dicatat lewat ticketing sesuai Boundaries.
+
 ## Design Notes
 
 Patch hanya menyentuh `docProps/custom.xml` (isi `<vt:lpwstr>` property `WHE_*`) dan XML sheet yang ditemukan lewat `xl/workbook.xml` + `xl/_rels/workbook.xml.rels`. Baris dan sel di `<sheetData>` diedit di tempat, bukan parse-lalu-serialisasi, agar namespace dan atribut Excel tetap persis. `<dimension>` tidak diubah; bila Excel mempermasalahkannya, itu temuan spike.
