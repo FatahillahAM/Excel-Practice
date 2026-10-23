@@ -1,16 +1,16 @@
 ---
 name: WORKING HARD with EXCEL
-status: draft
+status: final
 sources:
   - ../../../specs/spec-excel-practice/SPEC.md
   - ../../../specs/spec-excel-practice/level-curriculum.md
   - ../../../specs/spec-excel-practice/exam-bridge.md
-updated: 2026-10-22
+updated: 2026-10-23
 ---
 
 # WORKING HARD with EXCEL — Experience Spine
 
-Behavior and flow. Visual identity, tokens and component visuals live in `DESIGN.md`. Product rules (levels, hint quotas, Test gate, streak, exam bridge) are inherited from `SPEC.md` and its companions `level-curriculum.md` and `exam-bridge.md` — referenced by CAP-id, not restated. Renders in `.working/` and v0 templates in `imports/` illustrate; **the spines win on conflict.**
+Behavior and flow. Visual identity, tokens and component visuals live in `DESIGN.md`. Product rules (levels, hint quotas, Test gate, streak, exam bridge) are inherited from `SPEC.md` and its companions `level-curriculum.md` and `exam-bridge.md` — referenced by CAP-id, not restated. Renders in `.working/`, key-screen mocks in `mockups/` and v0 templates in `imports/` illustrate; **the spines win on conflict.**
 
 ## Foundation
 
@@ -18,7 +18,7 @@ Behavior and flow. Visual identity, tokens and component visuals live in `DESIGN
 |---|---|
 | Form factor | Desktop web primary (personal laptop, sometimes office PC) + phone browser for streak checks. Exams are always worked in Excel desktop (SPEC constraint); the phone never starts an attempt. |
 | UI system | shadcn/ui on Next.js + Tailwind; brand layer per `DESIGN.md`. |
-| Visual reference | `DESIGN.md` (theme "Dark Excel") + key-screen mocks: [Dashboard](mockups/key-dashboard.html), [Exam in progress](mockups/key-exam.html), [Results](mockups/key-results.html), [Level Map + Level Detail Panel](mockups/key-level-map.html). Every other surface (Login, History, Records, Tips & Tricks, Setup Guide, Settings, Exam Workbook) is built from these tables alone (confirmed). |
+| Visual reference | `DESIGN.md` (theme "Dark Excel") + key-screen mocks, which supersede the direction renders where they differ: [Dashboard](mockups/key-dashboard.html) (J1 step 1 desktop; J3 on phone), [Exam in progress](mockups/key-exam.html) (J1 step 3; J2 rejection), [Results](mockups/key-results.html) (J1 step 5; J4 climax; low score), [Level Map + Level Detail Panel](mockups/key-level-map.html) (J4 steps 1–2; phone bottom sheet). Every other surface (Login, History, Records, Tips & Tricks, Setup Guide, Settings, Exam Workbook) is built from these tables alone (confirmed by the user). |
 | Theme | Dark default; light (AA-tuned tokens) via Theme Toggle in Header Bar and Settings. |
 | Motion | Full motion by default; off when the OS asks (`prefers-reduced-motion`) **or** the Settings "Reduce motion" switch is on (default follows OS). |
 | User | Single account, protagonist **El Zavier** (CAP-17): one allowlisted Google account via "Sign in with Google". No sign-up, no password. |
@@ -48,7 +48,7 @@ Sidebar groups — **Menu:** Dashboard, Level Map, History, Records, Tips & Tric
 | Settings | Sidebar General, avatar menu | Theme, Reduce motion, streak time zone (read-only), "Signed in as <Google account>" + Log out | CAP-10, 17 |
 | Log out | Sidebar General, avatar menu | Ends session → Login | CAP-17 |
 
-Key-screen mocks (supersede the direction renders where they differ): [mockups/key-dashboard.html](mockups/key-dashboard.html) (J1 step 1 desktop; J3 on phone), [mockups/key-exam.html](mockups/key-exam.html) (J1 step 3; J2 rejection), [mockups/key-results.html](mockups/key-results.html) (J1 step 5; J4 climax; low score), [mockups/key-level-map.html](mockups/key-level-map.html) (J4 steps 1–2; phone bottom sheet). Composition references: Dashboard structure — [.working/direction-c-level-journey.html](.working/direction-c-level-journey.html); streak hero, phone first screen, streak-at-risk — [.working/direction-b-hero-streak.html](.working/direction-b-hero-streak.html). Correct on build: menu labels to English, level names to curriculum names, avatar "FA/Fatahillah" → "EZ/El Zavier", history scores and record placements are samples, "freeze used automatically" copy is wrong (freeze is manual, CAP-10), phone rail order runs Level 1 first, header search is gone, `<html lang="id">` → `en`.
+Key-screen mocks: Foundation › Visual reference. Composition references: Dashboard structure — [.working/direction-c-level-journey.html](.working/direction-c-level-journey.html); streak hero, phone first screen, streak-at-risk — [.working/direction-b-hero-streak.html](.working/direction-b-hero-streak.html). Correct on build: menu labels to English, level names to curriculum names (1 Fondasi, 2 Logika, 3 Hitung bersyarat, 4 Cari data, 5 Rapikan data, 6 Rumus modern, 7 Pivot, 8 Lintas file, 9 Summary, Ujian Akhir — not "Dasar sel & rumus", "Fungsi dasar", "Lookup data"), avatar "FA/Fatahillah" → "EZ/El Zavier" (the user is always shown as El Zavier / EZ), history scores and record placements are samples, "freeze used automatically" copy is wrong (freeze is manual, CAP-10), phone rail order runs Level 1 first, header search is gone, `<html lang="id">` → `en`.
 
 ## Voice and Tone
 
@@ -107,7 +107,7 @@ Behavioral. Visual specs: `DESIGN.md` → Components (same names).
 | Freeze Pill | Streak Hero | Shows freezes left ("1 of 2 freezes left"). At risk it becomes the "Use freeze" button for today; disabled (`aria-disabled`, still focusable, reason in `aria-describedby`) when the weekly quota is used. Freeze never applies automatically (CAP-10). |
 | Week Strip | Streak Hero | Always Mon–Sun: done / frozen / missed / today pending ("?") / future (empty). Read-only; each day named in full ("Wednesday: frozen", "Today: not yet", "Friday: upcoming"). |
 | Level Path | Dashboard hero | `nav aria-label="Level path"` with an `<ol>` of node buttons in level order (Level 1 → Ujian Akhir); the Level Callout's Primary Button follows the active node in DOM order. Active node in view on load. Consecutive Under Construction levels show as Under Construction and cannot start (CAP-1). |
-| Level Node | Level Path, Level Map | States: passed / active (`aria-current="step"`) / locked / under construction; side-track variant on Level Map only (CAP-15), right of the main path and joined to Level 8 by a dashed spur, last in the node order. Button; `Enter` opens Level Detail Panel; locked/UC open it read-only with the reason in `aria-describedby`. Name built with `aria-labelledby` from visible spans ("Level 3", `<span lang="id">Hitung bersyarat</span>`, "active, 4 of 5 practices done"). |
+| Level Node | Level Path, Level Map | States: passed / active (`aria-current="step"`) / locked / under construction; side-track variant on Level Map only (CAP-15), right of the main path and joined to Level 8 by a dashed spur; it comes last in tab order. Button; `Enter` opens Level Detail Panel; locked/UC open it read-only with the reason in `aria-describedby`. Name built with `aria-labelledby` from visible spans ("Level 3", `<span lang="id">Hitung bersyarat</span>`, "active, 4 of 5 practices done"). |
 | Level Callout | Level Path at active node | Practice Pips + next Primary Button; Test lock line until 5 practices are done (CAP-9). After Test Level 4 passes: "Level 4 complete — Level 5 is coming soon" + "Practice again" (opens Level Detail Panel). Closes while another node has focus so it never covers it. |
 | Practice Pips | Level Callout, Level Detail Panel | 5 segments = practices 1–5 completed (any score); always paired with "x/5 practices done". Repeats never add pips. |
 | Under Construction Tag | Nodes, Ujian Akhir card, side-track node, Results — Ujian Akhir | Static label; no start action anywhere it appears. |
@@ -117,11 +117,11 @@ Behavioral. Visual specs: `DESIGN.md` → Components (same names).
 | History List | Dashboard rail | Last 3 attempts; row → that attempt's Results; "View all" → History. |
 | Phone Dock | Phone Dashboard | Pinned; mini stats + Primary Button "Start Practice N" kept visible. Tap shows the phone message inline above the button (polite); no attempt is created. Content keeps `scroll-padding-bottom` = dock height. |
 | Streak Risk Pill | Streak Hero (phone + desktop) | Appears when today has no graded attempt; time left until the day boundary ("4h 30m left") in the fixed CAP-10 zone. Countdown is never announced per tick. |
-| Login Card | Login | One "Sign in with Google" button (`Enter`/`Space` activate) opens the Google account popup. Pending: button disabled, spinner + "Connecting…". Only the single allowlisted Google account gets a session (CAP-17); any other account is rejected with no session. Popup closed or cancelled → back to idle, no error. Every failure (account not allowlisted, popup blocked, network, server) shows inline in the one slot under the button (`role="alert"`), never a Toast; it clears on the next attempt. Success → Dashboard (or the surface requested before sign-in); session remembered ~30 days per device. No username/password fields, no "Forgot password". |
+| Login Card | Login | One "Sign in with Google" button (`Enter`/`Space` activate) opens the Google account popup. Only the single allowlisted Google account gets a session (CAP-17); any other account is rejected with no session. Every failure uses the one inline slot under the button (`role="alert"`), never a Toast. Success → Dashboard (or the surface requested before sign-in); session remembered ~30 days per device. No username/password fields, no "Forgot password". Pending, error, cancelled and signed-in states: State Patterns › Login. |
 | Attempt Card | Dashboard (rail top; phone: under Streak Hero) | Shown while an attempt is open (not yet graded), on every device (CAP-12). "Resume" → Exam in progress for that attempt. "Abandon" → confirm `Dialog` → attempt cancelled (not graded). While the card exists, every other Start / Practice again is disabled with "Resume or abandon the attempt in progress first." |
 | Orbit Loader | Exam in progress | Decorative focal point while Excel is in use (`aria-hidden`). Runs until the server grades the file, then the page moves to Results by itself (CAP-3). Pause/play control stops and resumes it. |
 | Exam Status Line | Exam in progress | `role="status"`, always visible: "Excel is open — Practice 5 · 12:34" (time since Start; never announced per tick) + "Klik Finish di file kalau sudah selesai, ya." (`lang="id"`) + "Download didn't start? Download again" (re-downloads the same attempt's file; start time unchanged). After the file arrives: "File received — grading…". |
-| Hint Select | Exam in progress (practice, Test) | El Zavier picks the question the hint is for: shadcn `Select` labelled "Hint for", options "Soal 1 … Soal N" of this attempt. Changing it spends nothing. |
+| Hint Select | Exam in progress (practice, Test) | El Zavier picks the question the hint is for: shadcn `Select` labeled "Hint for", options "Soal 1 … Soal N" of this attempt. Changing the selection costs no points. |
 | Hint Button | Exam in progress (practice, Test) | Accessible name "Hint for Soal 3, minus 5 points, 2 left". Each activation reveals the next hint for the selected soal inline ("Hint 1 · Soal 3"), deducts 5 and decrements the attempt's quota (CAP-7). Guard: disabled while the request is pending, then focus moves to the new hint text (`tabindex="-1"`), so a double `Enter` cannot spend two. Quota 0: button stays in place, `aria-disabled`, label "No hints left", focus kept. Absent for Ujian Akhir. |
 | Upload Dropzone | Exam in progress | A real file `<input accept=".xlsm,.xlsx">` button reachable by `Tab`, opened with `Enter`/`Space`; dragging optional. Uploads to the open attempt (CAP-4). Rejections show the reason message inline (`role="alert"`); attempt stays open unless the reason is "attempt closed" (CAP-18). |
 | Exam Timer | Ujian Akhir only — **Next (CAP-14)** | Remaining time replaces elapsed time in the Exam Status Line; announced only at 10, 5 and 1 minutes left. |
@@ -237,7 +237,7 @@ Behavioral. Visual specs: `DESIGN.md` → Components (same names).
 - Targets: ≥24×24px everywhere; Hint Button and Upload Dropzone 40px tall, ≥8px apart; ≥44px on phone (Phone Dock button 52px, Use freeze, Drawer close, Carousel Prev/Next).
 - Every surface has its own `<title>`; Results sets it on auto-navigation and focuses the `<h1>`, which always states the outcome in text (pass/fail never depends on fire or glow).
 - Decorative and duplicate content is `aria-hidden` (+ `inert` where it copies controls): 3D laptop, Excel logo, scene board and list copies, Orbit rings/dots/logo, Fire Effect, glows and pulse rings, grid background, A–J column strip, glyphs (🔥 ✗ ✓ ❄ ↗) — each glyph is paired with text.
-- Status is never colour- or shape-only: Wrong Answer "✗ Soal N", Tips "✓/✗" with text, "x/5 practices done" with every Practice Pips, Week Strip day names, Under Construction tag text, freeze snowflake + text, Theme Toggle `aria-pressed`, Activity Chart sr-only table.
+- Status is never color- or shape-only: Wrong Answer "✗ Soal N", Tips "✓/✗" with text, "x/5 practices done" with every Practice Pips, Week Strip day names, Under Construction tag text, freeze snowflake + text, Theme Toggle `aria-pressed`, Activity Chart sr-only table.
 - Language: `<html lang="en">`; `lang="id"` on perintah soal, hint text, keterangan, Tips bodies, system messages, the Exam Status Line instruction, toasts, level names and every live region carrying Indonesian. English Excel terms inside Indonesian text use `<code lang="en">` / `<kbd lang="en">`. Days and times use English (Mon–Sun, "4h 30m left").
 
 **Live regions** (nothing else announces):
@@ -320,10 +320,11 @@ Failure: not applicable (read-only); empty collections show the empty state, and
 |---|---|---|
 | v0 "Sign In with X" — [imports/login-page.zip](imports/login-page.zip) | Single centered column `max-w-md`, small logo, big title + grey subtitle, one button with spinner (disabled while pending), every error in one slot under the button and cleared on retry, separator, two-layer fade + slide-up entrance, signed-in visitor skips the sign-in | X as the sign-in provider (Google instead, CAP-17), monochrome palette, footer links, welcome card |
 | v0 "Tasko" dashboard — [imports/dashboard-page.zip](imports/dashboard-page.zip) | Fixed 256px sidebar with Menu/General groups, filled glowing active item and 4px hover nudge; inverted dark card with mono digits; rounded bar chart with Average/Peak footer and full-day tooltip; count-up, one page-wide stagger, hover by size, ↗ chip, row hover, quick fade on secondary pages; drawer "Open menu" with faster close; tablet 2-up tier | Tasks/Calendar/Team content, light-default theme, header search, notification icons, the stagger flash defect (`forwards` + delay) |
-| v0 "orbit animation" — [imports/animation-page.zip](imports/animation-page.zip) | Whole Orbit Loader: exact ring radii, opacities, periods and start angles; calm waiting room for the exam | `<img>`-loaded SVG with hard-coded colours, CSS `r` |
+| v0 "orbit animation" — [imports/animation-page.zip](imports/animation-page.zip) | Whole Orbit Loader: exact ring radii, opacities, periods and start angles; calm waiting room for the exam | `<img>`-loaded SVG with hard-coded colors, CSS `r` |
 | apple.com product pages | Scroll-driven 3D objects (Level Map, Results lower section), giant hero numerals | Scroll scenes on Dashboard or Login; scroll-scrubbed outcomes |
 | Duolingo | Encouraging santai tone, streak + freeze framing | Push/email nags (no notifications at all) |
-| Rejected | Automatic freeze shown in renders (CAP-10 is manual); the "only an animation" exam screen (hint, upload and status line must stay, CAP-4/CAP-7); listing correct questions in Results (counted only; Tips cover all); a phone Start that creates an attempt | |
+
+**Rejected:** automatic freeze shown in renders (CAP-10 is manual); the "only an animation" exam screen (hint, upload and status line must stay, CAP-4/CAP-7); listing correct questions in Results (counted only; Tips cover all); a phone Start that creates an attempt.
 
 ## Responsive & Platform
 
@@ -340,33 +341,5 @@ Progress, streak, freeze, records and the open attempt are identical across devi
 
 - **Deferred to `bmad-architecture`:** 3D scene technique and budget (scrubbed image sequence / `<video>` vs CSS 3D layers, asset budget, frame-rate target for the light phone version); the slow-grading threshold.
 - **Score weighting per question (CAP-5, spec):** the mocks show "8 of 10 correct" with one hint (−5) scoring 85, which only works if questions are not weighted equally. The spec does not define weights yet.
+- **Spec changes:** 24 candidates for `bmad-spec` (CAP-5 wrong-only Results, Start/Finish, Practice again, attempt lifecycle, Sign in with Google, hint targeting, score weighting and more) are listed in [spec-update-candidates.md](spec-update-candidates.md).
 - [ASSUMPTION] Rendered compositions not yet confirmed one by one (review the mocks): Results layout (badge column left, 880px column), Level Map scene placement and scroll ranges, side-track spur from Level 8, Level Detail Panel width 430px, "Wrong answers" heading, Test row caption "Open · needs 80".
-
-## Spec update candidates
-
-Behaviour the product spec must absorb (flow back via `bmad-spec` update):
-
-1. **CAP-5** — success becomes "every wrong question shows its reason; correct questions are counted ('x of y correct')" (decision 8).
-2. **CAP-2 / CAP-3** — web button *Mulai* → **Start**; in-file *Selesai* → **Finish**.
-3. **CAP-9 / CAP-10 / CAP-11** — repeat attempts: "Practice again" on every completed practice and Test; new data; counts for streak and records; never changes Pips, gate or level status.
-4. **CAP-2 / CAP-3 / CAP-4** — attempt lifecycle: one open attempt; Attempt Card Resume / Abandon (abandoned = cancelled, not graded); other Starts locked while open; re-download returns the same file; return after re-login; grading slow / failed states.
-5. **CAP-18** — four rejection reasons (not this attempt, already graded, identity altered/damaged, attempt closed), each with its own message, on both macro and upload paths.
-6. **CAP-3** — Exam Workbook: Instructions sheet, macro messages for sent / send failed; workbook stays open on failure.
-7. **CAP-8** — Tips & Tricks collection page with level filter and search.
-8. **CAP-5 / CAP-12** — History page: past attempts reopen their Results.
-9. **CAP-10** — streak rules confirmed by the user (drop "menunggu konfirmasi"); time zone fixed at first login and read-only in Settings.
-10. **CAP-10** — streak presentation: at-risk state with countdown, Week Strip, Activity Chart, one-time "streak restarted" message.
-11. **CAP-12** — phone as a third device: streak check + freeze only; Start / Practice again show a "use the laptop" message and create no attempt.
-12. **Non-goals** — no notifications (push or email).
-13. **All CAPs (language)** — English UI chrome; casual Indonesian for perintah soal, keterangan, hints, Tips and full-sentence system messages; Excel names exactly as English Excel; "Ujian Akhir" kept as a proper name.
-14. **CAP-10 / CAP-17** — Settings: theme, Reduce motion switch, read-only streak time zone, "Signed in as <Google account>" + Log out.
-15. **CAP-5 / CAP-9** — Results mood: calm variant below 80 (practice and Test); Fire Effect only for Test passed.
-16. **CAP-1 / CAP-9** — V1 end state: passing Test Level 4 shows "Level 4 complete! Level 5 is coming soon".
-17. **CAP-15** — side track shown in V1 as one Under Construction node beside the main path on Level Map.
-18. **CAP-16** — fixed working folder = Trusted Location promoted from assumption to V1 decision; Setup Guide names it as the save location for every `.xlsm`.
-19. **CAP-14** — Ujian Akhir remaining time shown on the exam screen (Next).
-20. **CAP-9** — retake after a failed Test is immediate; no extra practices required.
-21. **CAP-7** — hint targeting: El Zavier picks the question (Hint Select "Soal N"); each hint −5 and uses one of the attempt's quota.
-22. **CAP-7 / CAP-8** — Office 2021-only constraint extended to Tips and hint text.
-23. **CAP-17** — login via Sign in with Google with a single allowlisted account (replaces username+password).
-24. **CAP-5** — per-question score weighting, so "x of y correct" and the score agree (open question above).

@@ -1,7 +1,7 @@
 ---
 name: WORKING HARD with EXCEL
-status: draft
-updated: 2026-10-22
+status: final
+updated: 2026-10-23
 sources:
   - ../../../specs/spec-excel-practice/SPEC.md
 description: Personal Excel-practice web app (level map, web-to-Excel exam bridge, results with Tips, streak and records). shadcn/ui on Next.js + Tailwind; theme "Dark Excel" (dark default, light toggle). This file specifies the brand-layer delta over shadcn defaults.
@@ -338,15 +338,15 @@ components:
 
 # WORKING HARD with EXCEL — Design Spine
 
-Visual identity. Behavior lives in `EXPERIENCE.md`. Product contract: `../../../specs/spec-excel-practice/SPEC.md`. Explorations in `.working/` and v0 templates in `imports/` illustrate this file; **the spines (DESIGN.md + EXPERIENCE.md) win on any conflict with `.working/` renders or `imports/`.**
+Visual identity. Behavior lives in `EXPERIENCE.md`. Product contract: `../../../specs/spec-excel-practice/SPEC.md`. Explorations in `.working/`, key-screen mocks in `mockups/` and v0 templates in `imports/` illustrate this file; **the spines (DESIGN.md + EXPERIENCE.md) win on any conflict with them.**
 
 ## Brand & Style
 
 A one-person Excel gym with the swagger of an apple.com product page. Dark "backstage" surfaces, one electric green that means *go / progress*, one fire orange that means *streak*. The product premise is *come back every day and climb* — so two things are always loud: the **Level Path** (where El Zavier is) and the **Streak Hero** (why to come back today). Everything else sits quiet in cards.
 
 - **UI system:** shadcn/ui on Next.js + Tailwind. All unlisted shadcn components keep their defaults; this file lists the deltas.
-- **Composition:** structure from direction C "Level Journey" (Level Path as dashboard hero + right stats rail) — [.working/direction-c-level-journey.html](.working/direction-c-level-journey.html); giant fire-gradient streak numeral, phone first screen and streak-at-risk look from direction B "Hero Streak" — [.working/direction-b-hero-streak.html](.working/direction-b-hero-streak.html). Direction A ([.working/direction-a-tasko-dark.html](.working/direction-a-tasko-dark.html)) is the not-chosen dense Tasko-style alternative; use it only for its rendered focus ring.
-- **Key-screen mocks** (1:1, dark default with light and reduced-motion toggles): [mockups/key-dashboard.html](mockups/key-dashboard.html) · [mockups/key-exam.html](mockups/key-exam.html) · [mockups/key-results.html](mockups/key-results.html) · [mockups/key-level-map.html](mockups/key-level-map.html). They supersede the direction renders where they differ; the spines still win over the mocks.
+- **Composition:** structure from direction C "Level Journey" (Level Path as dashboard hero + right stats rail) — [.working/direction-c-level-journey.html](.working/direction-c-level-journey.html); giant fire-gradient streak numeral, phone first screen and streak-at-risk look from direction B "Hero Streak" — [.working/direction-b-hero-streak.html](.working/direction-b-hero-streak.html). Direction A ([.working/direction-a-tasko-dark.html](.working/direction-a-tasko-dark.html)) is the unselected dense Tasko-style alternative; use it only for its rendered focus ring.
+- **Key-screen mocks** (1:1, dark default with light and reduced-motion toggles): [mockups/key-dashboard.html](mockups/key-dashboard.html) · [mockups/key-exam.html](mockups/key-exam.html) · [mockups/key-results.html](mockups/key-results.html) · [mockups/key-level-map.html](mockups/key-level-map.html). They supersede the direction renders where they differ.
 - **Spreadsheet DNA:** the Level Path sits on a faint Excel grid (column letters A–J header, cell lines in `{colors.border}` at 45%). Logo = sheet/grid glyph on a `{colors.primary}` tile with green glow.
 - **Motion register (visual level only; timing, triggers and reduced-motion states in `EXPERIENCE.md`):** two easings, never mixed on one element.
   - *Bouncy* `cubic-bezier(.34,1.56,.64,1)` — game-like objects: Level Nodes popping, buttons, small-card hover, drawer opening.
@@ -368,7 +368,7 @@ Theme 5 "Dark Excel" from [.working/color-themes-1.html](.working/color-themes-1
 | `warning` | `#FFC34D` / `#8F5200` | Hints and point deductions (Hint Button, "−5"), Under Construction Tag + hatch, Streak Hero gradient start | Errors |
 | `success` | `#4ADE80` / `#137535` | "x of y correct" count, "All correct" line, ✓ on Tips Card, "File received" | Primary actions |
 | `destructive` | `#FF5C6C` / `#BE233B` | Wrong Answer Row, file-rejected, grading-failed and login errors | Low-score mood (calm ≠ red) |
-| `chart-1/2/3` | green / teal / lime | Activity Chart (`chart-1` peak day), progress gradient `primary → chart-3`. `chart-2` (teal) doubles as the **freeze** colour: Freeze Pill, frozen day in Week Strip and Activity Chart | Streak fire |
+| `chart-1/2/3` | green / teal / lime | Activity Chart (`chart-1` peak day), progress gradient `primary → chart-3`. `chart-2` (teal) doubles as the **freeze** color: Freeze Pill, frozen day in Week Strip and Activity Chart | Streak fire |
 | `input-border` | `#5F6B64` / `#86868B` | Boundaries of Input, Upload Dropzone, Kbd, disabled Freeze Pill, missed Week Strip day | Card separation (use `border`) |
 | `border` | `#262D29` / `#D9D9DE` | Decorative card separation, grid lines, Level Path base trail | Anything that carries state |
 | `*-soft`, `freeze-soft` | 14% role over card | Status row, pill and chip backgrounds | Text |
@@ -448,7 +448,6 @@ Tailwind 4-based scale inherited. Named tokens in frontmatter.
 - **Level Map:** title row → 3D Scroll Scene stage (≤150vh) → Level Path card at full content width (column strip A–O). The CAP-15 side-track node sits right of the main path, off the trail, joined to Level 8 (Lintas file) by a dashed spur. Final scene frame: laptop left, map board center, Excel logo right. Level Detail Panel: `{spacing.panel-width}` Sheet on desktop. — [mockups/key-level-map.html](mockups/key-level-map.html)
 - **Exam in progress:** single centered column — Orbit Loader, Exam Status Line, then the hint group (Hint Select + Hint Button) and Upload Dropzone side by side (≥8px apart; stacked on phone); revealed hint below them; Setup Guide link last. No visible page heading. — [mockups/key-exam.html](mockups/key-exam.html)
 - **Results:** single centered column `{spacing.results-column}`: Outcome panel (Score Badge in a 200px column on the left with the deduction line under it; label, `<h1>`, correct count, time + "New record", action on the right) → Wrong Answer Rows → Tips Carousel. — [mockups/key-results.html](mockups/key-results.html)
-- **App Sidebar on Exam in progress and Results:** no item is active (neither is a menu item).
 
 ## Elevation & Depth
 
@@ -473,7 +472,15 @@ No shadow hierarchy on flat surfaces — cards are separated by `{colors.border}
 
 shadcn as-is: `Card`, `Sheet`, `Dialog`, `Tabs`, `Table`, `Badge` (incl. "New record", "passed"), `Input` (boundary `{colors.input-border}`), `Switch`, `Skeleton`, `Toast` (Sonner), `Tooltip`, `Separator`, `Avatar`.
 
-Compositions (no row of their own): **Setup Guide prompt** = Stat Card shell + Primary Button "Open Setup Guide" + ghost dismiss; **deduction line** = `caption` under the Score Badge, hint deductions in `{colors.warning}`; **correct count** = "x of y correct" in `stat-value` `{colors.success}` beside the score; **Tips & Tricks filter** = shadcn `Tabs` (levels) + `Input` (search); **phone active-level card** = Level Callout rendered inline in the rail; **Skip intro** = link hidden until focused, `{colors.primary}`; **Settings** = Theme Toggle + `Switch` (Reduce motion) + read-only text (streak time zone) + account row ("Signed in as <Google account>" in `body`, outline "Log out" button).
+Compositions (no row of their own):
+
+- **Setup Guide prompt** = Stat Card shell + Primary Button "Open Setup Guide" + ghost dismiss
+- **deduction line** = `caption` under the Score Badge, hint deductions in `{colors.warning}`
+- **correct count** = "x of y correct" in `stat-value` `{colors.success}` beside the score
+- **Tips & Tricks filter** = shadcn `Tabs` (levels) + `Input` (search)
+- **phone active-level card** = Level Callout rendered inline in the rail
+- **Skip intro** = link hidden until focused, `{colors.primary}`
+- **Settings** = Theme Toggle + `Switch` (Reduce motion) + read-only text (streak time zone) + account row ("Signed in as <Google account>" in `body`, outline "Log out" button)
 
 Brand layer:
 
@@ -490,7 +497,7 @@ Brand layer:
 | Freeze Pill | `{colors.chart-2}` text + snowflake icon on `{colors.freeze-soft}` fill with `{colors.chart-2}` hairline, `{rounded.full}`: "1 of 2 freezes left". **Use freeze** (at risk): same fill, 1.5px solid `{colors.chart-2}` border, label "Use freeze", real button ≥ `{spacing.touch-target}` tall on phone. **Disabled**: `{colors.input-border}` border, `{colors.muted-foreground}` text, reason `caption` below. |
 | Week Strip | 7 circular day dots, English initials M–S, always Mon–Sun. Done = `{colors.streak-soft}` fill + streak text; today done = solid `{colors.streak}` with `{colors.primary-foreground}` check; frozen = dashed `{colors.chart-2}` border + snowflake; missed = `{colors.input-border}` outline + "–"; today pending = "?" in `{colors.muted-foreground}`; future day = empty circle, 1px `{colors.border}` line, no glyph, initial in `{colors.muted-foreground}`. |
 | Level Path | Grid-backed SVG; base trail dotted `{colors.border}` (decorative); completed trail solid `{colors.primary}` with green drop-glow; ends in Ujian Akhir flag. Phone: vertical rail, Level 1 at top; consecutive Under Construction nodes collapse into one node. |
-| Level Node | Circle with level number. Variants (frontmatter): passed (accent fill, primary stroke, check), active (primary fill, larger numeral, two pulse rings, "YOU ARE HERE" in `label`/primary), locked (card fill, lock icon), under construction (hatched `{colors.uc-hatch}`, dashed warning stroke). Side track (CAP-15, Level Map only): under-construction variant labelled "Co-authoring", joined to the path by a dashed `{colors.border}` spur, never on the trail. Focus: SVG circle r + 5, 2px `{colors.ring}`, plus the hover scale. Label beside node: level name in `title` + status in `caption`. |
+| Level Node | Circle with level number. Variants (frontmatter): passed (accent fill, primary stroke, check), active (primary fill, larger numeral, two pulse rings, "YOU ARE HERE" in `label`/primary), locked (card fill, lock icon), under construction (hatched `{colors.uc-hatch}`, dashed warning stroke). Side track (CAP-15, Level Map only): under-construction variant labeled "Co-authoring", joined to the path by a dashed `{colors.border}` spur, never on the trail. Focus: SVG circle r + 5, 2px `{colors.ring}`, plus the hover scale. Label beside node: level name in `title` + status in `caption`. |
 | Level Callout | Floating card at the active node; `{colors.glow}` border; "Active level" key, level name, Practice Pips + "x/5 practices done", Primary Button, lock line for Test. All levels done: "Level 4 complete — Level 5 is coming soon" + "Practice again". |
 | Practice Pips | 5 segments: done `{colors.primary}`; next = diagonal hatch of `{colors.glow}`; pending = `{colors.card}` with 1.5px `{colors.muted-foreground}` outline. Always paired with "x/5 practices done" text. |
 | Under Construction Tag | Uppercase mono, `{colors.warning}` text + border, cone icon. Cards in this state: dashed warning border + 7% warning stripes. |
@@ -532,7 +539,4 @@ Brand layer:
 | Keep `{colors.streak-vivid}` for flames and decoration | Put text on `{colors.streak-vivid}` |
 | Cap 3D tilt at ~25° and the Score Badge at one turn | Spin or Z-rotate large objects, or scroll-scrub an outcome (score, badge, pass/fail) |
 | Animate glows via a pseudo-element's opacity/transform | Animate `box-shadow` or `filter: blur()` in loops |
-| Write Excel menus and functions exactly as English Excel shows them (`Data > Remove Duplicates`, `SUMIFS`) | Translate Excel names into Indonesian |
-| Show "El Zavier" / "EZ" for the user | Ship renderer placeholder names ("Fatahillah", "FA") |
-| Use level names from the curriculum: 1 Fondasi, 2 Logika, 3 Hitung bersyarat, 4 Cari data, 5 Rapikan data, 6 Rumus modern, 7 Pivot, 8 Lintas file, 9 Summary, Ujian Akhir | Use renderer names ("Dasar sel & rumus", "Fungsi dasar", "Lookup data") |
 | Treat the Excel logo as a private-use asset (Microsoft trademark) | Ship the Excel logo if the app is ever shared — swap for an own spreadsheet glyph |
