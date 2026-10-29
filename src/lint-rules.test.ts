@@ -7,7 +7,12 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 const root = path.resolve(__dirname, "..");
-const AD1_RULES = ["no-restricted-imports", "import/no-restricted-paths", "no-restricted-syntax"];
+const AD1_RULES = [
+  "no-restricted-imports",
+  "import/no-restricted-paths",
+  "no-restricted-syntax",
+  "no-restricted-globals",
+];
 
 let eslint: ESLint;
 
@@ -47,12 +52,33 @@ describe("AD-1 import rule", { timeout: 60_000 }, () => {
       'export * from "react";',
       'const m = await import("next/server");',
       'const fs = require("node:fs");',
+      'const fs = module.require("fs");',
+      'const fs = globalThis.require("fs");',
+      'type T = typeof import("next/server");',
     ])("%s", async (code) => {
       await expectRejected("src/core/x.ts", code);
     });
 
+    it.each([
+      ["src/core/x.tsx", 'import { useState } from "react";'],
+      ["src/core/x.mts", 'import { NextResponse } from "next/server";'],
+      ["src/core/x.js", 'import { NextResponse } from "next/server";'],
+    ])("%s: %s", async (file, code) => {
+      await expectRejected(file, code);
+    });
+
+    it("still rejects framework imports in core test files", async () => {
+      await expectRejected("src/core/x.test.ts", 'import { NextResponse } from "next/server";');
+    });
+
     it("rejects vitest outside core test files", async () => {
       await expectRejected("src/core/x.ts", 'import { it } from "vitest";');
+    });
+  });
+
+  describe("rejects IO through globals in core", () => {
+    it.each(['fetch("x");', "export const x = process.env.X;"])("%s", async (code) => {
+      await expectRejected("src/core/x.ts", code);
     });
   });
 
@@ -65,6 +91,9 @@ describe("AD-1 import rule", { timeout: 60_000 }, () => {
       ["src/core/a/b.ts", 'import { createClient } from "../../adapters/supabase/server";'],
       ["src/core/a/b.ts", 'import { cn } from "../../lib/utils";'],
       ["src/core/a/b.ts", 'import "../../proxy";'],
+      ["src/core/a/b.ts", 'import { x } from "../../../scripts/spike-s1";'],
+      ["src/core/x.ts", 'import pkg from "../../package.json";'],
+      ["src/core/x.ts", 'import { NextResponse } from "../../node_modules/next/server";'],
       ["src/core/x.ts", 'import { RejectionCode } from "@/core/../adapters/supabase/server";'],
     ])("%s: %s", async (file, code) => {
       await expectRejected(file, code);
@@ -81,6 +110,8 @@ describe("AD-1 import rule", { timeout: 60_000 }, () => {
       ["src/core/a/b.ts", 'import { RejectionCode } from "../submission/rejection-codes";'],
       ["src/core/a/b/c.ts", 'import { RejectionCode } from "../../submission/rejection-codes";'],
       ["src/core/x.test.ts", 'import { describe, it } from "vitest";'],
+      ["src/core/x.spec.ts", 'import { describe, it } from "vitest";'],
+      ["src/core/x.test.ts", 'import { startVitest } from "vitest/node";'],
     ])("%s: %s", async (file, code) => {
       await expectAllowed(file, code);
     });
