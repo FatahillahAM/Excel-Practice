@@ -3,12 +3,12 @@ title: 'CI: lint dengan aturan impor core, typecheck, dan Vitest'
 type: 'chore'
 ticket: '6'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '457d6b8e8569dfa2bf0cab114abaf98cccb034d6'
 context:
@@ -78,6 +78,26 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+| # | Lens | Finding | Verdict | Evidence | Route |
+|---|------|---------|---------|----------|-------|
+| 1 | blind-hunter, edge-case-hunter | Relative imports that leave `src/` (`../../scripts/spike-s1`, `../../package.json`, `../../node_modules/next/server`) pass AD-1 | medium | Zone is `from: "./src"`; reviewers probed `lintText` and got no AD-1 error | patch: zone `from: "."`, `except: ["./src/core"]` |
+| 2 | edge-case-hunter, blind-hunter, verification-gap | AD-1 blocks match only `.ts`/`.tsx`; `.js`, `.mjs`, `.mts` (allowJs) skip the rule; no `.tsx` test | medium | Probed: `next/server` in `src/core/x.mts` and `x.js` lints clean | patch: widen globs, add test cases |
+| 3 | edge-case-hunter | Core test override matches only `*.test.*`; `*.spec.*` (Vitest default) cannot import `vitest` | low | Fails closed (lint error), but blocks a valid file name | patch: `{test,spec}` |
+| 4 | blind-hunter, edge-case-hunter | `typeof import("next/server")` (TSImportType) not caught | low | `ImportExpression` selector does not match the TS node | patch: `TSImportType` selector |
+| 5 | blind-hunter, edge-case-hunter | `module.require("fs")` / `globalThis.require("fs")` not caught | low | Selector matches only a bare `require` identifier | patch: member `require` selector |
+| 6 | blind-hunter, edge-case-hunter | IO through globals (`fetch`, `process`, …) in core lints clean, though AD-1 says no network/IO | low | No `no-restricted-globals`; probed `fetch()` clean | patch: restrict IO globals in core |
+| 7 | edge-case-hunter | Allowlist entries joined into the regex unescaped | low | Today's entries are safe, a later one with `.` would widen it; one-line fix | patch |
+| 8 | blind-hunter | No test that core test files still reject framework imports, or that `vitest/*` is allowed | low | Override could loosen silently | patch: add cases |
+| 9 | blind-hunter | Relative imports that do not resolve pass lint | false | `npm run typecheck` (CI step) fails on an unresolved module | reject |
+| 10 | blind-hunter | `zod` allowlisted but not a dependency | false | Allowlist mirrors AD-1; zod (spine Stack 4.6.x) is added when core first needs it | reject |
+| 11 | blind-hunter | CI has no `next build` step | low | Vercel builds every push and reports the status on the commit; a second build in Actions duplicates it | reject |
+| 12 | blind-hunter | Push + pull_request run twice for a branch with an open PR | low | A few extra minutes; the push trigger on every branch is the intent (matrix row "Push bersih, branch kerja") | reject |
+| 13 | blind-hunter | `node-version: 24.x` duplicates `engines.node` | low | Two places to change on a major bump; fix adds reliance on setup-node parsing `engines` | reject |
+| 14 | blind-hunter | `tsc --noEmit` writes `tsconfig.tsbuildinfo` locally | low | Gitignored, CI starts clean | reject |
+| 15 | blind-hunter | `expectRejected` does not check which rule fired | low | Each case is rejected only by an AD-1 message; pinning rule IDs adds brittleness | reject |
+| 16 | edge-case-hunter, intent-alignment | Red CI on an AD-1 violation not shown on real Actions yet | false | Planned verification step after review (probe commit then revert), not a code defect | reject (done in verification) |
+| 17 | intent-alignment | AD-4 recompute reaches CI only through the general test run | false | `templates.test.ts` recomputes the registry and runs under `npm run test` in CI; `.xlsm` is binary in git, not LFS | reject |
 
 ## Design Notes
 
