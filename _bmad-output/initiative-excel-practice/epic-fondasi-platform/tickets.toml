@@ -39,13 +39,25 @@ risk = "high"
 unknown = "Apakah SheetJS versi CDN masih bisa dipasang dan memperluas shared formula dengan benar."
 
 [[entry]]
+id = 11
+type = "story"
+title = "Sidik jari sumber VBA (AD-4) menggantikan hash vbaProject.bin"
+description = "Membaca `xl/vbaProject.bin` sebagai MS-CFB, mendekompresi sumber tiap modul per MS-OVBA, menghitung hash per modul yang dinormalkan seperti AD-4, mengunci `modFinish` v1 di registry, dan mengganti hash byte di `templates.ts` dan `read.ts`."
+verify = "Vitest: sidik jari `exam.v1.xlsm` sama dengan registry dan dengan fixture S2 yang disimpan Excel, modul kosong dan sheet tambahan diabaikan, dan golden test dekompresi untuk modul di atas 4096 byte lulus."
+covers = ["S3"]
+after = [2, 3]
+risk = "medium"
+unknown = "Pembaca MS-CFB ditulis sendiri atau paket npm `cfb` (Deferred spine)."
+references = ["_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md, sections AD-4, Consistency Conventions (Testing), Deferred", "_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s2-apakah-rumus-dan-nilai-terbaca-benar-dari-file-simpanan-e-plan.md, section Implementation Notes"]
+
+[[entry]]
 id = 4
 type = "spike"
 title = "S3: Apakah tombol Finish bisa mengirim file ke HTTPS dari laptop?"
 description = "Menambahkan endpoint `POST /api/submissions/macro` di Production yang menerima bytes file dan header `X-Attempt-Token` lalu mencatat ukuran dan token, dan menulis VBA Finish (SaveCopyAs + ServerXMLHTTP) di template S1 yang mengirim ke `WHE_ServerUrl` dan menampilkan status."
 verify = "Dari Excel 2021 di laptop, Finish mengirim file ke Production dan menampilkan pesan terkirim, log server mencatat ukuran dan token yang sama, dan tanpa jaringan Finish menampilkan pesan gagal dengan workbook tetap terbuka."
 covers = ["S3"]
-after = [1, 2]
+after = [1, 2, 11]
 hitl = true
 risk = "high"
 unknown = "Apakah antivirus atau kebijakan Windows memblokir ServerXMLHTTP dari Excel."
@@ -116,6 +128,6 @@ title = "Refactor sweep"
 description = "Membersihkan kode epic ini berdasarkan catatan build dan temuan review yang ditunda; cakupannya ditetapkan saat mulai dan hanya berisi pembersihan."
 verify = "CI hijau, dan setiap temuan yang ditunda di epic ini ditutup atau dipindah ke story baru dengan alasan."
 covers = []
-after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9, 11]
 hitl = false
 risk = "low"
