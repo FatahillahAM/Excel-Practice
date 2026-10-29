@@ -3,13 +3,14 @@ title: 'S3: Apakah tombol Finish bisa mengirim file ke HTTPS dari laptop?'
 type: 'feature'
 ticket: '4'
 created: '2026-10-29'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '8b356610c366a467d61773a580f40eb501b57e84'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
