@@ -92,3 +92,28 @@ Stream `dir` juga terkompresi MS-OVBA; offset sumber modul ada di record MODULEO
 - Registry v1: `modFinish` = `914687b34fc5eb2e3c3982861b567ccc25f040fb80543c3986e4935b80f4235c`; `ThisWorkbook`, `Sheet1`, `Sheet2` normalize to empty.
 - Cross-check (scratchpad venv, oletools 0.60.x `olevba` `extract_macros`, the same normalization written in Python): for `exam.v1.xlsm` and `s2-excel2021.xlsm` every module hash equals ours (`modFinish` as above, document modules = SHA-256 of empty). `assets/templates/vba/modFinish.bas` normalized hashes to the same `modFinish` value. Byte SHA-256 of `vbaProject.bin`: template `d8aa9aa6…a9df`, S2 `9618df59…8ec4` (differ, as S2 found).
 - Decompressor also checked against the MS-OVBA §3.2 no-compression and normal-compression examples.
+
+## Review Triage Log
+
+| # | Lens | Finding | Verdict | Evidence | Route |
+|---|------|---------|---------|----------|-------|
+| 1 | blind-hunter, edge-case-hunter (×2), verification-gap (other) | Decompression cap is per stream; many `dir` modules can alias one tiny bomb stream and every result is kept, and the duplicate-name check is O(n²) | medium | `readVbaModuleSources` calls `decompressVbaContainer` per module with the full 16 MiB each and stores all; verification-gap measured a 28 KB file holding ~545 MB. The cap's own comment says it exists to stop this | patch: one budget shared by `dir` and all modules, Set for names |
+| 2 | blind-hunter | p-code ("VBA stomping") is not covered by the fingerprint and nothing says so | low | True: only source after MODULEOFFSET is hashed; Excel may run the cached p-code. p-code changes every save so it cannot be pinned (AD-4 design). Fix is one doc sentence | patch: state the limit in `vba.ts` header |
+| 3 | blind-hunter | Code added to unpinned modules (ThisWorkbook events, a new module) passes, while `exam-bridge.md` says changed macro code means identity altered | low | Diff follows the intent ("kunci modul template yang tidak kosong") and AD-4 ("modules the template does not pin … are ignored"); grading reads formulas so harm is small. The tension sits between spine and spec, not in this change | defer |
+| 4 | blind-hunter | MODULENAMEUNICODE treated as required; no MODULENAME fallback | low | Excel 2021 (the only producer here) writes it in both committed files; a fallback needs code-page decoding and new branches | reject (unlikely, fix adds branches) |
+| 5 | blind-hunter | Decompressor accepts short non-final chunks (parser differential); `reserve(4096)` rejects a stream ending near a non-multiple cap | false | MS-OVBA §2.4.1.3.1 decompression also continues each chunk where the last ended, so VBE reads the same bytes; default cap is a multiple of 4096 and real sources are far below it | reject |
+| 6 | blind-hunter | `spike-s1.ts` lost the "not recorded yet" path; README step 4 implies recording the fingerprint without `--template` | low | Without `--template`, an empty `vbaModules` makes `matchesTemplate` throw; `--template` prints the entry. README wording is the direct fix | patch: README names `--template` |
+| 7 | blind-hunter | `spike-s2.ts` does not name a missing pinned module | low | Only the overall MISMATCH line shows; fixture is fixed and spike is dev-only | reject (unlikely, fix adds a branch) |
+| 8 | blind-hunter | Unreadable VBA collapses every cause to `null` | low | True, but a reason channel adds public surface; nothing calls it on uploads yet | reject (fix adds surface) |
+| 9 | blind-hunter, edge-case-hunter | Test compressor can write a chunk whose size overflows into the signature bits | low | `compressVba` has no `body.length <= 4096` check; no test hits it today. One-line throw | patch |
+| 10 | blind-hunter | `read.test.ts` defines its own empty-source hash | low | Duplicates exported `EMPTY_MODULE_SHA256` | patch: use the export |
+| 11 | verification-gap | Case-insensitive `findStream` never tested | low | Pre-verified: all fixtures use matching case | patch: add test |
+| 12 | verification-gap | Unreadable `xl/vbaProject.bin` zip entry → `null` path untested | low | Pre-verified: no test corrupts the entry | patch: add test |
+| 13 | verification-gap (other) | Spike scripts not in `npm test` | false | Same checks live in `templates.test.ts` | reject |
+| 14 | intent-alignment | AD-6 submit path not exercised | false | Intent's Never excludes endpoint/`submit` (S3, epic 2) | reject |
+| 15 | intent-alignment | Multi-chunk, raw-chunk and FAT paths only on synthetic projects from the in-house compressor | low | Real Excel modules here are < 4096 bytes; user chose the `cfb` writer for these tests; §3.2 examples give independent checks | reject (needs a real large Excel file) |
+| 16 | intent-alignment | Byte hashing still in tests and spikes | false | Boundaries allow the generate-time byte check; none feeds identity | reject |
+| 17 | intent-alignment | AD-4 "recomputed in CI" but the repo has no CI workflow | low | Pre-existing: no workflow runs `npm test`; Vercel build does not | defer |
+| 18 | intent-alignment | Spine Deferred lines on the MS-CFB reader and the byte-hash code are stale | low | ARCHITECTURE-SPINE.md lines 268–269 describe the state before this change | patch |
+| 19 | intent-alignment | `matchesTemplate` throws for unknown version; how AD-6 maps it is unshown | false | Documented: server bug, not user input; AD-6 caller is out of scope | reject |
+| 20 | intent-alignment | `readWorkbook` returns null instead of throwing for unreadable VBA | false | Matches AD-6 ordering and the I/O matrix; tested | reject |

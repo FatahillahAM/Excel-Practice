@@ -9,3 +9,9 @@
 - source_plan: `/home/user/Excel-Practice/_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s2-apakah-rumus-dan-nilai-terbaca-benar-dari-file-simpanan-e-plan.md`
   summary: Ubah sidik jari template di AD-4/AD-6 dari SHA-256 byte `xl/vbaProject.bin` menjadi hash sumber VBA hasil dekompresi per modul, lewat `bmad-architecture`, sebelum S3 dan cek `IDENTITY_ALTERED` dibangun.
   evidence: Terverifikasi, high. Fixture S2 yang disimpan Excel 2021 punya hash `vbaProject.bin` `9618df59…8ec4`, berbeda dari registry `d8aa9aa6…a9df`. Excel membuat ulang `ID=`, `CMG`, `DPB`, `GC` di stream `PROJECT` dan cache kompilasi setiap kali menyimpan, sedangkan sumber VBA semua modul identik. Dengan aturan sekarang, setiap kiriman asli akan ditolak.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
+  summary: AD-4 ignores modules the template does not pin, so code added to ThisWorkbook, a sheet module, or a new module keeps the identity, while exam-bridge.md says changed macro code means identity altered.
+  evidence: matchesTemplate compares pinned modules only (tested "extra standard module" case); options are requiring unpinned modules to normalize empty or recording that added code is accepted (spine decision).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
+  summary: AD-4 says registry values are recomputed in CI, but the repo has no CI workflow that runs npm test.
+  evidence: no .github/workflows; Vercel only runs next build, so the registry recompute test runs only locally.
