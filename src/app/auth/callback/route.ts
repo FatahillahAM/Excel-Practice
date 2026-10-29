@@ -5,8 +5,8 @@ import {
   normalizeTimeZone,
   safeNext,
   type AuthStatus,
-} from "@/adapters/supabase/auth-rules";
-import { completeGoogleSignIn } from "@/adapters/supabase/auth";
+} from "../../../adapters/supabase/auth-rules";
+import { completeGoogleSignIn, signOut } from "../../../adapters/supabase/auth";
 
 /**
  * `GET /auth/callback`: Google → Supabase → here, inside the Login popup.
@@ -27,7 +27,17 @@ export async function GET(request: NextRequest): Promise<Response> {
     console.warn(JSON.stringify({ event: "auth.oauth_error", status, code: params.get("error_code") }));
   } else {
     const code = params.get("code");
-    status = code ? await completeGoogleSignIn(code, normalizeTimeZone(params.get("tz"))) : "error";
+    try {
+      status = code ? await completeGoogleSignIn(code, normalizeTimeZone(params.get("tz"))) : "error";
+    } catch (error) {
+      // The popup must still report back instead of showing Next's error page.
+      console.error(
+        JSON.stringify({ event: "auth.callback_threw", name: error instanceof Error ? error.name : typeof error }),
+      );
+      // Leave no half-made session behind an error report.
+      await signOut().catch(() => undefined);
+      status = "error";
+    }
   }
 
   return new Response(callbackPageHtml(status, next), {

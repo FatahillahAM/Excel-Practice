@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { signOut } from "@/adapters/supabase/auth";
+import { signOut } from "../../../adapters/supabase/auth";
 
 /** `POST /auth/signout` (Log out): ends this device's session, then Login. */
 export async function POST(request: NextRequest): Promise<Response> {

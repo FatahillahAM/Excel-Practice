@@ -3,10 +3,12 @@ import {
   callbackFallbackUrl,
   callbackPageHtml,
   classifyOAuthError,
+  googleSignInPath,
   isAllowedEmail,
   isApiPath,
   isPublicPath,
   jsonForScript,
+  loginErrorFromParam,
   loginRedirectPath,
   normalizeTimeZone,
   safeNext,
@@ -96,8 +98,20 @@ describe("classifyOAuthError", () => {
     ).toBe("not_allowed");
   });
 
-  it("maps Google's consent cancel to cancelled", () => {
+  it("maps Google's consent cancel (bare access_denied) to cancelled", () => {
     expect(classifyOAuthError({ ...none, error: "access_denied" })).toBe("cancelled");
+    expect(
+      classifyOAuthError({ ...none, error: "access_denied", errorDescription: "The user denied the request" }),
+    ).toBe("cancelled");
+  });
+
+  it("maps access_denied with a Supabase error_code to error, unless it carries the marker", () => {
+    expect(
+      classifyOAuthError({ error: "access_denied", errorCode: "signup_disabled", errorDescription: "Signups not allowed" }),
+    ).toBe("error");
+    expect(
+      classifyOAuthError({ error: "access_denied", errorCode: "unexpected_failure", errorDescription: "not_allowlisted" }),
+    ).toBe("not_allowed");
   });
 
   it("maps anything else to error", () => {
@@ -140,6 +154,26 @@ describe("callback result mapping", () => {
     expect(callbackFallbackUrl("cancelled", "/levels")).toBe("/login?next=%2Flevels");
   });
 
+  it.each([
+    ["success", null],
+    ["not_allowed", "notAllowed"],
+    ["error", "network"],
+    ["cancelled", null],
+  ] as const)("round-trips %s through the fallback URL to the Login error %s", (status, expected) => {
+    const url = new URL(callbackFallbackUrl(status, "/levels"), "http://app.test");
+    expect(loginErrorFromParam(url.searchParams.get("error"))).toBe(expected);
+  });
+
+  it("ignores unknown or missing ?error= values", () => {
+    expect(loginErrorFromParam(null)).toBeNull();
+    expect(loginErrorFromParam("<script>")).toBeNull();
+  });
+
+  it("builds the /auth/google link with a safe next and the zone", () => {
+    expect(googleSignInPath("/levels?x=1")).toBe("/auth/google?next=%2Flevels%3Fx%3D1");
+    expect(googleSignInPath("//evil.com", "Asia/Jakarta")).toBe("/auth/google?next=%2F&tz=Asia%2FJakarta");
+  });
+
   it("posts the result to a same-origin opener only, then closes", () => {
     const html = callbackPageHtml("not_allowed", "/levels");
     expect(html).toContain('"type":"whe-auth"');
@@ -168,7 +202,7 @@ describe("public paths", () => {
     "/favicon.ico",
     "/_next/static/chunks/main.js",
     "/logo.svg",
-    "/fonts/inter.woff2",
+    "/inter.woff2",
   ])("%s needs no session", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
@@ -186,6 +220,10 @@ describe("public paths", () => {
     "/api/attempts/1/status",
     "/api/export.json",
     "/dev/bridge-proof",
+    "/levels/03.js",
+    "/history/2026.txt",
+    "/a/b/logo.svg",
+    "/fonts/inter.woff2",
   ])("%s needs a session", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });

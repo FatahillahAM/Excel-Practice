@@ -45,9 +45,12 @@ export async function completeGoogleSignIn(code: string, timeZone: string | null
     return "error";
   }
 
-  if (!isAllowedEmail(data.user.email, process.env.ALLOWED_EMAIL)) {
+  const allowed = process.env.ALLOWED_EMAIL;
+  if (!isAllowedEmail(data.user.email, allowed)) {
     await supabase.auth.signOut({ scope: "local" });
-    console.warn(JSON.stringify({ event: "auth.not_allowed" }));
+    // A missing setting rejects everyone; log it apart from a stranger's account.
+    const event = allowed?.trim() ? "auth.not_allowed" : "auth.allowed_email_unset";
+    console.warn(JSON.stringify({ event }));
     return "not_allowed";
   }
 
@@ -57,7 +60,9 @@ export async function completeGoogleSignIn(code: string, timeZone: string | null
     console.error(JSON.stringify({ event: "auth.profile_failed" }));
     return "error";
   }
-  if (profile === "skipped") console.warn(JSON.stringify({ event: "auth.profile_skipped_invalid_tz" }));
+  if (profile === "skipped" && timeZone === null) {
+    console.warn(JSON.stringify({ event: "auth.profile_skipped_invalid_tz" }));
+  }
   return "success";
 }
 

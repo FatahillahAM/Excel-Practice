@@ -4,6 +4,8 @@
  * proxy wire them to Supabase and Next.
  */
 
+import type { LoginError } from "../../messages/id";
+
 /** How a sign-in attempt ended, as the popup reports it to the Login page. */
 export type AuthStatus = "success" | "not_allowed" | "cancelled" | "error";
 
@@ -68,8 +70,9 @@ export function classifyOAuthError(params: {
   const { error, errorCode, errorDescription } = params;
   if (!error && !errorCode && !errorDescription) return null;
   if (errorDescription?.toLowerCase().includes(NOT_ALLOWLISTED_MARKER)) return "not_allowed";
-  // Google's consent screen "Cancel" comes back as access_denied.
-  if (error === "access_denied") return "cancelled";
+  // Google's consent screen "Cancel" comes back as a bare access_denied; with
+  // an error_code it is a Supabase rejection (e.g. signup_disabled).
+  if (error === "access_denied" && !errorCode) return "cancelled";
   return "error";
 }
 
@@ -89,6 +92,20 @@ export function normalizeTimeZone(raw: string | null | undefined): string | null
   } catch {
     return null;
   }
+}
+
+/** `/auth/google` for the Login control: the popup's URL, and the plain link without JS. */
+export function googleSignInPath(next: string, timeZone?: string): string {
+  const params = new URLSearchParams({ next: safeNext(next) });
+  if (timeZone) params.set("tz", timeZone);
+  return `/auth/google?${params.toString()}`;
+}
+
+/** Login's inline error for the `?error=` value `callbackFallbackUrl` sets; `null` for none. */
+export function loginErrorFromParam(value: string | null | undefined): LoginError | null {
+  if (value === "not_allowed") return "notAllowed";
+  if (value === "error") return "network";
+  return null;
 }
 
 /**
@@ -150,7 +167,8 @@ function isAuthPath(pathname: string): boolean {
   return pathname === LOGIN_PATH || pathname === "/auth" || pathname.startsWith("/auth/");
 }
 
-const STATIC_FILE = /\.(?:ico|svg|png|jpg|jpeg|gif|webp|avif|css|js|map|txt|xml|webmanifest|woff2?)$/i;
+/** A file directly in `public/`: one path segment with a static extension. */
+const STATIC_FILE = /^\/[^/]+\.(?:ico|svg|png|jpg|jpeg|gif|webp|avif|css|js|map|txt|xml|webmanifest|woff2?)$/i;
 
 /**
  * Paths reachable without a session: Login, `/auth/*`, the macro endpoint
@@ -164,8 +182,8 @@ export function isPublicPath(pathname: string): boolean {
   if (path === "/health") return true;
   if (path.startsWith("/_next/")) return true;
   if (path === "/favicon.ico") return true;
-  // A file at the top of `public/` (no API or page route has an extension).
-  if (!path.startsWith("/api/") && STATIC_FILE.test(path)) return true;
+  // A file at the top of `public/` (no page route has an extension).
+  if (STATIC_FILE.test(path)) return true;
   return false;
 }
 

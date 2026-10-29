@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { callbackPageHtml, normalizeTimeZone, safeNext } from "@/adapters/supabase/auth-rules";
-import { startGoogleSignIn } from "@/adapters/supabase/auth";
+import { callbackPageHtml, normalizeTimeZone, safeNext } from "../../../adapters/supabase/auth-rules";
+import { startGoogleSignIn } from "../../../adapters/supabase/auth";
 
 /**
  * `GET /auth/google?next=…&tz=…`: opened in the Login popup. Starts the
@@ -14,7 +14,12 @@ export async function GET(request: NextRequest): Promise<Response> {
   const tz = normalizeTimeZone(request.nextUrl.searchParams.get("tz"));
   if (tz) callback.searchParams.set("tz", tz);
 
-  const url = await startGoogleSignIn(callback.toString());
+  let url: string | null = null;
+  try {
+    url = await startGoogleSignIn(callback.toString());
+  } catch (error) {
+    console.error(JSON.stringify({ event: "auth.start_threw", name: errorName(error) }));
+  }
   if (!url) {
     return new Response(callbackPageHtml("error", next), {
       status: 502,
@@ -22,4 +27,8 @@ export async function GET(request: NextRequest): Promise<Response> {
     });
   }
   return NextResponse.redirect(url, { status: 303, headers: { "cache-control": "no-store" } });
+}
+
+function errorName(error: unknown): string {
+  return error instanceof Error ? error.name : typeof error;
 }

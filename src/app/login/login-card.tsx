@@ -2,20 +2,20 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { AUTH_MESSAGE_TYPE, safeNext, type AuthMessage } from "@/adapters/supabase/auth-rules";
+import {
+  AUTH_MESSAGE_TYPE,
+  callbackFallbackUrl,
+  googleSignInPath,
+  loginErrorFromParam,
+  safeNext,
+  type AuthMessage,
+} from "@/adapters/supabase/auth-rules";
 import { loginMessages, type LoginError } from "@/messages/id";
 
 const POPUP_NAME = "whe-google-sign-in";
 const POPUP_WIDTH = 500;
 const POPUP_HEIGHT = 640;
 const POPUP_POLL_MS = 500;
-
-/** `?error=` set by `/auth/callback` when it ran as a normal tab (no opener). */
-function errorFromParam(value: string | null): LoginError | null {
-  if (value === "not_allowed") return "notAllowed";
-  if (value === "error") return "network";
-  return null;
-}
 
 function isAuthMessage(data: unknown): data is AuthMessage {
   if (typeof data !== "object" || data === null) return false;
@@ -33,7 +33,7 @@ export function LoginCard() {
   const params = useSearchParams();
   const next = safeNext(params.get("next"));
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState<LoginError | null>(() => errorFromParam(params.get("error")));
+  const [error, setError] = useState<LoginError | null>(() => loginErrorFromParam(params.get("error")));
   const popupRef = useRef<Window | null>(null);
   const pollRef = useRef<number | null>(null);
   const settledRef = useRef(false);
@@ -44,6 +44,14 @@ export function LoginCard() {
       pollRef.current = null;
     }
   }
+
+  // The `?error=` reason is shown once: drop it from the URL so a reload or retry does not bring it back.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("error")) return;
+    url.searchParams.delete("error");
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -77,7 +85,9 @@ export function LoginCard() {
     };
   }, []);
 
-  function signIn() {
+  function signIn(event: React.MouseEvent | React.KeyboardEvent) {
+    // The link is the no-JS fallback (tab flow); with JS the popup takes over.
+    event.preventDefault();
     if (pending) return;
     setError(null);
 
@@ -87,7 +97,7 @@ export function LoginCard() {
     } catch {
       // The server leaves the profile for a later sign-in when no zone arrives.
     }
-    const url = `/auth/google?${new URLSearchParams({ next, tz: timeZone }).toString()}`;
+    const url = googleSignInPath(next, timeZone);
     const left = Math.round(window.screenX + (window.outerWidth - POPUP_WIDTH) / 2);
     const top = Math.round(window.screenY + (window.outerHeight - POPUP_HEIGHT) / 2);
 
@@ -110,48 +120,60 @@ export function LoginCard() {
       if (!popup.closed) return;
       stopPolling();
       popupRef.current = null;
-      // Closed without a result: the user cancelled. Back to idle, no error.
-      if (!settledRef.current) setPending(false);
+      if (settledRef.current) return;
+      // Closed without a result: a cancel, or a sign-in whose popup lost its
+      // opener (COOP). Reload Login: with a session the proxy sends it on to
+      // `next`; without one it comes back idle, with no error.
+      window.location.replace(callbackFallbackUrl("cancelled", next));
     }, POPUP_POLL_MS);
   }
 
-  return <SignInBlock pending={pending} error={error} onSignIn={signIn} />;
+  return <SignInBlock href={googleSignInPath(next)} pending={pending} error={error} onSignIn={signIn} />;
 }
 
-/** The button and its inline error slot; also the static fallback before hydration. */
+/**
+ * The control and its inline error slot; also the static fallback before
+ * hydration. It is a link to `/auth/google` (tab flow without JS) that the
+ * click handler turns into the popup.
+ */
 export function SignInBlock({
+  href = googleSignInPath("/"),
   pending = false,
   error = null,
   onSignIn,
 }: {
+  href?: string;
   pending?: boolean;
   error?: LoginError | null;
-  onSignIn?: () => void;
+  onSignIn?: (event: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
+  const className =
+    "flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border-b-4 border-primary-edge bg-primary px-4 text-sm font-bold text-primary-foreground transition-[box-shadow,transform,border-width] duration-150 hover:shadow-[0_0_0_4px_var(--glow-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none sm:w-64";
   return (
     <div className="flex flex-col items-center gap-3">
-      <button
-        type="button"
-        onClick={onSignIn}
-        disabled={pending}
-        aria-busy={pending}
-        className="flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border-b-4 border-primary-edge bg-primary px-4 text-sm font-bold text-primary-foreground transition-[box-shadow,transform,border-width] duration-150 hover:shadow-[0_0_0_4px_var(--glow-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none sm:w-64"
-      >
-        {pending ? (
-          <>
-            <span
-              aria-hidden="true"
-              className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
-            />
-            <span>Connecting…</span>
-          </>
-        ) : (
-          <>
-            <GoogleMark />
-            <span>Sign in with Google</span>
-          </>
-        )}
-      </button>
+      {pending ? (
+        <button type="button" disabled aria-busy="true" className={className}>
+          <span
+            aria-hidden="true"
+            className="size-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+          />
+          <span>Connecting…</span>
+        </button>
+      ) : (
+        <a
+          href={href}
+          role="button"
+          onClick={onSignIn}
+          onKeyDown={(event) => {
+            // Links activate on Enter natively; Space must work too (button role).
+            if (event.key === " " && onSignIn) onSignIn(event);
+          }}
+          className={className}
+        >
+          <GoogleMark />
+          <span>Sign in with Google</span>
+        </a>
+      )}
       <p role="alert" lang="id" className="min-h-5 max-w-sm text-center text-sm text-destructive">
         {error ? loginMessages[error] : ""}
       </p>
