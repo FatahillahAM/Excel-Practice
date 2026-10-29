@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import CFB from "cfb";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { S2_FIXTURE } from "./__fixtures__/s2-expected";
+import { S2_FIXTURE, S2_MODFINISH_SHA256 } from "./__fixtures__/s2-expected";
 import { buildVbaProject, bytes, compressVba, concat, dirRecords, type ModuleSpec, u32 } from "./__fixtures__/vba-project";
 import { templates } from "./templates";
 import {
@@ -145,11 +145,16 @@ describe("readVbaModuleHashes on committed files", () => {
     for (const hash of Object.values(hashes!)) expect(hash).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  it("gives the Excel-saved S2 file the template's hashes although vbaProject.bin bytes differ", async () => {
+  it("keeps the S1-era modFinish hash in the Excel-saved S2 file although vbaProject.bin bytes differ", async () => {
     const template = await vbaProjectOf(templates[1].file);
     const saved = await vbaProjectOf(S2_FIXTURE);
     expect(sha256(saved)).not.toBe(sha256(template));
-    expect(readVbaModuleHashes(saved)).toEqual(readVbaModuleHashes(template));
+    expect(readVbaModuleHashes(saved)).toEqual({
+      ThisWorkbook: EMPTY_MODULE_SHA256,
+      Sheet1: EMPTY_MODULE_SHA256,
+      Sheet2: EMPTY_MODULE_SHA256,
+      modFinish: S2_MODFINISH_SHA256,
+    });
   });
 });
 

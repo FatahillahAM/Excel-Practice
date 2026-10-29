@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { cellMismatch, S2_FIXTURE, s2Expected } from "./__fixtures__/s2-expected";
+import { cellMismatch, S2_FIXTURE, S2_MODFINISH_SHA256, s2Expected } from "./__fixtures__/s2-expected";
 import { NotAWorkbookError, readWorkbook } from "./read";
 import { readSheetParts } from "./template-patch";
 import { templates } from "./templates";
@@ -413,8 +413,8 @@ describe("s2-excel2021.xlsm (saved by Excel 2021)", () => {
     }
     expect(mismatches).toEqual([]);
     expect(reading.properties.WHE_TemplateVersion).toBe("1");
-    // Excel rewrote vbaProject.bin on save; the fingerprint is the template's (templates.test.ts).
-    expect(reading.vbaModuleHashes?.modFinish).toBe(templates[1].vbaModules.modFinish);
+    // Excel rewrote vbaProject.bin on save; modFinish keeps the S1-era template's hash (vba.test.ts).
+    expect(reading.vbaModuleHashes?.modFinish).toBe(S2_MODFINISH_SHA256);
   });
 
   it("stores what S2 reads: fill-down as shared formulas, UNIQUE as a spill anchor, _xlfn. prefixes", async () => {

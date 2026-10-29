@@ -80,4 +80,4 @@ Bila L6 menampilkan `#SPILL!`, L7 atau L8 tidak kosong: hapus isinya.
 1. Buka repo `FatahillahAM/Excel-Practice` di GitHub, pilih branch kerja yang sedang dipakai untuk spike ini (bukan `main`), lalu masuk ke folder `src/adapters/workbook/__fixtures__/`.
 2. **Add file → Upload files**, seret `s2-excel2021.xlsm`.
 3. Pilih **Commit directly to the … branch** untuk branch kerja itu (bukan `main`) → **Commit changes**.
-4. Beri tahu agent. Agent menjalankan `git pull`, `node scripts/spike-s2.ts` (mencetak tiap sel, cocok atau tidak, dan sidik jari VBA file simpanan terhadap registry template), lalu mencocokkan hasilnya dengan pembacaan openpyxl.
+4. Beri tahu agent. Agent menjalankan `git pull`, `node scripts/spike-s2.ts` (mencetak tiap sel, cocok atau tidak, dan apakah hash `modFinish` file simpanan sama dengan hash era S1), lalu mencocokkan hasilnya dengan pembacaan openpyxl.

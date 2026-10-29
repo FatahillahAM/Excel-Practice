@@ -2,9 +2,11 @@
  * Spike S2: read the S1 file that Excel 2021 saved with the fixture formulas
  * (src/adapters/workbook/__fixtures__/README.md), print every fixture cell with
  * its normalized formula, value, type and whether it matches the expected
- * table, cross-check every cell against openpyxl, and check the saved file's
- * VBA fingerprint (AD-4) against the template registry: Excel rewrites
- * `xl/vbaProject.bin` on save, so its bytes differ but the fingerprint must not.
+ * table, cross-check every cell against openpyxl, and check that the saved
+ * file kept the S1-era `modFinish` hash (AD-4): Excel rewrites
+ * `xl/vbaProject.bin` on save, so its bytes differ but the source hash must not.
+ * Spike S3 replaced `modFinish` in `exam.v1.xlsm`, so the S2 file is no longer
+ * compared with registry v1.
  *
  *   node scripts/spike-s2.ts [--file <xlsm>] [--skip-openpyxl]
  */
@@ -13,11 +15,11 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { cellMismatch, NUMBER_TOLERANCE, S2_FIXTURE, s2Expected } from "../src/adapters/workbook/__fixtures__/s2-expected.ts";
+import { cellMismatch, NUMBER_TOLERANCE, S2_FIXTURE, S2_MODFINISH_SHA256, s2Expected } from "../src/adapters/workbook/__fixtures__/s2-expected.ts";
 import { normalizeFormula } from "../src/adapters/workbook/formula.ts";
 import { readWorkbook, type CellReading, type WorkbookReading } from "../src/adapters/workbook/read.ts";
 import { vbaProjectSha256 } from "../src/adapters/workbook/template-patch.ts";
-import { CURRENT_TEMPLATE_VERSION, matchesTemplate, templates } from "../src/adapters/workbook/templates.ts";
+import { CURRENT_TEMPLATE_VERSION, templates } from "../src/adapters/workbook/templates.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -108,13 +110,10 @@ console.log(
 );
 console.log("VBA modules (normalized source sha256):");
 if (reading.vbaModuleHashes === null) console.log("  (no readable VBA project)");
-for (const [name, hash] of Object.entries(reading.vbaModuleHashes ?? {})) {
-  const pinned = Object.hasOwn(template.vbaModules, name) ? template.vbaModules[name] : undefined;
-  console.log(`  ${name}: ${hash}${pinned === undefined ? "" : pinned === hash ? " (pinned, match)" : ` (pinned, MISMATCH: registry ${pinned})`}`);
-}
-const fingerprintMatches = matchesTemplate(reading.vbaModuleHashes, CURRENT_TEMPLATE_VERSION);
-if (!fingerprintMatches) failed = true;
-console.log(`VBA fingerprint vs registry v${CURRENT_TEMPLATE_VERSION}: ${fingerprintMatches ? "match" : "MISMATCH"}`);
+for (const [name, hash] of Object.entries(reading.vbaModuleHashes ?? {})) console.log(`  ${name}: ${hash}`);
+const modFinishKept = reading.vbaModuleHashes?.modFinish === S2_MODFINISH_SHA256;
+if (!modFinishKept) failed = true;
+console.log(`modFinish vs S1-era hash ${S2_MODFINISH_SHA256.slice(0, 8)}…: ${modFinishKept ? "match" : "MISMATCH"}`);
 
 console.log("");
 if (args["skip-openpyxl"]) {
@@ -126,7 +125,7 @@ if (args["skip-openpyxl"]) {
 }
 
 console.log("");
-console.log(failed ? "spike-s2: FAILED" : "spike-s2: all fixture cells and the VBA fingerprint match");
+console.log(failed ? "spike-s2: FAILED" : "spike-s2: all fixture cells and the S1-era modFinish hash match");
 process.exit(failed ? 1 : 0);
 
 // ---------------------------------------------------------------------------

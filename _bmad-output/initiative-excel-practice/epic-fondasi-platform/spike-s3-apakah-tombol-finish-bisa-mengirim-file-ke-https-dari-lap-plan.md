@@ -88,6 +88,7 @@ context:
 - Log: `{ channel, code (null bila diterima), bytes, tokenSha256, tokenMatches, fingerprintMatches, templateVersion }`. `scripts/spike-s1.ts` menghitung `tokenSha256` sendiri (skrip Node tidak bisa mengimpor modul app yang import-nya tanpa ekstensi).
 - `modFinish.bas`: hanya mengirim bila `WHE_ServerUrl` diawali `https://`; nama identifier dipilih agar tidak ada dua yang hanya beda huruf besar/kecil (VBE akan menyamakan casing dan mengubah sumber). `MsgBox msg` dipertahankan di `ShowAnswer` karena `templates.test.ts` mengeditnya untuk tes "satu karakter berubah".
 - Sampai `exam.v1.xlsm` dibangun ulang, golden `vba.test.ts` (template vs `.bas`) gagal karena `.bas` sudah baru; itu yang diharapkan dan pulih di langkah "setelah user mengunggah template baru".
+- After the user's rebuild (commit 63da7f2): `exam.v1.xlsm` still has sheets `Instructions`/`Data` and the three `TEMPLATE` properties; its stored `modFinish` normalizes to exactly `modFinish.bas`. Registry v1 `modFinish` = `5a793b180b0329dba3ea6d6f3683251ad19c59188453e45d736240f2cfa877ec`. The S2 file's old hash is `S2_MODFINISH_SHA256` in `__fixtures__/s2-expected.ts`, used by `vba.test.ts`, `templates.test.ts` (S2 no longer matches v1), `read.test.ts:417` (a third site the Code Map missed) and `spike-s2.ts`.
 
 ## Plan Change Log
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import { S2_FIXTURE } from "./__fixtures__/s2-expected";
+import { S2_FIXTURE, S2_MODFINISH_SHA256 } from "./__fixtures__/s2-expected";
 import { buildVbaProject, bytes, type ModuleSpec } from "./__fixtures__/vba-project";
 import { readWorkbook } from "./read";
 import { patchTemplate, vbaProjectSha256 } from "./template-patch";
@@ -79,11 +79,11 @@ describe.each(Object.entries(templates))("template v%s", (version, template) => 
 });
 
 describe("matchesTemplate", () => {
-  it("matches the Excel-saved S2 file to v1 although its vbaProject.bin bytes differ", async () => {
-    const template = await readFile(path.join(repoRoot, templates[1].file));
-    const saved = await readFile(path.join(repoRoot, S2_FIXTURE));
-    expect(await vbaProjectSha256(saved)).not.toBe(await vbaProjectSha256(template));
-    expect(matchesTemplate((await readWorkbook(saved)).vbaModuleHashes, 1)).toBe(true);
+  it("does not match the S2 file to v1: it carries the S1-era modFinish that S3 replaced", async () => {
+    const hashes = (await readWorkbook(await readFile(path.join(repoRoot, S2_FIXTURE)))).vbaModuleHashes;
+    expect(hashes?.modFinish).toBe(S2_MODFINISH_SHA256);
+    expect(S2_MODFINISH_SHA256).not.toBe(templates[1].vbaModules.modFinish);
+    expect(matchesTemplate(hashes, 1)).toBe(false);
   });
 
   /** A project carrying the v1 template's real modFinish source, rewritten by the `cfb` package. */

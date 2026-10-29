@@ -9,6 +9,14 @@ import type { CellReading, CellType } from "../read.ts";
 export const S2_FIXTURE = "src/adapters/workbook/__fixtures__/s2-excel2021.xlsm";
 export const NUMBER_TOLERANCE = 1e-9;
 
+/**
+ * Normalized-source SHA-256 of `modFinish` in the S2 file: the S1-era v1
+ * template it was built from, kept by Excel's save. Spike S3 replaced
+ * `modFinish` in `exam.v1.xlsm` in place, so the S2 file no longer matches
+ * registry v1; `s3-excel2021.xlsm` is the Excel-saved copy for v1.
+ */
+export const S2_MODFINISH_SHA256 = "914687b34fc5eb2e3c3982861b567ccc25f040fb80543c3986e4935b80f4235c";
+
 export interface ExpectedCell {
   formula: string | null;
   value: number | string | boolean;
