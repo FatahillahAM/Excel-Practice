@@ -3,12 +3,12 @@ title: 'Sign in with Google dengan allowlist satu akun'
 type: 'feature'
 ticket: '7'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '423fbb833fdf0dda87a3631ff847cb219052146c'
 context:
@@ -94,6 +94,10 @@ context:
 - Log out dan penolakan di callback memakai `signOut({ scope: "local" })`: hanya sesi perangkat ini yang berakhir.
 - `time_zone` disimpan seperti yang dilaporkan browser setelah divalidasi ICU (ICU sendiri menormalkan ke nama link lama, mis. `Asia/Calcutta`); bila tidak valid, profil tidak dibuat dan dicoba lagi pada login berikutnya. Kolom juga dicek di DB (`at time zone` harus dikenal Postgres).
 - Migrasi `20261029000003_auth_profiles` diterapkan ke `dev` lalu `prod` lewat MCP dan versinya di-rename; advisor keamanan bersih di keduanya. `private.auth_allowlist` masih kosong dan Vercel `ALLOWED_EMAIL` belum dibuat: nilai email pilihan user tidak ada di plan.
+
+- Allowlist: one row inserted into `private.auth_allowlist` on `dev` and `prod` via MCP (value not in the repo); Vercel env `ALLOWED_EMAIL` (encrypted) for production, preview and development.
+- User did the dashboard steps (Google OAuth client, provider, sign-up on, URL Configuration, Before User Created hook on both projects). First Preview attempt failed with `Unsupported provider: missing OAuth secret` (secret not saved in `dev`); after the user saved it, sign-in on Preview (commit 21e3809) worked: `dev` has 1 `auth.users` row (provider `google`) and 1 `profiles` row with `time_zone = Asia/Jakarta`, same id.
+- A provider misconfiguration shows Supabase's raw JSON in the popup (rejected on Supabase's authorize page, before the callback); config-only failure, left as is.
 
 ## Plan Change Log
 
