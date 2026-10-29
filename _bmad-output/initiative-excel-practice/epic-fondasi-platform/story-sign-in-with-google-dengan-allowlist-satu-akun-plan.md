@@ -69,14 +69,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution (agent):**
-- [ ] `supabase/migrations/20261029000003_auth_profiles.sql` -- schema `private` + `private.auth_allowlist(email)` (hanya `supabase_auth_admin` boleh baca), `public.hook_before_user_created(event jsonb)` (cocokkan email case-insensitive), `public.profiles(id → auth.users, time_zone, created_at)` RLS owner-only select/insert, `schema_version`.
-- [ ] `src/adapters/supabase/auth.ts` + `profiles.ts` -- mulai OAuth Google, tukar kode, cek `ALLOWED_EMAIL`, sign out, buat profil sekali.
-- [ ] `src/app/login/` -- halaman + Login Card (client) dengan popup, `postMessage` same-origin, status idle/loading/error/cancel.
-- [ ] `src/app/auth/google/route.ts`, `src/app/auth/callback/route.ts`, `src/app/auth/signout/route.ts` (POST).
-- [ ] `src/adapters/supabase/proxy.ts` -- proteksi route + redirect `/login?next=`; 401 untuk API.
-- [ ] `src/app/page.tsx` -- tombol Log out sementara.
-- [ ] Tes Vitest untuk fungsi murni: `safeNext`, cocok allowlist, pemetaan hasil callback, klasifikasi path publik.
-- [ ] `supabase/README.md` -- bagian "Auth (Google)": langkah dashboard Google Cloud dan Supabase.
+- [x] `supabase/migrations/20261029000003_auth_profiles.sql` -- schema `private` + `private.auth_allowlist(email)` (hanya `supabase_auth_admin` boleh baca), `public.hook_before_user_created(event jsonb)` (cocokkan email case-insensitive), `public.profiles(id → auth.users, time_zone, created_at)` RLS owner-only select/insert, `schema_version`.
+- [x] `src/adapters/supabase/auth.ts` + `profiles.ts` -- mulai OAuth Google, tukar kode, cek `ALLOWED_EMAIL`, sign out, buat profil sekali.
+- [x] `src/app/login/` -- halaman + Login Card (client) dengan popup, `postMessage` same-origin, status idle/loading/error/cancel.
+- [x] `src/app/auth/google/route.ts`, `src/app/auth/callback/route.ts`, `src/app/auth/signout/route.ts` (POST).
+- [x] `src/adapters/supabase/proxy.ts` -- proteksi route + redirect `/login?next=`; 401 untuk API.
+- [x] `src/app/page.tsx` -- tombol Log out sementara.
+- [x] Tes Vitest untuk fungsi murni: `safeNext`, cocok allowlist, pemetaan hasil callback, klasifikasi path publik.
+- [x] `supabase/README.md` -- bagian "Auth (Google)": langkah dashboard Google Cloud dan Supabase.
 - [ ] Terapkan migrasi ke `dev` lalu `prod`; isi `private.auth_allowlist` di keduanya; Vercel env `ALLOWED_EMAIL` (production, preview, development).
 
 **Execution (user, dashboard):** OAuth client Google (redirect URI kedua project `…/auth/v1/callback`); di tiap project Supabase: provider Google on (client ID/secret), sign-up on, URL Configuration (Site URL + Redirect URLs `/auth/callback**`), hook Before User Created → `public.hook_before_user_created`.
@@ -87,6 +87,13 @@ context:
 - Given sesi aktif, when Log out lalu buka `/`, then dialihkan ke `/login`; `POST /api/submissions/macro` tetap diterima tanpa sesi.
 
 ## Implementation Notes
+
+- Fungsi murni ada di `src/adapters/supabase/auth-rules.ts` (`safeNext`, `isAllowedEmail`, `classifyOAuthError`, `normalizeTimeZone`, `callbackFallbackUrl`, `callbackPageHtml`, `isPublicPath`, `isApiPath`, `loginRedirectPath`), dites di `auth-rules.test.ts`; pesan Login Indonesia di `src/messages/id.ts`.
+- Penolakan hook membawa penanda `not_allowlisted` di `message`; Supabase meneruskannya sebagai `error_description` ke `/auth/callback`, yang memetakannya ke "Akun ini nggak terdaftar…". `access_denied` tanpa penanda = batal (idle, tanpa error).
+- Proxy gagal-tertutup: tanpa env Supabase, semua path non-publik dialihkan ke `/login` (API → 401 `UNAUTHENTICATED`).
+- Log out dan penolakan di callback memakai `signOut({ scope: "local" })`: hanya sesi perangkat ini yang berakhir.
+- `time_zone` disimpan seperti yang dilaporkan browser setelah divalidasi ICU (ICU sendiri menormalkan ke nama link lama, mis. `Asia/Calcutta`); bila tidak valid, profil tidak dibuat dan dicoba lagi pada login berikutnya. Kolom juga dicek di DB (`at time zone` harus dikenal Postgres).
+- Migrasi `20261029000003_auth_profiles` diterapkan ke `dev` lalu `prod` lewat MCP dan versinya di-rename; advisor keamanan bersih di keduanya. `private.auth_allowlist` masih kosong dan Vercel `ALLOWED_EMAIL` belum dibuat: nilai email pilihan user tidak ada di plan.
 
 ## Plan Change Log
 
