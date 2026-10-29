@@ -3,7 +3,7 @@ title: 'CI: lint dengan aturan impor core, typecheck, dan Vitest'
 type: 'chore'
 ticket: '6'
 created: '2026-10-29'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -74,6 +74,9 @@ context:
 - Tes aturan ditempatkan di `src/lint-rules.test.ts` (di luar core) karena mengimpor `eslint` dan `node:path`, yang dilarang aturan core.
 - `npm run typecheck` sudah dicoba pada checkout bersih (git worktree tanpa `.next/` dan `next-env.d.ts`, keduanya gitignored) -- bersih, jadi CI tidak perlu `next build`/`next typegen` dulu.
 - Workflow tanpa `concurrency.cancel-in-progress` supaya run merah untuk commit uji tidak dibatalkan oleh push revert berikutnya.
+- Review patches (commit 73ab4ba): zone `from: "."` with `except` for `./src/core`, `./node_modules/zod` (and `./node_modules/vitest` in core tests); globs cover `ts, tsx, mts, cts, js, jsx, mjs, cjs`; core tests match `*.{test,spec}.*`; `no-restricted-syntax` also rejects `TSImportType` and member `require` calls; `no-restricted-globals` rejects IO globals (`fetch`, `process`, `XMLHttpRequest`, `WebSocket`, `window`, `document`, `localStorage`, `sessionStorage`, `indexedDB`, `navigator`); allowlist entries are regex-escaped. Suite: 182 tests.
+- GitHub Actions (workflow `CI`, id 400261026) on `claude/laughing-shannon-vnoryl`: runs #1 (0cf6bf8), #2 (786f51d) and #3 (73ab4ba) green, about 30 s each. Probe commit e77a567 added `src/core/ci-probe.ts` importing `next/server`: run #4 failed at **Lint** with two AD-1 errors (`no-restricted-imports`, `import/no-restricted-paths`); Typecheck and Test were skipped. Revert e5c3bea removed it; run #5 (e5c3bea) green again on all three steps.
+- Runner warning: `actions/checkout@v4` and `actions/setup-node@v4` target Node 20 and are forced onto Node 24; harmless today, move to the next major when convenient.
 
 ## Plan Change Log
 
