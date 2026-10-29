@@ -3,12 +3,12 @@ title: 'S3: Apakah tombol Finish bisa mengirim file ke HTTPS dari laptop?'
 type: 'feature'
 ticket: '4'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '8b356610c366a467d61773a580f40eb501b57e84'
 context:
