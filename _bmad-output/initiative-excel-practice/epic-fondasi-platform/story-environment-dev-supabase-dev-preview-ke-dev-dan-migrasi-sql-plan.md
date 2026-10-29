@@ -6,9 +6,9 @@ created: '2026-10-29'
 status: 'in-progress'
 route: 'oneshot'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'auto'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 baseline_revision: 'c3cdda4670df30cc24ae96d559a47c826585f2fc'
 context:
@@ -37,6 +37,16 @@ Temuan investigasi (2026-10-29):
 - Container tidak menjangkau `*.supabase.co`, jadi Supabase CLI tidak bisa `db push`/`migration list` dari sini. Migrasi diterapkan dengan MCP `apply_migration`, yang memberi versi timestamp sendiri; versi `dev` dipakai sebagai nama file repo, dan baris riwayat `prod` disamakan ke versi itu agar `supabase migration list` nanti melihat riwayat yang sama. Cek "migrasi sama" memakai MCP `list_migrations` di kedua project.
 - `/health` memakai `fetch` langsung dengan publishable key; versi skema dibaca dengan cara yang sama lewat PostgREST (`/rest/v1/app_meta`), sehingga tabel butuh RLS dengan policy `select` untuk `anon` dan `grant select`.
 - Env Supabase di Vercel saat ini hanya untuk target Production.
+
+Implementasi (2026-10-29):
+- Supabase: "Keuangan Keluarga" (`ckhrvgseaxzfiscikiji`) di-pause lewat MCP sesuai keputusan user; `excel-practice-dev` dibuat di org `ydsnogrdkvadubspefho`, `ap-southeast-1`, ref `krfkxropldheqhbqtkfo`.
+- `supabase/config.toml` dari `supabase@2.121.0 init` (offline), `project_id = "excel-practice"`; `supabase/.temp/` dan `.branches/` di-ignore.
+- `supabase/migrations/20261029000001_app_meta.sql`: tabel `app_meta(key, value, updated_at)`, RLS + policy `select` untuk `anon`/`authenticated`, `grant select`, baris `schema_version = 20261029000001`. Setiap migrasi berikutnya memperbarui baris ini.
+- Diterapkan dengan MCP `apply_migration` ke `dev` (versi otomatis `20261029060624`) lalu `prod` (`20261029061021`); di kedua project versi riwayat diubah ke `20261029000001` lewat `update supabase_migrations.schema_migrations`. `list_migrations`: `dev` dan `prod` sama-sama `[20261029000001 app_meta]`; `prod` `app_meta.schema_version = 20261029000001`.
+- `/health`: status OK kini juga butuh `schema_version` terbaca (`/rest/v1/app_meta?select=value&key=eq.schema_version`, publishable key, `no-store`, timeout 5 s); baris baru "Schema". Gagal baca → FAIL "Schema version unreadable".
+- Vercel: env `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ke `dev` untuk target `preview` dan `development` (Production tetap `prod`). `.env.example` mengarahkan `.env.local` ke `dev`.
+- Bukti Preview (deploy `dpl_D2TTmuHMQhNaLKUzGwJfzyvqVCnZ`, commit `26554a8`): `/health` OK, Project `krfkxropldheqhbqtkfo`, Schema `20261029000001`, Environment `preview`.
+- Production masih menjalankan kode lama sampai branch di-merge ke `main`; tabel `app_meta` sudah ada di `prod`, jadi `/health` baru akan langsung OK setelah merge.
 
 ## Verification
 
