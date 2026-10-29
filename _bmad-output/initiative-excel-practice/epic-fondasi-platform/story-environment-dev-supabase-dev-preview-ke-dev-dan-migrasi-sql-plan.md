@@ -3,7 +3,7 @@ title: 'Environment dev: Supabase dev, Preview ke dev, dan migrasi SQL'
 type: 'chore'
 ticket: '5'
 created: '2026-10-29'
-status: 'in-progress'
+status: 'built'
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
@@ -47,6 +47,7 @@ Implementasi (2026-10-29):
 - Vercel: env `NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ke `dev` untuk target `preview` dan `development` (Production tetap `prod`). `.env.example` mengarahkan `.env.local` ke `dev`.
 - Bukti Preview (deploy `dpl_D2TTmuHMQhNaLKUzGwJfzyvqVCnZ`, commit `26554a8`): `/health` OK, Project `krfkxropldheqhbqtkfo`, Schema `20261029000001`, Environment `preview`.
 - Production masih menjalankan kode lama sampai branch di-merge ke `main`; tabel `app_meta` sudah ada di `prod`, jadi `/health` baru akan langsung OK setelah merge.
+- Review fixes: `20261029000002_app_meta_read_only.sql` (revoke all, grant select, `schema_version` + `updated_at`) applied to `dev` then `prod` via MCP with the version rename; `readSchemaVersion` moved to `src/adapters/supabase/app-meta.ts`; `src/adapters/supabase/migrations.test.ts` checks file names and that each migration sets `schema_version` to its own version; `supabase/README.md` records how to write and apply migrations (CLI or MCP + rename).
 
 ## Verification
 
@@ -56,3 +57,12 @@ Implementasi (2026-10-29):
 **Manual checks:**
 - `/health` di deploy Preview branch kerja: OK, project = ref `dev`, Environment `preview`, Schema = versi migrasi.
 - MCP `list_migrations` di `dev` dan `prod`: satu migrasi, versi dan nama sama dengan file di `supabase/migrations`.
+
+## Review Triage Log
+
+- medium, defer — the `app_meta` select policy for `anon`/`authenticated` and an unauthenticated `/health` read break AD-9 as written ("owner-only policies", browser never calls tables): there is no session on `/health` and the service-role client is limited to the macro path, so the fix is a spine exception or reading it differently after Google sign-in (entry 7); recorded in `deferred-work.md`.
+- low, patch — `grant select` was a no-op: Supabase default privileges gave `anon`/`authenticated` every privilege on `app_meta` (RLS blocked writes; TRUNCATE is not exposed by PostgREST). Migration `20261029000002` revokes all and grants select; both projects now show SELECT only.
+- low, patch — the PostgREST read sat in `src/app`; moved to `src/adapters/supabase/app-meta.ts` (layer table: data access in adapters, app wires).
+- low, reject — `app_meta` is not a plural name: it holds metadata rows (a mass noun), not entities; renaming costs a migration on both projects for no reader benefit.
+- low, patch — `updated_at` would go stale: migrations now set it with `schema_version` (`20261029000002`, README convention).
+- low, patch — nothing tied `schema_version` to the newest migration and the MCP version rename was undocumented: `migrations.test.ts` and `supabase/README.md`.

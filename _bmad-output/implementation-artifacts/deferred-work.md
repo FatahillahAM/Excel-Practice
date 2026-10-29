@@ -24,3 +24,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
   summary: Mark when template v1 counts as released (before the first real attempt) so a later modFinish change ships as v2 instead of an in-place registry edit.
   evidence: S3 changed v1 in place twice because v1 was unreleased; nothing records or enforces the release point.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-environment-dev-supabase-dev-preview-ke-dev-dan-migrasi-sql-plan.md`
+  summary: AD-9 says every table has owner-only RLS and the browser never calls tables, but app_meta has a public select policy so the unauthenticated /health can read schema_version with the publishable key.
+  evidence: /health has no session and the service-role client is limited to the macro path; either add a spine exception for non-user metadata (bmad-architecture) or read it differently once Google sign-in exists (entry 7).
