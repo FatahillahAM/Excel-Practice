@@ -3,7 +3,7 @@ title: 'Sidik jari sumber VBA (AD-4) menggantikan hash vbaProject.bin'
 type: 'feature'
 ticket: '11'
 created: '2026-10-29'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
