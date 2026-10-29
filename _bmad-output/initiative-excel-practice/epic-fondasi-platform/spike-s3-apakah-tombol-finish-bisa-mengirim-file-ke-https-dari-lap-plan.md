@@ -101,6 +101,28 @@ context:
 
 ## Review Triage Log
 
+| # | Lens | Finding | Verdict | Evidence | Route |
+|---|------|---------|---------|----------|-------|
+| 1 | blind-hunter, edge-case-hunter | Public route runs `readWorkbook` on any body with no bound on inflated size (zip bomb) and no cheap pre-checks | medium | True: `read.ts` has no uncompressed-size cap and the route is public in Production. The unbounded reader predates this change (S2), and the intent's Never excludes the upload size limit; an early header check would break AD-6's order (NOT_EXCEL before IDENTITY_ALTERED) | defer |
+| 2 | blind-hunter | Build guide step 7 no longer catches a mistyped `WHE_*` property name | low | `PropertyText` now returns `""` for a missing property, so a typo and `TEMPLATE` show the same box; the S3 section checks the names but the new-template guide does not | patch: README step 7 checks the names under Advanced Properties → Custom |
+| 3 | blind-hunter, edge-case-hunter | VBA shows the raw code instead of per-code messages, contradicting the `rejection-codes.ts` comment and AD-6 | low | The comment states the AD-6 contract, which epic 2 implements with `submit()`; any VBA edit now forces another template rebuild and laptop run | defer (with #4, #5 as the epic 2 `modFinish` follow-ups) |
+| 4 | blind-hunter | `TempCopyPath` comment says "the workbook's own extension" but the code always uses `.xlsm` | low | Comment is wrong; the template is always `.xlsm` (AD-6), so behaviour is right | defer (with #3) |
+| 5 | blind-hunter, edge-case-hunter | Every failure tells the user to check the internet (413, TLS, local TEMP faults) | low | True; matters mainly for the office PC (Deferred, epic 2) | defer (with #3) |
+| 6 | blind-hunter, edge-case-hunter | `route.ts` has no error boundary: a throw gives a non-JSON 500 with no log line | low | `readWorkbook` errors are caught; what remains is an aborted body or a registry bug in `matchesTemplate`. Vercel still logs the 500, and the macro shows "HTTP 500"; a fix adds a branch and a non-AD-6 code | reject (unlikely, adds surface) |
+| 7 | blind-hunter | `spike-s1.ts` re-implements `tokenSha256` | low | Node cannot import `inspect.ts` (extensionless relative imports under type stripping); a comment ties them and a known-answer test pins the server side | reject (fix restructures modules) |
+| 8 | blind-hunter | Spine Logging row still says "never tokens" and does not mention `tokenSha256` | low | User decision allows a 12-hex hash; the convention row was not updated | patch: spine Logging row + `.memlog.md` |
+| 9 | blind-hunter | `logOf` checks only the file token is absent from the log, not the header token | low | "a header with another token" never asserts the header value is absent | patch |
+| 10 | blind-hunter | `withAddedSheet` adds no `[Content_Types].xml` override for the new sheet | low | Synthetic package is incomplete; passes only while the reader ignores content types | patch |
+| 11 | blind-hunter | Nothing marks when v1 counts as released, after which `modFinish` must change as v2 | low | True; no attempt has used v1 yet, a guard is new surface | defer |
+| 12 | blind-hunter | `s3-excel2021.xlsm` carries a token that was sent to Production | false | The spike stores nothing and epic 2 issues fresh random tokens per attempt, so this token never belongs to an attempt | reject |
+| 13 | verification-gap (gap), blind-hunter | Route tests read `response.json()` only; the VBA parses the raw text (`"ok":true`, `"code":"`) | low | Pre-verified: pretty-printing the body keeps every test green while Finish would report failure | patch: assert the raw text for accept and reject |
+| 14 | edge-case-hunter | `stepName` stays "mengirim file ke server" if reading the reply raises | low | `Status`/`responseText` do not raise after a completed synchronous send; VBA edit forces a rebuild | reject (unlikely) |
+| 15 | intent-alignment | Laptop evidence (MsgBox, log lines) is not in the diff | false | It is in this plan's Implementation Notes, which the diff excludes by design | reject |
+| 16 | intent-alignment | Route rejects mismatches (R3) instead of reporting them as data (R2) | false | The frozen I/O matrix settles R3 (header or fingerprint mismatch → 400 `IDENTITY_ALTERED`) | reject |
+| 17 | intent-alignment | Real Excel-saved bytes are never posted to the route; the fixture is the Save As copy, not the sent copy | low | Production logged `fingerprintMatches: true` for the sent copies (Implementation Notes); a route test on `s3-excel2021.xlsm` is a direct addition | patch: post the S3 fixture with its own token, expect 200 |
+| 18 | intent-alignment | `rejection-codes.ts` defines five codes, beyond the two used | false | AD-6 names that file and all five codes | reject |
+| 19 | intent-alignment | PR and merge do not appear in the diff | false | Process step; PRs #2 and #3 were merged and Production serves `0cc77ef` | reject |
+
 ## Design Notes
 
 Body dikirim sebagai `application/octet-stream` (bukan multipart), dan `ServerXMLHTTP.6.0` dipilih sesuai ticket; keduanya menjawab Deferred "VBA HTTP details" untuk laptop. `SaveCopyAs` menyimpan isi workbook saat ini tanpa mengubah file aslinya. Byte array VBA dibaca dengan `Open … For Binary` lalu `send` langsung. Route ini adalah tempat jalur macro epic 2; isinya nanti diganti `submit(bytes, "macro")`.

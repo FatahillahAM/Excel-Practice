@@ -15,3 +15,12 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
   summary: AD-4 says registry values are recomputed in CI, but the repo has no CI workflow that runs npm test.
   evidence: no .github/workflows; Vercel only runs next build, so the registry recompute test runs only locally.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
+  summary: POST /api/submissions/macro is public and runs readWorkbook on any body with no bound on inflated size, so a small zip bomb can exhaust the function.
+  evidence: read.ts has no uncompressed-size or entry cap (pre-existing since S2); the spine defers the upload size limit to epic 2; bound inflated size and body size before or inside readWorkbook when submit() lands.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
+  summary: Epic 2 modFinish follow-ups — map each AD-6 code to an Indonesian message box (rejection-codes.ts contract), give non-network hints for 413, TLS/certificate and local TEMP failures, and fix the TempCopyPath comment (always .xlsm).
+  evidence: S3's modFinish shows the raw code and always blames the connection; any VBA edit needs a template rebuild and laptop run, so these ride the epic 2 VBA change.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
+  summary: Mark when template v1 counts as released (before the first real attempt) so a later modFinish change ships as v2 instead of an in-place registry edit.
+  evidence: S3 changed v1 in place twice because v1 was unreleased; nothing records or enforces the release point.
