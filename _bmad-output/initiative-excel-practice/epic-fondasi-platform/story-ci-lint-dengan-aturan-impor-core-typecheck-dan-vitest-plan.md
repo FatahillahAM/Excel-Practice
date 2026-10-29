@@ -56,17 +56,24 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `eslint.config.mjs` -- blok `files: ["src/core/**/*.{ts,tsx}"]` dengan `no-restricted-imports` (allowlist lewat `patterns`/`regex`) dan `import/no-restricted-paths` (target `src/core`, from `src`, except `./core`); pesan menyebut AD-1.
-- [ ] `src/core/lint-rules.test.ts` (atau di luar core bila aturan melarangnya) -- `ESLint.lintText` dengan `filePath` di `src/core` dan di `src/app` untuk setiap baris matriks.
-- [ ] `src/core/submission/rejection-codes.test.ts` -- tes contoh core (lima kode AD-6, nilai = nama).
-- [ ] `package.json` -- script `typecheck` = `tsc --noEmit`.
-- [ ] `.github/workflows/ci.yml` -- `on: push` (semua branch) dan `pull_request` ke `main`; Node 24 dengan cache npm; `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test`; `permissions: contents: read`.
+- [x] `eslint.config.mjs` -- blok `files: ["src/core/**/*.{ts,tsx}"]` dengan `no-restricted-imports` (allowlist lewat `patterns`/`regex`) dan `import/no-restricted-paths` (target `src/core`, from `src`, except `./core`); pesan menyebut AD-1.
+- [x] `src/core/lint-rules.test.ts` (atau di luar core bila aturan melarangnya) -- `ESLint.lintText` dengan `filePath` di `src/core` dan di `src/app` untuk setiap baris matriks.
+- [x] `src/core/submission/rejection-codes.test.ts` -- tes contoh core (lima kode AD-6, nilai = nama).
+- [x] `package.json` -- script `typecheck` = `tsc --noEmit`.
+- [x] `.github/workflows/ci.yml` -- `on: push` (semua branch) dan `pull_request` ke `main`; Node 24 dengan cache npm; `npm ci`, `npm run lint`, `npm run typecheck`, `npm run test`; `permissions: contents: read`.
 
 **Acceptance Criteria:**
 - Given push ke branch kerja, when CI jalan, then ketiga langkah hijau.
 - Given commit yang mengimpor `next` di `src/core`, when di-push, then CI merah di langkah lint (dibuktikan sekali dengan commit uji di branch kerja lalu di-revert).
 
 ## Implementation Notes
+
+- `eslint.config.mjs`: blok `ad-1/core-imports` (`src/core/**/*.{ts,tsx}`) memakai `no-restricted-imports` dengan satu `patterns[].regex` yang menolak semua sumber kecuali `zod`, `@/core` (beserta subpath) dan path relatif; `import/no-restricted-paths` (target `./src/core`, from `./src`, except `./core`) menutup path relatif / `@/core/../x` yang keluar dari core. Semua pesan diawali "AD-1:".
+- Tambahan di luar daftar tugas: `no-restricted-syntax` melarang `import()` dinamis dan `require()` di core, karena `no-restricted-imports` tidak memeriksa keduanya (celah AD-1).
+- Tes di `src/core/**/*.test.{ts,tsx}` boleh mengimpor `vitest` (blok `ad-1/core-tests`, allowlist sama + `vitest`); file non-tes di core tetap ditolak bila mengimpor `vitest`.
+- Tes aturan ditempatkan di `src/lint-rules.test.ts` (di luar core) karena mengimpor `eslint` dan `node:path`, yang dilarang aturan core.
+- `npm run typecheck` sudah dicoba pada checkout bersih (git worktree tanpa `.next/` dan `next-env.d.ts`, keduanya gitignored) -- bersih, jadi CI tidak perlu `next build`/`next typegen` dulu.
+- Workflow tanpa `concurrency.cancel-in-progress` supaya run merah untuk commit uji tidak dibatalkan oleh push revert berikutnya.
 
 ## Plan Change Log
 
