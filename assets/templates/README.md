@@ -79,6 +79,8 @@ Unduh ulang file ujian dari aplikasi.
 
 Pesan ini membuktikan tombol sudah terhubung ke macro. Bila muncul pesan lain (misalnya "Cannot run the macro"), ulangi langkah 5.
 
+Pesan yang sama juga muncul bila nama property salah ketik, jadi periksa juga: **File → Info → Properties → Advanced Properties → Custom** harus berisi tepat tiga property `WHE_AttemptToken`, `WHE_ServerUrl`, `WHE_TemplateVersion`, masing-masing bernilai `TEMPLATE`. Bila ada yang beda nama, kurang, atau lebih, ulangi langkah 6. Tutup dialog dengan **OK**.
+
 ### 8. Simpan
 
 1. Klik sel **A1** di sheet `Instructions` agar sheet itu yang aktif saat file dibuka.

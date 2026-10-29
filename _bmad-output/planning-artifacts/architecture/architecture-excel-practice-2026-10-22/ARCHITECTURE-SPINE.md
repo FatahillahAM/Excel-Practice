@@ -154,7 +154,7 @@ stateDiagram-v2
 | Preferences | Theme and Reduce motion are per-device cookies, read server-side to set `data-theme` and motion before first paint; header toggle and Settings write the same cookie. |
 | Storage paths | `attempt-files/<attemptId>/generated.xlsm`; `attempt-files/<attemptId>/submission-<n>.<ext>` (n from 1, first accepted file is graded). |
 | Device gating | Phone = `(pointer: coarse) and (max-width: 1023px)`: Start and *Practice again* show the phone message and call nothing (CAP-12). |
-| Logging | Server logs JSON with `attemptId`, `channel`, `code`; never file bytes, tokens or emails. |
+| Logging | Server logs JSON with `attemptId`, `channel`, `code`; never file bytes, tokens or emails. To match a log line to a token, a log may carry `tokenSha256` (the first 12 hex of the token's SHA-256), never the token itself. |
 | Testing | Vitest; every `LevelModule` ships golden fixtures (`__fixtures__/correct.xlsm`, `typed-values.xlsm`) graded in CI; one parity test grades the same fixture through the macro and upload channels; the VBA fingerprint of each committed template is recomputed against the registry and against an Excel-saved copy (S3 `s3-excel2021.xlsm`, saved after adding a sheet and opening the VBA editor); the MS-OVBA decompressor has a golden test for a module larger than one 4096-byte chunk. |
 
 ## Stack
