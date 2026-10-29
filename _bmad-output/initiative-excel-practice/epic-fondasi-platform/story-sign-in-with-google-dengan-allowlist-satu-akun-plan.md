@@ -103,6 +103,29 @@ context:
 
 ## Review Triage Log
 
+| # | Lens | Finding | Verdict | Evidence | Route |
+|---|------|---------|---------|----------|-------|
+| 1 | blind-hunter, edge-case-hunter, verification-gap | `isPublicPath` treats a static-looking extension at any depth as public (`/levels/03.js`) | medium | `STATIC_FILE` is tested against any non-API path; the comment says top of `public/` only; a later dynamic page route would skip the guard | patch: single path segment only + tests |
+| 2 | blind-hunter, edge-case-hunter | A zone known to ICU but not to Postgres tzdata fails the CHECK and signs the allowed user out on every login | low | Insert error 23514 maps to `failed` → sign out + network message; rare (zone renames) but a lockout | patch: treat a check violation as `skipped` and log it |
+| 3 | blind-hunter, edge-case-hunter | No valid zone → signed in without `profiles` for the whole session | low | Nothing reads `profiles` yet; AD-8 consumers (streaks, epic 3) are where a missing row matters | defer |
+| 4 | edge-case-hunter | `access_denied` with an `error_code` (e.g. `signup_disabled`) is shown as a cancel | low | `classifyOAuthError` maps any `access_denied` without the marker to `cancelled` | patch: cancel only when there is no `error_code` |
+| 5 | blind-hunter, edge-case-hunter | If Google's COOP cuts `window.opener`, the app loads in the popup and Login treats the close as a cancel | low | Poll sees `closed` with no message → idle, though a session exists | patch: when the popup closes without a message, reload `/login` (the proxy redirects a signed-in visitor to `next`) |
+| 6 | blind-hunter, edge-case-hunter | `/auth/google` and `/auth/callback` throw into Next's error page, no `postMessage` | low | No try/catch around `createClient`, Supabase calls, `ensureProfile` | patch: catch and return the error page / `callbackPageHtml("error")` |
+| 7 | blind-hunter | Unset `ALLOWED_EMAIL` looks like a stranger's account in the logs | low | Same `auth.not_allowed` event | patch: distinct log event |
+| 8 | edge-case-hunter | Transient `getClaims` error sends a signed-in user to Login | low | Fails closed during an Auth outage; signing in again recovers | reject (fail-closed is the safer side) |
+| 9 | edge-case-hunter | Opener navigated to another origin drops the result | low | Requires leaving the app mid-login; result is a closed popup and idle Login | reject |
+| 10 | blind-hunter | Button does nothing before hydration or without JS | low | Fallback renders a `<button>` with no handler; tab flow already exists | patch: render a link to `/auth/google` that JS turns into the popup |
+| 11 | blind-hunter | `?error=` stays in the URL and reappears after a retry or reload | low | `errorFromParam` reads it once; never removed | patch: remove it with `history.replaceState` |
+| 12 | verification-gap, blind-hunter | Proxy guard untested beyond pure helpers | low | Pre-verified: `updateSession` never runs in a test | patch: `proxy.test.ts` (no-env branch, signed-in branch with mocked client) |
+| 13 | verification-gap, blind-hunter | `completeGoogleSignIn` second gate untested | low | Pre-verified | patch: `auth.test.ts` with fake client |
+| 14 | verification-gap, blind-hunter | `ensureProfile` branches untested | low | Pre-verified | patch: `profiles.test.ts` |
+| 15 | verification-gap | `/auth/callback` sanitizing `next` and `/auth/signout` origin check untested | low | Pre-verified | patch: route tests |
+| 16 | verification-gap | `?error=` contract between `callbackFallbackUrl` and `errorFromParam` untested | low | Pre-verified | patch: move `errorFromParam` into `auth-rules.ts`, round-trip test |
+| 17 | verification-gap, intent-alignment | Hook message → `error_description` marker not verified against real Supabase | maybe-false | Needs a live rejected sign-in; the user is testing a second account on Preview | defer (manual Preview check) |
+| 18 | intent-alignment | Dev/prod state (allowlist, env, sign-up, hook, provider) not in the diff | false | Done outside the repo and recorded in Implementation Notes | reject |
+| 19 | intent-alignment | An account that passes the hook but fails `ALLOWED_EMAIL` briefly holds a session | false | Hook blocks new accounts before creation; the second gate signs out immediately, matching the decision | reject |
+| 20 | intent-alignment | Log out only on `/` | false | Planned: the app shell (entry 8) adds it everywhere | reject |
+
 ## Design Notes
 
 Popup memakai origin yang sama, jadi cookie sesi yang diset di `/auth/callback` dalam popup langsung berlaku untuk jendela pembuka; popup mengirim `postMessage({ type: "whe-auth", status })` ke `window.opener` dengan target origin sendiri, lalu `window.close()`. Bila tidak ada `opener` (popup dibuka sebagai tab biasa), callback langsung redirect ke `next`. `window.open` harus dipanggil sinkron di handler klik agar tidak diblokir. Zona waktu (`Intl.DateTimeFormat().resolvedOptions().timeZone`) dan `next` ikut lewat query `redirectTo` dan divalidasi di callback. Sesi ±30 hari: refresh token Supabase tidak kedaluwarsa secara default dan cookie `@supabase/ssr` bertahan lama; tidak perlu konfigurasi tambahan selain tidak mengaktifkan batas sesi.
