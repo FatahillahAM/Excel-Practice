@@ -6,7 +6,7 @@
  *
  *   node scripts/spike-s1.ts [--out <dir>] [--template <file>] [--server-url <url>]
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -23,7 +23,7 @@ const { values: args } = parseArgs({
   options: {
     out: { type: "string", default: path.join(tmpdir(), "excel-practice-spike-s1") },
     template: { type: "string" },
-    // Production alias from entry 1; S1 only displays it, S3 posts to it.
+    // Production alias from entry 1; Finish posts to it (S3).
     "server-url": { type: "string", default: "https://excel-practice-omega.vercel.app" },
   },
 });
@@ -93,6 +93,8 @@ const outputHash = await vbaProjectSha256(patched);
 
 console.log(`template:            ${templatePath}`);
 console.log(`WHE_AttemptToken:    ${properties.WHE_AttemptToken}`);
+// Same value as `tokenSha256` in the macro route's log line (src/app/api/submissions/macro/inspect.ts).
+console.log(`tokenSha256:         ${createHash("sha256").update(token, "utf8").digest("hex").slice(0, 12)}`);
 console.log(`WHE_ServerUrl:       ${properties.WHE_ServerUrl}`);
 console.log(`WHE_TemplateVersion: ${properties.WHE_TemplateVersion}`);
 console.log(`vbaProject.bin template sha256: ${templateHash}`);

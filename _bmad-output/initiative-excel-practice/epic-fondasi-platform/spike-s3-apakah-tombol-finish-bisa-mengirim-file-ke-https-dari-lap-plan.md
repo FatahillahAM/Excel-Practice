@@ -64,13 +64,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution (agent, sebelum laptop):**
-- [ ] `src/core/submission/rejection-codes.ts` -- enum lima kode AD-6.
-- [ ] `src/app/api/submissions/macro/route.ts` -- POST sesuai matriks; logika baca-dan-nilai dipisah ke fungsi murni agar bisa dites.
-- [ ] `src/app/api/submissions/macro/*.test.ts` -- tiap baris matriks sisi server memakai file hasil `patchTemplate`.
-- [ ] `assets/templates/vba/modFinish.bas` -- Finish baru: baca properti, SaveCopyAs ke `Environ("TEMP")`, kirim bytes dengan header `X-Attempt-Token` dan timeout, tampilkan hasil, hapus salinan.
-- [ ] `assets/templates/README.md` -- langkah user mengganti `modFinish` di `exam.v1.xlsm` dan langkah uji S3 (online, tambah sheet + Alt+F11, offline).
+- [x] `src/core/submission/rejection-codes.ts` -- enum lima kode AD-6.
+- [x] `src/app/api/submissions/macro/route.ts` -- POST sesuai matriks; logika baca-dan-nilai dipisah ke fungsi murni agar bisa dites.
+- [x] `src/app/api/submissions/macro/*.test.ts` -- tiap baris matriks sisi server memakai file hasil `patchTemplate`.
+- [x] `assets/templates/vba/modFinish.bas` -- Finish baru: baca properti, SaveCopyAs ke `Environ("TEMP")`, kirim bytes dengan header `X-Attempt-Token` dan timeout, tampilkan hasil, hapus salinan.
+- [x] `assets/templates/README.md` -- langkah user mengganti `modFinish` di `exam.v1.xlsm` dan langkah uji S3 (online, tambah sheet + Alt+F11, offline).
 
-- [ ] `scripts/spike-s1.ts` -- cetak `tokenSha256` (12 hex) di samping token.
+- [x] `scripts/spike-s1.ts` -- cetak `tokenSha256` (12 hex) di samping token.
 
 **Execution (setelah user mengunggah template baru):** hitung ulang registry v1 dari file; tes dan `spike-s2.ts` yang memakai fixture S2 untuk registry v1 dipindah ke konstanta `modFinish` lama; PR ke `main`; setelah merge, `node scripts/spike-s1.ts` dan kirim file ke user.
 
@@ -82,6 +82,12 @@ context:
 - Given laptop offline, when Finish diklik, then MsgBox gagal tampil dan workbook tetap terbuka.
 
 ## Implementation Notes
+
+- Logika route ada di `src/app/api/submissions/macro/inspect.ts` (`inspectMacroSubmission(bytes, headerToken)` → `{ status, body, log }`); `route.ts` hanya membaca body + header, mencetak `log` sebagai satu baris JSON, dan membalas envelope. Import relatif (bukan `@/`) agar Vitest tanpa config bisa memuatnya.
+- Kegagalan apa pun dari `readWorkbook` (bukan hanya `NotAWorkbookError`) → `NOT_EXCEL`, sesuai AD-6 (1) "a workbook the reader cannot read". Token file yang tidak berbentuk base64url 43 karakter → `IDENTITY_ALTERED` (AD-6 (2)). Pemeriksaan content type `.xlsx` tidak ditambahkan: file tanpa VBA project sudah gagal sidik jari → `IDENTITY_ALTERED`.
+- Log: `{ channel, code (null bila diterima), bytes, tokenSha256, tokenMatches, fingerprintMatches, templateVersion }`. `scripts/spike-s1.ts` menghitung `tokenSha256` sendiri (skrip Node tidak bisa mengimpor modul app yang import-nya tanpa ekstensi).
+- `modFinish.bas`: hanya mengirim bila `WHE_ServerUrl` diawali `https://`; nama identifier dipilih agar tidak ada dua yang hanya beda huruf besar/kecil (VBE akan menyamakan casing dan mengubah sumber). `MsgBox msg` dipertahankan di `ShowAnswer` karena `templates.test.ts` mengeditnya untuk tes "satu karakter berubah".
+- Sampai `exam.v1.xlsm` dibangun ulang, golden `vba.test.ts` (template vs `.bas`) gagal karena `.bas` sudah baru; itu yang diharapkan dan pulih di langkah "setelah user mengunggah template baru".
 
 ## Plan Change Log
 
