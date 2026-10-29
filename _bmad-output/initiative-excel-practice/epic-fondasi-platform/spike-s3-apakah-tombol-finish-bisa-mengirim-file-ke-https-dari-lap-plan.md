@@ -92,6 +92,8 @@ context:
 
 - First laptop run (2026-10-29): Finish failed at "mengirim file ke server" with -2147024809 (E_INVALIDARG, "The parameter is incorrect"); no request reached Production. Cause: `xhr.send fileBytes` passes the Byte() ByRef (VT_BYREF|VT_ARRAY), which ServerXMLHTTP rejects. With the user's hand edit `xhr.send (fileBytes)` in the test file, Production logged `{"channel":"macro","code":"IDENTITY_ALTERED","bytes":31217,"tokenSha256":"42b8cc05ae1e","tokenMatches":true,"fingerprintMatches":false}` (fingerprint off only because of the edit). `modFinish.bas` now passes the array in parentheses; `exam.v1.xlsm` is rebuilt again and registry v1 recomputed.
 
+- Second rebuild (commit 05b239a) with the by-value `send`: stored `modFinish` again equals `modFinish.bas`; registry v1 `modFinish` = `e8579897d34cb249d4ab70d628c925a37a0ea5e0fa6d35a14ea319b8b04ecc81` (supersedes `5a793b18…` above).
+
 ## Plan Change Log
 
 ## Review Triage Log
