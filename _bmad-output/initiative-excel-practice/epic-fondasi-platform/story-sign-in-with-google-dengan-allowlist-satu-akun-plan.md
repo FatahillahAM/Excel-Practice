@@ -3,13 +3,14 @@ title: 'Sign in with Google dengan allowlist satu akun'
 type: 'feature'
 ticket: '7'
 created: '2026-10-29'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '423fbb833fdf0dda87a3631ff847cb219052146c'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md'
@@ -28,6 +29,7 @@ context:
 - Akun yang diizinkan: satu akun Gmail milik user, dipilih user 2026-10-29; nilainya hanya ada di Vercel env `ALLOWED_EMAIL` dan baris allowlist di dev dan prod, tidak di repo.
 - Email disimpan di tabel privat (`private.auth_allowlist`, kosong di migrasi), diisi langsung di `dev` dan `prod` lewat MCP; tidak ada email di repo.
 - Sign-up Supabase dinyalakan lagi di `dev` dan `prod`; hook Before User Created menolak setiap email selain allowlist, dan callback mengecek ulang `ALLOWED_EMAIL`.
+- Plan dipertahankan utuh walau di atas 1600 token.
 
 ## Boundaries & Constraints
 
