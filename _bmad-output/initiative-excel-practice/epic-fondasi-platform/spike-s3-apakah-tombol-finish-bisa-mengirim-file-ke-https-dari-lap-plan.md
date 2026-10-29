@@ -90,6 +90,8 @@ context:
 - Sampai `exam.v1.xlsm` dibangun ulang, golden `vba.test.ts` (template vs `.bas`) gagal karena `.bas` sudah baru; itu yang diharapkan dan pulih di langkah "setelah user mengunggah template baru".
 - After the user's rebuild (commit 63da7f2): `exam.v1.xlsm` still has sheets `Instructions`/`Data` and the three `TEMPLATE` properties; its stored `modFinish` normalizes to exactly `modFinish.bas`. Registry v1 `modFinish` = `5a793b180b0329dba3ea6d6f3683251ad19c59188453e45d736240f2cfa877ec`. The S2 file's old hash is `S2_MODFINISH_SHA256` in `__fixtures__/s2-expected.ts`, used by `vba.test.ts`, `templates.test.ts` (S2 no longer matches v1), `read.test.ts:417` (a third site the Code Map missed) and `spike-s2.ts`.
 
+- First laptop run (2026-10-29): Finish failed at "mengirim file ke server" with -2147024809 (E_INVALIDARG, "The parameter is incorrect"); no request reached Production. Cause: `xhr.send fileBytes` passes the Byte() ByRef (VT_BYREF|VT_ARRAY), which ServerXMLHTTP rejects. With the user's hand edit `xhr.send (fileBytes)` in the test file, Production logged `{"channel":"macro","code":"IDENTITY_ALTERED","bytes":31217,"tokenSha256":"42b8cc05ae1e","tokenMatches":true,"fingerprintMatches":false}` (fingerprint off only because of the edit). `modFinish.bas` now passes the array in parentheses; `exam.v1.xlsm` is rebuilt again and registry v1 recomputed.
+
 ## Plan Change Log
 
 ## Review Triage Log

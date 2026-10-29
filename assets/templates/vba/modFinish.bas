@@ -61,7 +61,9 @@ Public Sub Finish()
     xhr.Open "POST", SubmitUrl(serverUrl), False
     xhr.setRequestHeader "Content-Type", "application/octet-stream"
     xhr.setRequestHeader "X-Attempt-Token", attemptToken
-    xhr.send fileBytes
+    ' In parentheses so the array goes by value: a ByRef Byte() reaches
+    ' ServerXMLHTTP as VT_BYREF|VT_ARRAY, which send rejects (E_INVALIDARG).
+    xhr.send (fileBytes)
 
     DeleteCopy copyPath
     ShowAnswer xhr.Status, xhr.responseText, byteCount
