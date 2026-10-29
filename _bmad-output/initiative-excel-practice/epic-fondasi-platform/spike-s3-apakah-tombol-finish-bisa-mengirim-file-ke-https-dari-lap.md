@@ -7,6 +7,7 @@ covers: [S3]
 after: [1, 2, 11]
 hitl: true
 risk: high
+refined: true
 ---
 
 # S3: Apakah tombol Finish bisa mengirim file ke HTTPS dari laptop?
