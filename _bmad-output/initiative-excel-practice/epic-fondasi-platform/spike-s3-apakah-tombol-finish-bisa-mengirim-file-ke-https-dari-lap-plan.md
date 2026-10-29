@@ -72,9 +72,9 @@ context:
 
 - [x] `scripts/spike-s1.ts` -- cetak `tokenSha256` (12 hex) di samping token.
 
-**Execution (setelah user mengunggah template baru):** hitung ulang registry v1 dari file; tes dan `spike-s2.ts` yang memakai fixture S2 untuk registry v1 dipindah ke konstanta `modFinish` lama; PR ke `main`; setelah merge, `node scripts/spike-s1.ts` dan kirim file ke user.
+- [x] **Execution (setelah user mengunggah template baru):** hitung ulang registry v1 dari file; tes dan `spike-s2.ts` yang memakai fixture S2 untuk registry v1 dipindah ke konstanta `modFinish` lama; PR ke `main`; setelah merge, `node scripts/spike-s1.ts` dan kirim file ke user.
 
-**Execution (setelah uji laptop):** `s3-excel2021.xlsm` + tes bahwa sidik jarinya cocok dengan registry v1 walau byte `vbaProject.bin` beda dan ada sheet tambahan; baris Testing spine (+ `.memlog.md`) menyebut fixture S3.
+- [x] **Execution (setelah uji laptop):** `s3-excel2021.xlsm` + tes bahwa sidik jarinya cocok dengan registry v1 walau byte `vbaProject.bin` beda dan ada sheet tambahan; baris Testing spine (+ `.memlog.md`) menyebut fixture S3.
 
 **Acceptance Criteria:**
 - Given file dari `spike-s1.ts` di Excel 2021 laptop yang sudah Unblock, when Finish diklik online, then MsgBox menampilkan terkirim dan log Production mencatat ukuran yang sama, `tokenMatches` dan `fingerprintMatches` true.
@@ -93,6 +93,9 @@ context:
 - First laptop run (2026-10-29): Finish failed at "mengirim file ke server" with -2147024809 (E_INVALIDARG, "The parameter is incorrect"); no request reached Production. Cause: `xhr.send fileBytes` passes the Byte() ByRef (VT_BYREF|VT_ARRAY), which ServerXMLHTTP rejects. With the user's hand edit `xhr.send (fileBytes)` in the test file, Production logged `{"channel":"macro","code":"IDENTITY_ALTERED","bytes":31217,"tokenSha256":"42b8cc05ae1e","tokenMatches":true,"fingerprintMatches":false}` (fingerprint off only because of the edit). `modFinish.bas` now passes the array in parentheses; `exam.v1.xlsm` is rebuilt again and registry v1 recomputed.
 
 - Second rebuild (commit 05b239a) with the by-value `send`: stored `modFinish` again equals `modFinish.bas`; registry v1 `modFinish` = `e8579897d34cb249d4ab70d628c925a37a0ea5e0fa6d35a14ea319b8b04ecc81` (supersedes `5a793b18…` above).
+
+- Laptop run (2026-10-29, Production `0cc77ef`, file `spike-s1-pqlxiPRu.xlsm`, `tokenSha256` `69f7f54076ea`): online Finish showed "Terkirim", 31,486 bytes; after adding a sheet and opening the VBA editor, Finish showed "Terkirim", 32,459 bytes (logged twice). Every log line had `code: null`, `tokenMatches: true`, `fingerprintMatches: true`. Offline Finish showed "Gagal mengirim file ke server" with "The server name or address could not be resolved (-2147012889)"; the workbook stayed open and the user found no `whe-finish-*.xlsm` left in `%TEMP%`. ServerXMLHTTP was not blocked by antivirus or policy on the laptop.
+- `s3-excel2021.xlsm` (commit 5391895): sheets `Instructions`, `Sheet1` (added), `Data`; new empty module `Sheet3`; `vbaProject.bin` bytes differ from the template; matches registry v1 (test in `templates.test.ts`). Spine Testing row now names it; Deferred "VBA HTTP details" narrowed to the office PC (`.memlog.md` entry).
 
 ## Plan Change Log
 
