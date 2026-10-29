@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { cellMismatch, S2_FIXTURE, s2Expected } from "./__fixtures__/s2-expected";
 import { NotAWorkbookError, readWorkbook } from "./read";
 import { readSheetParts } from "./template-patch";
+import { templates } from "./templates";
 
 // A synthetic .xlsm shaped like an Excel 2021 save: shared strings, shared and
 // dynamic-array formulas, and a stale <dimension>/spans as S1 found in files
@@ -92,7 +93,9 @@ const DATA_ROWS =
   '<row r="7"><c r="L7" t="str"><v>Lini B</v></c></row>' +
   '<row r="8"><c r="L8" t="str"><v>Lini C</v></c></row>';
 
+/** Bytes that are not an MS-CFB container: a VBA project that cannot be read. */
 const VBA_PROJECT = Uint8Array.from({ length: 4096 }, (_, i) => (i * 37 + 11) % 256);
+const EMPTY_SHA256 = createHash("sha256").digest("hex");
 
 async function makeWorkbook(overrides: Record<string, string | Uint8Array | null> = {}): Promise<Uint8Array> {
   const parts: Record<string, string | Uint8Array | null> = {
@@ -240,15 +243,28 @@ describe("readWorkbook", () => {
     expect(sheets.Instructions.A1).toEqual({ formula: "SUM(B1:B3)", value: null, type: "empty" });
   });
 
-  it("returns custom properties and the vbaProject.bin hash", async () => {
-    const reading = await readWorkbook(await makeWorkbook());
+  it("returns custom properties and the VBA fingerprint per module", async () => {
+    const template = await JSZip.loadAsync(await readFile(path.join(repoRoot, templates[1].file)));
+    const vbaProject = await template.file("xl/vbaProject.bin")!.async("uint8array");
+    const reading = await readWorkbook(await makeWorkbook({ "xl/vbaProject.bin": vbaProject }));
     expect(reading.properties).toEqual({
       WHE_AttemptToken: "tok_abc-123",
       WHE_ServerUrl: "https://example.test/?a=1&b=2",
       WHE_TemplateVersion: "1",
       Angka: "42",
     });
-    expect(reading.vbaProjectSha256).toBe(createHash("sha256").update(VBA_PROJECT).digest("hex"));
+    expect(reading.vbaModuleHashes).toEqual({
+      ThisWorkbook: EMPTY_SHA256,
+      Sheet1: EMPTY_SHA256,
+      Sheet2: EMPTY_SHA256,
+      modFinish: templates[1].vbaModules.modFinish,
+    });
+  });
+
+  it("reads a workbook whose vbaProject.bin is not a VBA project, with no fingerprint", async () => {
+    const reading = await readWorkbook(await makeWorkbook());
+    expect(reading.vbaModuleHashes).toBeNull();
+    expect(reading.sheets.Data.H3.formula).toBe("F3/E3");
   });
 
   it("reads a workbook without macros, custom properties or shared strings", async () => {
@@ -261,7 +277,7 @@ describe("readWorkbook", () => {
         "xl/worksheets/sheet2.xml": sheetXml('<row r="1"><c r="A1"><v>1</v></c></row>'),
       }),
     );
-    expect(reading.vbaProjectSha256).toBeNull();
+    expect(reading.vbaModuleHashes).toBeNull();
     expect(reading.properties).toEqual({});
     expect(reading.sheets.Data).toEqual({ A1: { formula: null, value: 1, type: "number" } });
   });
@@ -373,9 +389,8 @@ describe("s2-excel2021.xlsm (saved by Excel 2021)", () => {
     }
     expect(mismatches).toEqual([]);
     expect(reading.properties.WHE_TemplateVersion).toBe("1");
-    expect(reading.vbaProjectSha256).toMatch(/^[0-9a-f]{64}$/);
-    // Whether Excel rewrote vbaProject.bin on save is an observation for S3,
-    // not a pass criterion: scripts/spike-s2.ts prints it against the registry.
+    // Excel rewrote vbaProject.bin on save; the fingerprint is the template's (templates.test.ts).
+    expect(reading.vbaModuleHashes?.modFinish).toBe(templates[1].vbaModules.modFinish);
   });
 
   it("stores what S2 reads: fill-down as shared formulas, UNIQUE as a spill anchor, _xlfn. prefixes", async () => {

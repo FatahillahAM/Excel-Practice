@@ -2,8 +2,9 @@
  * Spike S2: read the S1 file that Excel 2021 saved with the fixture formulas
  * (src/adapters/workbook/__fixtures__/README.md), print every fixture cell with
  * its normalized formula, value, type and whether it matches the expected
- * table, cross-check every cell against openpyxl, and print the saved file's
- * vbaProject.bin hash against the template registry.
+ * table, cross-check every cell against openpyxl, and check the saved file's
+ * VBA fingerprint (AD-4) against the template registry: Excel rewrites
+ * `xl/vbaProject.bin` on save, so its bytes differ but the fingerprint must not.
  *
  *   node scripts/spike-s2.ts [--file <xlsm>] [--skip-openpyxl]
  */
@@ -15,7 +16,8 @@ import { parseArgs } from "node:util";
 import { cellMismatch, NUMBER_TOLERANCE, S2_FIXTURE, s2Expected } from "../src/adapters/workbook/__fixtures__/s2-expected.ts";
 import { normalizeFormula } from "../src/adapters/workbook/formula.ts";
 import { readWorkbook, type CellReading, type WorkbookReading } from "../src/adapters/workbook/read.ts";
-import { CURRENT_TEMPLATE_VERSION, templates } from "../src/adapters/workbook/templates.ts";
+import { vbaProjectSha256 } from "../src/adapters/workbook/template-patch.ts";
+import { CURRENT_TEMPLATE_VERSION, matchesTemplate, templates } from "../src/adapters/workbook/templates.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 
@@ -97,12 +99,22 @@ console.log("Custom properties:");
 for (const [name, value] of Object.entries(reading.properties)) console.log(`  ${name}: ${value}`);
 
 console.log("");
-const registered = templates[CURRENT_TEMPLATE_VERSION].vbaProjectSha256;
-console.log(`vbaProject.bin saved file sha256:   ${reading.vbaProjectSha256 ?? "(no vbaProject.bin)"}`);
-console.log(`vbaProject.bin registry v${CURRENT_TEMPLATE_VERSION} sha256: ${registered}`);
+const template = templates[CURRENT_TEMPLATE_VERSION];
+const templateBytes = await readFile(path.join(repoRoot, template.file));
+const savedSha256 = await vbaProjectSha256(bytes).catch(() => null);
+const templateSha256 = await vbaProjectSha256(templateBytes);
 console.log(
-  `vbaProject.bin after the Excel save: ${reading.vbaProjectSha256 === registered ? "unchanged (same as registry)" : "CHANGED (differs from registry)"} -- observation for S3, not a pass criterion`,
+  `vbaProject.bin bytes: ${savedSha256 === null ? "(no vbaProject.bin)" : savedSha256 === templateSha256 ? "same as the template" : "differ from the template"} -- observation, never an identity check`,
 );
+console.log("VBA modules (normalized source sha256):");
+if (reading.vbaModuleHashes === null) console.log("  (no readable VBA project)");
+for (const [name, hash] of Object.entries(reading.vbaModuleHashes ?? {})) {
+  const pinned = Object.hasOwn(template.vbaModules, name) ? template.vbaModules[name] : undefined;
+  console.log(`  ${name}: ${hash}${pinned === undefined ? "" : pinned === hash ? " (pinned, match)" : ` (pinned, MISMATCH: registry ${pinned})`}`);
+}
+const fingerprintMatches = matchesTemplate(reading.vbaModuleHashes, CURRENT_TEMPLATE_VERSION);
+if (!fingerprintMatches) failed = true;
+console.log(`VBA fingerprint vs registry v${CURRENT_TEMPLATE_VERSION}: ${fingerprintMatches ? "match" : "MISMATCH"}`);
 
 console.log("");
 if (args["skip-openpyxl"]) {
@@ -114,7 +126,7 @@ if (args["skip-openpyxl"]) {
 }
 
 console.log("");
-console.log(failed ? "spike-s2: FAILED" : "spike-s2: all fixture cells match");
+console.log(failed ? "spike-s2: FAILED" : "spike-s2: all fixture cells and the VBA fingerprint match");
 process.exit(failed ? 1 : 0);
 
 // ---------------------------------------------------------------------------

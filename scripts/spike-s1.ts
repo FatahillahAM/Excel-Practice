@@ -1,7 +1,8 @@
 /**
  * Spike S1: patch the exam template with sample manufacturing data and a random
  * attempt token, write the result outside the repo, and check that
- * `xl/vbaProject.bin` came through unchanged.
+ * `xl/vbaProject.bin` came through byte for byte and that the VBA fingerprint
+ * (AD-4) matches the template registry.
  *
  *   node scripts/spike-s1.ts [--out <dir>] [--template <file>] [--server-url <url>]
  */
@@ -12,7 +13,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { patchTemplate, vbaProjectSha256, type CellValue } from "../src/adapters/workbook/template-patch.ts";
-import { CURRENT_TEMPLATE_VERSION, templates } from "../src/adapters/workbook/templates.ts";
+import { readWorkbook } from "../src/adapters/workbook/read.ts";
+import { CURRENT_TEMPLATE_VERSION, matchesTemplate, pinnedModules, templates } from "../src/adapters/workbook/templates.ts";
 
 const repoRoot = fileURLToPath(new URL("..", import.meta.url));
 const template = templates[CURRENT_TEMPLATE_VERSION];
@@ -98,12 +100,18 @@ console.log(`vbaProject.bin output   sha256: ${outputHash}`);
 
 if (outputHash !== templateHash) fail("vbaProject.bin changed during patching");
 
+const outputModules = (await readWorkbook(patched)).vbaModuleHashes;
+for (const [name, hash] of Object.entries(outputModules ?? {})) console.log(`VBA module ${name}: ${hash}`);
+if (outputModules === null) fail("the output has no readable VBA project");
+
 if (args.template !== undefined) {
   console.log("registry check:      skipped (--template given)");
-} else if (template.vbaProjectSha256 === null) {
-  console.log(`registry check:      not recorded yet; set templates[${CURRENT_TEMPLATE_VERSION}].vbaProjectSha256 = "${templateHash}"`);
-} else if (template.vbaProjectSha256 !== templateHash) {
-  fail(`registry sha256 ${template.vbaProjectSha256} does not match the template`);
+  console.log(`registry entry:      vbaModules: ${JSON.stringify(pinnedModules(outputModules))}`);
+} else if (!matchesTemplate(outputModules, CURRENT_TEMPLATE_VERSION)) {
+  fail(
+    `VBA fingerprint does not match templates[${CURRENT_TEMPLATE_VERSION}].vbaModules ${JSON.stringify(template.vbaModules)}; ` +
+      `the file pins ${JSON.stringify(pinnedModules(outputModules))}`,
+  );
 } else {
   console.log("registry check:      match");
 }

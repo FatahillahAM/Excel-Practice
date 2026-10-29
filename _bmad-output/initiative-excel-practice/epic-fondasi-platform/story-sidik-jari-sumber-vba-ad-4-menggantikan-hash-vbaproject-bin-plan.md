@@ -60,12 +60,12 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/adapters/workbook/vba.ts` -- `readVbaModuleHashes(vbaProjectBin)` → `Record<name, hex> | null`: pembaca CFB, dekompresi MS-OVBA, parse record `dir` (MODULENAMEUNICODE, MODULESTREAMNAME, MODULEOFFSET), normalisasi AD-4, SHA-256; `null` bila tak terbaca.
-- [ ] `src/adapters/workbook/vba.test.ts` -- tiap baris I/O Matrix; golden: hasil dekompresi `modFinish` = `modFinish.bas` setelah normalisasi; chunk tak terkompresi + terkompresi > 4096 byte; CFB buatan writer `cfb` dengan stream modul di sektor reguler.
-- [ ] `src/adapters/workbook/templates.ts` -- registry `{ file, vbaModules: { modFinish: hex } }` dan `matchesTemplate(hashes, version)`.
-- [ ] `src/adapters/workbook/templates.test.ts` -- hitung ulang registry dari `.xlsm`; fixture S2 cocok; cek byte saat generate tetap.
-- [ ] `src/adapters/workbook/read.ts` + `read.test.ts` -- `WorkbookReading.vbaModuleHashes` menggantikan `vbaProjectSha256`.
-- [ ] `scripts/spike-s1.ts`, `scripts/spike-s2.ts` -- cek registry memakai `matchesTemplate`.
+- [x] `src/adapters/workbook/vba.ts` -- `readVbaModuleHashes(vbaProjectBin)` → `Record<name, hex> | null`: pembaca CFB, dekompresi MS-OVBA, parse record `dir` (MODULENAMEUNICODE, MODULESTREAMNAME, MODULEOFFSET), normalisasi AD-4, SHA-256; `null` bila tak terbaca.
+- [x] `src/adapters/workbook/vba.test.ts` -- tiap baris I/O Matrix; golden: hasil dekompresi `modFinish` = `modFinish.bas` setelah normalisasi; chunk tak terkompresi + terkompresi > 4096 byte; CFB buatan writer `cfb` dengan stream modul di sektor reguler.
+- [x] `src/adapters/workbook/templates.ts` -- registry `{ file, vbaModules: { modFinish: hex } }` dan `matchesTemplate(hashes, version)`.
+- [x] `src/adapters/workbook/templates.test.ts` -- hitung ulang registry dari `.xlsm`; fixture S2 cocok; cek byte saat generate tetap.
+- [x] `src/adapters/workbook/read.ts` + `read.test.ts` -- `WorkbookReading.vbaModuleHashes` menggantikan `vbaProjectSha256`.
+- [x] `scripts/spike-s1.ts`, `scripts/spike-s2.ts` -- cek registry memakai `matchesTemplate`.
 
 **Acceptance Criteria:**
 - Given `exam.v1.xlsm` dan fixture S2, when sidik jari dihitung, then keduanya cocok dengan registry v1 walau hash byte `vbaProject.bin` berbeda.
@@ -81,3 +81,14 @@ Stream `dir` juga terkompresi MS-OVBA; offset sumber modul ada di record MODULEO
 - `npm run test` -- expected: semua lulus, termasuk hitung ulang registry dan fixture S2.
 - `npm run lint` dan `npx tsc --noEmit` -- expected: bersih.
 - `node scripts/spike-s1.ts` dan `node scripts/spike-s2.ts` -- expected: registry cocok untuk template dan fixture S2.
+
+## Implementation Notes
+
+- `src/adapters/workbook/vba.ts`: `readVbaModuleHashes` / `readVbaModuleSources` / `normalizeVbaSource` / `decompressVbaContainer`. Only an MS-CFB signature is accepted (npm `cfb` would also parse a zip or MIME container). Streams are looked up under the top-level `VBA` storage, case-insensitively, by MODULESTREAMNAME's Unicode name. Unreadable means `null`: bad CFB, no `VBA/dir`, malformed record, PROJECTMODULES count ≠ modules listed, a module without MODULENAMEUNICODE / stream name / MODULEOFFSET, duplicate module name, missing stream, MODULEOFFSET past the stream, malformed compressed container. Raw chunks must be exactly 4096 bytes (spec). Decompression is capped at 16 MiB per stream (six compressed bytes can expand to 4096), over the cap → `null`.
+- `templates.ts`: `vbaModules` replaces `vbaProjectSha256`; `pinnedModules(hashes)` (non-empty modules) produces the registry value; `matchesTemplate(hashes, version)` throws for a version not in the registry or one that pins nothing (server bug, not user input).
+- `read.ts`: `vbaModuleHashes`; an unreadable zip entry for `xl/vbaProject.bin` also gives `null` rather than throwing.
+- `template-patch.ts` unchanged except its doc comment: `vbaProjectSha256` remains the generate-time byte check only.
+- Test builders in `__fixtures__/vba-project.ts`: MS-OVBA compressor (greedy, optional raw chunks), `dir` writer, CFB via `cfb` writer.
+- Registry v1: `modFinish` = `914687b34fc5eb2e3c3982861b567ccc25f040fb80543c3986e4935b80f4235c`; `ThisWorkbook`, `Sheet1`, `Sheet2` normalize to empty.
+- Cross-check (scratchpad venv, oletools 0.60.x `olevba` `extract_macros`, the same normalization written in Python): for `exam.v1.xlsm` and `s2-excel2021.xlsm` every module hash equals ours (`modFinish` as above, document modules = SHA-256 of empty). `assets/templates/vba/modFinish.bas` normalized hashes to the same `modFinish` value. Byte SHA-256 of `vbaProject.bin`: template `d8aa9aa6…a9df`, S2 `9618df59…8ec4` (differ, as S2 found).
+- Decompressor also checked against the MS-OVBA §3.2 no-compression and normal-compression examples.

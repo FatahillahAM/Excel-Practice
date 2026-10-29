@@ -66,7 +66,10 @@ export async function patchTemplate(
   return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
 }
 
-/** Lowercase hex SHA-256 of `xl/vbaProject.bin` (the template fingerprint, AD-4/AD-6). */
+/**
+ * Lowercase hex SHA-256 of the bytes of `xl/vbaProject.bin`: checks that generation leaves the part untouched.
+ * Never an identity check — Excel rewrites the part on every save; identity is `readVbaModuleHashes` (AD-4).
+ */
 export async function vbaProjectSha256(bytes: Uint8Array): Promise<string> {
   const zip = await JSZip.loadAsync(bytes);
   const file = zip.file(VBA_PROJECT_PART);

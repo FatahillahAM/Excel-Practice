@@ -1,14 +1,14 @@
-import { createHash } from "node:crypto";
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import JSZip from "jszip";
 import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula.ts";
 import { readSheetParts, resolvePartName } from "./template-patch.ts";
+import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
 
 /**
  * Workbook reading for WorkbookIO (AD-4): what a saved `.xlsm`/`.xlsx` holds per
  * cell (normalized formula text with shared formulas expanded, cached value and
- * its type), its custom document properties and the SHA-256 of
- * `xl/vbaProject.bin`. Only the cells' own XML is trusted: `<dimension>` and
+ * its type), its custom document properties and the VBA fingerprint (per
+ * module, the SHA-256 of its normalized source; see `vba.ts`). Only the cells' own XML is trusted: `<dimension>` and
  * row `spans` can be stale (S1) and are ignored.
  *
  * `WorkbookReading` lives here during the spike; it moves to `src/core` with
@@ -31,10 +31,10 @@ export interface WorkbookReading {
   /** Custom document properties as text. */
   properties: Record<string, string>;
   /**
-   * Lowercase hex SHA-256 of `xl/vbaProject.bin`; `null` for a workbook without macros.
-   * S2: Excel rewrites this part on every save (VBA source unchanged), so it cannot identify a submitted file.
+   * Per VBA module (MODULENAMEUNICODE), lowercase hex SHA-256 of its normalized source (AD-4);
+   * `null` when `xl/vbaProject.bin` is missing or is not a readable VBA project. Compare with `matchesTemplate`.
    */
-  vbaProjectSha256: string | null;
+  vbaModuleHashes: VbaModuleHashes | null;
 }
 
 /** The bytes are not an OOXML workbook (AD-6 `NOT_EXCEL`); the message says why. */
@@ -74,14 +74,21 @@ export async function readWorkbook(bytes: Uint8Array): Promise<WorkbookReading> 
   return {
     sheets: Object.fromEntries(sheets),
     properties: await readCustomProperties(zip),
-    vbaProjectSha256: await readVbaProjectSha256(zip),
+    vbaModuleHashes: await readVbaFingerprint(zip),
   };
 }
 
-async function readVbaProjectSha256(zip: JSZip): Promise<string | null> {
+/** A missing or unreadable VBA project is not a reason to refuse the workbook here: it never matches a template (AD-6). */
+async function readVbaFingerprint(zip: JSZip): Promise<VbaModuleHashes | null> {
   const file = zip.file(VBA_PROJECT_PART);
   if (file === null) return null;
-  return createHash("sha256").update(await file.async("uint8array")).digest("hex");
+  let bytes: Uint8Array;
+  try {
+    bytes = await file.async("uint8array");
+  } catch {
+    return null;
+  }
+  return readVbaModuleHashes(bytes);
 }
 
 // ---------------------------------------------------------------------------
