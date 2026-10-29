@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -9,6 +8,7 @@ import { cellMismatch, S2_FIXTURE, s2Expected } from "./__fixtures__/s2-expected
 import { NotAWorkbookError, readWorkbook } from "./read";
 import { readSheetParts } from "./template-patch";
 import { templates } from "./templates";
+import { EMPTY_MODULE_SHA256 } from "./vba";
 
 // A synthetic .xlsm shaped like an Excel 2021 save: shared strings, shared and
 // dynamic-array formulas, and a stale <dimension>/spans as S1 found in files
@@ -95,7 +95,6 @@ const DATA_ROWS =
 
 /** Bytes that are not an MS-CFB container: a VBA project that cannot be read. */
 const VBA_PROJECT = Uint8Array.from({ length: 4096 }, (_, i) => (i * 37 + 11) % 256);
-const EMPTY_SHA256 = createHash("sha256").digest("hex");
 
 async function makeWorkbook(overrides: Record<string, string | Uint8Array | null> = {}): Promise<Uint8Array> {
   const parts: Record<string, string | Uint8Array | null> = {
@@ -254,11 +253,36 @@ describe("readWorkbook", () => {
       Angka: "42",
     });
     expect(reading.vbaModuleHashes).toEqual({
-      ThisWorkbook: EMPTY_SHA256,
-      Sheet1: EMPTY_SHA256,
-      Sheet2: EMPTY_SHA256,
+      ThisWorkbook: EMPTY_MODULE_SHA256,
+      Sheet1: EMPTY_MODULE_SHA256,
+      Sheet2: EMPTY_MODULE_SHA256,
       modFinish: templates[1].vbaModules.modFinish,
     });
+  });
+
+  it("reads a workbook whose vbaProject.bin entry does not inflate, with no fingerprint", async () => {
+    // A real VBA project, so only the failed inflate can make the fingerprint null.
+    const template = await JSZip.loadAsync(await readFile(path.join(repoRoot, templates[1].file)));
+    const vbaProject = await template.file("xl/vbaProject.bin")!.async("uint8array");
+    const raw = await makeWorkbook({ "xl/vbaProject.bin": vbaProject });
+    expect((await readWorkbook(raw)).vbaModuleHashes).not.toBeNull();
+    // Overwrite the deflated data of xl/vbaProject.bin (after its local header) with bytes that are not deflate.
+    const name = new TextEncoder().encode("xl/vbaProject.bin");
+    let header = -1;
+    for (let i = 0; i + 30 + name.length <= raw.length && header < 0; i++) {
+      if (raw[i] === 0x50 && raw[i + 1] === 0x4b && raw[i + 2] === 0x03 && raw[i + 3] === 0x04) {
+        const nameLength = raw[i + 26] | (raw[i + 27] << 8);
+        if (nameLength === name.length && name.every((b, k) => raw[i + 30 + k] === b)) header = i;
+      }
+    }
+    expect(header).toBeGreaterThanOrEqual(0);
+    const extraLength = raw[header + 28] | (raw[header + 29] << 8);
+    const dataStart = header + 30 + name.length + extraLength;
+    raw.fill(0xff, dataStart, dataStart + 64);
+
+    const reading = await readWorkbook(raw);
+    expect(reading.vbaModuleHashes).toBeNull();
+    expect(reading.sheets.Data.H3.formula).toBe("F3/E3");
   });
 
   it("reads a workbook whose vbaProject.bin is not a VBA project, with no fingerprint", async () => {

@@ -90,7 +90,7 @@ Bila ada baris `(missing)`, nama property di langkah 6 salah ketik.
 1. Buka repo `FatahillahAM/Excel-Practice` di GitHub, pilih branch kerja yang sedang dipakai untuk pekerjaan template ini (bukan `main`), lalu masuk ke folder `assets/templates/`.
 2. **Add file → Upload files**, seret `exam.v1.xlsm`.
 3. Pilih **Commit directly to the … branch** untuk branch kerja itu (bukan `main`) → **Commit changes**.
-4. Beri tahu agent. Agent menjalankan `git pull`, mencatat sidik jari VBA (hash per modul yang tidak kosong, dihitung adapter) di `src/adapters/workbook/templates.ts`, lalu menjalankan `node scripts/spike-s1.ts` dan mengirim file hasil patch beserta token yang dicetak.
+4. Beri tahu agent. Agent menjalankan `git pull`, lalu `node scripts/spike-s1.ts --template <file>` dan menyalin baris `registry entry:` (sidik jari VBA: hash per modul yang tidak kosong, dihitung adapter) ke `src/adapters/workbook/templates.ts`, lalu menjalankan `node scripts/spike-s1.ts` tanpa `--template` dan mengirim file hasil patch beserta token yang dicetak.
 
 ## Menguji file hasil patch di laptop (spike S1)
 

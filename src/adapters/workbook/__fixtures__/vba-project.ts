@@ -22,6 +22,10 @@ export function compressVba(data: Uint8Array, rawChunks: readonly number[] = [])
       continue;
     }
     const body = compressChunk(chunk);
+    // The 12-bit size field holds at most 4098 bytes per chunk; incompressible data needs `rawChunks`.
+    if (body.length > CHUNK_SIZE) {
+      throw new Error(`chunk ${chunkIndex} compresses to ${body.length} bytes (> 4096): store it raw with rawChunks`);
+    }
     const header = 0x8000 | 0x3000 | (body.length + 2 - 3);
     out.push(header & 0xff, header >> 8, ...body);
   }

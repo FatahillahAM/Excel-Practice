@@ -10,6 +10,10 @@ import CFB from "cfb";
  * normalized source, never the bytes of the part.
  *
  * Source is kept as bytes in the project's code page and never decoded as text.
+ *
+ * Accepted limit: the p-code cache before MODULEOFFSET is not covered. Excel may
+ * run that cached p-code instead of the source, so tampered p-code with the
+ * original source still matches; p-code changes on every save, so it cannot be pinned.
  */
 
 /** Per module (keyed by MODULENAMEUNICODE), lowercase hex SHA-256 of its normalized source. */
@@ -43,12 +47,18 @@ export function readVbaModuleSources(vbaProjectBin: Uint8Array): Map<string, Uin
     const container = CFB.parse(Buffer.from(vbaProjectBin));
     const dir = findStream(container, "dir");
     if (dir === null) return null;
-    const modules = parseDirStream(decompressVbaContainer(dir));
+    // One budget for the whole project: modules may alias one small stream that expands a lot.
+    let budget = MAX_DECOMPRESSED_BYTES;
+    const dirBytes = decompressVbaContainer(dir, budget);
+    budget -= dirBytes.length;
+    const modules = parseDirStream(dirBytes);
     const sources = new Map<string, Uint8Array>();
     for (const entry of modules) {
       const stream = findStream(container, entry.streamName);
       if (stream === null || entry.textOffset > stream.length) return null;
-      sources.set(entry.name, decompressVbaContainer(stream.subarray(entry.textOffset)));
+      const source = decompressVbaContainer(stream.subarray(entry.textOffset), budget);
+      budget -= source.length;
+      sources.set(entry.name, source);
     }
     return sources;
   } catch {
@@ -94,9 +104,10 @@ export function normalizeVbaSource(source: Uint8Array): Uint8Array {
 const CHUNK_SIZE = 4096;
 
 /**
- * Upper bound on one decompressed stream. Six compressed bytes can expand to a
- * 4096-byte chunk, so an uploaded file could otherwise exhaust memory; VBA
- * source anywhere near this size is not a workbook from this app.
+ * Upper bound on the bytes decompressed for one project (`dir` and every module
+ * stream together). Six compressed bytes can expand to a 4096-byte chunk, so an
+ * uploaded file could otherwise exhaust memory; VBA source anywhere near this
+ * size is not a workbook from this app.
  */
 export const MAX_DECOMPRESSED_BYTES = 16 * 1024 * 1024;
 
@@ -185,6 +196,7 @@ const DIR = {
 function parseDirStream(dir: Uint8Array): ModuleEntry[] {
   const view = new DataView(dir.buffer, dir.byteOffset, dir.byteLength);
   const modules: ModuleEntry[] = [];
+  const names = new Set<string>();
   let declaredCount: number | null = null;
   let current: Partial<ModuleEntry> | null = null;
   let at = 0;
@@ -227,7 +239,8 @@ function parseDirStream(dir: Uint8Array): ModuleEntry[] {
         if (name === undefined || streamName === undefined || textOffset === undefined) {
           throw new Error("VBA dir stream: module lacks MODULENAMEUNICODE, MODULESTREAMNAME or MODULEOFFSET");
         }
-        if (modules.some((listed) => listed.name === name)) throw new Error(`VBA dir stream: module "${name}" listed twice`);
+        if (names.has(name)) throw new Error(`VBA dir stream: module "${name}" listed twice`);
+        names.add(name);
         modules.push({ name, streamName, textOffset });
         current = null;
         break;

@@ -6,11 +6,12 @@ import CFB from "cfb";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { S2_FIXTURE } from "./__fixtures__/s2-expected";
-import { buildVbaProject, bytes, compressVba, concat, type ModuleSpec, u32 } from "./__fixtures__/vba-project";
+import { buildVbaProject, bytes, compressVba, concat, dirRecords, type ModuleSpec, u32 } from "./__fixtures__/vba-project";
 import { templates } from "./templates";
 import {
   decompressVbaContainer,
   EMPTY_MODULE_SHA256,
+  MAX_DECOMPRESSED_BYTES,
   normalizeVbaSource,
   readVbaModuleHashes,
   readVbaModuleSources,
@@ -177,6 +178,44 @@ describe("readVbaModuleHashes on projects written by the cfb package", () => {
       modules: MODULES.map((spec) => ({ ...spec, pcodeLength: 1000, pcodeFill: 0x11 })).reverse(),
     });
     expect(readVbaModuleHashes(other)).toEqual(readVbaModuleHashes(buildVbaProject({ modules: MODULES })));
+  });
+
+  it("finds the VBA storage and module stream whatever their case", () => {
+    const spec: ModuleSpec[] = [{ name: "m", streamName: "MODSTREAM", source: "Sub A()\r\nEnd Sub" }];
+    const bin = buildVbaProject({ modules: spec });
+    const container = CFB.parse(Buffer.from(bin));
+    const recased = CFB.utils.cfb_new();
+    for (const [index, fullPath] of container.FullPaths.entries()) {
+      const entry = container.FileIndex[index];
+      if (entry.type !== 2 || entry.name === "\u0001Sh33tJ5") continue;
+      const inner = fullPath.split("/").slice(1).join("/");
+      const renamed = inner.replace(/^VBA\//, "vba/").replace(/MODSTREAM$/, "modstream");
+      CFB.utils.cfb_add(recased, `/${renamed}`, entry.content);
+    }
+    const recasedBin = new Uint8Array(CFB.write(recased, { type: "buffer" }) as Buffer);
+    expect(CFB.parse(Buffer.from(recasedBin)).FullPaths.some((p) => p.endsWith("/vba/modstream"))).toBe(true);
+    expect(readVbaModuleHashes(recasedBin)).toEqual(readVbaModuleHashes(bin));
+    expect(readVbaModuleHashes(recasedBin)).toEqual({ m: sha256(bytes("Sub A()\nEnd Sub")) });
+  });
+
+  it("caps the bytes decompressed for the whole project, not per stream", () => {
+    // One stream of 1 MiB of spaces (about 1.5 KB compressed), aliased by enough modules to exceed the cap together.
+    const count = Math.floor(MAX_DECOMPRESSED_BYTES / (1024 * 1024)) + 1;
+    const modules: ModuleSpec[] = Array.from({ length: count }, (_, i) => ({
+      name: `m${i}`,
+      streamName: "shared",
+      source: new Uint8Array(1024 * 1024).fill(0x20),
+      pcodeLength: 0,
+    }));
+    const bin = buildVbaProject({
+      modules: [modules[0]],
+      editDir: () => dirRecords(modules),
+    });
+    expect(bin.length).toBeLessThan(64 * 1024);
+    expect(readVbaModuleHashes(bin)).toBeNull();
+    // Within the cap the same aliasing is read.
+    const fewer = buildVbaProject({ modules: [modules[0]], editDir: () => dirRecords(modules.slice(0, 2)) });
+    expect(Object.keys(readVbaModuleHashes(fewer) ?? {})).toEqual(["m0", "m1"]);
   });
 
   it("keys modules by MODULENAMEUNICODE and finds a stream whose name differs", () => {

@@ -265,8 +265,6 @@ supabase/migrations/
 
 ## Deferred
 
-- **MS-CFB reader for `vbaProject.bin`** (hand-written vs npm `cfb`) — decided in spike S3 with its version verified; the fingerprint (AD-4) is fixed.
-- **Moving the spike code to the fingerprint** — `templates.ts` and `read.ts` still hash the `vbaProject.bin` bytes; S3 (entry 1.4) replaces them before any identity check uses them.
 - **Upload size limit and its message** — epic 2; Vercel rejects request bodies over 4.5 MB before `submit()` runs.
 - **VBA HTTP details** (`ServerXMLHTTP` vs `WinHttp`, multipart vs octet-stream, TLS on the office PC) — spike S3; the contract (AD-6, AD-13) is fixed.
 - **Pivot grading** (Next) — layered approach in `pivot-grading.md`, spiked before Level 7.
