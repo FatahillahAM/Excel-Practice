@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildVbaProject, type ModuleSpec } from "../../../../adapters/workbook/__fixtures__/vba-project";
+import { readWorkbook } from "../../../../adapters/workbook/read";
 import { patchTemplate, vbaProjectSha256 } from "../../../../adapters/workbook/template-patch";
 import { CURRENT_TEMPLATE_VERSION, templates } from "../../../../adapters/workbook/templates";
 import { readVbaModuleSources } from "../../../../adapters/workbook/vba";
@@ -17,6 +18,8 @@ import { POST } from "./route";
 
 const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
 const VBA_PROJECT_PART = "xl/vbaProject.bin";
+/** Excel-saved v1 (spike S3): a sheet added and the VBA editor opened before Save As. */
+const S3_FIXTURE = "src/adapters/workbook/__fixtures__/s3-excel2021.xlsm";
 const ENDPOINT = "https://example.test/api/submissions/macro";
 
 let templateBytes: Uint8Array;
@@ -87,12 +90,22 @@ async function withAddedSheet(bytes: Uint8Array): Promise<Uint8Array> {
         '<Relationship Id="rId99" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/></Relationships>',
       ),
     );
+    const types = await zip.file("[Content_Types].xml")!.async("string");
+    zip.file(
+      "[Content_Types].xml",
+      types.replace(
+        "</Types>",
+        '<Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+      ),
+    );
   });
 }
 
 interface Posted {
   status: number;
   body: unknown;
+  /** The raw response text, which the Finish macro matches byte for byte. */
+  text: string;
   logLines: string[];
 }
 
@@ -103,15 +116,30 @@ async function post(body: Uint8Array, token?: string | null): Promise<Posted> {
   const response = await POST(new Request(ENDPOINT, { method: "POST", headers, body: Buffer.from(body) }));
   const logLines = log.mock.calls.map((args) => args.map(String).join(" "));
   log.mockRestore();
-  return { status: response.status, body: await response.json(), logLines };
+  const text = await response.text();
+  return { status: response.status, body: JSON.parse(text), text, logLines };
 }
 
-/** The single JSON log line, checked against the Logging convention. */
-function logOf(posted: Posted, token?: string): Record<string, unknown> {
+/**
+ * The Finish macro reads the answer with byte-exact substrings (`"ok":true`,
+ * `"ok":false`, `"code":"`), so the raw text must be compact JSON in this key order.
+ */
+function expectRawText(posted: Posted, expected: object): void {
+  expect(posted.text).toBe(JSON.stringify(expected));
+  if ((expected as { ok: boolean }).ok) {
+    expect(posted.text).toContain('"ok":true');
+  } else {
+    expect(posted.text).toContain('"ok":false');
+    expect(posted.text).toContain(`"code":"${(expected as { code: string }).code}"`);
+  }
+}
+
+/** The single JSON log line, checked against the Logging convention: none of `tokens` (file or header) appears in it. */
+function logOf(posted: Posted, ...tokens: (string | null | undefined)[]): Record<string, unknown> {
   expect(posted.logLines).toHaveLength(1);
   const [line] = posted.logLines;
   expect(line).not.toContain("\n");
-  if (token !== undefined) expect(line).not.toContain(token);
+  for (const token of tokens) if (token) expect(line).not.toContain(token);
   const log = JSON.parse(line) as Record<string, unknown>;
   expect(log.channel).toBe("macro");
   expect(log.templateVersion).toBe(CURRENT_TEMPLATE_VERSION);
@@ -133,10 +161,9 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     const posted = await post(file, token);
 
     expect(posted.status).toBe(200);
-    expect(posted.body).toEqual({
-      ok: true,
-      data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true },
-    });
+    const expected = { ok: true, data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true } };
+    expect(posted.body).toEqual(expected);
+    expectRawText(posted, expected);
     expect(logOf(posted, token)).toEqual({
       channel: "macro",
       code: null,
@@ -167,6 +194,20 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     expect(logOf(posted, token)).toMatchObject({ code: null, fingerprintMatches: true });
   });
 
+  it("accepts the Excel-saved S3 file (sheet added, VBA editor opened) posted with its own token", async () => {
+    const file = Uint8Array.from(await readFile(path.join(repoRoot, S3_FIXTURE)));
+    const token = (await readWorkbook(file)).properties.WHE_AttemptToken;
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+
+    const posted = await post(file, token);
+    expect(posted.status).toBe(200);
+    expect(posted.body).toEqual({
+      ok: true,
+      data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true },
+    });
+    expect(logOf(posted, token)).toMatchObject({ code: null, tokenSha256: tokenSha256(token), fingerprintMatches: true });
+  });
+
   it.each([
     ["an empty body", async () => new Uint8Array(0)],
     ["bytes that are not a zip", async () => Uint8Array.from(randomBytes(2048))],
@@ -184,6 +225,7 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     const posted = await post(await make(), token);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.NOT_EXCEL });
+    expectRawText(posted, { ok: false, code: RejectionCode.NOT_EXCEL });
     expect(logOf(posted, token)).toMatchObject({ code: "NOT_EXCEL", tokenSha256: null, tokenMatches: false });
   });
 
@@ -198,7 +240,8 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     const posted = await post(await patched(fileToken), header);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.IDENTITY_ALTERED });
-    const log = logOf(posted, fileToken === "" ? undefined : fileToken);
+    expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
+    const log = logOf(posted, fileToken, header);
     expect(log).toMatchObject({ code: "IDENTITY_ALTERED", tokenMatches: false, fingerprintMatches: true });
     expect(log.tokenSha256).toBe(fileToken === "" ? null : tokenSha256(fileToken));
   });

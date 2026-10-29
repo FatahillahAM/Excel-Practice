@@ -30,3 +30,7 @@ npm-debug.log*
 
 # BMad render output (regenerated per run)
 _bmad/render/
+
+# Supabase CLI local state
+supabase/.temp/
+supabase/.branches/

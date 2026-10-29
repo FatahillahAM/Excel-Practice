@@ -81,3 +81,7 @@ Bila L6 menampilkan `#SPILL!`, L7 atau L8 tidak kosong: hapus isinya.
 2. **Add file → Upload files**, seret `s2-excel2021.xlsm`.
 3. Pilih **Commit directly to the … branch** untuk branch kerja itu (bukan `main`) → **Commit changes**.
 4. Beri tahu agent. Agent menjalankan `git pull`, `node scripts/spike-s2.ts` (mencetak tiap sel, cocok atau tidak, dan apakah hash `modFinish` file simpanan sama dengan hash era S1), lalu mencocokkan hasilnya dengan pembacaan openpyxl.
+
+## `s3-excel2021.xlsm` (spike S3)
+
+File uji S3 (`spike-s1-pqlxiPRu.xlsm`, template v1 dengan `modFinish` yang mengirim file) yang di Excel 2021 laptop ditambah satu sheet (`Sheet1`), dibuka VBA editor-nya tanpa mengetik, dikirim lewat **Finish**, lalu disimpan dengan **Save As** `s3-excel2021.xlsm`. Langkahnya ada di `assets/templates/README.md`, bagian "Menguji Finish di laptop (spike S3)". `templates.test.ts` memakainya sebagai salinan simpanan Excel untuk registry v1: byte `vbaProject.bin` berbeda dari template, modul `Sheet3` baru kosong, dan sidik jari tetap cocok.

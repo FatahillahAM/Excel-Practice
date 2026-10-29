@@ -154,8 +154,8 @@ stateDiagram-v2
 | Preferences | Theme and Reduce motion are per-device cookies, read server-side to set `data-theme` and motion before first paint; header toggle and Settings write the same cookie. |
 | Storage paths | `attempt-files/<attemptId>/generated.xlsm`; `attempt-files/<attemptId>/submission-<n>.<ext>` (n from 1, first accepted file is graded). |
 | Device gating | Phone = `(pointer: coarse) and (max-width: 1023px)`: Start and *Practice again* show the phone message and call nothing (CAP-12). |
-| Logging | Server logs JSON with `attemptId`, `channel`, `code`; never file bytes, tokens or emails. |
-| Testing | Vitest; every `LevelModule` ships golden fixtures (`__fixtures__/correct.xlsm`, `typed-values.xlsm`) graded in CI; one parity test grades the same fixture through the macro and upload channels; the VBA fingerprint of each committed template is recomputed against the registry and against an Excel-saved copy (S2 `s2-excel2021.xlsm`); the MS-OVBA decompressor has a golden test for a module larger than one 4096-byte chunk. |
+| Logging | Server logs JSON with `attemptId`, `channel`, `code`; never file bytes, tokens or emails. To match a log line to a token, a log may carry `tokenSha256` (the first 12 hex of the token's SHA-256), never the token itself. |
+| Testing | Vitest; every `LevelModule` ships golden fixtures (`__fixtures__/correct.xlsm`, `typed-values.xlsm`) graded in CI; one parity test grades the same fixture through the macro and upload channels; the VBA fingerprint of each committed template is recomputed against the registry and against an Excel-saved copy (S3 `s3-excel2021.xlsm`, saved after adding a sheet and opening the VBA editor); the MS-OVBA decompressor has a golden test for a module larger than one 4096-byte chunk. |
 
 ## Stack
 
@@ -266,7 +266,7 @@ supabase/migrations/
 ## Deferred
 
 - **Upload size limit and its message** — epic 2; Vercel rejects request bodies over 4.5 MB before `submit()` runs.
-- **VBA HTTP details** (`ServerXMLHTTP` vs `WinHttp`, multipart vs octet-stream, TLS on the office PC) — spike S3; the contract (AD-6, AD-13) is fixed.
+- **VBA HTTP on the office PC** (TLS, proxy, policy) — epic 2; on the laptop S3 settled `MSXML2.ServerXMLHTTP.6.0`, `application/octet-stream`, and the byte array passed by value; the contract (AD-6, AD-13) is fixed.
 - **Pivot grading** (Next) — layered approach in `pivot-grading.md`, spiked before Level 7.
 - **AI scenario adapter** (Next) — not wired in V1 (no runtime AI); server-only key; must satisfy AD-10 schema check.
 - **Ujian Akhir 60-minute close** (Next) — how the server closes an attempt at 60 minutes (scheduled job vs check on next request); state already exists (AD-5).

@@ -14,6 +14,8 @@ import { EMPTY_MODULE_SHA256, readVbaModuleHashes, readVbaModuleSources } from "
 // (drawing, legacyDrawing, controls) is covered and not only the synthetic fixture.
 
 const repoRoot = fileURLToPath(new URL("../../..", import.meta.url));
+/** Spike S3: a v1 file Excel 2021 saved after a sheet was added and the VBA editor opened (`__fixtures__/README.md`). */
+const S3_FIXTURE = "src/adapters/workbook/__fixtures__/s3-excel2021.xlsm";
 const UNTOUCHED_PREFIXES = ["xl/drawings/", "xl/ctrlProps/", "xl/worksheets/_rels/"];
 
 /** Sheet XML with the `<sheetData>` element cut out: everything the patcher must not change. */
@@ -79,6 +81,17 @@ describe.each(Object.entries(templates))("template v%s", (version, template) => 
 });
 
 describe("matchesTemplate", () => {
+  it("matches the Excel-saved S3 file to v1 despite an added sheet and rewritten vbaProject.bin bytes", async () => {
+    const template = await readFile(path.join(repoRoot, templates[1].file));
+    const saved = await readFile(path.join(repoRoot, S3_FIXTURE));
+    expect(await vbaProjectSha256(saved)).not.toBe(await vbaProjectSha256(template));
+    const reading = await readWorkbook(saved);
+    expect(Object.keys(reading.sheets)).toEqual(["Instructions", "Sheet1", "Data"]);
+    // The added sheet's document module is new and empty, so it is not pinned.
+    expect(reading.vbaModuleHashes?.Sheet3).toBe(EMPTY_MODULE_SHA256);
+    expect(matchesTemplate(reading.vbaModuleHashes, 1)).toBe(true);
+  });
+
   it("does not match the S2 file to v1: it carries the S1-era modFinish that S3 replaced", async () => {
     const hashes = (await readWorkbook(await readFile(path.join(repoRoot, S2_FIXTURE)))).vbaModuleHashes;
     expect(hashes?.modFinish).toBe(S2_MODFINISH_SHA256);
