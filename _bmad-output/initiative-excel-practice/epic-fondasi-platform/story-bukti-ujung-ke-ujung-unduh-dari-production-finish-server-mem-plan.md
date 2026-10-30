@@ -3,12 +3,12 @@ title: 'Bukti ujung-ke-ujung: unduh dari Production, Finish, server membaca toke
 type: 'feature'
 ticket: '9'
 created: '2026-10-30'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: 'a4bb8d75de2d5c236eae6317f6cd83cc9e032c30'
 context:
