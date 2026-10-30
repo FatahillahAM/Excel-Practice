@@ -3,13 +3,14 @@ title: 'Bukti ujung-ke-ujung: unduh dari Production, Finish, server membaca toke
 type: 'feature'
 ticket: '9'
 created: '2026-10-30'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'a4bb8d75de2d5c236eae6317f6cd83cc9e032c30'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -108,6 +109,8 @@ context:
 - Given `npm run build`, when route download dibangun, then template ikut ter-trace (tidak ada ENOENT di Production).
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes): write the migration file only; applying it to `dev` and `prod` and setting Vercel env happen after review.
 
 ## Plan Change Log
 
