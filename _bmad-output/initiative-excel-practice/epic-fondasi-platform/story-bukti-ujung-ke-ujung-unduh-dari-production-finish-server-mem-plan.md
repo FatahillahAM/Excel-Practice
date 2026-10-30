@@ -3,7 +3,7 @@ title: 'Bukti ujung-ke-ujung: unduh dari Production, Finish, server membaca toke
 type: 'feature'
 ticket: '9'
 created: '2026-10-30'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
