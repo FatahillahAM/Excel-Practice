@@ -3,12 +3,12 @@ title: 'App shell: tema Dark Excel, sidebar, header, dan toggle tema'
 type: 'feature'
 ticket: '8'
 created: '2026-10-30'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '5c2e7583ce0d90d8609fc6a903b9ac32990a3bad'
 context:
