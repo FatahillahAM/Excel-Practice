@@ -43,6 +43,7 @@ Oneshot: three small code edits (about 15 lines) plus a spine line and the dispo
 - `ATTEMPT_TOKEN_RE` exported once from `src/adapters/workbook/generate.ts`; `inspect.ts` imports it (its private copy removed).
 - Spine AD-9 Rule names the `app_meta` exception; `.memlog.md` entry added.
 - Checks: lint, typecheck, 405 tests and build clean.
+- Production check after merge (deploy `dpl_ACGQFZu5AghfrbanrMbfHjsgrTy7`, `0a4b7a5`): the `Date.now()` prerender error is gone on `/settings` and `/dev/bridge-proof`, but `/settings` now logged `settings.account_failed` (name `Error`). `connection()` now interrupts the runtime prefetch prerender, and `AccountSections`' `try/catch` swallowed that Next interrupt, so the prefetched shell showed the first-load-failed message. Fix: `unstable_rethrow(error)` first in that catch; `npm run build` no longer logs `settings.account_failed` (it did twice before, the same swallowed interrupt at build time).
 - Moved entries are recorded as `Parked` Notes in `epic-percobaan-kiriman-file.md` (rows 4, 6, 7, 8, 10, 13, 14) and `epic-progres-streak-dashboard.md` (row 12).
 
 Deferred-work dispositions: `deferred-work.md` holds 15 entries (the Intent's "16" was a miscount):
