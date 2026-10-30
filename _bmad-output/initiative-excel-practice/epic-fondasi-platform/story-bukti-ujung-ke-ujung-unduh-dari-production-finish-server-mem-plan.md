@@ -22,6 +22,10 @@ context:
 
 **Approach:** Halaman `/dev/bridge-proof` (di dalam shell, tanpa menu nav) mengunduh `exam.v1.xlsm` yang di-patch dengan token baru dan `WHE_ServerUrl` origin request. Server mencatat hash token itu untuk user. `POST /api/submissions/macro` membaca file lewat adapter workbook, lalu mencatat ke baris yang token-nya cocok: waktu terima, cocok token/sidik jari, dan teks rumus. Halaman menampilkan catatan itu.
 
+**Decisions (user, 2026-10-30):**
+- Macro route menulis lewat client service-role `SUPABASE_SECRET_KEY` (AD-9, jalur macro). User menyalin secret key `dev`/`prod` ke Vercel env (Production → prod; Preview/Development → dev) dan `.env.local`; agent tidak pernah melihat nilainya.
+- Plan tetap satu (sekitar 1.900 token) karena semua bagian baru teruji bersama di laptop.
+
 ## Boundaries & Constraints
 
 **Always:**
@@ -102,17 +106,6 @@ context:
 **Acceptance Criteria:**
 - Given file unduhan dari Production dibuka di Excel 2021 laptop (setelah Unblock), when `Data!I2` diisi SUMIFS lalu Finish, then muncul "Terkirim" dan, setelah muat ulang, `/dev/bridge-proof` menampilkan baris itu dengan token cocok, sidik jari cocok, dan teks `SUMIFS(...)` dari `Data!I2`.
 - Given `npm run build`, when route download dibangun, then template ikut ter-trace (tidak ada ENOENT di Production).
-
-## Open Questions
-
-1. **Bagaimana macro route (tanpa sesi) menulis ke DB?**
-   - (a) **Client service-role** `SUPABASE_SECRET_KEY` (direkomendasikan):
-     - sesuai AD-9 ("service-role hanya di jalur macro") dan langsung terpakai di epic 2;
-     - butuh kamu menyalin secret key dari dashboard Supabase `dev` dan `prod` ke Vercel env (Production → prod; Preview/Development → dev) dan ke `.env.local`.
-   - (b) **Fungsi `security definer` yang bisa dipanggil `anon` dengan token:**
-     - tanpa secret baru;
-     - tapi ada celah di luar AD-9: siapa pun yang punya publishable key bisa memanggil fungsi itu, walau tetap butuh token 256-bit;
-     - spine harus diubah.
 
 ## Implementation Notes
 
