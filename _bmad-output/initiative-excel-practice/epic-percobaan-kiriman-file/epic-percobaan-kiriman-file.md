@@ -49,3 +49,11 @@ Siklus percobaan dan jalur kiriman file. Bukan: penilaian dan Results (epic 3), 
 - Waits on epic-fondasi-platform because: butuh adapter WorkbookIO dan template exam.v1.xlsm yang terbukti di spike S1–S3, serta login dan environment.
 - Decision: epic ini membuat tipe `LevelModule` dan satu level tracer kecil (Level 1, Practice 1) karena Start adalah pemakai paling awal (2026-10-23).
 - Parked: halaman `/dev/bridge-proof` dari epic 1 dihapus di story pertama epic ini setelah Start asli tersedia.
+- Parked (dari epic 1, refactor sweep 1.10, 2026-10-30), dikerjakan saat `submit()` dan `attempts` dibangun:
+  - Modul VBA yang tidak dipin diabaikan sidik jari AD-4, padahal exam-bridge.md menganggap macro yang diubah = identitas berubah; putuskan di spine bersama `submit()`.
+  - Batasi ukuran unggahan dan ukuran hasil inflate sebelum/dalam `readWorkbook`; route macro publik (zip bomb).
+  - modFinish: pesan per kode AD-6 dalam bahasa Indonesia, petunjuk non-jaringan untuk 413/TLS/TEMP, perbaiki komentar `TempCopyPath`; butuh rebuild template + uji laptop.
+  - Tandai titik rilis template v1 sebelum percobaan asli pertama; perubahan modFinish sesudahnya menjadi v2.
+  - Tes kontrak DB (grant, RLS, nama parameter RPC) terhadap migrasi asli, dibangun bersama `attempts`.
+  - Hapus juga tabel `bridge_proofs` dan RPC `record_bridge_proof_receipt` bersama halaman `/dev/bridge-proof`.
+  - Profil bisa belum ada bila zona waktu browser tidak valid saat login (`ensureProfile` → `skipped`); buat atau wajibkan profil sebelum `attempts` merujuk `profiles`.

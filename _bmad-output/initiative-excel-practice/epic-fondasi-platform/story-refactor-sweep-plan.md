@@ -3,7 +3,7 @@ title: 'Refactor sweep'
 type: 'refactor'
 ticket: '10'
 created: '2026-10-30'
-status: 'in-progress'
+status: 'built'
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
@@ -43,6 +43,7 @@ Oneshot: three small code edits (about 15 lines) plus a spine line and the dispo
 - `ATTEMPT_TOKEN_RE` exported once from `src/adapters/workbook/generate.ts`; `inspect.ts` imports it (its private copy removed).
 - Spine AD-9 Rule names the `app_meta` exception; `.memlog.md` entry added.
 - Checks: lint, typecheck, 405 tests and build clean.
+- Moved entries are recorded as `Parked` Notes in `epic-percobaan-kiriman-file.md` (rows 4, 6, 7, 8, 10, 13, 14) and `epic-progres-streak-dashboard.md` (row 12).
 
 Deferred-work dispositions: `deferred-work.md` holds 15 entries (the Intent's "16" was a miscount):
 
@@ -57,7 +58,7 @@ Deferred-work dispositions: `deferred-work.md` holds 15 entries (the Intent's "1
 | 7 | modFinish messages per AD-6 code, 413/TLS/TEMP hints (S3) | moved → epic 2 | Any VBA edit needs a template rebuild and laptop run; rides the epic 2 VBA change |
 | 8 | Template v1 release point (S3) | moved → epic 2 | Must be set before the first real attempt |
 | 9 | `app_meta` public read vs AD-9 (1.5) | closed | Spine AD-9 exception (user, 2026-10-30) |
-| 10 | No profile when the browser zone is invalid (1.7) | moved → epic 4 (progres, streak & dashboard) | First AD-8 consumer (streaks) |
+| 10 | No profile when the browser zone is invalid (1.7) | moved → epic 2 | `attempts` is owned by `profiles` (spine ER), so Start needs the row before streaks do |
 | 11 | Non-allowlisted account message unverified (1.7) | user check in 1.10 | Closed when the user sees "Akun ini nggak terdaftar" |
 | 12 | No component-render harness (1.8) | moved → epic 4 | Add with the first content surface (Dashboard) |
 | 13 | DB contract test for grants/RLS/RPC (1.9) | moved → epic 2 | Build with `attempts` |
@@ -73,3 +74,11 @@ Deferred-work dispositions: `deferred-work.md` holds 15 entries (the Intent's "1
 - CI hijau di push branch kerja, tanpa peringatan Node 20.
 - Setelah merge, membuka `/settings` dan `/dev/bridge-proof` di Production tidak lagi mencatat error `Date.now()`.
 - User: login dengan akun Google lain → "Akun ini nggak terdaftar", tanpa sesi.
+
+## Review Triage Log
+
+Quick lens: 0 high, 1 medium, 2 low.
+
+- medium, patch — "moved" entries were labelled only in this plan, so epic 2/4 would not see them: added `Parked` Notes to both epic envelopes (ticketing writes, user asked for the sweep).
+- low, patch — entry 10 belongs before epic 4: the spine ER has `profiles` owning `attempts` (epic 2); moved to epic 2.
+- low, patch — new AD-9 text called `app_meta` "the one exception", but `private.auth_allowlist` is not owner-only either: wording scoped to Data-API (`public`) tables and names the private allowlist; `.memlog.md` correction entry.

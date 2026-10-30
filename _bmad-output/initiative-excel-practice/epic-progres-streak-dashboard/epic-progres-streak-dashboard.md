@@ -48,3 +48,4 @@ Progres turunan, streak, rekor, Dashboard, Level Map, Records, tampilan HP. Buka
 
 - Waits on epic-penilaian-hasil-tips because: progres dihitung dari percobaan berstatus graded dengan Result tersimpan.
 - Decision: boleh berjalan paralel dengan epic-konten-level-1-4 (user, 2026-10-23).
+- Parked (dari epic 1, refactor sweep 1.10, 2026-10-30): repo belum punya harness render komponen (Vitest hanya node); tambahkan bersama Dashboard, permukaan konten pertama, lalu tutup cabang Settings "Not set" dan gagal-muat-pertama yang kini hanya dicek manual.
