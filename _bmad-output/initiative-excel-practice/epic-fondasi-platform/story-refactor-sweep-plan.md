@@ -6,9 +6,9 @@ created: '2026-10-30'
 status: 'in-progress'
 route: 'oneshot'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'auto'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 baseline_revision: '263e9b2662af9eb4d8dd9feb64e30e012444799f'
 context:
