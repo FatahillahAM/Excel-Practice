@@ -118,6 +118,26 @@ context:
 
 ## Review Triage Log
 
+Pass 1 (4 lenses): 0 high, 1 medium, 9 low, 3 false, 0 maybe-false. Patched 5 entries, deferred 1, rejected the rest. Intent alignment raised no intent gap: the diff builds the tooling for the proof, and the Production run is the planned manual check.
+
+| # | Lens | Finding | Verdict | Evidence | Route |
+|---|------|---------|---------|----------|-------|
+| 1 | blind-hunter, edge-case-hunter, verification-gap | Proof row is inserted before generation; a generation failure leaves an orphan row, and that branch has no test | low | `download/route.ts` inserts, then `generateExamWorkbook` in `try`; the only 500 test is the failed insert | patch: generate first, insert after; test the generation-failure 500 (no insert, 12-hex log only) |
+| 2 | blind-hunter, edge-case-hunter, intent-alignment | `<a download>` saves the 500 JSON or the Login HTML of an expired session as a file | medium | Same-origin `download` forces a save whatever the response is; this defeats the user's "redirect to Login" decision | patch: drop the `download` attribute (route already sends `Content-Disposition: attachment`) |
+| 3 | verification-gap | `outputFileTracingIncludes` is checked by no test or CI build; a moved route or template ships a 500 with green CI | low | `next.config.test.ts` checks only redirects; CI does not build | patch: assert the key, that its glob covers `templates[CURRENT_TEMPLATE_VERSION].file`, and that the route file exists |
+| 4 | blind-hunter, verification-gap | `TOKEN_RE` newly exported from `inspect.ts` but unused | low | No importer; `generate.ts` keeps its own copy | patch: drop the export |
+| 5 | blind-hunter | `BridgeProof.tokenSha256` is a 12-hex prefix while the receipt field of the same name is the full hash | low | `toBridgeProof` slices to 12; a caller could pass it as a row key | patch: rename the display field `tokenSha256Prefix` |
+| 6 | blind-hunter | A later post with a wrong header overwrites a matching receipt | false | Frozen matrix: "Finish dua kali → kiriman terakhir" and "File diubah → tetap dicatat (cocok false)"; designed behavior | reject |
+| 7 | blind-hunter, edge-case-hunter | 20-cell cap can drop `Data!I2`; integer-like sheet names sort first | low | Needs more than 19 formulas ahead of I2 on a two-sheet proof workbook; fix adds ordering logic | reject |
+| 8 | blind-hunter | Cap not enforced in SQL; strings unbounded | low | Only caller is the service-role macro path; body bounded by Vercel 4.5 MB | reject |
+| 9 | blind-hunter | `service.ts` lacks `import "server-only"` | low | No client component imports it; key has no `NEXT_PUBLIC_` prefix; guard needs a new dependency | reject |
+| 10 | blind-hunter, edge-case-hunter | Macro answer waits on the RPC; a hung database delays Finish | low | Recording is the proof's purpose; one indexed update; timeout or `after()` adds branches | reject |
+| 11 | blind-hunter | Dev route imports `tokenSha256Hex` from the macro route module | low | Both are replaced in epic 2 (`submit()`, `attempts`); moving them now adds a module for a proof-only path | reject |
+| 12 | blind-hunter | `/dev/bridge-proof` not gated by environment | false | Intent requires the proof on Production; only the allowlisted account has a session | reject |
+| 13 | edge-case-hunter | Unauthenticated well-formed-token posts each trigger a service-role call, unthrottled | low | Spine Deferred: rate limiting revisited if the URL is shared; the post already costs a full workbook read | reject |
+| 14 | verification-gap, blind-hunter, intent-alignment | Migration grants, RLS and the RPC are exercised only by mocks; page states not rendered | low | Implementer ran the migration once on a local Postgres; no DB or render harness in the repo (render harness deferred in 1.8) | defer: DB contract test with `attempts` in epic 2 |
+| 15 | intent-alignment | Page copy is English, plan says "tombol Unduh" | false | Conventions › Copy: UI chrome English inside components | reject |
+
 ## Design Notes
 
 - Tabel ini hanya untuk bukti dan akan dihapus di epic 2 setelah `attempts` ada. Hal ini dicatat di `deferred-work.md` setelah build.
