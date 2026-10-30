@@ -3,7 +3,7 @@ title: 'Bukti ujung-ke-ujung: unduh dari Production, Finish, server membaca toke
 type: 'feature'
 ticket: '9'
 created: '2026-10-30'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -116,6 +116,8 @@ context:
 - Review fixes (commit cf809f1): download generates before inserting the row; Download link has no `download` attribute; `next.config.test.ts` pins `outputFileTracingIncludes`; `TOKEN_RE` unexported; display field `tokenSha256Prefix`. Suite: 405 tests; lint, typecheck and build clean; the build's `route.js.nft.json` lists `assets/templates/exam.v1.xlsm`.
 - Migration `20261030000001_bridge_proofs` applied via MCP to `dev` then `prod`, version renamed; `list_migrations` identical on both; `schema_version` = `20261030000001`; anon has no select or RPC execute, authenticated no update.
 - Remaining manual steps: user sets `SUPABASE_SECRET_KEY` in Vercel (Production → prod, Preview/Development → dev); laptop Finish from Production after merge.
+- Production proof (2026-10-30, deploy `dpl_gqdTPjsoZFdPpD2nzNBssV483EhS`, merge `6dd246c`): the user downloaded from `/dev/bridge-proof` (log `bridge_proof.downloaded`, `tokenSha256` `4c4c52b0ba17`), filled `Data!I2` on the laptop (Excel 2021) and clicked Finish ("Terkirim"). Production logged `{"channel":"macro","code":null,"bytes":31940,"tokenSha256":"4c4c52b0ba17","tokenMatches":true,"fingerprintMatches":true,"templateVersion":1,"proofRecorded":true}`. The `prod` row: `receive_count` 1, both matches true, formulas `[{"sheet":"Data","ref":"I2","formula":"SUMIFS(E2:E11,B2:B11,\"Lini A\")"}]`. Epic Done when 5 met.
+- Seen in the same logs: `GET /dev/bridge-proof` and `GET /settings` log "Next.js encountered the unstable value `Date.now()` while prerendering" from supabase-js `_loadSession` (`getSessionUser` inside a Suspense boundary). Pages still render; recorded in `deferred-work.md` for the refactor sweep.
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes): write the migration file only; applying it to `dev` and `prod` and setting Vercel env happen after review.
 
 ## Plan Change Log
