@@ -3,13 +3,14 @@ title: 'App shell: tema Dark Excel, sidebar, header, dan toggle tema'
 type: 'feature'
 ticket: '8'
 created: '2026-10-30'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '5c2e7583ce0d90d8609fc6a903b9ac32990a3bad'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/DESIGN.md'
   - '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md'
@@ -28,6 +29,7 @@ context:
 - Semua menu sidebar tampil; route yang isinya belum dibangun mendapat halaman placeholder dengan judul permukaan yang benar.
 - Settings minimal ikut dibangun: Theme Toggle, switch Reduce motion, zona waktu (read-only dari `profiles`), "Signed in as" dan Log out.
 - Footer progres sidebar dan badge level di Level Map disembunyikan sampai epic Progres (bersama Streak Chip).
+- Plan dipertahankan utuh walau di atas 1600 token.
 
 ## Boundaries & Constraints
 
