@@ -3,7 +3,7 @@ title: 'Sign in with Google dengan allowlist satu akun'
 type: 'feature'
 ticket: '7'
 created: '2026-10-29'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -98,6 +98,8 @@ context:
 - Allowlist: one row inserted into `private.auth_allowlist` on `dev` and `prod` via MCP (value not in the repo); Vercel env `ALLOWED_EMAIL` (encrypted) for production, preview and development.
 - User did the dashboard steps (Google OAuth client, provider, sign-up on, URL Configuration, Before User Created hook on both projects). First Preview attempt failed with `Unsupported provider: missing OAuth secret` (secret not saved in `dev`); after the user saved it, sign-in on Preview (commit 21e3809) worked: `dev` has 1 `auth.users` row (provider `google`) and 1 `profiles` row with `time_zone = Asia/Jakarta`, same id.
 - A provider misconfiguration shows Supabase's raw JSON in the popup (rejected on Supabase's authorize page, before the callback); config-only failure, left as is.
+
+- Review patches (commit 6b061db): top-level-only static paths, `access_denied` with `error_code` → error, zone rejected by Postgres → `skipped`, distinct log for unset `ALLOWED_EMAIL`, try/catch in `/auth/google` and `/auth/callback`, popup-closed reload of `/login`, link fallback before hydration, `?error=` removed after reading; new tests for proxy, `completeGoogleSignIn`, `ensureProfile`, the three `/auth/*` routes and the `?error=` round trip (288 tests). User re-tested Preview (deploy `dpl_GuUEjRgTqx2WkJaNrnMburA2nY5V`) on 2026-10-30: sign-in, Log out → `/login`, and the other-account check all as expected.
 
 ## Plan Change Log
 
