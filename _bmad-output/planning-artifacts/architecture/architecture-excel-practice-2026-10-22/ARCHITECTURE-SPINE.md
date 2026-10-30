@@ -114,7 +114,7 @@ stateDiagram-v2
 
 - **Binds:** all, CAP-17
 - **Prevents:** browser and server reading or writing the same tables under different rules; the service-role key reaching a client bundle.
-- **Rule:** the browser never calls Supabase tables or Storage. Reads and writes go through Server Components, Server Actions and Route Handlers into `src/adapters/supabase` repositories using the user's session (`@supabase/ssr`). Every table has RLS on with owner-only policies. The service-role client exists only in the macro submission and grading path. Generated and submitted files live in the private bucket `attempt-files`, reached through short-lived signed URLs. Only the allowlisted Google account gets a session: Supabase *Before User Created* hook rejects any other email, and the auth callback re-checks `ALLOWED_EMAIL`.
+- **Rule:** the browser never calls Supabase tables or Storage. Reads and writes go through Server Components, Server Actions and Route Handlers into `src/adapters/supabase` repositories using the user's session (`@supabase/ssr`). Every table has RLS on with owner-only policies; the one exception is `app_meta`, which holds no user data and grants `select` only to `anon` and `authenticated` so the unauthenticated `/health` can show the schema version. The service-role client exists only in the macro submission and grading path. Generated and submitted files live in the private bucket `attempt-files`, reached through short-lived signed URLs. Only the allowlisted Google account gets a session: Supabase *Before User Created* hook rejects any other email, and the auth callback re-checks `ALLOWED_EMAIL`.
 
 ### AD-10 — Content lives in code and is versioned with the app [ADOPTED]
 

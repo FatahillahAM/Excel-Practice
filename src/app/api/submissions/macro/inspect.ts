@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
+import { ATTEMPT_TOKEN_RE } from "../../../../adapters/workbook/generate";
 import { readWorkbook, type WorkbookReading } from "../../../../adapters/workbook/read";
 import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "../../../../adapters/workbook/templates";
 import { RejectionCode } from "../../../../core/submission/rejection-codes";
@@ -12,9 +13,6 @@ import { RejectionCode } from "../../../../core/submission/rejection-codes";
  */
 
 export const TOKEN_PROPERTY = "WHE_AttemptToken";
-
-/** Attempt token: 32 random bytes, base64url without padding (Consistency Conventions › IDs). */
-const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
 export interface MacroInspectionData {
   bytes: number;
@@ -97,10 +95,10 @@ export async function inspectMacroSubmission(
   const fileToken = Object.hasOwn(reading.properties, TOKEN_PROPERTY) ? reading.properties[TOKEN_PROPERTY] : "";
   log.tokenSha256 = fileToken === "" ? null : tokenSha256(fileToken);
   // AD-6 (2): token missing or malformed, or header ≠ file token.
-  log.tokenMatches = TOKEN_RE.test(fileToken) && headerToken !== null && sameText(headerToken, fileToken);
+  log.tokenMatches = ATTEMPT_TOKEN_RE.test(fileToken) && headerToken !== null && sameText(headerToken, fileToken);
   // AD-6 (4): the version is the server's, never `WHE_TemplateVersion`.
   log.fingerprintMatches = matchesTemplate(reading.vbaModuleHashes, CURRENT_TEMPLATE_VERSION);
-  if (TOKEN_RE.test(fileToken)) proof = { tokenSha256: tokenSha256Hex(fileToken), formulas: formulasOf(reading) };
+  if (ATTEMPT_TOKEN_RE.test(fileToken)) proof = { tokenSha256: tokenSha256Hex(fileToken), formulas: formulasOf(reading) };
 
   if (!log.tokenMatches || !log.fingerprintMatches) return reject(RejectionCode.IDENTITY_ALTERED);
   return {

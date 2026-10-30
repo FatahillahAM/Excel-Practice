@@ -25,10 +25,11 @@ export interface GeneratedWorkbook {
   templateVersion: number;
 }
 
-const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+/** Attempt token: 32 random bytes, base64url without padding (Consistency Conventions › IDs). */
+export const ATTEMPT_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
 export async function generateExamWorkbook(input: ExamWorkbookInput): Promise<GeneratedWorkbook> {
-  if (!TOKEN_RE.test(input.token)) throw new Error("Attempt token must be 32 bytes in base64url");
+  if (!ATTEMPT_TOKEN_RE.test(input.token)) throw new Error("Attempt token must be 32 bytes in base64url");
   const templateVersion = CURRENT_TEMPLATE_VERSION;
   // Repo-relative path: the project root is the working directory in `next start`,
   // on Vercel and in Vitest. The tracer cannot follow this computed path (it would

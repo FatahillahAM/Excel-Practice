@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { connection } from "next/server";
 
 /**
  * Especially important if using Fluid compute: Don't put this client in a
@@ -7,6 +8,9 @@ import { cookies } from "next/headers";
  * it.
  */
 export async function createClient() {
+  // Request time only: supabase-js reads `Date.now()` while loading the
+  // session, which a runtime prefetch prerender rejects even with cookies.
+  await connection();
   const cookieStore = await cookies();
 
   return createServerClient(
