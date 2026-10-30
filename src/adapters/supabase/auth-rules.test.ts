@@ -40,15 +40,15 @@ describe("safeNext", () => {
     ["/\n/evil.com"],
     [" /levels"],
     ["/" + "a".repeat(3000)],
-  ])("replaces %j with /", (raw) => {
-    expect(safeNext(raw)).toBe("/");
+  ])("replaces %j with /dashboard", (raw) => {
+    expect(safeNext(raw)).toBe("/dashboard");
   });
 
   it("never sends sign-in back to Login or the OAuth routes", () => {
-    expect(safeNext("/login")).toBe("/");
-    expect(safeNext("/login?next=/x")).toBe("/");
-    expect(safeNext("/auth/callback?code=1")).toBe("/");
-    expect(safeNext("/auth")).toBe("/");
+    expect(safeNext("/login")).toBe("/dashboard");
+    expect(safeNext("/login?next=/x")).toBe("/dashboard");
+    expect(safeNext("/auth/callback?code=1")).toBe("/dashboard");
+    expect(safeNext("/auth")).toBe("/dashboard");
     expect(safeNext("/authors")).toBe("/authors");
   });
 
@@ -145,12 +145,12 @@ describe("callback result mapping", () => {
   });
 
   it("lands on Login with the reason after a failure", () => {
-    expect(callbackFallbackUrl("not_allowed", "/")).toBe("/login?error=not_allowed");
+    expect(callbackFallbackUrl("not_allowed", "/dashboard")).toBe("/login?error=not_allowed");
     expect(callbackFallbackUrl("error", "/levels")).toBe("/login?error=error&next=%2Flevels");
   });
 
   it("lands on Login without an error after a cancel", () => {
-    expect(callbackFallbackUrl("cancelled", "/")).toBe("/login");
+    expect(callbackFallbackUrl("cancelled", "/dashboard")).toBe("/login");
     expect(callbackFallbackUrl("cancelled", "/levels")).toBe("/login?next=%2Flevels");
   });
 
@@ -171,7 +171,7 @@ describe("callback result mapping", () => {
 
   it("builds the /auth/google link with a safe next and the zone", () => {
     expect(googleSignInPath("/levels?x=1")).toBe("/auth/google?next=%2Flevels%3Fx%3D1");
-    expect(googleSignInPath("//evil.com", "Asia/Jakarta")).toBe("/auth/google?next=%2F&tz=Asia%2FJakarta");
+    expect(googleSignInPath("//evil.com", "Asia/Jakarta")).toBe("/auth/google?next=%2Fdashboard&tz=Asia%2FJakarta");
   });
 
   it("posts the result to a same-origin opener only, then closes", () => {
@@ -238,5 +238,6 @@ describe("public paths", () => {
   it("redirects to Login with the requested path as next", () => {
     expect(loginRedirectPath("/levels", "?tab=tips")).toBe("/login?next=%2Flevels%3Ftab%3Dtips");
     expect(loginRedirectPath("/", "")).toBe("/login");
+    expect(loginRedirectPath("/dashboard", "")).toBe("/login");
   });
 });

@@ -67,7 +67,7 @@ describe("updateSession with a session", () => {
     const updateSession = await loadProxy(env);
     const res = await updateSession(request("/login?next=//evil.com"));
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/`);
+    expect(res.headers.get("location")).toBe(`${ORIGIN}/dashboard`);
     expect(res.cookies.get("sb-test-auth-token")?.value).toBe("refreshed");
   });
 

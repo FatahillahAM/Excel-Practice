@@ -26,7 +26,7 @@ describe("GET /auth/google", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe("https://accounts.google.test/o/oauth2/auth");
     expect(mocks.startGoogleSignIn).toHaveBeenCalledWith(
-      "http://app.test/auth/callback?next=%2F&tz=Asia%2FJakarta",
+      "http://app.test/auth/callback?next=%2Fdashboard&tz=Asia%2FJakarta",
     );
   });
 });

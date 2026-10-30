@@ -28,7 +28,7 @@ describe("GET /auth/callback", () => {
     const res = await GET(new NextRequest(`${ORIGIN}/auth/callback?error=access_denied&next=//evil.com`));
     expect(res.headers.get("content-type")).toContain("text/html");
     const p = await payload(res);
-    expect(p.message).toMatchObject({ type: "whe-auth", status: "cancelled", next: "/" });
+    expect(p.message).toMatchObject({ type: "whe-auth", status: "cancelled", next: "/dashboard" });
     expect(p.fallback).toBe("/login");
     expect(mocks.completeGoogleSignIn).not.toHaveBeenCalled();
   });

@@ -76,7 +76,7 @@ async function HealthReport() {
 export default function HealthPage() {
   return (
     <main className="min-h-screen flex items-center justify-center p-6">
-      <section className="w-full max-w-md flex flex-col gap-6 rounded-xl border border-border bg-card p-6">
+      <section className="w-full max-w-md flex flex-col gap-6 rounded-lg border border-border bg-card p-6">
         <h1 className="text-lg font-bold">Health</h1>
         <Suspense fallback={<p className="text-muted-foreground">Checking…</p>}>
           <HealthReport />

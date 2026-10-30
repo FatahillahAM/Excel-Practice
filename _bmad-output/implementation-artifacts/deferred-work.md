@@ -33,3 +33,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sign-in-with-google-dengan-allowlist-satu-akun-plan.md`
   summary: Verify on Preview that a non-allowlisted Google account sees "Akun ini nggak terdaftar" (hook message reaching error_description with the not_allowlisted marker).
   evidence: Unverified against real Supabase Auth; if the text does not pass through, rejected accounts see the network message (still no session).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-app-shell-tema-dark-excel-sidebar-header-dan-toggle-tema-plan.md`
+  summary: No component-rendering test harness, so Settings' "Not set" and first-load-failure branches (and other Server/Client Component rendering) are verified only by hand.
+  evidence: Repo has vitest in node only (no jsdom/testing-library); add a harness when the first content surface (Dashboard) lands.

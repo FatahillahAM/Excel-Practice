@@ -3,7 +3,7 @@ title: 'Sign in with Google dengan allowlist satu akun'
 type: 'feature'
 ticket: '7'
 created: '2026-10-29'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -100,6 +100,8 @@ context:
 - A provider misconfiguration shows Supabase's raw JSON in the popup (rejected on Supabase's authorize page, before the callback); config-only failure, left as is.
 
 - Review patches (commit 6b061db): top-level-only static paths, `access_denied` with `error_code` → error, zone rejected by Postgres → `skipped`, distinct log for unset `ALLOWED_EMAIL`, try/catch in `/auth/google` and `/auth/callback`, popup-closed reload of `/login`, link fallback before hydration, `?error=` removed after reading; new tests for proxy, `completeGoogleSignIn`, `ensureProfile`, the three `/auth/*` routes and the `?error=` round trip (288 tests). User re-tested Preview (deploy `dpl_GuUEjRgTqx2WkJaNrnMburA2nY5V`) on 2026-10-30: sign-in, Log out → `/login`, and the other-account check all as expected.
+
+- Production (PR #5 merged 2026-10-30, `/health` commit `f1b9a05`): first sign-in failed with `signup_disabled` because sign-up was still off on `prod` from entry 1; after the user turned it on (hook already enabled), sign-in worked. `prod` has 1 `auth.users` row (provider google) and 1 `profiles` row (`Asia/Jakarta`, same id); `/health` OK with schema `20261029000003`; `GET /api/submissions/macro` without a session reaches the route (405), not the guard.
 
 ## Plan Change Log
 

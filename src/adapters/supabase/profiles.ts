@@ -35,3 +35,19 @@ export async function ensureProfile(
   }
   return "failed";
 }
+
+export type TimeZoneRead = { ok: true; timeZone: string | null } | { ok: false };
+
+/**
+ * The signed-in user's streak time zone (AD-8), read through their session
+ * (RLS: owner-only). `timeZone: null` when no profile row exists yet.
+ */
+export async function readTimeZone(supabase: SupabaseClient, userId: string): Promise<TimeZoneRead> {
+  const { data, error } = await supabase.from("profiles").select("time_zone").eq("id", userId).maybeSingle();
+  if (error) {
+    console.error(JSON.stringify({ event: "profile.read_failed", code: error.code }));
+    return { ok: false };
+  }
+  const zone = (data as { time_zone?: unknown } | null)?.time_zone;
+  return { ok: true, timeZone: typeof zone === "string" && zone.length > 0 ? zone : null };
+}
