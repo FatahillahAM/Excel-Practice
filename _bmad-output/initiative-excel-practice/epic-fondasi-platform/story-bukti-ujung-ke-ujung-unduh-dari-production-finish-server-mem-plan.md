@@ -26,6 +26,7 @@ context:
 **Decisions (user, 2026-10-30):**
 - Macro route menulis lewat client service-role `SUPABASE_SECRET_KEY` (AD-9, jalur macro). User menyalin secret key `dev`/`prod` ke Vercel env (Production → prod; Preview/Development → dev) dan `.env.local`; agent tidak pernah melihat nilainya.
 - Plan tetap satu (sekitar 1.900 token) karena semua bagian baru teruji bersama di laptop.
+- Unduh tanpa sesi dialihkan ke Login oleh proxy (bukan 401), lalu kembali ke link Unduh setelah login (user, 2026-10-30, matrix audit).
 
 ## Boundaries & Constraints
 
@@ -48,7 +49,7 @@ context:
 | Scenario | Input / State | Expected Output / Behavior | Error Handling |
 |----------|--------------|---------------------------|----------------|
 | Unduh | user login, klik Unduh | `.xlsm` berisi `WHE_AttemptToken` baru, `WHE_ServerUrl` = origin, `WHE_TemplateVersion` 1, Instructions + Data terisi; satu baris proof (hash, user, versi) | gagal insert → 500, tanpa file |
-| Unduh tanpa sesi | tanpa cookie | 401 `UNAUTHENTICATED` (proxy) | — |
+| Unduh tanpa sesi | tanpa cookie | 307 ke `/login?next=/dev/bridge-proof/download` (proxy, `/dev/*` adalah halaman); route sendiri 401 `UNAUTHENTICATED` bila request lolos tanpa sesi | — |
 | Finish dari file unduhan | token + sidik jari cocok, SUMIFS di `Data!I2` | 200 seperti S3; baris proof: `received_at`, `bytes`, kedua cocok `true`, rumus sel (ref + teks ternormalisasi) | — |
 | Finish dua kali | file yang sama | baris diperbarui ke kiriman terakhir, `receive_count` naik | — |
 | Token tak dikenal | file `spike-s1` lama | balasan seperti S3; tidak ada baris yang berubah; log `proofRecorded: false` | — |
@@ -110,6 +111,7 @@ context:
 
 ## Implementation Notes
 
+- Matrix audit: proxy sends `/dev/bridge-proof/download` without a session to Login (307); the user chose that over 401 and the matrix row was updated; `proxy.test.ts` covers it, the route's own 401 is in `download/route.test.ts`.
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes): write the migration file only; applying it to `dev` and `prod` and setting Vercel env happen after review.
 
 ## Plan Change Log
