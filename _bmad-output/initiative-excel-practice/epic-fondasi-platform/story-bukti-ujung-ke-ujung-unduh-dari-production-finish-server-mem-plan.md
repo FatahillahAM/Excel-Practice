@@ -3,7 +3,7 @@ title: 'Bukti ujung-ke-ujung: unduh dari Production, Finish, server membaca toke
 type: 'feature'
 ticket: '9'
 created: '2026-10-30'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -112,6 +112,10 @@ context:
 ## Implementation Notes
 
 - Matrix audit: proxy sends `/dev/bridge-proof/download` without a session to Login (307); the user chose that over 401 and the matrix row was updated; `proxy.test.ts` covers it, the route's own 401 is in `download/route.test.ts`.
+- Implementation added `public.record_bridge_proof_receipt(...)` (security invoker, execute for `service_role` only) so `received_at = now()` and `receive_count + 1` happen in one statement; PostgREST has no atomic increment.
+- Review fixes (commit cf809f1): download generates before inserting the row; Download link has no `download` attribute; `next.config.test.ts` pins `outputFileTracingIncludes`; `TOKEN_RE` unexported; display field `tokenSha256Prefix`. Suite: 405 tests; lint, typecheck and build clean; the build's `route.js.nft.json` lists `assets/templates/exam.v1.xlsm`.
+- Migration `20261030000001_bridge_proofs` applied via MCP to `dev` then `prod`, version renamed; `list_migrations` identical on both; `schema_version` = `20261030000001`; anon has no select or RPC execute, authenticated no update.
+- Remaining manual steps: user sets `SUPABASE_SECRET_KEY` in Vercel (Production → prod, Preview/Development → dev); laptop Finish from Production after merge.
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes): write the migration file only; applying it to `dev` and `prod` and setting Vercel env happen after review.
 
 ## Plan Change Log
