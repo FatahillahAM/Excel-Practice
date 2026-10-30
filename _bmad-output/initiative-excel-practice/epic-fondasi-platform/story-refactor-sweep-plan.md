@@ -64,7 +64,7 @@ Deferred-work dispositions: `deferred-work.md` holds 15 entries (the Intent's "1
 | 12 | No component-render harness (1.8) | moved → epic 4 | Add with the first content surface (Dashboard) |
 | 13 | DB contract test for grants/RLS/RPC (1.9) | moved → epic 2 | Build with `attempts` |
 | 14 | Drop `bridge_proofs`, its RPC and `/dev/bridge-proof` (1.9) | moved → epic 2 | Once `attempts` and `submit()` exist |
-| 15 | `Date.now()` prerender error in Production (1.9) | closed (pending Production log check) | `connection()` in `createClient()` |
+| 15 | `Date.now()` prerender error in Production (1.9) | closed | `connection()` in `createClient()` plus `unstable_rethrow` in Settings (PR #9); after the user opened `/settings` on deploy `dpl_GJfeknPSBP8XaVJ1Q1U1QfF3RutR` (`46b59a2`), Production logged neither the `Date.now()` error nor `settings.account_failed` |
 
 ## Verification
 
