@@ -43,3 +43,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
   summary: Drop `bridge_proofs`, its RPC and `/dev/bridge-proof` once epic 2's `attempts` and `submit()` exist.
   evidence: Proof-only table and page (1.9 Design Notes).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
+  summary: Production logs "unstable value `Date.now()` while prerendering" on `/settings` and `/dev/bridge-proof` from supabase-js `_loadSession` in `getSessionUser`.
+  evidence: Vercel runtime logs 2026-10-30 07:09–07:11 (deploy `dpl_gqdTPjsoZFdPpD2nzNBssV483EhS`), level error, pages still render; likely needs `await connection()` (or reading cookies first) before the session read under `cacheComponents`. Fix in the 1.10 refactor sweep.
