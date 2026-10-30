@@ -3,7 +3,7 @@ title: 'CI: lint dengan aturan impor core, typecheck, dan Vitest'
 type: 'chore'
 ticket: '6'
 created: '2026-10-29'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'

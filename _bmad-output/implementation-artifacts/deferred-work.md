@@ -27,3 +27,9 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-environment-dev-supabase-dev-preview-ke-dev-dan-migrasi-sql-plan.md`
   summary: AD-9 says every table has owner-only RLS and the browser never calls tables, but app_meta has a public select policy so the unauthenticated /health can read schema_version with the publishable key.
   evidence: /health has no session and the service-role client is limited to the macro path; either add a spine exception for non-user metadata (bmad-architecture) or read it differently once Google sign-in exists (entry 7).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sign-in-with-google-dengan-allowlist-satu-akun-plan.md`
+  summary: A sign-in without a valid browser time zone succeeds but leaves no profiles row until a later sign-in, which AD-8 consumers (streaks, freezes) will assume exists.
+  evidence: ensureProfile returns 'skipped' and the session lasts ~30 days; create or require the profile before the first AD-8 consumer lands (epic 3).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sign-in-with-google-dengan-allowlist-satu-akun-plan.md`
+  summary: Verify on Preview that a non-allowlisted Google account sees "Akun ini nggak terdaftar" (hook message reaching error_description with the not_allowlisted marker).
+  evidence: Unverified against real Supabase Auth; if the text does not pass through, rejected accounts see the network message (still no session).

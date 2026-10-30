@@ -10,6 +10,15 @@ export default function Home() {
       <Link href="/health" className="text-sm underline underline-offset-4">
         System status
       </Link>
+      {/* Temporary until the app shell (epic fondasi entry 8) moves Log out to the sidebar and avatar menu. */}
+      <form action="/auth/signout" method="post">
+        <button
+          type="submit"
+          className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+        >
+          Log out
+        </button>
+      </form>
     </main>
   );
 }

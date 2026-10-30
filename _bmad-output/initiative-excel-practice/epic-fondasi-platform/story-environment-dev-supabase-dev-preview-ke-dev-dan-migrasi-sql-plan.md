@@ -3,7 +3,7 @@ title: 'Environment dev: Supabase dev, Preview ke dev, dan migrasi SQL'
 type: 'chore'
 ticket: '5'
 created: '2026-10-29'
-status: 'built'
+status: done
 route: 'oneshot'
 route_source: 'auto'
 review: 'quick'
