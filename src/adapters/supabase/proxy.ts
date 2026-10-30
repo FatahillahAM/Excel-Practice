@@ -11,7 +11,7 @@ const hasEnvVars = Boolean(
  * Refreshes the Supabase session cookie and guards routes (CAP-17): without
  * a session, pages redirect to `/login?next=<path>` and APIs answer 401 JSON;
  * public paths (`auth-rules.isPublicPath`) pass. `/login` with a session goes
- * to `next` (or `/`).
+ * to `next` (or Dashboard).
  */
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({

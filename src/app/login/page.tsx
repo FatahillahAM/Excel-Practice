@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 /**
  * Login (CAP-17; DESIGN.md › Login Card). A signed-in visitor never sees it:
- * the proxy redirects `/login` with a session to `next` or `/`.
+ * the proxy redirects `/login` with a session to `next` or Dashboard.
  */
 export default function LoginPage() {
   return (

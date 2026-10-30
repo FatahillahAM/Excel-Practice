@@ -100,6 +100,11 @@ describe("getSessionUser", () => {
     expect(await getSessionUser()).toEqual({ id: "user-1", email: ALLOWED });
   });
 
+  it.each(["", "  "])("treats an empty email claim %j as no email", async (email) => {
+    mocks.getClaims.mockResolvedValue({ data: { claims: { sub: "user-1", email } }, error: null });
+    expect(await getSessionUser()).toEqual({ id: "user-1", email: null });
+  });
+
   it("is null without a session", async () => {
     mocks.getClaims.mockResolvedValue({ data: null, error: null });
     expect(await getSessionUser()).toBeNull();

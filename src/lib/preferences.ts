@@ -86,3 +86,39 @@ export function htmlPreferenceAttributes(preferences: Preferences): {
     ? { "data-theme": preferences.theme, "data-motion": "reduce" }
     : { "data-theme": preferences.theme };
 }
+
+/**
+ * The client side of the same rule: writes `htmlPreferenceAttributes` onto
+ * `<html>`'s dataset, removing `data-motion` when the switch is off.
+ */
+export function applyPreferenceAttributes(
+  dataset: Record<string, string | undefined>,
+  preferences: Preferences,
+): void {
+  const attributes = htmlPreferenceAttributes(preferences);
+  dataset.theme = attributes["data-theme"];
+  if (attributes["data-motion"]) dataset.motion = attributes["data-motion"];
+  else delete dataset.motion;
+}
+
+export type SaveState = "idle" | "saving" | "saved" | "error";
+
+/** Save status where only the most recently started save may report. */
+export type SaveTracker = { latest: number; state: SaveState };
+
+export const INITIAL_SAVE: SaveTracker = { latest: 0, state: "idle" };
+
+/** A save starts: it gets the next ticket and the status becomes `saving`. */
+export function startSave(tracker: SaveTracker): { tracker: SaveTracker; ticket: number } {
+  const ticket = tracker.latest + 1;
+  return { tracker: { latest: ticket, state: "saving" }, ticket };
+}
+
+/**
+ * A save ends. An older ticket returns the tracker unchanged (same object),
+ * so a slow earlier save cannot overwrite a newer status.
+ */
+export function finishSave(tracker: SaveTracker, ticket: number, outcome: "saved" | "error"): SaveTracker {
+  if (ticket !== tracker.latest) return tracker;
+  return { latest: tracker.latest, state: outcome };
+}

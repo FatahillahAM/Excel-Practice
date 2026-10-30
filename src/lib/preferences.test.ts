@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  INITIAL_SAVE,
   PREFERENCE_MAX_AGE,
+  applyPreferenceAttributes,
+  finishSave,
+  startSave,
   htmlPreferenceAttributes,
   isReduceMotion,
   isTheme,
@@ -88,5 +92,56 @@ describe("htmlPreferenceAttributes", () => {
       "data-theme": "light",
       "data-motion": "reduce",
     });
+  });
+});
+
+describe("applyPreferenceAttributes", () => {
+  it("sets the theme the server rule sets", () => {
+    for (const theme of ["dark", "light"] as const) {
+      const dataset: Record<string, string | undefined> = {};
+      applyPreferenceAttributes(dataset, { theme, reduceMotion: "system" });
+      expect(dataset.theme).toBe(htmlPreferenceAttributes({ theme, reduceMotion: "system" })["data-theme"]);
+    }
+  });
+
+  it("sets data-motion=reduce when the switch is on", () => {
+    const dataset: Record<string, string | undefined> = { theme: "dark" };
+    applyPreferenceAttributes(dataset, { theme: "dark", reduceMotion: "on" });
+    expect(dataset).toEqual({ theme: "dark", motion: "reduce" });
+  });
+
+  it("removes data-motion when the switch goes off", () => {
+    const dataset: Record<string, string | undefined> = { theme: "light", motion: "reduce" };
+    applyPreferenceAttributes(dataset, { theme: "light", reduceMotion: "system" });
+    expect(dataset).toEqual({ theme: "light" });
+    expect("motion" in dataset).toBe(false);
+  });
+});
+
+describe("save status", () => {
+  it("goes saving → saved for a single save", () => {
+    const { tracker, ticket } = startSave(INITIAL_SAVE);
+    expect(tracker.state).toBe("saving");
+    expect(finishSave(tracker, ticket, "saved").state).toBe("saved");
+  });
+
+  it("reports an error for the latest save", () => {
+    const { tracker, ticket } = startSave(INITIAL_SAVE);
+    expect(finishSave(tracker, ticket, "error").state).toBe("error");
+  });
+
+  it("does not let an older save overwrite a newer status", () => {
+    const first = startSave(INITIAL_SAVE);
+    const second = startSave(first.tracker);
+    const afterSecond = finishSave(second.tracker, second.ticket, "saved");
+    const afterFirst = finishSave(afterSecond, first.ticket, "error");
+    expect(afterFirst).toBe(afterSecond);
+    expect(afterFirst.state).toBe("saved");
+  });
+
+  it("keeps saving while the newer save is still pending", () => {
+    const first = startSave(INITIAL_SAVE);
+    const second = startSave(first.tracker);
+    expect(finishSave(second.tracker, first.ticket, "saved").state).toBe("saving");
   });
 });

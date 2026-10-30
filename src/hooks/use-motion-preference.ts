@@ -40,7 +40,7 @@ export function resolveMotionPreference(signals: MotionSignals, options: MotionO
 const REDUCE_QUERY = "(prefers-reduced-motion: reduce)";
 
 type NavigatorHints = Navigator & {
-  connection?: { saveData?: boolean };
+  connection?: { saveData?: boolean } & Partial<Pick<EventTarget, "addEventListener" | "removeEventListener">>;
   deviceMemory?: number;
 };
 
@@ -59,9 +59,13 @@ function subscribe(onChange: () => void): () => void {
   query.addEventListener("change", onChange);
   const observer = new MutationObserver(onChange);
   observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-motion"] });
+  // Save-Data can flip while the page is open (Network Information API, Chromium only).
+  const connection = (navigator as NavigatorHints).connection;
+  connection?.addEventListener?.("change", onChange);
   return () => {
     query.removeEventListener("change", onChange);
     observer.disconnect();
+    connection?.removeEventListener?.("change", onChange);
   };
 }
 

@@ -143,7 +143,7 @@
 @layer base {
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-size: 14px;
+    font-size: 0.875rem;
     line-height: 1.45;
   }
 
@@ -160,7 +160,7 @@
 }
 
 /* Login entrance (EXPERIENCE.md › Motion): column fades + rises 10px, the
-   sign-in block 20px; cinematic easing; static when reduced motion is asked. */
+   sign-in block 20px; cinematic easing. Reduced motion: the global rule below. */
 @keyframes login-rise-10 {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -174,12 +174,6 @@
 }
 .login-enter-block {
   animation: login-rise-20 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@media (prefers-reduced-motion: reduce) {
-  .login-enter-column,
-  .login-enter-block {
-    animation: none;
-  }
 }
 
 /* Secondary page entrance (History, Records, Tips & Tricks, Setup Guide,

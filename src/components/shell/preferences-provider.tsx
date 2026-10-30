@@ -1,10 +1,21 @@
 "use client";
 
 import { createContext, startTransition, useContext, useRef, useState } from "react";
-import type { Preferences, ReduceMotion, Theme } from "@/lib/preferences";
+import { UNAUTHENTICATED, loginRedirectPath } from "@/adapters/supabase/auth-rules";
+import {
+  INITIAL_SAVE,
+  applyPreferenceAttributes,
+  finishSave,
+  startSave,
+  type Preferences,
+  type ReduceMotion,
+  type SaveState,
+  type SaveTracker,
+  type Theme,
+} from "@/lib/preferences";
 import { saveReduceMotion, saveTheme, type PreferenceResult } from "@/lib/preferences-actions";
 
-export type SaveState = "idle" | "saving" | "saved" | "error";
+export type { SaveState };
 
 type PreferencesContextValue = {
   theme: Theme;
@@ -14,57 +25,86 @@ type PreferencesContextValue = {
   setReduceMotion: (on: boolean) => void;
 };
 
+type Key = keyof Preferences;
+
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
 /**
  * One source for the Header Bar Theme Toggle and Settings, so both always
  * show the same value. A change applies instantly on <html> and is then
  * stored in the device cookie by a Server Action; the next server render
- * reads the same value before first paint (no inline script).
+ * reads the same value before first paint (no inline script). A failed save
+ * puts the last stored value back; a lost session goes to Login.
  */
 export function PreferencesProvider({ initial, children }: { initial: Preferences; children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(initial.theme);
-  const [reduceMotion, setReduceMotionState] = useState<ReduceMotion>(initial.reduceMotion);
+  const [preferences, setPreferences] = useState<Preferences>(initial);
   const [saveState, setSaveState] = useState<SaveState>("idle");
-  const latest = useRef(0);
+  /** What <html> shows now (read by async callbacks). */
+  const current = useRef<Preferences>(initial);
+  /** What the cookie holds: the value a failed save reverts to. */
+  const stored = useRef<Preferences>(initial);
+  const status = useRef<SaveTracker>(INITIAL_SAVE);
+  const perKey = useRef<Record<Key, SaveTracker>>({ theme: INITIAL_SAVE, reduceMotion: INITIAL_SAVE });
 
-  function persist(save: () => Promise<PreferenceResult>) {
-    const ticket = ++latest.current;
-    setSaveState("saving");
+  function show(next: Preferences) {
+    current.current = next;
+    applyPreferenceAttributes(document.documentElement.dataset, next);
+    setPreferences(next);
+  }
+
+  function change<K extends Key>(key: K, value: Preferences[K], save: () => Promise<PreferenceResult>) {
+    if (current.current[key] === value) return;
+    show({ ...current.current, [key]: value });
+
+    const started = startSave(status.current);
+    status.current = started.tracker;
+    const keyStarted = startSave(perKey.current[key]);
+    perKey.current[key] = keyStarted.tracker;
+    setSaveState(started.tracker.state);
+
     startTransition(async () => {
-      let ok = false;
+      let result: PreferenceResult | null = null;
       try {
-        ok = (await save()).ok;
+        result = await save();
       } catch {
-        ok = false;
+        result = null;
       }
-      // Only the last change reports, so a slow earlier save cannot overwrite it.
-      if (ticket === latest.current) setSaveState(ok ? "saved" : "error");
+      if (result && !result.ok && result.code === UNAUTHENTICATED) {
+        window.location.assign(loginRedirectPath(window.location.pathname, window.location.search));
+        return;
+      }
+      const outcome = result?.ok ? "saved" : "error";
+
+      // Only the latest change of this preference may keep or revert it.
+      const keyAfter = finishSave(perKey.current[key], keyStarted.ticket, outcome);
+      if (keyAfter !== perKey.current[key]) {
+        perKey.current[key] = keyAfter;
+        if (outcome === "saved") stored.current = { ...stored.current, [key]: value };
+        else show({ ...current.current, [key]: stored.current[key] });
+      }
+
+      // Only the latest change of any preference reports.
+      const statusAfter = finishSave(status.current, started.ticket, outcome);
+      if (statusAfter !== status.current) {
+        status.current = statusAfter;
+        setSaveState(statusAfter.state);
+      }
     });
   }
 
-  function setTheme(next: Theme) {
-    if (next === theme) return;
-    setThemeState(next);
-    document.documentElement.dataset.theme = next;
-    persist(() => saveTheme(next));
-  }
+  const value: PreferencesContextValue = {
+    theme: preferences.theme,
+    reduceMotion: preferences.reduceMotion,
+    saveState,
+    setTheme: (theme) => change("theme", theme, () => saveTheme(theme)),
+    // `system` (switch off) writes no attribute: the OS media query decides alone.
+    setReduceMotion: (on) => {
+      const next: ReduceMotion = on ? "on" : "system";
+      change("reduceMotion", next, () => saveReduceMotion(next));
+    },
+  };
 
-  function setReduceMotion(on: boolean) {
-    const next: ReduceMotion = on ? "on" : "system";
-    if (next === reduceMotion) return;
-    setReduceMotionState(next);
-    // `system` writes no attribute: the OS media query decides alone.
-    if (on) document.documentElement.dataset.motion = "reduce";
-    else delete document.documentElement.dataset.motion;
-    persist(() => saveReduceMotion(next));
-  }
-
-  return (
-    <PreferencesContext value={{ theme, reduceMotion, saveState, setTheme, setReduceMotion }}>
-      {children}
-    </PreferencesContext>
-  );
+  return <PreferencesContext value={value}>{children}</PreferencesContext>;
 }
 
 export function usePreferences(): PreferencesContextValue {

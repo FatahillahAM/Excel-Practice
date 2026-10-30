@@ -80,7 +80,9 @@ async function userFromClaims(supabase: ServerClient): Promise<SessionUser | nul
   const { data, error } = await supabase.auth.getClaims();
   const claims = data?.claims;
   if (error || !claims || typeof claims.sub !== "string" || claims.sub.length === 0) return null;
-  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+  // An empty claim is no address: treat it like a missing one.
+  const email = typeof claims.email === "string" && claims.email.trim().length > 0 ? claims.email : null;
+  return { id: claims.sub, email };
 }
 
 /**

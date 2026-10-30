@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { getAccount } from "@/adapters/supabase/auth";
+import { getAccount, type Account } from "@/adapters/supabase/auth";
+import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
+import type { TimeZoneRead } from "@/adapters/supabase/profiles";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { PageTitle } from "@/components/shell/page-title";
 import { SettingsPreferences } from "@/components/shell/settings-preferences";
@@ -37,29 +40,41 @@ export default function SettingsPage() {
 }
 
 async function AccountSections() {
-  const account = await getAccount();
-  if (!account || !account.timeZone.ok) {
-    return (
-      <section className={CARD}>
-        <p lang="id">{shellMessages.firstLoadFailed}</p>
-        <a href="/settings" className="font-bold text-primary underline-offset-4 hover:underline">
-          Try again
-        </a>
-      </section>
-    );
+  let account: Account | null;
+  try {
+    account = await getAccount();
+  } catch (error) {
+    console.error(JSON.stringify({ event: "settings.account_failed", name: (error as Error)?.name ?? "unknown" }));
+    return <AccountView email={null} timeZone={{ ok: false }} />;
   }
-  const zone = account.timeZone.timeZone;
+  // No session (expired meanwhile): Login, then back here.
+  if (!account) redirect(loginRedirectPath("/settings", ""));
+  return <AccountView email={account.email ?? "El Zavier"} timeZone={account.timeZone} />;
+}
+
+function AccountView({ email, timeZone }: { email: string | null; timeZone: TimeZoneRead }) {
   return (
     <>
       <section aria-labelledby="settings-streak" className={CARD}>
         <h2 id="settings-streak" className={SECTION_LABEL}>
           Streak
         </h2>
-        <div>
-          <p className="font-bold">Streak time zone</p>
-          <p className={zone ? "font-mono" : "text-muted-foreground"}>{zone ?? "Not set"}</p>
-          <p className="text-xs leading-[1.4] font-medium text-muted-foreground">Set at first login</p>
-        </div>
+        {timeZone.ok ? (
+          <div>
+            <p className="font-bold">Streak time zone</p>
+            <p className={timeZone.timeZone ? "font-mono" : "text-muted-foreground"}>{timeZone.timeZone ?? "Not set"}</p>
+            <p className="text-xs leading-[1.4] font-medium text-muted-foreground">Set at first login</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p role="alert" lang="id">
+              {shellMessages.firstLoadFailed}
+            </p>
+            <a href="/settings" className="font-bold text-primary underline-offset-4 hover:underline">
+              Try again
+            </a>
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="settings-account" className={CARD}>
@@ -67,10 +82,12 @@ async function AccountSections() {
           Account
         </h2>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="min-w-0 break-words">
-            Signed in as <span className="font-bold">{account.email ?? "El Zavier"}</span>
-          </p>
-          <form action="/auth/signout" method="post" className="w-full sm:w-auto">
+          {email && (
+            <p className="min-w-0 break-words">
+              Signed in as <span className="font-bold">{email}</span>
+            </p>
+          )}
+          <form action="/auth/signout" method="post" className="w-full sm:ml-auto sm:w-auto">
             <button
               type="submit"
               className="inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-md border border-input-border bg-card px-[18px] font-bold text-foreground transition-colors hover:bg-muted sm:w-auto"

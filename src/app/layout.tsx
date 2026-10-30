@@ -17,7 +17,10 @@ export const metadata: Metadata = {
  * `data-theme` / `data-motion` come from the per-device cookies so the first
  * paint already has the right theme (Consistency Conventions › Preferences).
  * Reading cookies here makes every route request-bound and there is no child
- * to wrap in <Suspense>, so the root opts into a blocking render.
+ * to wrap in <Suspense>. `instant = false` allows that: it opts the app out
+ * of the static-shell check, so every route renders per request (ƒ). The HTML
+ * still streams, so the status is sent before the page finishes rendering
+ * (see the `/` redirect in `next.config.ts`).
  */
 export const instant = false;
 

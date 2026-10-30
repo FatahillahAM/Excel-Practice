@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -16,6 +16,16 @@ export function MobileDrawer() {
   const pathname = usePathname();
   const [shownPath, setShownPath] = useState(pathname);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  // Reaching the desktop width (sidebar shown) closes the drawer.
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const close = () => {
+      if (desktop.matches) setOpen(false);
+    };
+    desktop.addEventListener("change", close);
+    return () => desktop.removeEventListener("change", close);
+  }, []);
 
   // Any navigation (also back/forward) closes the drawer.
   if (pathname !== shownPath) {
@@ -34,7 +44,7 @@ export function MobileDrawer() {
       <SheetContent
         ref={contentRef}
         aria-describedby={undefined}
-        className="w-(--drawer-width) max-w-[calc(100vw-3rem)] overflow-y-auto px-4 py-[22px]"
+        className="w-(--drawer-width) max-w-[calc(100vw-3rem)]"
         onOpenAutoFocus={(event) => {
           const first = contentRef.current?.querySelector<HTMLElement>("nav a");
           if (!first) return;
@@ -43,7 +53,10 @@ export function MobileDrawer() {
         }}
       >
         <SheetTitle className="sr-only">Menu</SheetTitle>
-        <SidebarContent idPrefix="drawer" touch onNavigate={() => setOpen(false)} />
+        {/* Scrolls inside, so the panel itself does not clip its overshoot strip. */}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-[22px]">
+          <SidebarContent idPrefix="drawer" touch onNavigate={() => setOpen(false)} />
+        </div>
       </SheetContent>
     </Sheet>
   );

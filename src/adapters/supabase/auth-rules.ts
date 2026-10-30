@@ -24,29 +24,32 @@ export const UNAUTHENTICATED = "UNAUTHENTICATED";
 export const NOT_ALLOWLISTED_MARKER = "not_allowlisted";
 
 const LOGIN_PATH = "/login";
+
+/** Where sign-in lands when no (safe) `next` was asked for: Dashboard. */
+export const DEFAULT_NEXT = "/dashboard";
 const PLACEHOLDER_ORIGIN = "http://next.invalid";
 
 /**
  * Where to go after sign-in: only a same-origin relative path (`/…`, never
- * `//…` or `/\…`), otherwise `/`. Paths back into `/login` or `/auth/*` also
- * become `/` so sign-in never loops.
+ * `//…` or `/\…`), otherwise `DEFAULT_NEXT`. Paths back into `/login` or
+ * `/auth/*` also become `DEFAULT_NEXT` so sign-in never loops.
  */
 export function safeNext(raw: string | null | undefined): string {
-  if (typeof raw !== "string" || raw.length === 0 || raw.length > 2048) return "/";
-  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return "/";
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 2048) return DEFAULT_NEXT;
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return DEFAULT_NEXT;
   // Control characters and whitespace (tab, newline) can smuggle a scheme or host.
   for (let i = 0; i < raw.length; i++) {
     const code = raw.charCodeAt(i);
-    if (code <= 0x20 || code === 0x7f || code === 0x5c /* \ */) return "/";
+    if (code <= 0x20 || code === 0x7f || code === 0x5c /* \ */) return DEFAULT_NEXT;
   }
   let url: URL;
   try {
     url = new URL(raw, PLACEHOLDER_ORIGIN);
   } catch {
-    return "/";
+    return DEFAULT_NEXT;
   }
-  if (url.origin !== PLACEHOLDER_ORIGIN) return "/";
-  if (isAuthPath(url.pathname)) return "/";
+  if (url.origin !== PLACEHOLDER_ORIGIN) return DEFAULT_NEXT;
+  if (isAuthPath(url.pathname)) return DEFAULT_NEXT;
   return `${url.pathname}${url.search}${url.hash}`;
 }
 
@@ -117,7 +120,7 @@ export function callbackFallbackUrl(status: AuthStatus, next: string): string {
   if (status === "success") return next;
   const params = new URLSearchParams();
   if (status !== "cancelled") params.set("error", status);
-  if (next !== "/") params.set("next", next);
+  if (next !== DEFAULT_NEXT) params.set("next", next);
   const query = params.toString();
   return query ? `${LOGIN_PATH}?${query}` : LOGIN_PATH;
 }
@@ -195,5 +198,6 @@ export function isApiPath(pathname: string): boolean {
 /** `/login?next=<path>` for a request without a session. */
 export function loginRedirectPath(pathname: string, search: string): string {
   const next = safeNext(`${pathname}${search}`);
-  return next === "/" ? LOGIN_PATH : `${LOGIN_PATH}?${new URLSearchParams({ next }).toString()}`;
+  if (next === DEFAULT_NEXT || next === "/") return LOGIN_PATH;
+  return `${LOGIN_PATH}?${new URLSearchParams({ next }).toString()}`;
 }

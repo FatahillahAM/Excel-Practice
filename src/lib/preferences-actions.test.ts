@@ -8,6 +8,7 @@ vi.mock("../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUs
 import { saveReduceMotion, saveTheme } from "./preferences-actions";
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   mocks.set.mockReset();
   mocks.getSessionUser.mockReset();
 });
@@ -49,5 +50,20 @@ describe("saveReduceMotion", () => {
     signedIn();
     expect(await saveReduceMotion("off")).toEqual({ ok: false, code: "INVALID_INPUT" });
     expect(mocks.set).not.toHaveBeenCalled();
+  });
+});
+
+describe("secure flag", () => {
+  it.each([
+    ["production", true],
+    ["development", false],
+    ["test", false],
+  ] as const)("NODE_ENV=%s → secure %s", async (env, secure) => {
+    vi.stubEnv("NODE_ENV", env);
+    signedIn();
+    expect(await saveTheme("light")).toEqual({ ok: true });
+    expect(await saveReduceMotion("on")).toEqual({ ok: true });
+    expect(mocks.set).toHaveBeenNthCalledWith(1, "theme", "light", expect.objectContaining({ secure }));
+    expect(mocks.set).toHaveBeenNthCalledWith(2, "reduce_motion", "on", expect.objectContaining({ secure }));
   });
 });

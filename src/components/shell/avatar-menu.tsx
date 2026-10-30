@@ -12,6 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+/** `requestSubmit` is missing on older Safari (< 16); `submit()` posts the same form. */
+function submitSignOut(form: HTMLFormElement | null) {
+  if (!form) return;
+  if (typeof form.requestSubmit === "function") form.requestSubmit();
+  else form.submit();
+}
+
 /**
  * Avatar menu (Header Bar): "EZ" on the `primary → chart-3` gradient; opens
  * Settings and Log out. The user is always shown as El Zavier.
@@ -36,7 +43,7 @@ export function AvatarMenu() {
               Settings
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => signOutRef.current?.requestSubmit()}>
+          <DropdownMenuItem onSelect={() => submitSignOut(signOutRef.current)}>
             <LogOut aria-hidden="true" />
             Log out
           </DropdownMenuItem>
