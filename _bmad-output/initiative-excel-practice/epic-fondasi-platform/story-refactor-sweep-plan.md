@@ -59,7 +59,7 @@ Deferred-work dispositions: `deferred-work.md` holds 15 entries (the Intent's "1
 | 8 | Template v1 release point (S3) | moved → epic 2 | Must be set before the first real attempt |
 | 9 | `app_meta` public read vs AD-9 (1.5) | closed | Spine AD-9 exception (user, 2026-10-30) |
 | 10 | No profile when the browser zone is invalid (1.7) | moved → epic 2 | `attempts` is owned by `profiles` (spine ER), so Start needs the row before streaks do |
-| 11 | Non-allowlisted account message unverified (1.7) | user check in 1.10 | Closed when the user sees "Akun ini nggak terdaftar" |
+| 11 | Non-allowlisted account message unverified (1.7) | closed | User, 2026-10-30: another Google account in an incognito window got "Akun ini nggak terdaftar" on Production, no session |
 | 12 | No component-render harness (1.8) | moved → epic 4 | Add with the first content surface (Dashboard) |
 | 13 | DB contract test for grants/RLS/RPC (1.9) | moved → epic 2 | Build with `attempts` |
 | 14 | Drop `bridge_proofs`, its RPC and `/dev/bridge-proof` (1.9) | moved → epic 2 | Once `attempts` and `submit()` exist |
