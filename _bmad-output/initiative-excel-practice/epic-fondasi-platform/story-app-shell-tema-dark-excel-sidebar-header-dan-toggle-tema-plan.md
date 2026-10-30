@@ -93,6 +93,7 @@ context:
 - Drawer, menu and secondary-page motion are CSS keyframes in `globals.css` (no `tw-animate-css`); the reduced-motion rule (`@media` + `[data-motion="reduce"]`) turns off every animation and transition, so Radix unmounts the drawer instantly.
 - Phone top bar: Theme Toggle shows from `sm` up (mockup phone bar = menu, title, avatar); on phones it stays reachable in Settings.
 - New copy: `shellMessages.firstLoadFailed` (message set, verbatim) and `preferenceSaveFailed` (illustrative).
+- User 2026-10-30: on phones the Theme Toggle stays in Settings only (no top-bar toggle); `preferenceSaveFailed` text "Pengaturan belum tersimpan. Coba lagi, ya." accepted.
 
 ## Plan Change Log
 
@@ -115,7 +116,7 @@ context:
 | 13 | blind-hunter | Path normalization duplicated in `nav-items.ts` | low | Two small helpers; no observed drift | reject |
 | 14 | blind-hunter | `body` font-size in px ignores user font setting | low | Direct correction | patch: `0.875rem` |
 | 15 | blind-hunter, edge-case-hunter | `useMotionPreference` misses `navigator.connection` change | low | Direct addition | patch |
-| 16 | intent-alignment | Theme Toggle hidden from the phone header | maybe-false | Mockup phone top bar omits it; DESIGN Header Bar lists it; asked the user | defer (user's call) |
+| 16 | intent-alignment | Theme Toggle hidden from the phone header | maybe-false | Mockup phone top bar omits it; DESIGN Header Bar lists it; asked the user | reject (user 2026-10-30: Settings only on phones) |
 | 17 | edge-case-hunter | Another tab's cookie leaves the toggle state stale | low | Single user; a reload fixes it; fix adds sync logic | reject |
 | 18 | edge-case-hunter | `/health` link removed from UI | low | Ops page, reachable by URL | reject |
 | 19 | edge-case-hunter | Reload mid-save repaints the old theme | low | Inherent to the async save; covered by #1 for failures | reject |
