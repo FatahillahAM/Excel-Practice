@@ -19,7 +19,7 @@ export interface ProofFormula {
 
 export interface BridgeProof {
   /** First 12 hex of the token's SHA-256, as in the macro route's log line. */
-  tokenSha256: string;
+  tokenSha256Prefix: string;
   templateVersion: number;
   createdAt: string;
   receivedAt: string | null;
@@ -132,7 +132,7 @@ interface ProofRow {
 
 function toBridgeProof(row: ProofRow): BridgeProof {
   return {
-    tokenSha256: row.token_sha256.slice(0, 12),
+    tokenSha256Prefix: row.token_sha256.slice(0, 12),
     templateVersion: row.template_version,
     createdAt: row.created_at,
     receivedAt: row.received_at,

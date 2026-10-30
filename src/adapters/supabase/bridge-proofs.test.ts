@@ -75,7 +75,7 @@ describe("listBridgeProofs", () => {
 
     expect(await listBridgeProofs(client, "user-1")).toEqual([
       {
-        tokenSha256: "0123456789ab",
+        tokenSha256Prefix: "0123456789ab",
         templateVersion: 1,
         createdAt: row.created_at,
         receivedAt: row.received_at,

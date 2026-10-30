@@ -14,7 +14,7 @@ import { RejectionCode } from "../../../../core/submission/rejection-codes";
 export const TOKEN_PROPERTY = "WHE_AttemptToken";
 
 /** Attempt token: 32 random bytes, base64url without padding (Consistency Conventions › IDs). */
-export const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 
 export interface MacroInspectionData {
   bytes: number;

@@ -47,7 +47,6 @@ export default function BridgeProofPage() {
         </ol>
         <a
           href={`${PATH}/download`}
-          download
           className="inline-flex h-11 w-full items-center justify-center rounded-md bg-primary px-[18px] font-bold text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto sm:self-start"
         >
           Download .xlsm
@@ -101,7 +100,7 @@ async function ProofTable() {
         </thead>
         <tbody>
           {proofs.map((proof) => (
-            <ProofRow key={proof.tokenSha256 + proof.createdAt} proof={proof} />
+            <ProofRow key={proof.tokenSha256Prefix + proof.createdAt} proof={proof} />
           ))}
         </tbody>
       </table>
@@ -112,7 +111,7 @@ async function ProofTable() {
 function ProofRow({ proof }: { proof: BridgeProof }) {
   return (
     <tr className="border-b border-border align-top last:border-b-0">
-      <td className="py-2 pr-4 font-mono">{proof.tokenSha256}</td>
+      <td className="py-2 pr-4 font-mono">{proof.tokenSha256Prefix}</td>
       <td className="py-2 pr-4 font-mono whitespace-nowrap">{timestamp(proof.createdAt)}</td>
       <td className="py-2 pr-4 font-mono whitespace-nowrap">{proof.receivedAt ? timestamp(proof.receivedAt) : "—"}</td>
       <td className="py-2 pr-4 font-mono">{proof.receiveCount}</td>

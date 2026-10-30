@@ -4,11 +4,18 @@ const mocks = vi.hoisted(() => ({
   getSessionUser: vi.fn(),
   insert: vi.fn(),
   from: vi.fn(),
+  generateExamWorkbook: vi.fn(),
+  realGenerate: null as null | ((...args: unknown[]) => unknown),
 }));
 vi.mock("../../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("../../../../../adapters/supabase/server", () => ({
   createClient: async () => ({ from: mocks.from }),
 }));
+vi.mock("../../../../../adapters/workbook/generate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../../../adapters/workbook/generate")>();
+  mocks.realGenerate = actual.generateExamWorkbook as (...args: unknown[]) => unknown;
+  return { ...actual, generateExamWorkbook: mocks.generateExamWorkbook };
+});
 
 import { readWorkbook } from "../../../../../adapters/workbook/read";
 import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "../../../../../adapters/workbook/templates";
@@ -18,6 +25,7 @@ import { GET } from "./route";
 const URL_ = "https://excel-practice-omega.vercel.app/dev/bridge-proof/download";
 
 beforeEach(() => {
+  mocks.generateExamWorkbook.mockImplementation((...args: unknown[]) => mocks.realGenerate!(...args));
   mocks.from.mockImplementation(() => ({ insert: mocks.insert }));
   vi.spyOn(console, "log").mockImplementation(() => {});
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -28,6 +36,7 @@ afterEach(() => {
   mocks.getSessionUser.mockReset();
   mocks.insert.mockReset();
   mocks.from.mockReset();
+  mocks.generateExamWorkbook.mockReset();
 });
 
 describe("GET /dev/bridge-proof/download", () => {
@@ -47,6 +56,28 @@ describe("GET /dev/bridge-proof/download", () => {
     expect(res.headers.get("content-type")).toMatch(/^application\/json/);
     expect(res.headers.get("content-disposition")).toBeNull();
     expect(await res.json()).toEqual({ ok: false, code: "INTERNAL_ERROR" });
+  });
+
+  it("answers 500 without a file or a row when generation fails, and logs only the 12-hex hash", async () => {
+    mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
+    mocks.insert.mockResolvedValue({ error: null });
+    mocks.generateExamWorkbook.mockRejectedValue(new Error("ENOENT: no such file"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const res = await GET(new Request(URL_));
+    expect(res.status).toBe(500);
+    expect(res.headers.get("content-disposition")).toBeNull();
+    expect(await res.json()).toEqual({ ok: false, code: "INTERNAL_ERROR" });
+    expect(mocks.insert).not.toHaveBeenCalled();
+
+    const token = (mocks.generateExamWorkbook.mock.calls[0][0] as { token: string }).token;
+    const lines = error.mock.calls.map((args) => args.map(String).join(" "));
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).not.toContain(token);
+    expect(lines[0]).not.toContain(tokenSha256Hex(token));
+    const logged = JSON.parse(lines[0]) as { tokenSha256: string };
+    expect(logged.tokenSha256).toMatch(/^[0-9a-f]{12}$/);
+    expect(logged.tokenSha256).toBe(tokenSha256Hex(token).slice(0, 12));
   });
 
   it("records the token's hash, then serves the patched .xlsm as an uncached attachment", async () => {
