@@ -38,10 +38,30 @@ export interface MacroInspectionLog {
   templateVersion: number;
 }
 
+/** One formula cell read from the posted workbook. */
+export interface InspectedFormula {
+  sheet: string;
+  ref: string;
+  /** Normalized formula text (`readWorkbook`). */
+  formula: string;
+}
+
+/**
+ * What the bridge proof records (`recordBridgeProofReceipt`); `null` when the
+ * file holds no well-formed `WHE_AttemptToken`, so no proof row can be its own.
+ */
+export interface MacroProofReading {
+  /** Full lowercase hex SHA-256 of the file's token: the proof row's key. Never logged. */
+  tokenSha256: string;
+  /** Every formula cell: sheets in workbook order, cells in sheet order. */
+  formulas: InspectedFormula[];
+}
+
 export interface MacroInspection {
   status: 200 | 400;
   body: MacroInspectionBody;
   log: MacroInspectionLog;
+  proof: MacroProofReading | null;
 }
 
 export async function inspectMacroSubmission(
@@ -57,10 +77,12 @@ export async function inspectMacroSubmission(
     fingerprintMatches: false,
     templateVersion: CURRENT_TEMPLATE_VERSION,
   };
+  let proof: MacroProofReading | null = null;
   const reject = (code: RejectionCode): MacroInspection => ({
     status: 400,
     body: { ok: false, code },
     log: { ...log, code },
+    proof,
   });
 
   // AD-6 (1): any file the reader cannot read is NOT_EXCEL, not only a non-zip.
@@ -78,6 +100,7 @@ export async function inspectMacroSubmission(
   log.tokenMatches = TOKEN_RE.test(fileToken) && headerToken !== null && sameText(headerToken, fileToken);
   // AD-6 (4): the version is the server's, never `WHE_TemplateVersion`.
   log.fingerprintMatches = matchesTemplate(reading.vbaModuleHashes, CURRENT_TEMPLATE_VERSION);
+  if (TOKEN_RE.test(fileToken)) proof = { tokenSha256: tokenSha256Hex(fileToken), formulas: formulasOf(reading) };
 
   if (!log.tokenMatches || !log.fingerprintMatches) return reject(RejectionCode.IDENTITY_ALTERED);
   return {
@@ -87,12 +110,28 @@ export async function inspectMacroSubmission(
       data: { bytes: log.bytes, tokenMatches: log.tokenMatches, fingerprintMatches: log.fingerprintMatches },
     },
     log,
+    proof,
   };
 }
 
 /** First 12 hex of the SHA-256 of a token: lets a log line be matched to a token without holding it. */
 export function tokenSha256(token: string): string {
-  return createHash("sha256").update(token, "utf8").digest("hex").slice(0, 12);
+  return tokenSha256Hex(token).slice(0, 12);
+}
+
+/** Full lowercase hex SHA-256 of a token (64 hex): stored instead of the token, never logged. */
+export function tokenSha256Hex(token: string): string {
+  return createHash("sha256").update(token, "utf8").digest("hex");
+}
+
+function formulasOf(reading: WorkbookReading): InspectedFormula[] {
+  const formulas: InspectedFormula[] = [];
+  for (const [sheet, cells] of Object.entries(reading.sheets)) {
+    for (const [ref, cell] of Object.entries(cells)) {
+      if (cell.formula !== null) formulas.push({ sheet, ref, formula: cell.formula });
+    }
+  }
+  return formulas;
 }
 
 function sameText(a: string, b: string): boolean {

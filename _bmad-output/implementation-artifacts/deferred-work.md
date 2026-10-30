@@ -36,3 +36,10 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-app-shell-tema-dark-excel-sidebar-header-dan-toggle-tema-plan.md`
   summary: No component-rendering test harness, so Settings' "Not set" and first-load-failure branches (and other Server/Client Component rendering) are verified only by hand.
   evidence: Repo has vitest in node only (no jsdom/testing-library); add a harness when the first content surface (Dashboard) lands.
+
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
+  summary: Contract test that runs the real migration (grants, RLS, RPC parameter names) against the adapter's column and function names.
+  evidence: 1.9 tests mock every Supabase client; a renamed parameter or dropped grant shows only as `proofRecorded: false` in Production. Build it with `attempts` in epic 2 (local Supabase or pgTAP); `bridge_proofs` is dropped then.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
+  summary: Drop `bridge_proofs`, its RPC and `/dev/bridge-proof` once epic 2's `attempts` and `submit()` exist.
+  evidence: Proof-only table and page (1.9 Design Notes).
