@@ -3,7 +3,7 @@ title: 'Sign in with Google dengan allowlist satu akun'
 type: 'feature'
 ticket: '7'
 created: '2026-10-29'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
