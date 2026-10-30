@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { getAccount, type Account } from "@/adapters/supabase/auth";
 import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
@@ -44,6 +44,8 @@ async function AccountSections() {
   try {
     account = await getAccount();
   } catch (error) {
+    // Next's own interrupts (a prefetch prerender stopped by `connection()`) are not failures.
+    unstable_rethrow(error);
     console.error(JSON.stringify({ event: "settings.account_failed", name: (error as Error)?.name ?? "unknown" }));
     return <AccountView email={null} timeZone={{ ok: false }} />;
   }
