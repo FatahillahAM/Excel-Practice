@@ -98,6 +98,32 @@ context:
 
 ## Review Triage Log
 
+| # | Lens | Finding | Verdict | Evidence | Route |
+|---|------|---------|---------|----------|-------|
+| 1 | blind-hunter, edge-case-hunter | A failed or unauthenticated preference save keeps the unsaved theme on screen; retrying the selected option is a no-op; an expired session loops on "Coba lagi" | medium | `PreferencesProvider` writes `<html>` and state first and never reverts; `UNAUTHENTICATED` is shown as a generic error | patch: revert on failure; send `UNAUTHENTICATED` to `/login?next=` |
+| 2 | blind-hunter, edge-case-hunter | Settings: no session shows a retry loop, a thrown `getAccount` hits the error boundary, the failure branch hides Log out, the error block has no alert role | low | `AccountSections` treats `null` as a load failure and wraps nothing | patch |
+| 3 | edge-case-hunter | Empty-string email shows a blank "Signed in as" | low | `auth.ts` keeps `""` | patch: normalize to null |
+| 4 | blind-hunter | Fallback name "El Zavier" when no email | false | EXPERIENCE.md: the user is always shown as El Zavier / EZ | reject |
+| 5 | blind-hunter, edge-case-hunter | Drawer overshoot strip clipped by `overflow-y-auto` | low | `::before` sits outside the scroll box | patch: scroll an inner wrapper |
+| 6 | edge-case-hunter | Drawer stays open with scrim after widening to ≥ lg | low | No breakpoint listener | patch: close on `(min-width: 1024px)` |
+| 7 | edge-case-hunter | Avatar Log out uses `requestSubmit` only | low | Older Safari lacks it | patch: fall back to `submit()` |
+| 8 | blind-hunter | Radius tokens override Tailwind's sizes | false | Intended: DESIGN.md radii; Health card now 16px = DESIGN "cards lg" | reject |
+| 9 | blind-hunter, intent-alignment | Root-layout cookie read makes every route dynamic | low | Required to set `<html>` attributes server-side before first paint (spine Preferences); single-user app, cost negligible | reject |
+| 10 | blind-hunter | Comments in `next.config.ts` and `layout.tsx` contradict each other (streaming vs blocking) | low | Direct correction | patch |
+| 11 | blind-hunter | Redundant login reduced-motion block; login button overrides the global focus ring | low | Global rule covers it | patch |
+| 12 | blind-hunter | Default `next` after sign-in is `/`, adding a 307 hop to `/dashboard` | low | Fallbacks in `auth-rules.ts` and login card | patch: default `/dashboard` |
+| 13 | blind-hunter | Path normalization duplicated in `nav-items.ts` | low | Two small helpers; no observed drift | reject |
+| 14 | blind-hunter | `body` font-size in px ignores user font setting | low | Direct correction | patch: `0.875rem` |
+| 15 | blind-hunter, edge-case-hunter | `useMotionPreference` misses `navigator.connection` change | low | Direct addition | patch |
+| 16 | intent-alignment | Theme Toggle hidden from the phone header | maybe-false | Mockup phone top bar omits it; DESIGN Header Bar lists it; asked the user | defer (user's call) |
+| 17 | edge-case-hunter | Another tab's cookie leaves the toggle state stale | low | Single user; a reload fixes it; fix adds sync logic | reject |
+| 18 | edge-case-hunter | `/health` link removed from UI | low | Ops page, reachable by URL | reject |
+| 19 | edge-case-hunter | Reload mid-save repaints the old theme | low | Inherent to the async save; covered by #1 for failures | reject |
+| 20 | verification-gap | `/` → `/dashboard` redirect untested | low | Pre-verified | patch: test `nextConfig.redirects()` against `NAV_ITEMS` |
+| 21 | verification-gap | Client `<html>` writes and latest-save-wins untested | low | Pre-verified | patch: pure `applyPreferenceAttributes` + save-state step with tests |
+| 22 | verification-gap | `secure` cookie flag untested at the action | low | Pre-verified | patch: env-stubbed tests |
+| 23 | verification-gap | Settings "Not set"/failure rendering untested | low | No component harness; adapter output tested | defer |
+
 ## Design Notes
 
 Tema berlaku instan: tombol mengubah `document.documentElement.dataset.theme` di klien lalu memanggil Server Action yang menulis cookie, sehingga reload berikutnya dirender server dengan atribut yang sama (tanpa skrip inline). Reduce motion: EXPERIENCE.md mematikan motion bila OS meminta **atau** switch menyala, jadi switch hanya bisa menambah reduksi: `on` menulis `data-motion="reduce"`, `system` (default, juga saat switch dimatikan) tidak menulis atribut dan media query `prefers-reduced-motion` yang bekerja. Footer, badge level, dan Streak Chip disisakan sebagai slot kosong untuk epic Progres.
