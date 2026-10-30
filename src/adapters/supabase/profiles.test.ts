@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ensureProfile } from "./profiles";
+import { ensureProfile, readTimeZone } from "./profiles";
 
 type PgError = { code: string; message: string } | null;
 
@@ -64,5 +64,33 @@ describe("ensureProfile", () => {
     const { client, insert } = fakeClient({ selectError: { code: "08006", message: "connection" } });
     expect(await ensureProfile(client, "user-1", "Asia/Jakarta")).toBe("failed");
     expect(insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("readTimeZone", () => {
+  function zoneClient(answer: { data: unknown; error: PgError }) {
+    const eq = vi.fn(() => ({ maybeSingle: async () => answer }));
+    const select = vi.fn(() => ({ eq }));
+    const client = { from: vi.fn(() => ({ select })) };
+    return { client: client as unknown as SupabaseClient, select, eq };
+  }
+
+  it("returns the stored zone of the user", async () => {
+    const { client, select, eq } = zoneClient({ data: { time_zone: "Asia/Jakarta" }, error: null });
+    expect(await readTimeZone(client, "user-1")).toEqual({ ok: true, timeZone: "Asia/Jakarta" });
+    expect(select).toHaveBeenCalledWith("time_zone");
+    expect(eq).toHaveBeenCalledWith("id", "user-1");
+  });
+
+  it("is null when no profile exists yet", async () => {
+    const { client } = zoneClient({ data: null, error: null });
+    expect(await readTimeZone(client, "user-1")).toEqual({ ok: true, timeZone: null });
+  });
+
+  it("reports a failed read", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { client } = zoneClient({ data: null, error: { code: "42501", message: "permission denied" } });
+    expect(await readTimeZone(client, "user-1")).toEqual({ ok: false });
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("profile.read_failed"));
   });
 });

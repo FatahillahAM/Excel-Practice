@@ -68,14 +68,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `package.json` -- `radix-ui` 1.8.1, `lucide-react` 1.64.0 (dipin).
-- [ ] `src/app/globals.css` -- token lengkap gelap/terang dari DESIGN.md (`[data-theme="light"]` override, `color-scheme`), radius, focus ring, aturan reduced-motion (`@media` + `[data-motion="reduce"]`).
-- [ ] `src/lib/preferences.ts` (+ tes) -- parse/serialize cookie `theme` (`dark|light`, default dark) dan `reduce_motion` (`on|system`, default system); Server Action yang menulis cookie (1 tahun, `sameSite=lax`).
-- [ ] `src/app/layout.tsx` -- `data-theme`/`data-motion` dari cookie sebelum first paint.
-- [ ] `src/hooks/use-motion-preference.ts` (+ tes logika murni) -- gabungan `prefers-reduced-motion`, switch, dan opsi scene (`saveData`, `deviceMemory ≤ 4`).
-- [ ] `src/components/ui/` -- sheet, switch, dropdown-menu, separator.
-- [ ] `src/components/shell/` -- `AppSidebar`, `MobileDrawer`, `HeaderBar`, `ThemeToggle`, `AvatarMenu`, `Logo`, daftar menu (+ tes pemetaan path → item aktif).
-- [ ] `src/app/(app)/layout.tsx` + halaman placeholder tiap menu (judul `<title>` per permukaan) + `src/app/(app)/settings/page.tsx`; `src/app/page.tsx` → redirect `/dashboard`.
+- [x] `package.json` -- `radix-ui` 1.8.1, `lucide-react` 1.64.0 (dipin).
+- [x] `src/app/globals.css` -- token lengkap gelap/terang dari DESIGN.md (`[data-theme="light"]` override, `color-scheme`), radius, focus ring, aturan reduced-motion (`@media` + `[data-motion="reduce"]`).
+- [x] `src/lib/preferences.ts` (+ tes) -- parse/serialize cookie `theme` (`dark|light`, default dark) dan `reduce_motion` (`on|system`, default system); Server Action yang menulis cookie (1 tahun, `sameSite=lax`).
+- [x] `src/app/layout.tsx` -- `data-theme`/`data-motion` dari cookie sebelum first paint.
+- [x] `src/hooks/use-motion-preference.ts` (+ tes logika murni) -- gabungan `prefers-reduced-motion`, switch, dan opsi scene (`saveData`, `deviceMemory ≤ 4`).
+- [x] `src/components/ui/` -- sheet, switch, dropdown-menu, separator.
+- [x] `src/components/shell/` -- `AppSidebar`, `MobileDrawer`, `HeaderBar`, `ThemeToggle`, `AvatarMenu`, `Logo`, daftar menu (+ tes pemetaan path → item aktif).
+- [x] `src/app/(app)/layout.tsx` + halaman placeholder tiap menu (judul `<title>` per permukaan) + `src/app/(app)/settings/page.tsx`; `src/app/page.tsx` → redirect `/dashboard`.
 
 **Acceptance Criteria:**
 - Given login di Production, when `/dashboard` dibuka, then shell gelap sesuai mockup (sidebar, header, tanpa isi).
@@ -83,6 +83,16 @@ context:
 - Given lebar HP, when "Open menu" ditekan, then drawer berisi menu yang sama dan Log out mengakhiri sesi.
 
 ## Implementation Notes
+
+- `cacheComponents`: the root layout reads the cookies and exports `instant = false` (blocking root; Next 16 docs: an `<html>` attribute from a cookie has no child to wrap in `<Suspense>`). Every route is now `ƒ` (dynamic), including `/login` and `/health`.
+- That streamed root turns a `redirect()` in `app/page.tsx` into a client-side redirect after a 200, so `next.config.ts` also answers `/` with a real 307 to `/dashboard`; `app/page.tsx` keeps the redirect as fallback.
+- Server Actions live in `src/lib/preferences-actions.ts` (a `"use server"` file may only export async functions); the pure parse/serialize stays in `src/lib/preferences.ts`; `src/lib/preferences-server.ts` reads the cookies for both layouts. The actions check the session (`getSessionUser`, claims) before writing; cookies are `httpOnly`, `sameSite=lax`, 1 year, `secure` in production.
+- Header toggle and Settings share `PreferencesProvider` (client context); a change sets `<html>` instantly, then the action stores the cookie and the refreshed root layout renders the same attribute.
+- Adapters: `auth.ts` `getSessionUser()` / `getAccount()`, `profiles.ts` `readTimeZone()` (+ tests). Settings shows the first-load message + "Try again" when the read fails.
+- Radius tokens override Tailwind `rounded-sm/md/lg/xl` (6/12/16/28px); Login button `rounded-xl` → `rounded-md` (still 12px), Health card → `rounded-lg`.
+- Drawer, menu and secondary-page motion are CSS keyframes in `globals.css` (no `tw-animate-css`); the reduced-motion rule (`@media` + `[data-motion="reduce"]`) turns off every animation and transition, so Radix unmounts the drawer instantly.
+- Phone top bar: Theme Toggle shows from `sm` up (mockup phone bar = menu, title, avatar); on phones it stays reachable in Settings.
+- New copy: `shellMessages.firstLoadFailed` (message set, verbatim) and `preferenceSaveFailed` (illustrative).
 
 ## Plan Change Log
 

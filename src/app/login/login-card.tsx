@@ -148,7 +148,7 @@ export function SignInBlock({
   onSignIn?: (event: React.MouseEvent | React.KeyboardEvent) => void;
 }) {
   const className =
-    "flex h-11 w-full items-center justify-center gap-2.5 rounded-xl border-b-4 border-primary-edge bg-primary px-4 text-sm font-bold text-primary-foreground transition-[box-shadow,transform,border-width] duration-150 hover:shadow-[0_0_0_4px_var(--glow-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none sm:w-64";
+    "flex h-11 w-full items-center justify-center gap-2.5 rounded-md border-b-4 border-primary-edge bg-primary px-4 text-sm font-bold text-primary-foreground transition-[box-shadow,transform,border-width] duration-150 hover:shadow-[0_0_0_4px_var(--glow-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:translate-y-0.5 active:border-b-2 disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none sm:w-64";
   return (
     <div className="flex flex-col items-center gap-3">
       {pending ? (

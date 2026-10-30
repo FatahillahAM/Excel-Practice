@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
-/* Dark Excel (DESIGN.md): dark is the default; the light pair lands with the app shell. */
+/*
+ * Dark Excel (DESIGN.md › Colors). Dark is the default and also what any
+ * unknown `data-theme` gets; `data-theme="light"` swaps in the AA-tuned light
+ * set. The root layout sets the attribute from the `theme` cookie before first
+ * paint; the Theme Toggle changes it in place.
+ */
 :root {
   --background: #0b0d0c;
   --foreground: #f5f7f6;
@@ -8,13 +13,83 @@
   --muted: #1c211e;
   --muted-foreground: #8e9993;
   --border: #262d29;
+  --input-border: #5f6b64;
   --primary: #34d17f;
   --primary-foreground: #04140b;
-  --primary-edge: #1f8a52;
-  --glow-soft: #34d17f29;
-  --glow-strong: #34d17fb3;
+  --accent: #12301f;
   --success: #4ade80;
   --destructive: #ff5c6c;
+  --warning: #ffc34d;
+  --streak: #ff7a1a;
+  --streak-vivid: #ff7a1a;
+  --chart-1: #34d17f;
+  --chart-2: #2dd4bf;
+  --chart-3: #a3e635;
+  --ring: #f5f7f6;
+  --success-soft: #1c3526;
+  --destructive-soft: #362223;
+  --warning-soft: #36311f;
+  --streak-soft: #362717;
+  --freeze-soft: #18332f;
+  --uc-hatch: #3f3821;
+  --primary-edge: #1f8a52;
+  --glow-soft: #34d17f29;
+  --glow: #34d17f59;
+  --glow-strong: #34d17fb3;
+  --streak-glow: #ff7a1a38;
+  --streak-glow-strong: #ff7a1a73;
+  /* Records Card stays dark in both modes. */
+  --records-surface: #12301f;
+  --records-surface-end: #04140b;
+  --records-foreground: #f5f7f6;
+  --records-accent: #34d17f;
+
+  /* Layout tokens (DESIGN.md › spacing). */
+  --sidebar-width: 256px;
+  --drawer-width: 286px;
+  --header-height: 68px;
+
+  /* Easings (DESIGN.md › Motion register). */
+  --ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-cinematic: cubic-bezier(0.16, 1, 0.3, 1);
+
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
+  --card: #ffffff;
+  --muted: #ededf0;
+  --muted-foreground: #636368;
+  --border: #d9d9de;
+  --input-border: #86868b;
+  --primary: #107c41;
+  --primary-foreground: #ffffff;
+  --accent: #e3f6eb;
+  --success: #137535;
+  --destructive: #be233b;
+  --warning: #8f5200;
+  --streak: #b93d07;
+  --streak-vivid: #f2600c;
+  --chart-1: #107c41;
+  --chart-2: #0b7473;
+  --chart-3: #4d7c0f;
+  --ring: #1d1d1f;
+  --success-soft: #deece3;
+  --destructive-soft: #f6e0e4;
+  --warning-soft: #efe7db;
+  --streak-soft: #f5e4dc;
+  --freeze-soft: #ddeceb;
+  --uc-hatch: #ebe0d1;
+  --primary-edge: #0a512a;
+  --glow-soft: #13a35a29;
+  --glow: #13a35a59;
+  --glow-strong: #13a35ab3;
+  --streak-glow: #f2600c38;
+  --streak-glow-strong: #f2600c73;
+
+  color-scheme: light;
 }
 
 @theme inline {
@@ -24,20 +99,63 @@
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
+  --color-input-border: var(--input-border);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-primary-edge: var(--primary-edge);
-  --color-glow-soft: var(--glow-soft);
-  --color-glow-strong: var(--glow-strong);
+  --color-accent: var(--accent);
   --color-success: var(--success);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-streak: var(--streak);
+  --color-streak-vivid: var(--streak-vivid);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-ring: var(--ring);
+  --color-success-soft: var(--success-soft);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-streak-soft: var(--streak-soft);
+  --color-freeze-soft: var(--freeze-soft);
+  --color-uc-hatch: var(--uc-hatch);
+  --color-primary-edge: var(--primary-edge);
+  --color-glow-soft: var(--glow-soft);
+  --color-glow: var(--glow);
+  --color-glow-strong: var(--glow-strong);
+  --color-streak-glow: var(--streak-glow);
+  --color-streak-glow-strong: var(--streak-glow-strong);
+  --color-records-surface: var(--records-surface);
+  --color-records-surface-end: var(--records-surface-end);
+  --color-records-foreground: var(--records-foreground);
+  --color-records-accent: var(--records-accent);
+
+  /* DESIGN.md › rounded. */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 28px;
+
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Text", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI Variable Display", "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Menlo, Consolas, monospace;
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  /* Focus ring (EXPERIENCE.md › Accessibility Floor): 2px ring, 3px offset. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
+  /* The sticky Header Bar never covers the focused element. */
+  html:has([data-app-shell]) {
+    scroll-padding-top: var(--header-height);
   }
 }
 
@@ -62,4 +180,83 @@
   .login-enter-block {
     animation: none;
   }
+}
+
+/* Secondary page entrance (History, Records, Tips & Tricks, Setup Guide,
+   Settings): one 0.2s fade + 8px drop, no stagger. */
+@keyframes page-drop {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.page-enter {
+  animation: page-drop 0.2s ease-out both;
+}
+
+/* Mobile Drawer (EXPERIENCE.md › Drawer): open slides 0.4s bouncy with a
+   scrim fade; close 0.25s without bounce. Radix keeps the closed panel
+   mounted until its animation ends. */
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes drawer-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@keyframes scrim-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scrim-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+.drawer-panel[data-state="open"] {
+  animation: drawer-in 0.4s var(--ease-bouncy) both;
+}
+.drawer-panel[data-state="closed"] {
+  animation: drawer-out 0.25s ease-in both;
+}
+/* The bouncy overshoot pulls the panel past its edge: keep that strip filled. */
+.drawer-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 100% 0 -48px;
+  background: inherit;
+}
+.drawer-scrim[data-state="open"] {
+  animation: scrim-in 0.4s ease-out both;
+}
+.drawer-scrim[data-state="closed"] {
+  animation: scrim-out 0.25s ease-in both;
+}
+
+/* Dropdown menu: short fade. */
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.menu-panel[data-state="open"] {
+  animation: menu-in 0.15s ease-out both;
+}
+
+/*
+ * Reduced motion (AD-12): off when the OS asks, or when the Settings switch
+ * writes `data-motion="reduce"` on <html>. The switch only adds reduction.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+:root[data-motion="reduce"] *,
+:root[data-motion="reduce"] *::before,
+:root[data-motion="reduce"] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
 }

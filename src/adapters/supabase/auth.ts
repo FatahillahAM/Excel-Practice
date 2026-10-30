@@ -1,5 +1,5 @@
 import { isAllowedEmail, type AuthStatus } from "./auth-rules";
-import { ensureProfile } from "./profiles";
+import { ensureProfile, readTimeZone, type TimeZoneRead } from "./profiles";
 import { createClient } from "./server";
 
 /**
@@ -70,4 +70,34 @@ export async function completeGoogleSignIn(code: string, timeZone: string | null
 export async function signOut(): Promise<void> {
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
+}
+
+export type SessionUser = { id: string; email: string | null };
+
+type ServerClient = Awaited<ReturnType<typeof createClient>>;
+
+async function userFromClaims(supabase: ServerClient): Promise<SessionUser | null> {
+  const { data, error } = await supabase.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims || typeof claims.sub !== "string" || claims.sub.length === 0) return null;
+  return { id: claims.sub, email: typeof claims.email === "string" ? claims.email : null };
+}
+
+/**
+ * The signed-in user from this request's session cookie (verified claims), or
+ * `null` without a session. Server Actions call it before acting
+ * (Consistency Conventions › Auth & session).
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  return userFromClaims(await createClient());
+}
+
+export type Account = { email: string | null; timeZone: TimeZoneRead };
+
+/** Settings' account row and streak time zone, through the user's session (AD-9). */
+export async function getAccount(): Promise<Account | null> {
+  const supabase = await createClient();
+  const user = await userFromClaims(supabase);
+  if (!user) return null;
+  return { email: user.email, timeZone: await readTimeZone(supabase, user.id) };
 }

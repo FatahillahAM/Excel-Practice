@@ -12,3 +12,11 @@ export const loginMessages = {
 } as const;
 
 export type LoginError = keyof typeof loginMessages;
+
+/** Signed-in surfaces (EXPERIENCE.md › Message set, State Patterns › Settings). */
+export const shellMessages = {
+  /** "First-load failure" row, verbatim. */
+  firstLoadFailed: "Datanya belum kemuat. Coba lagi, ya.",
+  /** Settings › Saved / error (illustrative). */
+  preferenceSaveFailed: "Pengaturan belum tersimpan. Coba lagi, ya.",
+} as const;
