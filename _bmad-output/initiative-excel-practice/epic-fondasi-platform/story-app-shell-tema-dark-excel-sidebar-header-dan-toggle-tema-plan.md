@@ -3,7 +3,7 @@ title: 'App shell: tema Dark Excel, sidebar, header, dan toggle tema'
 type: 'feature'
 ticket: '8'
 created: '2026-10-30'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
