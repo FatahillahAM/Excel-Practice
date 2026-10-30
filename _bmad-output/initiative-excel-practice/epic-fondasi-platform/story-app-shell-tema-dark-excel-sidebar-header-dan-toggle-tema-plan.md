@@ -3,7 +3,7 @@ title: 'App shell: tema Dark Excel, sidebar, header, dan toggle tema'
 type: 'feature'
 ticket: '8'
 created: '2026-10-30'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -94,6 +94,7 @@ context:
 - Phone top bar: Theme Toggle shows from `sm` up (mockup phone bar = menu, title, avatar); on phones it stays reachable in Settings.
 - New copy: `shellMessages.firstLoadFailed` (message set, verbatim) and `preferenceSaveFailed` (illustrative).
 - User 2026-10-30: on phones the Theme Toggle stays in Settings only (no top-bar toggle); `preferenceSaveFailed` text "Pengaturan belum tersimpan. Coba lagi, ya." accepted.
+- Preview (deploy `dpl_7V8Xh9SH7KifWsPhhA4kBk7Z5kYX`, commit `2cfb37c`): user ran the five manual checks (login → `/dashboard`, theme persists after reload, Settings shows Asia/Jakarta and the account, drawer at phone width, Log out from avatar and sidebar), all passed.
 
 ## Plan Change Log
 
