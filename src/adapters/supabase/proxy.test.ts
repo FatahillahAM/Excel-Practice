@@ -45,11 +45,13 @@ describe("updateSession without Supabase env (fails closed)", () => {
     expect(res.headers.get("location")).toBe(`${ORIGIN}/login?next=%2Flevels%3Ftab%3Dtips`);
   });
 
-  it("redirects the bridge proof download to Login, back to the download after sign-in", async () => {
+  it("redirects an attempt's download to Login, back to the download after sign-in", async () => {
     const updateSession = await loadProxy(noEnv);
-    const res = await updateSession(request("/dev/bridge-proof/download"));
+    const res = await updateSession(request("/exam/0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f/download"));
     expect(res.status).toBe(307);
-    expect(res.headers.get("location")).toBe(`${ORIGIN}/login?next=%2Fdev%2Fbridge-proof%2Fdownload`);
+    expect(res.headers.get("location")).toBe(
+      `${ORIGIN}/login?next=%2Fexam%2F0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f%2Fdownload`,
+    );
   });
 
   it("answers an unknown API with 401 JSON", async () => {

@@ -1,0 +1,247 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  createAttempt,
+  deleteOpenAttempt,
+  downloadGeneratedFile,
+  findAttemptByTokenHash,
+  findOpenAttemptId,
+  generatedFilePath,
+  markReceived,
+  readAttempt,
+  uploadGeneratedFile,
+  XLSM_CONTENT_TYPE,
+} from "./attempts";
+
+type Result = { data: unknown; error: { code: string; message: string } | null };
+
+const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
+const HASH = "a".repeat(64);
+
+/** A PostgREST query builder that records every call and answers `result` at the end of the chain. */
+function fakeClient(result: Result | (() => Promise<Result>)) {
+  const calls: [string, unknown[]][] = [];
+  const answer = () => (typeof result === "function" ? result() : Promise.resolve(result));
+  const builder: Record<string, unknown> = {};
+  for (const name of ["select", "insert", "update", "delete", "eq", "in"]) {
+    builder[name] = (...args: unknown[]) => (calls.push([name, args]), builder);
+  }
+  for (const name of ["single", "maybeSingle"]) {
+    builder[name] = (...args: unknown[]) => (calls.push([name, args]), answer());
+  }
+  builder.then = (resolve: (r: Result) => unknown, reject: (e: unknown) => unknown) => answer().then(resolve, reject);
+  const from = vi.fn(() => builder);
+  return { client: { from } as unknown as SupabaseClient, from, calls };
+}
+
+let errors: { mock: { calls: unknown[][] } };
+beforeEach(() => {
+  errors = vi.spyOn(console, "error").mockImplementation(() => {});
+});
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+function expectNoHashLogged() {
+  for (const [line] of errors.mock.calls) expect(String(line)).not.toContain(HASH);
+}
+
+describe("createAttempt", () => {
+  const attempt = { itemId: "L01-P1", tokenSha256: HASH, templateVersion: 1 };
+
+  it("inserts only item, token hash and template version, and returns the new id", async () => {
+    const { client, from, calls } = fakeClient({ data: { id: ID }, error: null });
+    expect(await createAttempt(client, attempt)).toEqual({ ok: true, id: ID });
+    expect(from).toHaveBeenCalledWith("attempts");
+    expect(calls).toEqual([
+      ["insert", [{ item_id: "L01-P1", token_sha256: HASH, template_version: 1 }]],
+      ["select", ["id"]],
+      ["single", []],
+    ]);
+  });
+
+  it("maps the unique violation of the in-progress index to open_attempt_exists", async () => {
+    const { client } = fakeClient({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "attempts_one_in_progress_idx"' },
+    });
+    expect(await createAttempt(client, attempt)).toEqual({ ok: false, reason: "open_attempt_exists" });
+  });
+
+  it("treats any other unique violation (the token hash) as a failure", async () => {
+    const { client } = fakeClient({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "attempts_token_sha256_key"' },
+    });
+    expect(await createAttempt(client, attempt)).toEqual({ ok: false, reason: "failed" });
+  });
+
+  it("fails on any other error or a throw, and logs no hash", async () => {
+    const denied = fakeClient({ data: null, error: { code: "42501", message: "denied" } });
+    expect(await createAttempt(denied.client, attempt)).toEqual({ ok: false, reason: "failed" });
+    const threw = fakeClient(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(await createAttempt(threw.client, attempt)).toEqual({ ok: false, reason: "failed" });
+    expect(errors).toHaveBeenCalledTimes(2);
+    expectNoHashLogged();
+  });
+});
+
+describe("deleteOpenAttempt", () => {
+  it("deletes the attempt only while it is open", async () => {
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await deleteOpenAttempt(client, ID)).toBe(true);
+    expect(calls).toEqual([
+      ["delete", []],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "open"]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it("is false when no row was deleted (no longer open, or not the user's)", async () => {
+    expect(await deleteOpenAttempt(fakeClient({ data: [], error: null }).client, ID)).toBe(false);
+  });
+
+  it("is false when the delete fails", async () => {
+    const { client } = fakeClient({ data: null, error: { code: "42501", message: "denied" } });
+    expect(await deleteOpenAttempt(client, ID)).toBe(false);
+  });
+});
+
+describe("findOpenAttemptId", () => {
+  it("reads the user's attempt in open, received or grading_failed", async () => {
+    const { client, calls } = fakeClient({ data: { id: ID }, error: null });
+    expect(await findOpenAttemptId(client, "user-1")).toEqual({ ok: true, value: ID });
+    expect(calls).toEqual([
+      ["select", ["id"]],
+      ["eq", ["user_id", "user-1"]],
+      ["in", ["status", ["open", "received", "grading_failed"]]],
+      ["maybeSingle", []],
+    ]);
+  });
+
+  it("is null without one and not ok on an error", async () => {
+    expect(await findOpenAttemptId(fakeClient({ data: null, error: null }).client, "user-1")).toEqual({ ok: true, value: null });
+    const failed = fakeClient({ data: null, error: { code: "08006", message: "x" } });
+    expect(await findOpenAttemptId(failed.client, "user-1")).toEqual({ ok: false });
+  });
+});
+
+describe("readAttempt", () => {
+  const row = {
+    id: ID,
+    item_id: "L01-P1",
+    status: "open",
+    template_version: 1,
+    started_at: "2026-11-02T01:00:00+00:00",
+    received_at: null,
+  };
+
+  it("maps the row", async () => {
+    const { client, calls } = fakeClient({ data: row, error: null });
+    expect(await readAttempt(client, ID)).toEqual({
+      ok: true,
+      value: { id: ID, itemId: "L01-P1", status: "open", templateVersion: 1, startedAt: row.started_at, receivedAt: null },
+    });
+    expect(calls[1]).toEqual(["eq", ["id", ID]]);
+  });
+
+  it("is null for an attempt RLS hides (not the owner, or none)", async () => {
+    expect(await readAttempt(fakeClient({ data: null, error: null }).client, ID)).toEqual({ ok: true, value: null });
+  });
+
+  it("is null for a segment that is not a uuid, without asking the database", async () => {
+    const { client, from } = fakeClient({ data: row, error: null });
+    expect(await readAttempt(client, "not-a-uuid")).toEqual({ ok: true, value: null });
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("is not ok when the read fails", async () => {
+    expect(await readAttempt(fakeClient({ data: null, error: { code: "PGRST301", message: "jwt" } }).client, ID)).toEqual({
+      ok: false,
+    });
+  });
+});
+
+describe("attempt files", () => {
+  function fakeStorage(answers: { upload?: Result; download?: Result }) {
+    const upload = vi.fn(async () => answers.upload ?? { data: {}, error: null });
+    const download = vi.fn(async () => answers.download ?? { data: null, error: null });
+    const from = vi.fn(() => ({ upload, download }));
+    return { client: { storage: { from } } as unknown as SupabaseClient, from, upload, download };
+  }
+
+  it("stores the generated file once at <attemptId>/generated.xlsm", async () => {
+    const bytes = new Uint8Array([1, 2, 3]);
+    const { client, from, upload } = fakeStorage({});
+    expect(await uploadGeneratedFile(client, ID, bytes)).toBe(true);
+    expect(generatedFilePath(ID)).toBe(`${ID}/generated.xlsm`);
+    expect(from).toHaveBeenCalledWith("attempt-files");
+    expect(upload).toHaveBeenCalledWith(`${ID}/generated.xlsm`, bytes, { contentType: XLSM_CONTENT_TYPE, upsert: false });
+  });
+
+  it("reports a failed upload", async () => {
+    const { client } = fakeStorage({ upload: { data: null, error: { code: "403", message: "row-level security" } } });
+    expect(await uploadGeneratedFile(client, ID, new Uint8Array([1]))).toBe(false);
+  });
+
+  it("reads the stored bytes back", async () => {
+    const { client, download } = fakeStorage({ download: { data: new Blob([new Uint8Array([7, 8, 9])]), error: null } });
+    expect(await downloadGeneratedFile(client, ID)).toEqual(new Uint8Array([7, 8, 9]));
+    expect(download).toHaveBeenCalledWith(`${ID}/generated.xlsm`);
+  });
+
+  it("is null when the file cannot be read", async () => {
+    const { client } = fakeStorage({ download: { data: null, error: { code: "404", message: "not found" } } });
+    expect(await downloadGeneratedFile(client, ID)).toBeNull();
+  });
+});
+
+describe("findAttemptByTokenHash (service role)", () => {
+  it("finds the attempt by the full token hash", async () => {
+    const { client, calls } = fakeClient({ data: { id: ID, status: "open", template_version: 1 }, error: null });
+    expect(await findAttemptByTokenHash(client, HASH)).toEqual({
+      ok: true,
+      value: { id: ID, status: "open", templateVersion: 1 },
+    });
+    expect(calls).toEqual([
+      ["select", ["id, status, template_version"]],
+      ["eq", ["token_sha256", HASH]],
+      ["maybeSingle", []],
+    ]);
+  });
+
+  it("is null for a token no attempt has, not ok on an error, and logs no hash", async () => {
+    expect(await findAttemptByTokenHash(fakeClient({ data: null, error: null }).client, HASH)).toEqual({ ok: true, value: null });
+    const failed = fakeClient({ data: null, error: { code: "08006", message: HASH } });
+    expect(await findAttemptByTokenHash(failed.client, HASH)).toEqual({ ok: false });
+    expectNoHashLogged();
+  });
+});
+
+describe("markReceived (service role)", () => {
+  it("is a compare-and-set from open to received", async () => {
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await markReceived(client, ID)).toEqual({ ok: true, value: true });
+    expect(calls).toEqual([
+      ["update", [{ status: "received" }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "open"]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it("changes nothing when the attempt is no longer open", async () => {
+    expect(await markReceived(fakeClient({ data: [], error: null }).client, ID)).toEqual({ ok: true, value: false });
+  });
+
+  it("is not ok when the update fails or throws", async () => {
+    expect(await markReceived(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client, ID)).toEqual({ ok: false });
+    const threw = fakeClient(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(await markReceived(threw.client, ID)).toEqual({ ok: false });
+  });
+});

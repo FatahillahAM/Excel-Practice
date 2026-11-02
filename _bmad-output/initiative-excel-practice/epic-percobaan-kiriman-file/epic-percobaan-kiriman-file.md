@@ -6,6 +6,7 @@ covers: [CAP-2, CAP-3, CAP-4, CAP-16, CAP-18, CAP-20]
 after: []
 assignee: ""
 risk: high
+status: in-progress
 ---
 
 # Percobaan dan kiriman file
@@ -20,7 +21,19 @@ El Zavier mengerjakan soal di Excel dan file-nya selalu sampai ke server yang be
 
 ## Requirements
 
-Diisi saat inception: baris dari spec (dan spine bila perlu) sebagai id stabil, dipetakan ke covers.
+- CAP-2: Start mengunduh `.xlsm` berisi sheet Instructions (skenario + perintah), data, dan tombol Finish yang terbuka di Excel 2021; waktu mulai tercatat di server. (SPEC, CAP-2)
+- CAP-3: Finish menyimpan dan mengirim file, menampilkan pesan terkirim, menutup workbook (dan Excel bila tak ada workbook lain), lalu web berpindah sendiri; bila gagal, workbook tetap terbuka dengan pesan ke upload. (SPEC, CAP-3)
+- CAP-4: Upload lewat web saat macro diblokir; file yang sama lewat macro dan upload diperlakukan sama. (SPEC, CAP-4)
+- CAP-16: Setup Guide: folder kerja tetap = lokasi simpan + Trusted Location, Unblock, arahan ke upload; setelah diikuti di laptop Finish berjalan. (SPEC, CAP-16)
+- CAP-18: Kiriman ditolak dengan pesan berbeda per alasan (bukan percobaan ini, sudah dinilai, identitas diubah/rusak, sudah ditutup), lewat macro dan upload; percobaan tetap terbuka kecuali alasannya sudah ditutup. (SPEC, CAP-18)
+- CAP-20: Satu percobaan terbuka; Start lain terkunci; Resume membuka lagi layar percobaan dengan waktu sejak Start; Abandon membatalkan tanpa dinilai; unduh ulang memberi file yang sama tanpa mengubah waktu mulai. (SPEC, CAP-20; ulang penilaian gagal = epic 3)
+- B1: Siklus `attempts.status` satu mesin dan satu penulis (AD-5), termasuk transisi baru received/grading_failed → abandoned. (spine AD-5)
+- B2: `submit(bytes, channel)` dipakai macro dan upload dengan urutan keputusan AD-6 dan 5 kode; modul VBA yang tidak dipin harus kosong. (spine AD-4, AD-6)
+- B3: `GET /api/attempts/:attemptId/status` dan polling layar exam tiap 2 s; pesan lambat setelah 15 s di received. (spine AD-11)
+- B4: Kontrak `LevelModule` di `src/core/content` dan konten Level 1 Practice 1, divalidasi zod. (spine AD-2, Conventions › Validation)
+- B5: File hasil Start disimpan sekali per percobaan di `attempt-files`; unduh ulang melayani byte itu. (spine AD-4, Conventions › Storage paths)
+- B6: Batas ukuran body dan hasil inflate di jalur macro dan upload. (spine Deferred; Parked epic 1)
+- B7: Template v1 ditandai rilis sebelum percobaan asli pertama di Production. (spine AD-4; Parked epic 1)
 
 ## Done when
 
@@ -57,3 +70,9 @@ Siklus percobaan dan jalur kiriman file. Bukan: penilaian dan Results (epic 3), 
   - Tes kontrak DB (grant, RLS, nama parameter RPC) terhadap migrasi asli, dibangun bersama `attempts`.
   - Hapus juga tabel `bridge_proofs` dan RPC `record_bridge_proof_receipt` bersama halaman `/dev/bridge-proof`.
   - Profil bisa belum ada bila zona waktu browser tidak valid saat login (`ensureProfile` → `skipped`); buat atau wajibkan profil sebelum `attempts` merujuk `profiles`.
+- Decision: tracer bullet = entry 1 (Start L1 P1 → unduh → Finish → layar "File received — grading…" di Production); setelahnya jalur paralel core/submit (2→3), layar exam (4→5), Level Detail Panel (6→7), konten (8); modFinish (9) setelah kode final; Setup Guide (10); refactor sweep (11); uji Production + rilis v1 (12) (user, 2026-11-02).
+- Decision: AD-5 menambah transisi received/grading_failed → abandoned agar Abandon membuka kunci sebelum ada penilaian (menjawab pertanyaan terbuka AD-5) (user, 2026-11-02).
+- Decision: Start di epic ini ada di Level Detail Panel Level 1 pada /levels; epic 4 menambah Level Map di sekitarnya (user, 2026-11-02).
+- Decision: template v1 diubah di tempat untuk modFinish epic ini, lalu ditandai rilis di entry 12; perubahan sesudahnya = v2 (user, 2026-11-02).
+- Decision: modul VBA yang tidak dipin harus ternormalisasi kosong; kode tambahan di modul mana pun = IDENTITY_ALTERED (spine AD-4) (user, 2026-11-02).
+- Touch point: "Try again" penilaian gagal dan hint yang terbuka saat Resume milik epic 3 (CAP-7, CAP-20); pesan HP saat Start milik epic 4 (CAP-12). Kasus ALREADY_GRADED diuji di entry 12 dengan status yang diset lewat SQL.

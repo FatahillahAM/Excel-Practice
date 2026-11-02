@@ -1,0 +1,263 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted(() => ({
+  headers: vi.fn(),
+  redirect: vi.fn((url: string) => {
+    throw Object.assign(new Error("NEXT_REDIRECT"), { url });
+  }),
+  getSessionUser: vi.fn(),
+  readTimeZone: vi.fn(),
+  ensureProfile: vi.fn(),
+  createAttempt: vi.fn(),
+  deleteOpenAttempt: vi.fn(),
+  findOpenAttemptId: vi.fn(),
+  uploadGeneratedFile: vi.fn(),
+  generateExamWorkbook: vi.fn(),
+  realGenerate: null as null | ((...args: unknown[]) => unknown),
+}));
+const SUPABASE = { session: true };
+
+vi.mock("next/headers", () => ({ headers: mocks.headers }));
+vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
+vi.mock("../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
+vi.mock("../../../adapters/supabase/profiles", () => ({
+  readTimeZone: mocks.readTimeZone,
+  ensureProfile: mocks.ensureProfile,
+}));
+vi.mock("../../../adapters/supabase/attempts", () => ({
+  createAttempt: mocks.createAttempt,
+  deleteOpenAttempt: mocks.deleteOpenAttempt,
+  findOpenAttemptId: mocks.findOpenAttemptId,
+  uploadGeneratedFile: mocks.uploadGeneratedFile,
+}));
+vi.mock("../../../adapters/workbook/generate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../adapters/workbook/generate")>();
+  mocks.realGenerate = actual.generateExamWorkbook as (...args: unknown[]) => unknown;
+  return { ...actual, generateExamWorkbook: mocks.generateExamWorkbook };
+});
+
+import { readWorkbook } from "../../../adapters/workbook/read";
+import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "../../../adapters/workbook/templates";
+import { tokenSha256Hex } from "../../../adapters/workbook/token";
+import { findItem } from "../../../content/levels";
+import { startMessages } from "../../../messages/id";
+import { startAttempt, type StartState } from "./start-actions";
+
+const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
+const OTHER_ID = "11111111-2222-4333-8444-555555555555";
+const IDLE: StartState = { status: "idle" };
+
+function form(fields: Record<string, string> = { itemId: "L01-P1", timeZone: "Asia/Jakarta" }): FormData {
+  const data = new FormData();
+  for (const [key, value] of Object.entries(fields)) data.set(key, value);
+  return data;
+}
+
+/** Runs the action; a `redirect()` comes back as `{ redirected: url }`. */
+async function start(data = form()): Promise<StartState | { redirected: string }> {
+  try {
+    return await startAttempt(IDLE, data);
+  } catch (error) {
+    const url = (error as { url?: string }).url;
+    if (url) return { redirected: url };
+    throw error;
+  }
+}
+
+type ConsoleSpy = { mock: { calls: unknown[][] } };
+let logs: ConsoleSpy;
+let errors: ConsoleSpy;
+
+beforeEach(() => {
+  mocks.headers.mockResolvedValue(new Headers({ origin: "https://excel-practice-omega.vercel.app", host: "excel-practice-omega.vercel.app" }));
+  mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
+  mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: "Asia/Jakarta" });
+  mocks.ensureProfile.mockResolvedValue("created");
+  mocks.createAttempt.mockResolvedValue({ ok: true, id: ID });
+  mocks.deleteOpenAttempt.mockResolvedValue(true);
+  mocks.findOpenAttemptId.mockResolvedValue({ ok: true, value: OTHER_ID });
+  mocks.uploadGeneratedFile.mockResolvedValue(true);
+  mocks.generateExamWorkbook.mockImplementation((...args: unknown[]) => mocks.realGenerate!(...args));
+  logs = vi.spyOn(console, "log").mockImplementation(() => {});
+  errors = vi.spyOn(console, "error").mockImplementation(() => {});
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  for (const mock of Object.values(mocks)) if (typeof mock === "function" && "mockReset" in mock) mock.mockReset();
+});
+
+function generatedToken(): string {
+  return (mocks.generateExamWorkbook.mock.calls[0][0] as { token: string }).token;
+}
+
+function expectNoTokenLogged(token: string) {
+  for (const spy of [logs, errors]) {
+    for (const args of spy.mock.calls) {
+      const line = args.map(String).join(" ");
+      expect(line).not.toContain(token);
+      expect(line).not.toContain(tokenSha256Hex(token));
+    }
+  }
+}
+
+describe("startAttempt", () => {
+  it("creates an open L01-P1 attempt, stores its file, and moves to the exam screen with the download", async () => {
+    expect(await start()).toEqual({ redirected: `/exam/${ID}?download=1` });
+
+    const token = generatedToken();
+    expect(mocks.createAttempt).toHaveBeenCalledWith(SUPABASE, {
+      itemId: "L01-P1",
+      tokenSha256: tokenSha256Hex(token),
+      templateVersion: CURRENT_TEMPLATE_VERSION,
+    });
+    const [client, attemptId, bytes] = mocks.uploadGeneratedFile.mock.calls[0] as [unknown, string, Uint8Array];
+    expect(client).toBe(SUPABASE);
+    expect(attemptId).toBe(ID);
+    const reading = await readWorkbook(bytes);
+    expect(reading.properties.WHE_AttemptToken).toBe(token);
+    expect(reading.properties.WHE_ServerUrl).toBe("https://excel-practice-omega.vercel.app");
+    expect(reading.properties.WHE_TemplateVersion).toBe(String(CURRENT_TEMPLATE_VERSION));
+    expect(matchesTemplate(reading.vbaModuleHashes, CURRENT_TEMPLATE_VERSION)).toBe(true);
+    expect(reading.sheets.Instructions.B2.value).toMatch(/^Level 1 · Practice 1/);
+    expect(reading.sheets.Data.A1.value).toBe("Kode Batch");
+
+    expect(mocks.ensureProfile).not.toHaveBeenCalled();
+    expect(mocks.deleteOpenAttempt).not.toHaveBeenCalled();
+    const lines = logs.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([
+      expect.objectContaining({ event: "attempt.started", attemptId: ID, itemId: "L01-P1", tokenSha256: tokenSha256Hex(token).slice(0, 12) }),
+    ]);
+    expectNoTokenLogged(token);
+  });
+
+  it("uses the forwarded host when the request has no Origin header", async () => {
+    mocks.headers.mockResolvedValue(new Headers({ host: "localhost:3000", "x-forwarded-proto": "http" }));
+    await start();
+    const input = mocks.generateExamWorkbook.mock.calls[0][0] as { serverUrl: string };
+    expect(input.serverUrl).toBe("http://localhost:3000");
+  });
+
+  it("gives every Start a new token", async () => {
+    await start();
+    await start();
+    const [first, second] = mocks.createAttempt.mock.calls.map(([, row]) => (row as { tokenSha256: string }).tokenSha256);
+    expect(first).not.toBe(second);
+  });
+
+  it("sends a visitor without a session to Login and writes nothing", async () => {
+    mocks.getSessionUser.mockResolvedValue(null);
+    expect(await start()).toEqual({ redirected: "/login?next=%2Flevels" });
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+  });
+
+  describe("without a profile", () => {
+    beforeEach(() => {
+      mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: null });
+    });
+
+    it("creates it with the browser's zone from the form, then starts", async () => {
+      expect(await start()).toEqual({ redirected: `/exam/${ID}?download=1` });
+      expect(mocks.ensureProfile).toHaveBeenCalledWith(SUPABASE, "user-1", "Asia/Jakarta");
+    });
+
+    it.each([
+      ["no zone", { itemId: "L01-P1" }, null],
+      ["an invalid zone", { itemId: "L01-P1", timeZone: "Mars/Olympus" }, null],
+    ])("asks for a reload with %s, without a row", async (_, fields, expectedZone) => {
+      mocks.ensureProfile.mockResolvedValue("skipped");
+      expect(await start(form(fields))).toEqual({ status: "error", error: "profileMissing" });
+      expect(mocks.ensureProfile).toHaveBeenCalledWith(SUPABASE, "user-1", expectedZone);
+      expect(mocks.createAttempt).not.toHaveBeenCalled();
+      expect(startMessages.profileMissing).toBeTruthy();
+    });
+
+    it("reports a profile insert that fails", async () => {
+      mocks.ensureProfile.mockResolvedValue("failed");
+      expect(await start()).toEqual({ status: "error", error: "startFailed" });
+      expect(mocks.createAttempt).not.toHaveBeenCalled();
+    });
+  });
+
+  it("reports a profile read that fails", async () => {
+    mocks.readTimeZone.mockResolvedValue({ ok: false });
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["the profile read throws", () => mocks.readTimeZone.mockRejectedValue(new TypeError("fetch failed"))],
+    ["the profile insert throws", () => {
+      mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: null });
+      mocks.ensureProfile.mockRejectedValue(new TypeError("fetch failed"));
+    }],
+    ["the session read throws", () => mocks.getSessionUser.mockRejectedValue(new TypeError("fetch failed"))],
+    ["the headers cannot be read", () => mocks.headers.mockRejectedValue(new Error("no request"))],
+    ["the insert throws", () => mocks.createAttempt.mockRejectedValue(new TypeError("fetch failed"))],
+  ])("answers startFailed when %s, and logs an event line", async (_, arrange) => {
+    arrange();
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])) as { event: string });
+    expect(lines.length).toBeGreaterThan(0);
+    for (const call of mocks.generateExamWorkbook.mock.calls) expectNoTokenLogged((call[0] as { token: string }).token);
+  });
+
+  it("refuses an item whose exam cells fail the schema, before generating", async () => {
+    vi.spyOn(findItem("L01-P1")!.item, "examCells").mockReturnValue({});
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it("refuses an unknown item", async () => {
+    expect(await start(form({ itemId: "L09-P5", timeZone: "Asia/Jakarta" }))).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it("creates no row when generation fails, and logs only the 12-hex hash", async () => {
+    mocks.generateExamWorkbook.mockRejectedValue(new Error("ENOENT: no such file"));
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+    expect(mocks.uploadGeneratedFile).not.toHaveBeenCalled();
+    const token = generatedToken();
+    const [line] = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(line).toMatchObject({ event: "attempt.generate_failed", tokenSha256: tokenSha256Hex(token).slice(0, 12) });
+    expectNoTokenLogged(token);
+  });
+
+  it("deletes the row again when the file cannot be stored", async () => {
+    mocks.uploadGeneratedFile.mockResolvedValue(false);
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.deleteOpenAttempt).toHaveBeenCalledWith(SUPABASE, ID);
+    expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it("deletes the row again when the upload throws", async () => {
+    mocks.uploadGeneratedFile.mockRejectedValue(new TypeError("fetch failed"));
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.deleteOpenAttempt).toHaveBeenCalledWith(SUPABASE, ID);
+  });
+
+  it("reports an insert that fails", async () => {
+    mocks.createAttempt.mockResolvedValue({ ok: false, reason: "failed" });
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.uploadGeneratedFile).not.toHaveBeenCalled();
+  });
+
+  it("refuses a second Start (unique index) and links to the attempt in progress", async () => {
+    mocks.createAttempt.mockResolvedValue({ ok: false, reason: "open_attempt_exists" });
+    expect(await start()).toEqual({ status: "blocked", attemptId: OTHER_ID });
+    expect(mocks.findOpenAttemptId).toHaveBeenCalledWith(SUPABASE, "user-1");
+    expect(mocks.uploadGeneratedFile).not.toHaveBeenCalled();
+  });
+
+  it("still refuses when the attempt in progress cannot be read", async () => {
+    mocks.createAttempt.mockResolvedValue({ ok: false, reason: "open_attempt_exists" });
+    mocks.findOpenAttemptId.mockResolvedValue({ ok: false });
+    expect(await start()).toEqual({ status: "blocked", attemptId: null });
+  });
+});
