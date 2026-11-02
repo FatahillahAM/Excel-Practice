@@ -14,6 +14,7 @@ import { ensureProfile, readTimeZone } from "../../../adapters/supabase/profiles
 import { createClient } from "../../../adapters/supabase/server";
 import { generateExamWorkbook, type GeneratedWorkbook } from "../../../adapters/workbook/generate";
 import { newAttemptToken, tokenSha256, tokenSha256Hex } from "../../../adapters/workbook/token";
+import { examCellsSchema } from "../../../core/content/level-module";
 import { findItem } from "../../../content/levels";
 import type { StartError } from "../../../messages/id";
 
@@ -33,8 +34,24 @@ const LEVELS_PATH = "/levels";
  * again, since a row without a file would lock every other Start.
  */
 export async function startAttempt(_previous: StartState, formData: FormData): Promise<StartState> {
+  let outcome: StartState | { redirectTo: string };
+  try {
+    outcome = await start(formData);
+  } catch (error) {
+    // Anything that throws (session, profile, client, generation, storage) is a failed Start, never an error page.
+    console.error(
+      JSON.stringify({ event: "attempt.start_threw", name: error instanceof Error ? error.name : typeof error }),
+    );
+    return { status: "error", error: "startFailed" };
+  }
+  // Outside the try: `redirect()` throws on purpose.
+  if ("redirectTo" in outcome) redirect(outcome.redirectTo);
+  return outcome;
+}
+
+async function start(formData: FormData): Promise<StartState | { redirectTo: string }> {
   const user = await getSessionUser();
-  if (!user) redirect(loginRedirectPath(LEVELS_PATH, ""));
+  if (!user) return { redirectTo: loginRedirectPath(LEVELS_PATH, "") };
 
   const supabase = await createClient();
   const profile = await requireProfile(supabase, user.id, formData.get("timeZone"));
@@ -46,6 +63,11 @@ export async function startAttempt(_previous: StartState, formData: FormData): P
     console.error(JSON.stringify({ event: "attempt.start_unknown_item" }));
     return { status: "error", error: "startFailed" };
   }
+  const cells = found.item.examCells();
+  if (!examCellsSchema.safeParse(cells).success) {
+    console.error(JSON.stringify({ event: "attempt.start_invalid_cells", itemId: found.item.id }));
+    return { status: "error", error: "startFailed" };
+  }
 
   const token = newAttemptToken();
   const hash = tokenSha256Hex(token);
@@ -54,7 +76,7 @@ export async function startAttempt(_previous: StartState, formData: FormData): P
     generated = await generateExamWorkbook({
       token,
       serverUrl: requestOrigin(await headers()),
-      cells: found.item.examCells(),
+      cells,
     });
   } catch (error) {
     console.error(
@@ -79,7 +101,9 @@ export async function startAttempt(_previous: StartState, formData: FormData): P
     return { status: "blocked", attemptId: open.ok ? open.value : null };
   }
 
-  if (!(await uploadGeneratedFile(supabase, created.id, generated.bytes))) {
+  // A thrown upload is a failed one: the row must still be deleted.
+  const stored = await uploadGeneratedFile(supabase, created.id, generated.bytes).catch(() => false);
+  if (!stored) {
     const deleted = await deleteOpenAttempt(supabase, created.id);
     console.error(JSON.stringify({ event: "attempt.start_upload_failed", attemptId: created.id, deleted }));
     return { status: "error", error: "startFailed" };
@@ -94,7 +118,7 @@ export async function startAttempt(_previous: StartState, formData: FormData): P
       tokenSha256: tokenSha256(token),
     }),
   );
-  redirect(`/exam/${created.id}?download=1`);
+  return { redirectTo: `/exam/${created.id}?download=1` };
 }
 
 /**

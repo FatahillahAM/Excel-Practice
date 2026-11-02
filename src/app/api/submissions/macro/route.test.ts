@@ -219,13 +219,29 @@ describe("POST /api/submissions/macro: Finish", () => {
     },
   );
 
-  it("accepts a Finish that lost the compare-and-set to another post", async () => {
+  it("answers the attempt's current status when the compare-and-set lost to another change", async () => {
     mocks.markReceived.mockResolvedValue({ ok: true, value: false });
+    mocks.findAttemptByTokenHash
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "abandoned", templateVersion: CURRENT_TEMPLATE_VERSION } });
     const token = newToken();
     const posted = await post(await patched(token), token);
     expect(posted.status).toBe(200);
-    expectRawText(posted, ACCEPTED);
+    expectRawText(posted, { ok: true, data: { status: "abandoned" } });
+    expect(mocks.findAttemptByTokenHash).toHaveBeenCalledTimes(2);
     expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, received: false });
+  });
+
+  it("answers 500 when the re-read after a lost compare-and-set fails", async () => {
+    mocks.markReceived.mockResolvedValue({ ok: true, value: false });
+    mocks.findAttemptByTokenHash
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
+      .mockResolvedValueOnce({ ok: false });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const token = newToken();
+    const posted = await post(await patched(token), token);
+    expect(posted.status).toBe(500);
+    expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
   });
 
   it("still matches after a sheet is added and Excel rewrites the VBA project", async () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FINISH_HINT, POLL_MS, statusLine } from "./exam-status";
+import { FINISH_HINT, POLL_MS, isFinalPollFailure, statusLine } from "./exam-status";
 
 describe("Exam Status Line", () => {
   it("says Excel is open while the attempt is open", () => {
@@ -13,5 +13,11 @@ describe("Exam Status Line", () => {
 
   it("polls every 2 s (AD-11)", () => {
     expect(POLL_MS).toBe(2000);
+  });
+
+  it("stops polling on 401 and 404, and keeps polling through other failures", () => {
+    expect(isFinalPollFailure(401)).toBe(true);
+    expect(isFinalPollFailure(404)).toBe(true);
+    for (const code of [200, 500, 502, 503]) expect(isFinalPollFailure(code)).toBe(false);
   });
 });

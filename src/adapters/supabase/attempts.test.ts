@@ -61,8 +61,19 @@ describe("createAttempt", () => {
   });
 
   it("maps the unique violation of the in-progress index to open_attempt_exists", async () => {
-    const { client } = fakeClient({ data: null, error: { code: "23505", message: "attempts_one_in_progress_idx" } });
+    const { client } = fakeClient({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "attempts_one_in_progress_idx"' },
+    });
     expect(await createAttempt(client, attempt)).toEqual({ ok: false, reason: "open_attempt_exists" });
+  });
+
+  it("treats any other unique violation (the token hash) as a failure", async () => {
+    const { client } = fakeClient({
+      data: null,
+      error: { code: "23505", message: 'duplicate key value violates unique constraint "attempts_token_sha256_key"' },
+    });
+    expect(await createAttempt(client, attempt)).toEqual({ ok: false, reason: "failed" });
   });
 
   it("fails on any other error or a throw, and logs no hash", async () => {
@@ -79,13 +90,18 @@ describe("createAttempt", () => {
 
 describe("deleteOpenAttempt", () => {
   it("deletes the attempt only while it is open", async () => {
-    const { client, calls } = fakeClient({ data: null, error: null });
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
     expect(await deleteOpenAttempt(client, ID)).toBe(true);
     expect(calls).toEqual([
       ["delete", []],
       ["eq", ["id", ID]],
       ["eq", ["status", "open"]],
+      ["select", ["id"]],
     ]);
+  });
+
+  it("is false when no row was deleted (no longer open, or not the user's)", async () => {
+    expect(await deleteOpenAttempt(fakeClient({ data: [], error: null }).client, ID)).toBe(false);
   });
 
   it("is false when the delete fails", async () => {

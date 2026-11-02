@@ -34,7 +34,7 @@ describe("level registry", () => {
 });
 
 describe("LevelModule schema", () => {
-  const item = { id: "L01-P1", kind: "practice" as const, number: 1, examCells: () => ({}) };
+  const item = { id: "L01-P1", kind: "practice" as const, number: 1, examCells: () => ({ Data: { A1: "x" } }) };
   const level = { id: "01-fondasi", number: 1, name: "Fondasi", phase: "v1" as const, hintQuota: 3, items: [item] };
 
   it("accepts the item ids of the attempts table", () => {
@@ -53,6 +53,14 @@ describe("LevelModule schema", () => {
   ])("rejects %s", (_, change) => {
     const candidate = { ...level, ...change } as unknown as Parameters<typeof defineLevelModule>[0];
     expect(() => defineLevelModule(candidate)).toThrow();
+  });
+
+  it.each([
+    ["no sheet", {}],
+    ["a sheet without cells", { Data: {} }],
+    ["a reference that is not A1", { Data: { a1: "x" } }],
+  ])("rejects exam cells with %s", (_, cells) => {
+    expect(examCellsSchema.safeParse(cells).success).toBe(false);
   });
 
   it("accepts the Test as item 6", () => {

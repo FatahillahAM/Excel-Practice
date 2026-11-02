@@ -46,6 +46,8 @@ export const XLSM_CONTENT_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.12
 
 const TABLE = "attempts";
 const UNIQUE_VIOLATION = "23505";
+/** The partial unique index on attempts in progress (migration 20261102000001). */
+const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
 const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -76,7 +78,10 @@ export async function createAttempt(
       .select("id")
       .single();
     if (error) {
-      if (error.code === UNIQUE_VIOLATION) return { ok: false, reason: "open_attempt_exists" };
+      const names = `${error.message ?? ""} ${(error as { details?: string }).details ?? ""}`;
+      if (error.code === UNIQUE_VIOLATION && names.includes(IN_PROGRESS_INDEX)) {
+        return { ok: false, reason: "open_attempt_exists" };
+      }
       logError("attempt.create_failed", error.code);
       return { ok: false, reason: "failed" };
     }
@@ -92,11 +97,18 @@ export async function createAttempt(
   }
 }
 
-/** Start's compensation when the file could not be stored: deletes the attempt while it is still `open`. */
+/**
+ * Start's compensation when the file could not be stored: deletes the attempt
+ * while it is still `open`. `true` only when exactly that one row was deleted.
+ */
 export async function deleteOpenAttempt(supabase: SupabaseClient, attemptId: string): Promise<boolean> {
   try {
-    const { error } = await supabase.from(TABLE).delete().eq("id", attemptId).eq("status", "open");
-    if (!error) return true;
+    const { data, error } = await supabase.from(TABLE).delete().eq("id", attemptId).eq("status", "open").select("id");
+    if (!error) {
+      if (Array.isArray(data) && data.length === 1) return true;
+      logError("attempt.delete_failed", "no_row");
+      return false;
+    }
     logError("attempt.delete_failed", error.code);
   } catch (error) {
     logError("attempt.delete_failed", errorName(error));

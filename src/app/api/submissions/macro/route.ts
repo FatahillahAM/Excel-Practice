@@ -77,9 +77,15 @@ export async function POST(request: Request): Promise<Response> {
   if (attempt.status !== "open") return answer(200, { ok: true, data: { status: attempt.status } });
   const marked = await markReceived(service, attempt.id);
   if (!marked.ok) return fail("macro.mark_received_failed");
-  // `value: false`: another post moved it first; the file is accepted all the same.
-  log.received = marked.value;
-  return answer(200, { ok: true, data: { status: "received" } });
+  if (marked.value) {
+    log.received = true;
+    return answer(200, { ok: true, data: { status: "received" } });
+  }
+  // The compare-and-set lost: the attempt left `open` meanwhile. Answer with what it is now.
+  const now = await findAttemptByTokenHash(service, identified.tokenSha256Hex);
+  if (!now.ok) return fail("macro.lookup_failed");
+  if (now.value === null) return reject(RejectionCode.NOT_THIS_ATTEMPT);
+  return answer(200, { ok: true, data: { status: now.value.status } });
 }
 
 function errorName(error: unknown): string {

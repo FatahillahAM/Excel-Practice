@@ -40,6 +40,7 @@ vi.mock("../../../adapters/workbook/generate", async (importOriginal) => {
 import { readWorkbook } from "../../../adapters/workbook/read";
 import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "../../../adapters/workbook/templates";
 import { tokenSha256Hex } from "../../../adapters/workbook/token";
+import { findItem } from "../../../content/levels";
 import { startMessages } from "../../../messages/id";
 import { startAttempt, type StartState } from "./start-actions";
 
@@ -186,6 +187,31 @@ describe("startAttempt", () => {
     expect(mocks.createAttempt).not.toHaveBeenCalled();
   });
 
+  it.each([
+    ["the profile read throws", () => mocks.readTimeZone.mockRejectedValue(new TypeError("fetch failed"))],
+    ["the profile insert throws", () => {
+      mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: null });
+      mocks.ensureProfile.mockRejectedValue(new TypeError("fetch failed"));
+    }],
+    ["the session read throws", () => mocks.getSessionUser.mockRejectedValue(new TypeError("fetch failed"))],
+    ["the headers cannot be read", () => mocks.headers.mockRejectedValue(new Error("no request"))],
+    ["the insert throws", () => mocks.createAttempt.mockRejectedValue(new TypeError("fetch failed"))],
+  ])("answers startFailed when %s, and logs an event line", async (_, arrange) => {
+    arrange();
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])) as { event: string });
+    expect(lines.length).toBeGreaterThan(0);
+    for (const call of mocks.generateExamWorkbook.mock.calls) expectNoTokenLogged((call[0] as { token: string }).token);
+  });
+
+  it("refuses an item whose exam cells fail the schema, before generating", async () => {
+    vi.spyOn(findItem("L01-P1")!.item, "examCells").mockReturnValue({});
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
   it("refuses an unknown item", async () => {
     expect(await start(form({ itemId: "L09-P5", timeZone: "Asia/Jakarta" }))).toEqual({ status: "error", error: "startFailed" });
     expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
@@ -208,6 +234,12 @@ describe("startAttempt", () => {
     expect(await start()).toEqual({ status: "error", error: "startFailed" });
     expect(mocks.deleteOpenAttempt).toHaveBeenCalledWith(SUPABASE, ID);
     expect(mocks.redirect).not.toHaveBeenCalled();
+  });
+
+  it("deletes the row again when the upload throws", async () => {
+    mocks.uploadGeneratedFile.mockRejectedValue(new TypeError("fetch failed"));
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.deleteOpenAttempt).toHaveBeenCalledWith(SUPABASE, ID);
   });
 
   it("reports an insert that fails", async () => {

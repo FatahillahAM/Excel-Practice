@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AttemptStatus } from "@/adapters/supabase/attempts";
+import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
+import { shellMessages } from "../../../../messages/id";
 
 /** AD-11: the exam screen polls every 2 s while the attempt is in one of these. */
 const POLLED: readonly AttemptStatus[] = ["open", "received", "grading_failed"];
 export const POLL_MS = 2000;
+
+/** Status answers that polling again cannot fix: no session (401) or no such attempt (404). */
+export function isFinalPollFailure(httpStatus: number): boolean {
+  return httpStatus === 401 || httpStatus === 404;
+}
 
 export const FINISH_HINT = "Klik Finish di file kalau sudah selesai, ya.";
 
@@ -40,6 +46,7 @@ export function ExamStatus({
 }) {
   const [status, setStatus] = useState<AttemptStatus>(initialStatus);
   const [tick, setTick] = useState(0);
+  const [lost, setLost] = useState(false);
   const downloadStarted = useRef(false);
   const downloadUrl = `/exam/${attemptId}/download`;
 
@@ -57,11 +64,15 @@ export function ExamStatus({
   }, [downloadUrl]);
 
   useEffect(() => {
-    if (!POLLED.includes(status)) return;
+    if (lost || !POLLED.includes(status)) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
         const res = await fetch(`/api/attempts/${attemptId}/status`, { cache: "no-store" });
+        if (isFinalPollFailure(res.status)) {
+          if (!cancelled) setLost(true);
+          return;
+        }
         if (!res.ok) return;
         const body = (await res.json()) as { ok?: boolean; data?: { status?: AttemptStatus } };
         const next = body.ok ? body.data?.status : undefined;
@@ -77,7 +88,20 @@ export function ExamStatus({
       window.clearTimeout(timer);
     };
     // `tick` re-arms the timer after every poll, also when the status did not change.
-  }, [attemptId, status, tick]);
+  }, [attemptId, status, tick, lost]);
+
+  if (lost) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p role="alert" lang="id">
+          {shellMessages.firstLoadFailed}
+        </p>
+        <a href={`/exam/${attemptId}`} className="font-bold text-primary underline-offset-4 hover:underline">
+          Try again
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-2">

@@ -47,11 +47,15 @@ const A1_REF_RE = /^[A-Z]{1,3}[1-9]\d{0,6}$/;
 
 const cellValueSchema = z.union([z.string(), z.number().finite()]);
 
-/** The output of `examCells()`: at least one sheet, A1 references only. */
-export const examCellsSchema = z.record(
-  z.string().min(1).max(31),
-  z.record(z.string().regex(A1_REF_RE), cellValueSchema),
-);
+/** The output of `examCells()`: at least one sheet, each with at least one cell, A1 references only. */
+export const examCellsSchema = z
+  .record(
+    z.string().min(1).max(31),
+    z
+      .record(z.string().regex(A1_REF_RE), cellValueSchema)
+      .refine((cells) => Object.keys(cells).length > 0, "A sheet needs at least one cell"),
+  )
+  .refine((sheets) => Object.keys(sheets).length > 0, "At least one sheet");
 
 const levelItemSchema = z.object({
   id: z.string().regex(ITEM_ID_RE),

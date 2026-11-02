@@ -87,19 +87,27 @@ create policy "open attempts are deleted by their owner"
 -- Generated and submitted files: `attempt-files/<attemptId>/…`. Private; the
 -- browser never reaches it (AD-9): the app streams the bytes through the
 -- user's session.
-insert into storage.buckets (id, name, public)
-  values ('attempt-files', 'attempt-files', false)
-  on conflict (id) do nothing;
+-- 5 MB, macro-enabled workbooks only.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('attempt-files', 'attempt-files', false, 5242880, array['application/vnd.ms-excel.sheet.macroEnabled.12'])
+  on conflict (id) do update
+    set public = false,
+        file_size_limit = excluded.file_size_limit,
+        allowed_mime_types = excluded.allowed_mime_types;
 
-create policy "attempt files are uploaded by the attempt's owner"
+-- Start stores exactly one object, `<attemptId>/generated.xlsm`, for the
+-- owner's attempt while it is still `open`. Submitted files (entry 5) get
+-- their own policy.
+create policy "generated files are uploaded by the open attempt's owner"
   on storage.objects for insert
   to authenticated
   with check (
     bucket_id = 'attempt-files'
     and exists (
       select 1 from public.attempts a
-      where a.id::text = (storage.foldername(name))[1]
+      where name = a.id::text || '/generated.xlsm'
         and a.user_id = (select auth.uid())
+        and a.status = 'open'
     )
   );
 
