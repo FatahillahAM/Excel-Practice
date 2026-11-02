@@ -3,12 +3,12 @@ title: 'Tracer: Start L1 P1 → unduh → Finish → File received'
 type: 'feature'
 ticket: '1'
 created: '2026-11-02'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: 'b5a5bb0292c3022d0f1d69cea790a1d01a1872df'
 context:
@@ -109,6 +109,26 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (4 lenses): 0 high, 3 medium, 9 low, 0 false; patched 8, deferred 3, rejected the rest (planned in later entries or negligible).
+
+| # | Lens | Finding | Verdict | Route |
+|---|------|---------|---------|-------|
+| 1 | edge, blind | Start action lets thrown profile/client errors escape to the error boundary | medium | patch: catch → `startFailed` |
+| 2 | blind | Storage insert policy allows any name, any status; bucket has no size/MIME limit | medium | patch: `<id>/generated.xlsm` only while `open`; bucket limit + MIME |
+| 3 | vg | Exam page outcomes (404, failure card, title) untested | medium | patch: `page.test.ts` |
+| 4 | edge, blind | Lost compare-and-set answers `received` for an attempt in another status | low | patch: answer the status re-read |
+| 5 | edge, blind | Exam poll loops forever on 401/404 | low | patch: stop polling and show the first-load message |
+| 6 | edge, blind | `examCells()` output never validated; schema accepts `{}` | low | patch: parse at Start, require ≥1 sheet |
+| 7 | edge | Every 23505 mapped to `open_attempt_exists` | low | patch: only `attempts_one_in_progress_idx` |
+| 8 | edge | `deleteOpenAttempt` reports success when 0 rows deleted | low | patch: `select('id')`, true only for 1 row |
+| 9 | blind | Received attempt blocks Start forever; blocked message mentions Abandon | low | reject: entry 7 (Abandon from received, AD-5 decision) |
+| 10 | blind | Macro body size unbounded | low | reject: entry 3 (B6) |
+| 11 | blind, edge | Orphan files in `attempt-files` after delete | low | defer |
+| 12 | blind | Orphan open row if compensating delete fails | low | reject: rare, cleared by Abandon (entry 7) |
+| 13 | blind | Server URL from host headers | low | reject: Vercel sets Host; Origin checked first |
+| 14 | blind | Start skips phase/gates | low | reject: registry holds only V1 L01-P1; gates are epic 4 |
+| 15 | vg, intent | Migration rules, ExamStatus DOM loop and tracing not exercised by tests | low | defer: DB contract test is entry 2; DOM harness epic 4; tracing checked on deploy |
 
 ## Design Notes
 

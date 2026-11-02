@@ -47,3 +47,9 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
   summary: Production logs "unstable value `Date.now()` while prerendering" on `/settings` and `/dev/bridge-proof` from supabase-js `_loadSession` in `getSessionUser`.
   evidence: Vercel runtime logs 2026-10-30 07:09–07:11 (deploy `dpl_gqdTPjsoZFdPpD2nzNBssV483EhS`), level error, pages still render; likely needs `await connection()` (or reading cookies first) before the session read under `cacheComponents`. Fix in the 1.10 refactor sweep.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
+  summary: Delete `attempt-files/<id>/` when an attempt row is deleted (compensation path, profile cascade).
+  evidence: 2.1 review; no Storage delete policy or cleanup job, files become unreachable.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
+  summary: ExamStatus polling/auto-download loop and the template trace on the deployed `/levels` function have no automated check.
+  evidence: 2.1 verification-gap lens; needs a DOM harness (epic 4) and a post-build trace check.
