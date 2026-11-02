@@ -5,16 +5,24 @@ import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ createServiceClient: vi.fn(), rpc: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  createServiceClient: vi.fn(),
+  findAttemptByTokenHash: vi.fn(),
+  markReceived: vi.fn(),
+}));
 vi.mock("../../../../adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("../../../../adapters/supabase/attempts", () => ({
+  findAttemptByTokenHash: mocks.findAttemptByTokenHash,
+  markReceived: mocks.markReceived,
+}));
 
 import { buildVbaProject, type ModuleSpec } from "../../../../adapters/workbook/__fixtures__/vba-project";
 import { readWorkbook } from "../../../../adapters/workbook/read";
-import { patchTemplate, readSheetParts, vbaProjectSha256 } from "../../../../adapters/workbook/template-patch";
+import { patchTemplate, vbaProjectSha256 } from "../../../../adapters/workbook/template-patch";
 import { CURRENT_TEMPLATE_VERSION, templates } from "../../../../adapters/workbook/templates";
 import { readVbaModuleSources } from "../../../../adapters/workbook/vba";
 import { REJECTION_CODES, RejectionCode } from "../../../../core/submission/rejection-codes";
-import { tokenSha256, tokenSha256Hex } from "./inspect";
+import { tokenSha256, tokenSha256Hex } from "../../../../adapters/workbook/token";
 import { POST } from "./route";
 
 // Each server-side row of the S3 I/O matrix, posted to the route handler with
@@ -36,16 +44,25 @@ beforeAll(async () => {
   templateModFinish = sources!.get("modFinish")!;
 });
 
+const SERVICE = { service: true };
+const ATTEMPT_ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
+
+/** The attempt the lookup finds, by default `open` on the current template. */
+function attemptFound(status = "open", templateVersion = CURRENT_TEMPLATE_VERSION) {
+  mocks.findAttemptByTokenHash.mockResolvedValue({ ok: true, value: { id: ATTEMPT_ID, status, templateVersion } });
+}
+
 beforeEach(() => {
-  // The service-role client (bridge proof): by default a row with the file's hash exists.
-  mocks.rpc.mockResolvedValue({ data: true, error: null });
-  mocks.createServiceClient.mockImplementation(() => ({ rpc: mocks.rpc }));
+  mocks.createServiceClient.mockImplementation(() => SERVICE);
+  attemptFound();
+  mocks.markReceived.mockResolvedValue({ ok: true, value: true });
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
-  mocks.rpc.mockReset();
   mocks.createServiceClient.mockReset();
+  mocks.findAttemptByTokenHash.mockReset();
+  mocks.markReceived.mockReset();
 });
 
 const newToken = () => randomBytes(32).toString("base64url");
@@ -154,7 +171,7 @@ function logOf(posted: Posted, ...tokens: (string | null | undefined)[]): Record
   for (const token of tokens) if (token) expect(line).not.toContain(token);
   const log = JSON.parse(line) as Record<string, unknown>;
   expect(log.channel).toBe("macro");
-  expect(log.templateVersion).toBe(CURRENT_TEMPLATE_VERSION);
+  expect(Object.keys(log).sort()).toEqual(["attemptId", "channel", "code", "received", "tokenSha256"]);
   return log;
 }
 
@@ -166,30 +183,49 @@ describe("rejection codes (AD-6)", () => {
   });
 });
 
-describe("POST /api/submissions/macro (spike S3)", () => {
-  it("accepts a patched workbook whose header equals its token, and logs size, token hash and both matches", async () => {
+const ACCEPTED = { ok: true, data: { status: "received" } };
+
+describe("POST /api/submissions/macro: Finish", () => {
+  it("moves an open attempt found by the file's token hash to received, and logs attemptId and received: true", async () => {
     const token = newToken();
     const file = await patched(token);
     const posted = await post(file, token);
 
     expect(posted.status).toBe(200);
-    const expected = { ok: true, data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true } };
-    expect(posted.body).toEqual(expected);
-    expectRawText(posted, expected);
-    expect(logOf(posted, token)).toEqual({
+    expect(posted.body).toEqual(ACCEPTED);
+    expectRawText(posted, ACCEPTED);
+    expect(mocks.findAttemptByTokenHash).toHaveBeenCalledWith(SERVICE, tokenSha256Hex(token));
+    expect(mocks.markReceived).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    expect(logOf(posted, token, tokenSha256Hex(token))).toEqual({
+      attemptId: ATTEMPT_ID,
       channel: "macro",
       code: null,
-      bytes: file.byteLength,
       tokenSha256: tokenSha256(token),
-      tokenMatches: true,
-      fingerprintMatches: true,
-      templateVersion: CURRENT_TEMPLATE_VERSION,
-      proofRecorded: true,
+      received: true,
     });
   });
 
-  it("logs the first 12 hex of the token's SHA-256", () => {
-    expect(tokenSha256("abc")).toBe("ba7816bf8f01");
+  it.each(["received", "grading_failed", "graded", "abandoned", "closed"])(
+    "answers 200 without a change for an attempt already %s",
+    async (status) => {
+      attemptFound(status);
+      const token = newToken();
+      const posted = await post(await patched(token), token);
+
+      expect(posted.status).toBe(200);
+      expectRawText(posted, { ok: true, data: { status } });
+      expect(mocks.markReceived).not.toHaveBeenCalled();
+      expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: null, received: false });
+    },
+  );
+
+  it("accepts a Finish that lost the compare-and-set to another post", async () => {
+    mocks.markReceived.mockResolvedValue({ ok: true, value: false });
+    const token = newToken();
+    const posted = await post(await patched(token), token);
+    expect(posted.status).toBe(200);
+    expectRawText(posted, ACCEPTED);
+    expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, received: false });
   });
 
   it("still matches after a sheet is added and Excel rewrites the VBA project", async () => {
@@ -200,27 +236,23 @@ describe("POST /api/submissions/macro (spike S3)", () => {
 
     const posted = await post(file, token);
     expect(posted.status).toBe(200);
-    expect(posted.body).toEqual({
-      ok: true,
-      data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true },
-    });
-    expect(logOf(posted, token)).toMatchObject({ code: null, fingerprintMatches: true });
+    expect(posted.body).toEqual(ACCEPTED);
+    expect(logOf(posted, token)).toMatchObject({ code: null, received: true });
   });
 
-  it("accepts the Excel-saved S3 file (sheet added, VBA editor opened) posted with its own token", async () => {
+  it("accepts the Excel-saved S3 file (sheet added, VBA editor opened) when an attempt has its token", async () => {
     const file = Uint8Array.from(await readFile(path.join(repoRoot, S3_FIXTURE)));
     const token = (await readWorkbook(file)).properties.WHE_AttemptToken;
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
     const posted = await post(file, token);
     expect(posted.status).toBe(200);
-    expect(posted.body).toEqual({
-      ok: true,
-      data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true },
-    });
-    expect(logOf(posted, token)).toMatchObject({ code: null, tokenSha256: tokenSha256(token), fingerprintMatches: true });
+    expect(posted.body).toEqual(ACCEPTED);
+    expect(logOf(posted, token)).toMatchObject({ code: null, tokenSha256: tokenSha256(token), received: true });
   });
+});
 
+describe("POST /api/submissions/macro: refusals", () => {
   it.each([
     ["an empty body", async () => new Uint8Array(0)],
     ["bytes that are not a zip", async () => Uint8Array.from(randomBytes(2048))],
@@ -233,13 +265,20 @@ describe("POST /api/submissions/macro (spike S3)", () => {
           zip.file(part, (await zip.file(part)!.async("string")).replace("<sheetData", "<sheetData><broken"));
         }),
     ],
-  ])("refuses %s with NOT_EXCEL", async (_, make) => {
+  ])("refuses %s with NOT_EXCEL, before any lookup", async (_, make) => {
     const token = newToken();
     const posted = await post(await make(), token);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.NOT_EXCEL });
     expectRawText(posted, { ok: false, code: RejectionCode.NOT_EXCEL });
-    expect(logOf(posted, token)).toMatchObject({ code: "NOT_EXCEL", tokenSha256: null, tokenMatches: false });
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toEqual({
+      attemptId: null,
+      channel: "macro",
+      code: "NOT_EXCEL",
+      tokenSha256: null,
+      received: false,
+    });
   });
 
   it.each([
@@ -248,18 +287,38 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     ["a header with another token", (token: string) => ({ file: token, header: newToken() })],
     ["a file without a token", () => ({ file: "", header: "" })],
     ["a malformed file token, even when the header repeats it", () => ({ file: "TEMPLATE", header: "TEMPLATE" })],
-  ])("refuses %s with IDENTITY_ALTERED", async (_, tokens) => {
+  ])("refuses %s with IDENTITY_ALTERED, before any lookup", async (_, tokens) => {
     const { file: fileToken, header } = tokens(newToken());
     const posted = await post(await patched(fileToken), header);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.IDENTITY_ALTERED });
     expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
+    expect(mocks.findAttemptByTokenHash).not.toHaveBeenCalled();
     const log = logOf(posted, fileToken, header);
-    expect(log).toMatchObject({ code: "IDENTITY_ALTERED", tokenMatches: false, fingerprintMatches: true });
+    expect(log).toMatchObject({ attemptId: null, code: "IDENTITY_ALTERED", received: false });
     expect(log.tokenSha256).toBe(fileToken === "" ? null : tokenSha256(fileToken));
   });
 
-  it("refuses an edited modFinish with IDENTITY_ALTERED", async () => {
+  it("refuses a token no attempt has (an old file, spike S1/S3) with NOT_THIS_ATTEMPT", async () => {
+    mocks.findAttemptByTokenHash.mockResolvedValue({ ok: true, value: null });
+    const file = Uint8Array.from(await readFile(path.join(repoRoot, S3_FIXTURE)));
+    const token = (await readWorkbook(file)).properties.WHE_AttemptToken;
+    const posted = await post(file, token);
+
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.NOT_THIS_ATTEMPT });
+    expect(mocks.findAttemptByTokenHash).toHaveBeenCalledWith(SERVICE, tokenSha256Hex(token));
+    expect(mocks.markReceived).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toEqual({
+      attemptId: null,
+      channel: "macro",
+      code: "NOT_THIS_ATTEMPT",
+      tokenSha256: tokenSha256(token),
+      received: false,
+    });
+  });
+
+  it("refuses an edited modFinish with IDENTITY_ALTERED and leaves the attempt open", async () => {
     const token = newToken();
     const edited = new Uint8Array([...templateModFinish, ...Buffer.from("\r\n' edited\r\n", "latin1")]);
     const file = await editZip(await patched(token), (zip) => {
@@ -270,8 +329,9 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     });
     const posted = await post(file, token);
     expect(posted.status).toBe(400);
-    expect(posted.body).toEqual({ ok: false, code: RejectionCode.IDENTITY_ALTERED });
-    expect(logOf(posted, token)).toMatchObject({ code: "IDENTITY_ALTERED", tokenMatches: true, fingerprintMatches: false });
+    expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
+    expect(mocks.markReceived).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: "IDENTITY_ALTERED", received: false });
   });
 
   it("refuses a workbook without a VBA project with IDENTITY_ALTERED", async () => {
@@ -280,132 +340,13 @@ describe("POST /api/submissions/macro (spike S3)", () => {
     const posted = await post(file, token);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.IDENTITY_ALTERED });
-    expect(logOf(posted, token)).toMatchObject({ tokenMatches: true, fingerprintMatches: false });
+    expect(mocks.markReceived).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: "IDENTITY_ALTERED" });
   });
 });
 
-// Bridge proof (story 1.9): what the server read is recorded on the proof row
-// with the file token's hash; the macro's answer never changes.
-
-const SUMIFS = 'SUMIFS(E2:E11,B2:B11,"Lini A",C2:C11,"Pagi")';
-
-/** What Excel writes after the user types the SUMIFS into `Data!I2` (formula plus cached value). */
-async function withSumifsInI2(bytes: Uint8Array): Promise<Uint8Array> {
-  return editZip(bytes, async (zip) => {
-    const part = (await readSheetParts(zip)).get("Data")!;
-    const xml = await zip.file(part)!.async("string");
-    const edited = xml.replace(
-      /(<row r="2"[^>]*>[\s\S]*?)(<\/row>)/,
-      `$1<c r="I2"><f>${SUMIFS.replaceAll('"', "&quot;")}</f><v>2070</v></c>$2`,
-    );
-    expect(edited).not.toBe(xml);
-    zip.file(part, edited);
-  });
-}
-
-interface RpcArgs {
-  p_token_sha256: string;
-  p_bytes: number;
-  p_token_matches: boolean;
-  p_fingerprint_matches: boolean;
-  p_formulas: { sheet: string; ref: string; formula: string }[];
-}
-
-function rpcArgs(call = 0): RpcArgs {
-  const [name, args] = mocks.rpc.mock.calls[call];
-  expect(name).toBe("record_bridge_proof_receipt");
-  return args as RpcArgs;
-}
-
-describe("POST /api/submissions/macro (bridge proof)", () => {
-  it("records a Finish of a downloaded file: hash, size, both matches and the SUMIFS in Data!I2", async () => {
-    const token = newToken();
-    const file = await withSumifsInI2(await patched(token));
-    const posted = await post(file, token);
-
-    expect(posted.status).toBe(200);
-    expectRawText(posted, { ok: true, data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true } });
-    expect(mocks.rpc).toHaveBeenCalledTimes(1);
-    expect(rpcArgs()).toEqual({
-      p_token_sha256: tokenSha256Hex(token),
-      p_bytes: file.byteLength,
-      p_token_matches: true,
-      p_fingerprint_matches: true,
-      p_formulas: [{ sheet: "Data", ref: "I2", formula: SUMIFS }],
-    });
-    const log = logOf(posted, token, tokenSha256Hex(token));
-    expect(log).toMatchObject({ code: null, tokenSha256: tokenSha256(token), proofRecorded: true });
-  });
-
-  it("records each Finish of the same file (the database adds one to receive_count)", async () => {
-    const token = newToken();
-    const file = await withSumifsInI2(await patched(token));
-    const first = await post(file, token);
-    const second = await post(file, token);
-
-    expect(second.text).toBe(first.text);
-    expect(mocks.rpc).toHaveBeenCalledTimes(2);
-    expect(rpcArgs(1)).toEqual(rpcArgs(0));
-    expect(logOf(second, token)).toMatchObject({ proofRecorded: true });
-  });
-
-  it("answers as S3 for a token no download issued, and logs proofRecorded: false", async () => {
-    mocks.rpc.mockResolvedValue({ data: false, error: null });
-    const file = Uint8Array.from(await readFile(path.join(repoRoot, S3_FIXTURE)));
-    const token = (await readWorkbook(file)).properties.WHE_AttemptToken;
-    const posted = await post(file, token);
-
-    expect(posted.status).toBe(200);
-    expectRawText(posted, { ok: true, data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true } });
-    expect(rpcArgs().p_token_sha256).toBe(tokenSha256Hex(token));
-    expect(logOf(posted, token)).toMatchObject({ code: null, proofRecorded: false });
-  });
-
-  it("still records a header that is not the file's token, with tokenMatches false", async () => {
-    const token = newToken();
-    const header = newToken();
-    const posted = await post(await patched(token), header);
-
-    expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
-    expect(rpcArgs()).toMatchObject({
-      p_token_sha256: tokenSha256Hex(token),
-      p_token_matches: false,
-      p_fingerprint_matches: true,
-    });
-    expect(logOf(posted, token, header)).toMatchObject({ code: "IDENTITY_ALTERED", proofRecorded: true });
-  });
-
-  it("still records an edited modFinish, with fingerprintMatches false", async () => {
-    const token = newToken();
-    const edited = new Uint8Array([...templateModFinish, ...Buffer.from("\r\n' edited\r\n", "latin1")]);
-    const file = await editZip(await patched(token), (zip) => {
-      zip.file(
-        VBA_PROJECT_PART,
-        buildVbaProject({ modules: [emptyDocumentModule("ThisWorkbook"), { name: "modFinish", source: edited }] }),
-      );
-    });
-    const posted = await post(file, token);
-
-    expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
-    expect(rpcArgs()).toMatchObject({ p_token_matches: true, p_fingerprint_matches: false });
-    expect(logOf(posted, token)).toMatchObject({ proofRecorded: true });
-  });
-
+describe("POST /api/submissions/macro: server faults", () => {
   it.each([
-    ["a file without a token", async () => patched(""), ""],
-    ["a malformed file token", async () => patched("TEMPLATE"), "TEMPLATE"],
-    ["bytes that are not a workbook", async () => Uint8Array.from(randomBytes(2048)), newToken()],
-  ])("records nothing for %s", async (_, make, header) => {
-    const posted = await post(await make(), header);
-    expect(posted.status).toBe(400);
-    expect(mocks.createServiceClient).not.toHaveBeenCalled();
-    expect(mocks.rpc).not.toHaveBeenCalled();
-    expect(logOf(posted)).toMatchObject({ proofRecorded: false });
-  });
-
-  it.each([
-    ["the database answers with an error", () => mocks.rpc.mockResolvedValue({ data: null, error: { code: "PGRST202", message: "x" } })],
-    ["the call to the database throws", () => mocks.rpc.mockRejectedValue(new TypeError("fetch failed"))],
     ["the secret key is not set", () => mocks.createServiceClient.mockImplementation(() => null)],
     [
       "the client cannot be created",
@@ -414,36 +355,22 @@ describe("POST /api/submissions/macro (bridge proof)", () => {
           throw new Error("Invalid supabaseUrl");
         }),
     ],
-  ])("answers from the inspection alone when %s", async (_, arrange) => {
+    ["the lookup fails", () => mocks.findAttemptByTokenHash.mockResolvedValue({ ok: false })],
+    ["the attempt's template version is not in the registry", () => attemptFound("open", 999)],
+    ["the status change fails", () => mocks.markReceived.mockResolvedValue({ ok: false })],
+  ])("answers 500 INTERNAL_ERROR when %s, and logs it without the token", async (_, arrange) => {
     arrange();
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const token = newToken();
-    const file = await withSumifsInI2(await patched(token));
-    const posted = await post(file, token);
+    const posted = await post(await patched(token), token);
 
-    expect(posted.status).toBe(200);
-    expectRawText(posted, { ok: true, data: { bytes: file.byteLength, tokenMatches: true, fingerprintMatches: true } });
-    expect(logOf(posted, token)).toMatchObject({ code: null, proofRecorded: false });
-    expect(errors).toHaveBeenCalled();
+    expect(posted.status).toBe(500);
+    expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
+    expect(logOf(posted, token)).toMatchObject({ code: "INTERNAL_ERROR", received: false });
+    expect(errors).toHaveBeenCalledTimes(1);
     for (const [line] of errors.mock.calls) {
       expect(String(line)).not.toContain(token);
       expect(String(line)).not.toContain(tokenSha256Hex(token));
     }
-  });
-
-  it("sends at most 20 formula cells", async () => {
-    const token = newToken();
-    const file = await editZip(await patched(token), async (zip) => {
-      const part = (await readSheetParts(zip)).get("Data")!;
-      const xml = await zip.file(part)!.async("string");
-      const rows = Array.from({ length: 25 }, (_, i) => `<row r="${i + 20}"><c r="I${i + 20}"><f>SUM(B2)</f><v>1</v></c></row>`);
-      zip.file(part, xml.replace("</sheetData>", `${rows.join("")}</sheetData>`));
-    });
-    const posted = await post(file, token);
-
-    expect(posted.status).toBe(200);
-    const formulas = rpcArgs().p_formulas;
-    expect(formulas).toHaveLength(20);
-    expect(formulas[0]).toEqual({ sheet: "Data", ref: "I20", formula: "SUM(B2)" });
   });
 });

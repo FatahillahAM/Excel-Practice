@@ -4,9 +4,10 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
   // `generateExamWorkbook` reads the template from disk at a computed path the
-  // tracer cannot follow: ship it with the download route's function.
+  // tracer cannot follow: ship it with the function that generates, the
+  // `/levels` page, whose Server Action is Start.
   outputFileTracingIncludes: {
-    "/dev/bridge-proof/download": ["./assets/templates/**"],
+    "/levels": ["./assets/templates/**"],
   },
   async redirects() {
     // `/` opens Dashboard with a real 307, before any rendering. Rendering

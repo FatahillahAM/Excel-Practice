@@ -17,10 +17,11 @@ describe("next.config redirects", () => {
 });
 
 describe("next.config outputFileTracingIncludes", () => {
-  it("ships the current exam template with the bridge proof download route", () => {
+  it("ships the current exam template with /levels, whose Server Action (Start) generates", () => {
     const includes = nextConfig.outputFileTracingIncludes ?? {};
-    expect(Object.keys(includes)).toContain("/dev/bridge-proof/download");
-    expect(existsSync("src/app/(app)/dev/bridge-proof/download/route.ts")).toBe(true);
+    expect(Object.keys(includes)).toContain("/levels");
+    expect(existsSync("src/app/(app)/levels/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(app)/levels/start-actions.ts")).toBe(true);
 
     const file = templates[CURRENT_TEMPLATE_VERSION].file;
     expect(existsSync(file)).toBe(true);
@@ -29,6 +30,6 @@ describe("next.config outputFileTracingIncludes", () => {
       const prefix = glob.replace(/^\.\//, "").split("*")[0];
       return glob.includes("*") && file.startsWith(prefix);
     };
-    expect(includes["/dev/bridge-proof/download"].some(covers)).toBe(true);
+    expect(includes["/levels"].some(covers)).toBe(true);
   });
 });

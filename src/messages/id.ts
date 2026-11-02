@@ -20,3 +20,13 @@ export const shellMessages = {
   /** Settings › Saved / error (illustrative). */
   preferenceSaveFailed: "Pengaturan belum tersimpan. Coba lagi, ya.",
 } as const;
+
+/** Start's inline error slot (Level 1 · Practice 1 on /levels). */
+export const startMessages = {
+  /** No `profiles` row and the browser sent no zone the database accepts (illustrative, like `preferenceSaveFailed`). */
+  profileMissing: "Zona waktu kamu belum tercatat. Muat ulang halaman ini, lalu coba lagi, ya.",
+  /** Generating, storing or recording the attempt failed (the Login "network" row). */
+  startFailed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
+} as const;
+
+export type StartError = keyof typeof startMessages;

@@ -93,7 +93,7 @@ const outputHash = await vbaProjectSha256(patched);
 
 console.log(`template:            ${templatePath}`);
 console.log(`WHE_AttemptToken:    ${properties.WHE_AttemptToken}`);
-// Same value as `tokenSha256` in the macro route's log line (src/app/api/submissions/macro/inspect.ts).
+// Same value as `tokenSha256` in the macro route's log line (src/adapters/workbook/token.ts).
 console.log(`tokenSha256:         ${createHash("sha256").update(token, "utf8").digest("hex").slice(0, 12)}`);
 console.log(`WHE_ServerUrl:       ${properties.WHE_ServerUrl}`);
 console.log(`WHE_TemplateVersion: ${properties.WHE_TemplateVersion}`);
