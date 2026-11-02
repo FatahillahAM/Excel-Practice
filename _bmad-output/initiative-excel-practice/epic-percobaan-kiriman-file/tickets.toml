@@ -1,0 +1,135 @@
+# Breakdown epic-percobaan-kiriman-file, urutan build. id tidak pernah dipakai ulang.
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer: Start L1 P1 → unduh → Finish → File received"
+description = "Membuat tabel `attempts` (semua status AD-5, index satu percobaan terbuka), bucket `attempt-files`, kontrak `LevelModule` minimal dengan item L1 P1, tombol Start L1 P1 di /levels yang membuat percobaan, menyimpan dan mengunduh `.xlsm`, route macro yang mencari percobaan dari token lalu menandai received, endpoint status, dan layar exam yang polling; sekaligus menghapus `/dev/bridge-proof` + `bridge_proofs` dan mewajibkan profil sebelum Start."
+verify = "Di Production laptop, Start L1 P1 lalu Finish membuat layar exam berpindah sendiri ke \"File received — grading…\"."
+covers = ["CAP-2", "CAP-3", "B3", "B4", "B5"]
+after = ["1.9", "1.8"]
+hitl = true
+risk = "high"
+unknown = "Template v1 butuh rebuild hanya di entry 9; tracer memakai modFinish yang ada."
+
+[[entry]]
+id = 2
+type = "story"
+title = "Siklus percobaan AD-5 di core dan tes kontrak DB"
+description = "Memindahkan semua transisi `attempts.status` ke `src/core/services/attempts` (Start, received, abandoned dari open/received/grading_failed, closed, graded/grading_failed sebagai kontrak untuk epic 3) dengan compare-and-set, dan menambah tes kontrak yang menjalankan migrasi asli (grant, RLS, index satu percobaan terbuka)."
+verify = "Tes unit menolak setiap transisi di luar diagram, dan tes kontrak membuktikan Start kedua ditolak database selama satu percobaan terbuka."
+covers = ["B1", "CAP-20"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 3
+type = "story"
+title = "submit() penuh: lima kode AD-6 dan batas ukuran"
+description = "Mengganti inspeksi route macro dengan `submit(bytes, channel)` mengikuti urutan AD-6 (content type `.xlsm`, token, percobaan, sidik jari dengan modul tak dipin wajib kosong, status), menyimpan `submission-<n>`, menerima duplikat secara idempoten, dan membatasi ukuran body dan inflate; route macro dan upload (entry 5) memakai fungsi yang sama."
+verify = "Fixture untuk tiap kode (NOT_EXCEL, IDENTITY_ALTERED termasuk .xlsx dan modul tambahan, NOT_THIS_ATTEMPT, ALREADY_GRADED, ATTEMPT_CLOSED) dan untuk duplikat lolos lewat route macro."
+covers = ["B2", "B6", "CAP-18"]
+after = [2]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Layar exam lengkap"
+description = "Melengkapi layar exam: Exam Status Line dengan waktu sejak Start, \"Download again\" yang melayani file tersimpan tanpa mengubah waktu mulai, Orbit Loader, pesan lambat setelah 15 s di received, tautan Setup Guide, dan rehidrasi dari server saat dimuat ulang atau lewat Resume."
+verify = "Memuat ulang layar mempertahankan waktu sejak Start, dan dua unduhan memberi SHA-256 file yang sama."
+covers = ["CAP-20", "B3", "B5"]
+after = [1]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Upload Dropzone dan route upload"
+description = "Menambah `POST /api/submissions/upload` (sesi) yang memanggil `submit(bytes, \"upload\")` dari entry 3 dan Upload Dropzone di layar exam dari entry 4 dengan pesan penolakan inline (role=alert) dari message set."
+verify = "File valid lewat upload membuat layar berpindah ke \"File received — grading…\", dan tiap file yang salah menampilkan pesannya sendiri."
+covers = ["CAP-4", "CAP-18"]
+after = [3, 4]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Level Detail Panel Level 1"
+description = "Membangun Level Detail Panel asli (DESIGN/mockup key-level-map) untuk Level 1 di /levels: 5 practice + Test dengan status, hanya L1 P1 bisa di-Start, dan Start entry 1 pindah ke panel ini."
+verify = "Panel tampil sesuai mockup dalam mode gelap dan terang, dan Start dari panel membuat percobaan."
+covers = ["CAP-2"]
+after = [1]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 7
+type = "story"
+title = "Attempt Card: Resume, Abandon, dan kunci Start"
+description = "Menambah Attempt Card di Dashboard (Resume ke layar exam, Abandon dengan dialog konfirmasi lewat transisi entry 2) dan mengunci Start di panel entry 6 dengan alasan selama ada percobaan terbuka."
+verify = "Abandon dari open atau received membuka kunci Start, dan Resume membuka layar exam percobaan yang sama dari perangkat lain."
+covers = ["CAP-20", "B1"]
+after = [2, 6]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 8
+type = "story"
+title = "Konten Level 1 Practice 1"
+description = "Mengisi modul `01-fondasi` untuk Practice 1: generator data manufaktur `generate(seed, scenario)`, ≥10 skenario, soal dan kunci, Instructions bahasa Indonesia, dan validasi zod saat load (poin total 100, tanpa fungsi khusus M365), menggantikan data tetap tracer."
+verify = "Tes validasi modul lolos, dua seed menghasilkan data berbeda, dan file hasil Start terbuka di Excel dengan Instructions yang benar."
+covers = ["B4", "CAP-2"]
+after = [1]
+hitl = false
+risk = "medium"
+unknown = "Isi soal Practice 1 mengikuti level-curriculum.md Level 1 (referensi $, Tabel Excel, Sort & Filter)."
+
+[[entry]]
+id = 9
+type = "story"
+title = "modFinish: pesan per kode dan tutup workbook"
+description = "Mengubah `modFinish.bas` agar memetakan tiap kode AD-6 ke message box bahasa Indonesia, memberi petunjuk non-jaringan untuk 413/TLS/TEMP, menutup workbook (dan Excel bila tak ada workbook lain) setelah terkirim, lalu rebuild template v1 dan menghitung ulang registry."
+verify = "Di laptop, Finish yang diterima menutup workbook, dan file yang ditolak menampilkan pesan kodenya dengan workbook tetap terbuka."
+covers = ["CAP-3", "CAP-18"]
+after = [3]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 10
+type = "story"
+title = "Setup Guide"
+description = "Mengisi halaman Setup Guide dengan Setup Steps untuk Excel 2021 (folder kerja tetap, simpan setiap .xlsm di sana, Trusted Location, Unblock) dan arahan ke upload plus tautan Resume saat ada percobaan terbuka."
+verify = "Mengikuti panduan di laptop membuat Finish file baru berjalan tanpa Unblock manual."
+covers = ["CAP-16"]
+after = [9]
+hitl = true
+risk = "low"
+
+[[entry]]
+id = 11
+type = "story"
+title = "Refactor sweep"
+description = "Membersihkan kode epic ini berdasarkan catatan build dan temuan review yang ditunda; cakupannya ditetapkan saat mulai dan hanya berisi pembersihan."
+verify = "CI hijau, dan setiap temuan yang ditunda di epic ini ditutup atau dipindah ke story baru dengan alasan."
+covers = []
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 12
+type = "story"
+title = "Uji end-to-end di Production dan rilis template v1"
+description = "Menjalankan Done when 1–6 di Production (laptop dan upload di PC kantor dengan macro diblokir, termasuk file lama, Save As .xlsx, sudah dinilai lewat status SQL, dan dibatalkan), lalu menandai template v1 rilis."
+verify = "Setiap Done when epic tercatat lulus dengan bukti log Production, dan v1 tercatat rilis di registry dan Notes."
+covers = ["CAP-2", "CAP-3", "CAP-4", "CAP-16", "CAP-18", "CAP-20", "B7"]
+after = [11]
+hitl = true
+risk = "medium"
+
