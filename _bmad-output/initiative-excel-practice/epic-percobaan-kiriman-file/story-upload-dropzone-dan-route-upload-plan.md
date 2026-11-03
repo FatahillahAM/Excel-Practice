@@ -21,13 +21,13 @@ context:
 
 **Problem:** Saat macro diblokir (PC kantor, J2) file tidak punya jalan ke server: belum ada `POST /api/submissions/upload` dan layar exam belum punya Upload Dropzone, jadi CAP-4 dan penolakan per alasan lewat web (CAP-18) belum ada.
 
-**Approach:** Route upload memeriksa sesi, membaca body dengan batas yang sama seperti macro, lalu memanggil `submit(bytes, { kind: "upload" }, ports)` dengan port sesi; respons dan pemetaan HTTP dibagi dengan route macro. Dropzone di layar exam (hanya saat `open`) mengirim satu file, menampilkan pesan penolakan inline, dan saat diterima layar langsung berpindah ke "File received — grading…".
+**Approach:** Route upload memeriksa sesi, membaca body dengan batas yang sama seperti macro, lalu memanggil `submit(bytes, { kind: "upload" }, ports)` dengan port service role yang hanya menerima percobaan milik user sesi; respons dan pemetaan HTTP dibagi dengan route macro. Dropzone di layar exam (hanya saat `open`) mengirim satu file, menampilkan pesan penolakan inline, dan saat diterima layar langsung berpindah ke "File received — grading…".
 
 ## Boundaries & Constraints
 
 **Always:**
-- Percobaan ditentukan token file (AD-6 langkah 3), bukan id di URL; tanpa field atau kode baru di API. Pemilik lewat RLS sesi: token milik orang lain = `NOT_THIS_ATTEMPT`.
-- Port sesi (AD-9): tanpa service role di jalur upload. File dan status sama seperti macro: `submission-1.xlsm` ditimpa selama `open`, lalu CAS `open` → `received`.
+- Percobaan ditentukan token file (AD-6 langkah 3), bukan id di URL; tanpa field atau kode baru di API. Pemilik dicek di server: token percobaan yang `user_id`-nya bukan user sesi = `NOT_THIS_ATTEMPT`.
+- Service role setelah cek sesi (AD-9, user 2026-11-03): sesi tidak mendapat izin tulis baru di database atau Storage. File dan status sama seperti macro: `submission-1.xlsm` ditimpa selama `open`, lalu CAS `open` → `received`.
 - Satu modul untuk batas body (4 MiB → 413), envelope `{ok, data: {status, duplicate}} | {ok:false, code}`, dan log JSON (`channel: "upload"`); route macro memakainya, perilakunya tetap.
 - Dropzone: `<input type="file">` asli, `accept=".xlsm,.xlsx"`, satu file, bisa `Tab` + `Enter`/`Space`, drag-and-drop opsional; tinggi 40px, token `upload-dropzone` DESIGN.md.
 - Pesan Indonesian di `src/messages/id.ts`, verbatim dari EXPERIENCE.md › Message set, `lang="id"`; penolakan `role="alert"`, "Uploading…" polite.
@@ -46,7 +46,7 @@ context:
 | Save As | `.xlsx`, modFinish diubah | `IDENTITY_ALTERED`: "Identitas file ini rusak atau berubah…" | idem |
 | Bukan Excel | `.pdf`, `.docx`, kosong | `NOT_EXCEL`: "Ini bukan file Excel…" | idem |
 | Sudah dinilai / dibatalkan | file percobaan `graded` / `abandoned` | `ALREADY_GRADED` / `ATTEMPT_CLOSED`, pesan masing-masing | idem |
-| Milik orang lain | token percobaan user lain | `NOT_THIS_ATTEMPT` (RLS) | — |
+| Milik orang lain | token percobaan user lain | `NOT_THIS_ATTEMPT` (cek `user_id`) | — |
 | Terlalu besar | > 4 MiB | klien menolak tanpa kirim; server 413 `FILE_TOO_LARGE` | pesan ukuran |
 | Tanpa sesi | sesi habis | 401 `UNAUTHENTICATED` sebelum body dibaca | layar ke first-load alert + "Try again" |
 | Jaringan putus | fetch gagal | pesan koneksi | Dropzone siap lagi |
