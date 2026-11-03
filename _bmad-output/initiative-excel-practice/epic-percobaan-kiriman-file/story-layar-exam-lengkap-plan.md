@@ -3,13 +3,14 @@ title: 'Layar exam lengkap'
 type: 'feature'
 ticket: '4'
 created: '2026-11-03'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '1ca5774da6d1f2595e6ed684d023e50df0858f8c'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -78,6 +79,8 @@ context:
 - Given mode gelap dan terang, when layar dibuka, then kolom tengah cocok `key-exam.html` (tanpa hint/Dropzone), dan Orbit diam saat Reduce motion aktif.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
