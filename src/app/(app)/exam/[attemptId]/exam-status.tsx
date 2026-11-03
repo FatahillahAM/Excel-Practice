@@ -5,6 +5,7 @@ import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
 import { OrbitLoader } from "../../../../components/exam/orbit-loader";
 import { examMessages, shellMessages } from "../../../../messages/id";
 import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow, reanchor, slowGradingWaitMs } from "./exam-time";
+import { UploadDropzone } from "./upload-dropzone";
 
 /** AD-11: the exam screen polls every 2 s while the attempt is in one of these. */
 const POLLED: readonly AttemptStatus[] = ["open", "received", "grading_failed"];
@@ -49,6 +50,9 @@ type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSecond
  *
  * Live regions carry line 1, the instruction and the slow message; the time
  * sits on line 1 but outside them, so it is never announced per tick.
+ *
+ * While `open`, the Upload Dropzone sits under the status line (CAP-4). An
+ * accepted upload moves the screen at once, as when a poll sees the change.
  */
 export function ExamStatus({
   attemptId,
@@ -74,6 +78,15 @@ export function ExamStatus({
   const receivedAnchor = useRef<Anchor>({ base: initialReceivedSeconds ?? 0, at: null });
   const downloadStarted = useRef(false);
   const downloadUrl = `/exam/${attemptId}/download`;
+
+  /** The attempt's status after an accepted upload (or a duplicate), without waiting for a poll. */
+  const onReceived = (next: AttemptStatus) => {
+    if (next === "received" && status !== "received") {
+      receivedAnchor.current = { base: 0, at: performance.now() };
+      setReceivedSeconds(0);
+    }
+    setStatus(next);
+  };
 
   useEffect(() => {
     if (downloadStarted.current) return;
@@ -201,6 +214,11 @@ export function ExamStatus({
           </p>
         )}
       </div>
+      {open && (
+        <div className="mt-[26px] w-full max-w-[400px]">
+          <UploadDropzone onReceived={onReceived} onSessionLost={() => setLost(true)} />
+        </div>
+      )}
     </div>
   );
 }

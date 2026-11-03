@@ -38,3 +38,28 @@ export const examMessages = {
   /** "Grading slow" row: after 15 s in `received` (AD-11). */
   gradingSlow: "Penilaian agak lama, tunggu sebentar ya.",
 } as const;
+
+/**
+ * Upload Dropzone's inline message slot (EXPERIENCE.md › Message set): one per
+ * AD-6 rejection code (verbatim), the size limit and a failed request.
+ */
+export const uploadMessages = {
+  /** "Not an Excel file" row. */
+  NOT_EXCEL: "Ini bukan file Excel. Pilih file .xlsm dari percobaan ini, ya.",
+  /** "Rejected — identity altered or damaged" row. */
+  IDENTITY_ALTERED:
+    "Identitas file ini rusak atau berubah. Pakai file .xlsm asli dari Start dan jangan Save As ke format lain, ya.",
+  /** "Rejected — not from this attempt" row (decided). */
+  NOT_THIS_ATTEMPT:
+    "File ini bukan dari percobaan yang sedang berjalan. Upload file yang kamu unduh waktu klik Start, ya.",
+  /** "Rejected — already graded" row. */
+  ALREADY_GRADED: "File ini sudah dinilai. Hasilnya ada di History, ya.",
+  /** "Rejected — attempt already closed" row. */
+  ATTEMPT_CLOSED: "Percobaan ini sudah ditutup, jadi file-nya nggak bisa dinilai. Mulai percobaan baru, ya.",
+  /** Larger than 4 MiB, refused before sending or by the server's 413 (illustrative, like `startMessages`). */
+  FILE_TOO_LARGE: "File ini terlalu besar (maksimal 4 MB). Pakai file .xlsm asli dari Start, ya.",
+  /** The request failed or the server faulted (the Login "network" row). */
+  failed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
+} as const;
+
+export type UploadMessage = keyof typeof uploadMessages;

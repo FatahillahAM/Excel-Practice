@@ -131,6 +131,30 @@ describe("Exam page", () => {
     expect(html).not.toContain(examMessages.gradingSlow);
   });
 
+  it("shows the Upload Dropzone while open: a file input for .xlsm/.xlsx, labelled, and no alert", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+    const html = await render();
+    const inputs = [...html.matchAll(/<input[^>]*>/g)].map((m) => m[0]);
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]).toContain('type="file"');
+    expect(inputs[0]).toContain('accept=".xlsm,.xlsx"');
+    expect(inputs[0]).not.toContain("multiple");
+    expect(inputs[0]).not.toContain("disabled");
+    expect(html).toMatch(/<label[^>]*>[\s\S]*?<input[^>]*type="file"[\s\S]*?Upload file \(\.xlsm\)<\/label>/);
+    expect(html).not.toContain('role="alert"');
+    expect(liveRegionText(html)).not.toContain("Uploading");
+  });
+
+  it.each(["received", "grading_failed"])("renders no Upload Dropzone once %s", async (status) => {
+    mocks.readAttempt.mockResolvedValue({
+      ok: true,
+      value: { ...ATTEMPT, status, receivedAt: "2026-11-02T01:10:00+00:00" },
+    });
+    const html = await render();
+    expect(html).not.toContain('type="file"');
+    expect(html).not.toContain("Upload file (.xlsm)");
+  });
+
   it("is notFound for an attempt that is missing or not the user's", async () => {
     mocks.readAttempt.mockResolvedValue({ ok: true, value: null });
     await expect(render()).rejects.toMatchObject({ notFound: true });

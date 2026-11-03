@@ -251,6 +251,17 @@
   animation-play-state: paused;
 }
 
+/* Upload Dropzone's uploading bar (DESIGN.md `upload-dropzone`): indeterminate,
+   since `fetch` reports no upload progress. Reduced motion: the global rule
+   below leaves the segment still at the start. */
+@keyframes upload-slide {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+.upload-bar > span {
+  animation: upload-slide 1.2s ease-in-out infinite;
+}
+
 /*
  * Reduced motion (AD-12): off when the OS asks, or when the Settings switch
  * writes `data-motion="reduce"` on <html>. The switch only adds reduction.

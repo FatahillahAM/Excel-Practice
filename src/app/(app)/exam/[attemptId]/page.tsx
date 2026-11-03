@@ -21,7 +21,8 @@ const CARD = "flex flex-col gap-4 rounded-lg border border-border bg-card p-4";
 /**
  * Exam in progress (EXPERIENCE.md, DESIGN.md › Layout, `key-exam.html`): one
  * centered column without a card or visible heading — Orbit Loader, Exam
- * Status Line (time since Start, from the server: AD-8), Setup Guide link.
+ * Status Line (time since Start, from the server: AD-8), Upload Dropzone
+ * while open, Setup Guide link.
  * The status is polled (AD-11). A reload renders the server's state first.
  */
 export default function ExamPage({ params }: { params: Promise<{ attemptId: string }> }) {
@@ -60,7 +61,6 @@ async function Exam({ params }: { params: Promise<{ attemptId: string }> }) {
           initialReceivedSeconds={receivedSeconds}
         />
       </section>
-      {/* Entry 5: the Upload Dropzone goes here, between the status line and the Setup Guide link. */}
       <p className="mt-[22px] flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <BookOpen aria-hidden="true" className="size-3.5" />
         Finish not working?{" "}
