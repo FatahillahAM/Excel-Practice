@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { ATTEMPT_TOKEN_RE } from "../../core/submission/submit.ts";
 import { patchTemplate, type TemplatePatch } from "./template-patch.ts";
 import { CURRENT_TEMPLATE_VERSION, templates } from "./templates.ts";
 
@@ -25,8 +26,8 @@ export interface GeneratedWorkbook {
   templateVersion: number;
 }
 
-/** Attempt token: 32 random bytes, base64url without padding (Consistency Conventions › IDs). */
-export const ATTEMPT_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+/** Attempt token format; lives in core (`submit()` checks it), re-exported for existing callers. */
+export { ATTEMPT_TOKEN_RE };
 
 export async function generateExamWorkbook(input: ExamWorkbookInput): Promise<GeneratedWorkbook> {
   if (!ATTEMPT_TOKEN_RE.test(input.token)) throw new Error("Attempt token must be 32 bytes in base64url");

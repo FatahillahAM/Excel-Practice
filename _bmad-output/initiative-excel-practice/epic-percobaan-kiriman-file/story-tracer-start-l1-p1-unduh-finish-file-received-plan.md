@@ -3,7 +3,7 @@ title: 'Tracer: Start L1 P1 → unduh → Finish → File received'
 type: 'feature'
 ticket: '1'
 created: '2026-11-02'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -107,6 +107,8 @@ context:
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes): write the migration files only; the orchestrator applies them to `dev` then `prod` (with version rename, per `supabase/README.md`) after review.
 
 - Review fixes committed in fc4e16d (468 tests, lint, typecheck, build clean). Migrations `20261102000001_attempts` and `20261102000002_drop_bridge_proofs` applied to `dev` via MCP with version rename; `prod` is applied right before the PR merges (the current Production code still calls the bridge-proof RPC).
+
+- Production check (user, 2026-11-03, after PR #10 merged): Start L1 P1 on /levels downloaded the workbook, Finish in Excel 2021 on the laptop showed sent, and the exam screen moved on its own to "File received — grading…". Migrations on `prod` match the repo.
 
 ## Plan Change Log
 

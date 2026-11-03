@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  abandon,
+  changeStatus,
   createAttempt,
   deleteOpenAttempt,
   downloadGeneratedFile,
@@ -9,6 +11,8 @@ import {
   generatedFilePath,
   markReceived,
   readAttempt,
+  storeSubmissionFile,
+  submissionFilePath,
   uploadGeneratedFile,
   XLSM_CONTENT_TYPE,
 } from "./attempts";
@@ -18,10 +22,17 @@ type Result = { data: unknown; error: { code: string; message: string } | null }
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const HASH = "a".repeat(64);
 
-/** A PostgREST query builder that records every call and answers `result` at the end of the chain. */
-function fakeClient(result: Result | (() => Promise<Result>)) {
+/**
+ * A PostgREST query builder that records every call and answers `result` at
+ * the end of the chain (an array: one answer per query, in order).
+ */
+function fakeClient(result: Result | Result[] | (() => Promise<Result>)) {
   const calls: [string, unknown[]][] = [];
-  const answer = () => (typeof result === "function" ? result() : Promise.resolve(result));
+  let query = 0;
+  const answer = () =>
+    typeof result === "function"
+      ? result()
+      : Promise.resolve(Array.isArray(result) ? result[query++] : result);
   const builder: Record<string, unknown> = {};
   for (const name of ["select", "insert", "update", "delete", "eq", "in"]) {
     builder[name] = (...args: unknown[]) => (calls.push([name, args]), builder);
@@ -187,6 +198,50 @@ describe("attempt files", () => {
     expect(await uploadGeneratedFile(client, ID, new Uint8Array([1]))).toBe(false);
   });
 
+  it("stores a submission once at <attemptId>/submission-<n>.xlsm", async () => {
+    const bytes = new Uint8Array([4, 5, 6]);
+    const { client, from, upload } = fakeStorage({});
+    expect(await storeSubmissionFile(client, ID, 1, bytes)).toBe("stored");
+    expect(submissionFilePath(ID, 1)).toBe(`${ID}/submission-1.xlsm`);
+    expect(from).toHaveBeenCalledWith("attempt-files");
+    expect(upload).toHaveBeenCalledWith(`${ID}/submission-1.xlsm`, bytes, { contentType: XLSM_CONTENT_TYPE, upsert: false });
+  });
+
+  it("upserts submission-<n> with replace: true", async () => {
+    const bytes = new Uint8Array([7]);
+    const { client, upload } = fakeStorage({});
+    expect(await storeSubmissionFile(client, ID, 1, bytes, { replace: true })).toBe("stored");
+    expect(upload).toHaveBeenCalledWith(`${ID}/submission-1.xlsm`, bytes, { contentType: XLSM_CONTENT_TYPE, upsert: true });
+  });
+
+  it.each([
+    ["statusCode 409", { statusCode: "409", error: "Duplicate", message: "The resource already exists" }],
+    ["status 409", { status: 409, message: "exists" }],
+    ["code ResourceAlreadyExists", { status: 400, code: "ResourceAlreadyExists", message: "exists" }],
+    ["error Duplicate", { error: "Duplicate", message: "The resource already exists" }],
+  ])("reports an existing submission (%s) as exists, without replacing it", async (_, error) => {
+    const { client, upload } = fakeStorage({ upload: { data: null, error } as unknown as Result });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await storeSubmissionFile(client, ID, 1, new Uint8Array([1]))).toBe("exists");
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it("reports and logs a failed submission store", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client } = fakeStorage({ upload: { data: null, error: { code: "403", message: "row-level security" } } });
+    expect(await storeSubmissionFile(client, ID, 1, new Uint8Array([1]))).toBe("failed");
+    expect(errors).toHaveBeenCalledWith(JSON.stringify({ event: "attempt.submission_store_failed", code: "403" }));
+    const throwing = { storage: { from: () => ({ upload: async () => { throw new TypeError("fetch failed"); } }) } };
+    expect(await storeSubmissionFile(throwing as unknown as SupabaseClient, ID, 1, new Uint8Array([1]))).toBe("failed");
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.submission_store_failed", code: "TypeError" }));
+  });
+
+  it("refuses a submission number that is not a positive integer", () => {
+    expect(() => submissionFilePath(ID, 0)).toThrow();
+    expect(() => submissionFilePath(ID, 1.5)).toThrow();
+  });
+
   it("reads the stored bytes back", async () => {
     const { client, download } = fakeStorage({ download: { data: new Blob([new Uint8Array([7, 8, 9])]), error: null } });
     expect(await downloadGeneratedFile(client, ID)).toEqual(new Uint8Array([7, 8, 9]));
@@ -201,13 +256,13 @@ describe("attempt files", () => {
 
 describe("findAttemptByTokenHash (service role)", () => {
   it("finds the attempt by the full token hash", async () => {
-    const { client, calls } = fakeClient({ data: { id: ID, status: "open", template_version: 1 }, error: null });
+    const { client, calls } = fakeClient({ data: { id: ID, user_id: "user-1", status: "open", template_version: 1 }, error: null });
     expect(await findAttemptByTokenHash(client, HASH)).toEqual({
       ok: true,
-      value: { id: ID, status: "open", templateVersion: 1 },
+      value: { id: ID, userId: "user-1", status: "open", templateVersion: 1 },
     });
     expect(calls).toEqual([
-      ["select", ["id, status, template_version"]],
+      ["select", ["id, user_id, status, template_version"]],
       ["eq", ["token_sha256", HASH]],
       ["maybeSingle", []],
     ]);
@@ -243,5 +298,86 @@ describe("markReceived (service role)", () => {
       throw new TypeError("fetch failed");
     });
     expect(await markReceived(threw.client, ID)).toEqual({ ok: false });
+  });
+});
+
+describe("changeStatus (AD-5)", () => {
+  it("asks the state machine, then writes with a compare-and-set on the old status", async () => {
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(client, ID, "received", "abandon")).toEqual({ outcome: "changed", status: "abandoned" });
+    expect(calls).toEqual([
+      ["update", [{ status: "abandoned" }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "received"]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it("sends no query for a transition AD-5 refuses", async () => {
+    for (const [from, event] of [
+      ["graded", "abandon"],
+      ["open", "grade_ok"],
+      ["abandoned", "submit_accepted"],
+    ] as const) {
+      const { client, from: fromTable } = fakeClient({ data: [{ id: ID }], error: null });
+      expect(await changeStatus(client, ID, from, event)).toEqual({ outcome: "refused" });
+      expect(fromTable).not.toHaveBeenCalled();
+    }
+  });
+
+  it("is lost when no row matched the old status, failed on an error or a throw", async () => {
+    expect(await changeStatus(fakeClient({ data: [], error: null }).client, ID, "open", "abandon")).toEqual({ outcome: "lost" });
+    const denied = fakeClient({ data: null, error: { code: "42501", message: "x" } });
+    expect(await changeStatus(denied.client, ID, "open", "abandon")).toEqual({ outcome: "failed" });
+    const threw = fakeClient(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(await changeStatus(threw.client, ID, "open", "abandon")).toEqual({ outcome: "failed" });
+    expect(errors).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("abandon (session)", () => {
+  const row = (status: string) => ({
+    id: ID,
+    item_id: "L01-P1",
+    status,
+    template_version: 1,
+    started_at: "2026-11-02T01:00:00+00:00",
+    received_at: status === "open" ? null : "2026-11-02T01:10:00+00:00",
+  });
+
+  it.each(["open", "received", "grading_failed"])("moves %s to abandoned with a compare-and-set", async (status) => {
+    const { client, calls } = fakeClient([
+      { data: row(status), error: null },
+      { data: [{ id: ID }], error: null },
+    ]);
+    expect(await abandon(client, ID)).toEqual({ outcome: "changed", status: "abandoned" });
+    expect(calls.slice(-4)).toEqual([
+      ["update", [{ status: "abandoned" }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", status]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it.each(["graded", "abandoned", "closed"])("refuses %s without an update", async (status) => {
+    const { client, calls } = fakeClient([{ data: row(status), error: null }]);
+    expect(await abandon(client, ID)).toEqual({ outcome: "refused" });
+    expect(calls.some(([name]) => name === "update")).toBe(false);
+  });
+
+  it("is lost when the status changed between the read and the write", async () => {
+    const { client } = fakeClient([
+      { data: row("open"), error: null },
+      { data: [], error: null },
+    ]);
+    expect(await abandon(client, ID)).toEqual({ outcome: "lost" });
+  });
+
+  it("is not_found for an attempt RLS hides, failed when the read fails", async () => {
+    expect(await abandon(fakeClient([{ data: null, error: null }]).client, ID)).toEqual({ outcome: "not_found" });
+    const failed = fakeClient([{ data: null, error: { code: "08006", message: "x" } }]);
+    expect(await abandon(failed.client, ID)).toEqual({ outcome: "failed" });
   });
 });

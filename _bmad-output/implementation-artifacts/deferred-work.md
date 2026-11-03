@@ -12,12 +12,14 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
   summary: AD-4 ignores modules the template does not pin, so code added to ThisWorkbook, a sheet module, or a new module keeps the identity, while exam-bridge.md says changed macro code means identity altered.
   evidence: matchesTemplate compares pinned modules only (tested "extra standard module" case); options are requiring unpinned modules to normalize empty or recording that added code is accepted (spine decision).
+  status: done — `matchesTemplate` now requires every module the template does not pin to normalize to empty (`EMPTY_MODULE_SHA256`), as AD-4 says; added code in ThisWorkbook, a sheet or a new module is `IDENTITY_ALTERED`, a new sheet's empty module and S3 still match (story 2.3, 2026-11-03).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
   summary: AD-4 says registry values are recomputed in CI, but the repo has no CI workflow that runs npm test.
   evidence: no .github/workflows; Vercel only runs next build, so the registry recompute test runs only locally.
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
   summary: POST /api/submissions/macro is public and runs readWorkbook on any body with no bound on inflated size, so a small zip bomb can exhaust the function.
   evidence: read.ts has no uncompressed-size or entry cap (pre-existing since S2); the spine defers the upload size limit to epic 2; bound inflated size and body size before or inside readWorkbook when submit() lands.
+  status: done — the macro route refuses bodies over 4 MiB (`MAX_SUBMISSION_BYTES`) with 413 `FILE_TOO_LARGE` before reading (Content-Length) or while streaming; `readWorkbook` caps a package at 1 000 entries and 32 MiB inflated in total, inflating each part as a stream without trusting declared sizes (→ `NOT_EXCEL`) (story 2.3, 2026-11-03). The upload route's limit and its web message stay with entry 5.
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
   summary: Epic 2 modFinish follow-ups — map each AD-6 code to an Indonesian message box (rejection-codes.ts contract), give non-network hints for 413, TLS/certificate and local TEMP failures, and fix the TempCopyPath comment (always .xlsm).
   evidence: S3's modFinish shows the raw code and always blames the connection; any VBA edit needs a template rebuild and laptop run, so these ride the epic 2 VBA change.
@@ -40,6 +42,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
   summary: Contract test that runs the real migration (grants, RLS, RPC parameter names) against the adapter's column and function names.
   evidence: 1.9 tests mock every Supabase client; a renamed parameter or dropped grant shows only as `proofRecorded: false` in Production. Build it with `attempts` in epic 2 (local Supabase or pgTAP); `bridge_proofs` is dropped then.
+  status: done — `supabase/tests/contract.db.test.ts` applies every migration to Postgres 16 with a Supabase stub (grants, RLS, the in-progress index, the `received_at` trigger), `npm run test:db` and CI job `db-contract` (story 2.2, 2026-11-03).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-bukti-ujung-ke-ujung-unduh-dari-production-finish-server-mem-plan.md`
   summary: Drop `bridge_proofs`, its RPC and `/dev/bridge-proof` once epic 2's `attempts` and `submit()` exist.
   evidence: Proof-only table and page (1.9 Design Notes).
@@ -53,3 +56,15 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
   summary: ExamStatus polling/auto-download loop and the template trace on the deployed `/levels` function have no automated check.
   evidence: 2.1 verification-gap lens; needs a DOM harness (epic 4) and a post-build trace check.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-siklus-percobaan-ad-5-di-core-dan-tes-kontrak-db-plan.md`
+  summary: The database does not fence service-role status writes against AD-5 (only the TS machine does); and abandoning a `received` attempt while grading runs makes the grader's compare-and-set come back `lost`.
+  evidence: 2.2 review; decide a check trigger and the grader's `lost` handling with grading (epic 3).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-submit-penuh-lima-kode-ad-6-dan-batas-ukuran-plan.md`
+  summary: Bounded inflate relies on JSZip's private `ZipObject#internalStream` (jszip 3.10.2 pinned) and checks the budget per chunk; revisit on any jszip upgrade.
+  evidence: 2.3 review; a version bump could silently drop the zip-bomb guard.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-layar-exam-lengkap-plan.md`
+  summary: The Orbit Loader pause/play toggle (`data-paused`, label switch) and the button's absence under reduced motion after hydration have no automated test; neither have the ExamStatus tick/poll/slow-timer effects.
+  evidence: 2.4 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-upload-dropzone-dan-route-upload-plan.md`
+  summary: Upload Dropzone interaction (focus return after a rejection, alert/status announcements, drag-over, keyboard activation, disabled input while uploading) has no automated test.
+  evidence: 2.5 review (medium if wrong, unverified); add with the DOM test harness in epic 4.

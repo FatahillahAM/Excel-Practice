@@ -1,4 +1,5 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
+import path from "node:path";
 import JSZip from "jszip";
 import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula.ts";
 import { readSheetParts, resolvePartName } from "./template-patch.ts";
@@ -10,6 +11,14 @@ import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
  * its type), its custom document properties and the VBA fingerprint (per
  * module, the SHA-256 of its normalized source; see `vba.ts`). Only the cells' own XML is trusted: `<dimension>` and
  * row `spans` can be stale (S1) and are ignored.
+ *
+ * The package is checked first: `[Content_Types].xml` and the main part named
+ * by `_rels/.rels` must make it a spreadsheet (else `NotAWorkbookError`), and a
+ * spreadsheet that is not a macro-enabled `.xlsm` (`.xlsx`, `.xlsb`, `.xltm`,
+ * `.xlam`, …) throws `NotMacroEnabledError` before any sheet is read. Inflation
+ * is bounded (`MAX_ZIP_ENTRIES`, `MAX_INFLATED_BYTES`): sizes the zip declares
+ * are not trusted, each part is inflated as a stream and reading stops once the
+ * budget is spent (zip bomb → `NotAWorkbookError`).
  *
  * `WorkbookReading` lives here during the spike; it moves to `src/core` with
  * grading (epic 3).
@@ -45,6 +54,35 @@ export class NotAWorkbookError extends Error {
   }
 }
 
+/**
+ * A spreadsheet that is not a macro-enabled `.xlsm` (AD-6 step 2,
+ * `IDENTITY_ALTERED`): `contentType` is its main part's content type.
+ */
+export class NotMacroEnabledError extends Error {
+  constructor(readonly contentType: string) {
+    super(`Not a macro-enabled workbook: main part is ${contentType}`);
+    this.name = "NotMacroEnabledError";
+  }
+}
+
+/** Most zip entries a submitted package may hold. */
+export const MAX_ZIP_ENTRIES = 1_000;
+/** Most bytes the reader inflates from one package, all parts together (32 MiB). */
+export const MAX_INFLATED_BYTES = 32 * 1024 * 1024;
+
+const CONTENT_TYPES_PART = "[Content_Types].xml";
+const PACKAGE_RELS_PART = "_rels/.rels";
+const OFFICE_DOCUMENT_TYPE_SUFFIX = "/relationships/officeDocument";
+/** Main part of a macro-enabled workbook (`.xlsm`). */
+const XLSM_MAIN_CONTENT_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.main+xml";
+/** Main parts of the other spreadsheet packages: `.xlsx`, `.xltx`, `.xltm`, `.xlam`, `.xlsb`. */
+const OTHER_SPREADSHEET_MAIN_CONTENT_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml",
+  "application/vnd.ms-excel.template.macroEnabled.main+xml",
+  "application/vnd.ms-excel.addin.macroEnabled.main+xml",
+  "application/vnd.ms-excel.sheet.binary.macroEnabled.main",
+]);
 const WORKBOOK_PART = "xl/workbook.xml";
 const WORKBOOK_RELS_PART = "xl/_rels/workbook.xml.rels";
 const CUSTOM_PROPERTIES_PART = "docProps/custom.xml";
@@ -58,37 +96,165 @@ export async function readWorkbook(bytes: Uint8Array): Promise<WorkbookReading> 
   } catch (error) {
     throw new NotAWorkbookError(`the file is not a zip archive (${(error as Error).message})`);
   }
+  const entries = Object.keys(zip.files).length;
+  if (entries > MAX_ZIP_ENTRIES) throw new NotAWorkbookError(`the zip has ${entries} entries (most ${MAX_ZIP_ENTRIES})`);
+  const parts = new PartReader(zip, MAX_INFLATED_BYTES);
+
+  await checkMainPart(parts);
   for (const part of [WORKBOOK_PART, WORKBOOK_RELS_PART]) {
     if (zip.file(part) === null) throw new NotAWorkbookError(`${part} is missing`);
   }
 
-  const sheetParts = await readSheetParts(zip);
-  const sharedStrings = await readSharedStrings(zip);
+  let sheetParts: Map<string, string>;
+  try {
+    sheetParts = await readSheetParts(zip, (name) => parts.text(name));
+  } catch (error) {
+    if (error instanceof NotAWorkbookError) throw error;
+    throw new NotAWorkbookError(`the sheets cannot be found (${(error as Error).message})`);
+  }
+  const sharedStrings = await readSharedStrings(parts);
   const sheets = new Map<string, Record<string, CellReading>>();
   for (const [name, part] of sheetParts) {
-    const xml = await readPart(zip, part);
+    const xml = await parts.text(part);
     if (xml === null) throw new NotAWorkbookError(`sheet "${name}" points to missing part ${part}`);
     sheets.set(name, readSheet(name, parseXml(xml, part), sharedStrings));
   }
 
   return {
     sheets: Object.fromEntries(sheets),
-    properties: await readCustomProperties(zip),
-    vbaModuleHashes: await readVbaFingerprint(zip),
+    properties: await readCustomProperties(parts),
+    vbaModuleHashes: await readVbaFingerprint(parts),
   };
 }
 
-/** A missing or unreadable VBA project is not a reason to refuse the workbook here: it never matches a template (AD-6). */
-async function readVbaFingerprint(zip: JSZip): Promise<VbaModuleHashes | null> {
-  const file = zip.file(VBA_PROJECT_PART);
-  if (file === null) return null;
-  let bytes: Uint8Array;
+/**
+ * The package's main part (`_rels/.rels` officeDocument relationship) and its
+ * content type (`[Content_Types].xml` Override, else Default by extension):
+ * a macro-enabled workbook at `xl/workbook.xml` passes; another spreadsheet
+ * type throws `NotMacroEnabledError`; anything else `NotAWorkbookError`.
+ */
+async function checkMainPart(parts: PartReader): Promise<void> {
+  const typesXml = await parts.text(CONTENT_TYPES_PART);
+  const relsXml = await parts.text(PACKAGE_RELS_PART);
+  if (typesXml === null || relsXml === null) {
+    throw new NotAWorkbookError(`not an OOXML package (${typesXml === null ? CONTENT_TYPES_PART : PACKAGE_RELS_PART} is missing)`);
+  }
+  const rels = children(child(parseXml(relsXml, PACKAGE_RELS_PART), "Relationships"), "Relationship");
+  const main = rels.find((rel) => (attr(rel, "Type") ?? "").endsWith(OFFICE_DOCUMENT_TYPE_SUFFIX));
+  const target = main === undefined ? null : attr(main, "Target");
+  if (target === null) throw new NotAWorkbookError(`${PACKAGE_RELS_PART} names no main part`);
+  const mainPart = path.posix.normalize(target.replace(/^\/+/, ""));
+
+  const types = child(parseXml(typesXml, CONTENT_TYPES_PART), "Types");
+  const override = children(types, "Override").find(
+    (node) => (attr(node, "PartName") ?? "").replace(/^\/+/, "").toLowerCase() === mainPart.toLowerCase(),
+  );
+  const extension = path.posix.extname(mainPart).slice(1).toLowerCase();
+  const byDefault = children(types, "Default").find((node) => (attr(node, "Extension") ?? "").toLowerCase() === extension);
+  const contentType = ((override ? attr(override, "ContentType") : byDefault ? attr(byDefault, "ContentType") : null) ?? "").trim();
+  const mediaType = contentType.toLowerCase();
+
+  if (mediaType === XLSM_MAIN_CONTENT_TYPE.toLowerCase()) {
+    // The reader reads the workbook part where Excel writes it.
+    if (mainPart !== WORKBOOK_PART) throw new NotAWorkbookError(`main part ${mainPart} is not ${WORKBOOK_PART}`);
+    return;
+  }
+  if ([...OTHER_SPREADSHEET_MAIN_CONTENT_TYPES].some((type) => type.toLowerCase() === mediaType)) {
+    throw new NotMacroEnabledError(contentType);
+  }
+  throw new NotAWorkbookError(`main part ${mainPart} is not a spreadsheet (${contentType || "no content type"})`);
+}
+
+/**
+ * A missing or unreadable VBA project is not a reason to refuse the workbook here: it never matches a template (AD-6).
+ * A spent inflate budget still is (`NotAWorkbookError`).
+ */
+async function readVbaFingerprint(parts: PartReader): Promise<VbaModuleHashes | null> {
+  let bytes: Uint8Array | null;
   try {
-    bytes = await file.async("uint8array");
-  } catch {
+    bytes = await parts.bytes(VBA_PROJECT_PART);
+  } catch (error) {
+    if (error instanceof NotAWorkbookError) throw error;
     return null;
   }
-  return readVbaModuleHashes(bytes);
+  return bytes === null ? null : readVbaModuleHashes(bytes);
+}
+
+// ---------------------------------------------------------------------------
+// Bounded inflation
+
+/** JSZip's chunked inflate stream (`ZipObject#internalStream`, the source of its public `nodeStream`); untyped in its .d.ts. */
+interface InternalStreamSource {
+  internalStream(type: "uint8array"): {
+    on(event: "data", listener: (chunk: Uint8Array) => void): unknown;
+    on(event: "error", listener: (error: Error) => void): unknown;
+    on(event: "end", listener: () => void): unknown;
+    pause(): unknown;
+    resume(): unknown;
+  };
+}
+
+/**
+ * Reads parts of one package against one inflate budget. Each part is
+ * inflated as a stream and counted chunk by chunk, so a size the zip declares
+ * is never trusted; once the budget is spent the stream is paused and the read
+ * fails with `NotAWorkbookError`.
+ */
+class PartReader {
+  private remaining: number;
+
+  constructor(
+    private readonly zip: JSZip,
+    budget: number,
+  ) {
+    this.remaining = budget;
+  }
+
+  async text(name: string): Promise<string | null> {
+    const bytes = await this.bytes(name);
+    return bytes === null ? null : new TextDecoder("utf-8").decode(bytes);
+  }
+
+  bytes(name: string): Promise<Uint8Array | null> {
+    const file = this.zip.file(name);
+    if (file === null) return Promise.resolve(null);
+    return new Promise<Uint8Array>((resolve, reject) => {
+      const chunks: Uint8Array[] = [];
+      let total = 0;
+      let settled = false;
+      const stream = (file as unknown as InternalStreamSource).internalStream("uint8array");
+      stream.on("data", (chunk: Uint8Array) => {
+        if (settled) return;
+        total += chunk.length;
+        if (total > this.remaining) {
+          settled = true;
+          stream.pause();
+          this.remaining = 0;
+          reject(new NotAWorkbookError(`inflating ${name} exceeds ${MAX_INFLATED_BYTES} bytes for the package`));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      stream.on("error", (error: Error) => {
+        if (settled) return;
+        settled = true;
+        reject(error);
+      });
+      stream.on("end", () => {
+        if (settled) return;
+        settled = true;
+        this.remaining -= total;
+        const out = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          out.set(chunk, offset);
+          offset += chunk.length;
+        }
+        resolve(out);
+      });
+      stream.resume();
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -232,15 +398,15 @@ const EMPTY = { value: null, type: "empty" } as const;
 // ---------------------------------------------------------------------------
 // Shared strings, custom properties
 
-async function readSharedStrings(zip: JSZip): Promise<string[]> {
-  const rels = parseXml((await readPart(zip, WORKBOOK_RELS_PART))!, WORKBOOK_RELS_PART);
+async function readSharedStrings(parts: PartReader): Promise<string[]> {
+  const rels = parseXml((await parts.text(WORKBOOK_RELS_PART))!, WORKBOOK_RELS_PART);
   const relationship = children(child(rels, "Relationships"), "Relationship").find((rel) =>
     (attr(rel, "Type") ?? "").endsWith(SHARED_STRINGS_TYPE_SUFFIX),
   );
   const target = relationship === undefined ? null : attr(relationship, "Target");
   if (target === null) return [];
   const part = resolvePartName(target);
-  const xml = await readPart(zip, part);
+  const xml = await parts.text(part);
   if (xml === null) throw new NotAWorkbookError(`${part} is missing`);
   return children(child(parseXml(xml, part), "sst"), "si").map(richText);
 }
@@ -256,8 +422,8 @@ function decodeEscapes(value: string): string {
   return value.replace(/_x([0-9A-Fa-f]{4})_/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)));
 }
 
-async function readCustomProperties(zip: JSZip): Promise<Record<string, string>> {
-  const xml = await readPart(zip, CUSTOM_PROPERTIES_PART);
+async function readCustomProperties(parts: PartReader): Promise<Record<string, string>> {
+  const xml = await parts.text(CUSTOM_PROPERTIES_PART);
   if (xml === null) return {};
   const properties = new Map<string, string>();
   for (const property of children(child(parseXml(xml, CUSTOM_PROPERTIES_PART), "Properties"), "property")) {
@@ -274,7 +440,7 @@ async function readCustomProperties(zip: JSZip): Promise<Record<string, string>>
 
 type XmlNode = { [key: string]: unknown };
 
-const ARRAY_TAGS = new Set(["row", "c", "si", "r", "property", "Relationship"]);
+const ARRAY_TAGS = new Set(["row", "c", "si", "r", "property", "Relationship", "Override", "Default"]);
 
 // Entities are decoded by `text`/`attr` below, so numeric references (`&#10;`)
 // are handled too and no DOCTYPE entity is ever expanded.
@@ -343,9 +509,4 @@ function decodeXml(value: string): string {
         );
     }
   });
-}
-
-async function readPart(zip: JSZip, name: string): Promise<string | null> {
-  const file = zip.file(name);
-  return file === null ? null : file.async("string");
 }
