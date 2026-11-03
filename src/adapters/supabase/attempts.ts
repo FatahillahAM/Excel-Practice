@@ -231,6 +231,8 @@ export async function changeStatus(
   attemptId: string,
   from: AttemptStatus,
   event: AttemptEvent,
+  /** Log event on failure; defaults to `attempt.<event>_failed`. */
+  logEvent = `attempt.${event}_failed`,
 ): Promise<ChangeStatusResult> {
   const next = transition(from, event);
   if (!next.ok) return { outcome: "refused" };
@@ -242,12 +244,12 @@ export async function changeStatus(
       .eq("status", from)
       .select("id");
     if (error) {
-      logError(`attempt.${event}_failed`, error.code);
+      logError(logEvent, error.code);
       return { outcome: "failed" };
     }
     return Array.isArray(data) && data.length === 1 ? { outcome: "changed", status: next.to } : { outcome: "lost" };
   } catch (error) {
-    logError(`attempt.${event}_failed`, errorName(error));
+    logError(logEvent, errorName(error));
     return { outcome: "failed" };
   }
 }
@@ -258,7 +260,7 @@ export async function changeStatus(
  * `open` (another post won).
  */
 export async function markReceived(service: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
-  const result = await changeStatus(service, attemptId, "open", "submit_accepted");
+  const result = await changeStatus(service, attemptId, "open", "submit_accepted", "attempt.mark_received_failed");
   if (result.outcome === "failed") return { ok: false };
   return { ok: true, value: result.outcome === "changed" };
 }

@@ -14,6 +14,11 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
  */
 
 const DATABASE_URL = process.env.DATABASE_URL;
+
+// `npm run test:db` sets CONTRACT_DB: there a missing DATABASE_URL is an error, not a skip.
+if (process.env.CONTRACT_DB && !DATABASE_URL) {
+  throw new Error("npm run test:db needs DATABASE_URL (a superuser on a local or CI Postgres 16)");
+}
 const here = path.dirname(fileURLToPath(import.meta.url));
 const migrationsDir = path.join(here, "..", "migrations");
 
@@ -35,16 +40,20 @@ const hash = () => randomBytes(32).toString("hex");
 describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => {
   const dbName = `contract_${randomBytes(6).toString("hex")}`;
   let admin: pg.Client;
+  let adminConnected = false;
+  let dbConnected = false;
   let db: pg.Client;
 
   beforeAll(async () => {
     admin = new pg.Client({ connectionString: DATABASE_URL });
     await admin.connect();
+    adminConnected = true;
     await admin.query(`create database ${dbName}`);
     const url = new URL(DATABASE_URL!);
     url.pathname = `/${dbName}`;
     db = new pg.Client({ connectionString: url.toString() });
     await db.connect();
+    dbConnected = true;
     await db.query(await readFile(path.join(here, "supabase-stub.sql"), "utf8"));
     const files = (await readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
     for (const file of files) {
@@ -57,8 +66,8 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
   }, 60_000);
 
   afterAll(async () => {
-    await db?.end();
-    if (admin) {
+    if (dbConnected) await db.end();
+    if (adminConnected) {
       await admin.query(`drop database if exists ${dbName} with (force)`);
       await admin.end();
     }
@@ -135,7 +144,6 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     const files = (await readdir(migrationsDir)).filter((f) => f.endsWith(".sql")).sort();
     const { rows } = await db.query("select value from public.app_meta where key = 'schema_version'");
     expect(rows[0].value).toBe(files.at(-1)!.slice(0, 14));
-    expect(files.some((f) => f.startsWith("20261103000001"))).toBe(true);
   });
 
   describe("Start", () => {
@@ -198,6 +206,25 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       const id = await start(uid);
       await db.query("update public.attempts set status = 'received', received_at = '2000-01-01T00:00:00Z' where id = $1", [id]);
       expect((await row(id)).received_at!.getUTCFullYear()).not.toBe(2000);
+    });
+
+    it("keeps the first value when the service role moves grading_failed back to received", async () => {
+      const { id } = await attemptIn("grading_failed");
+      // A fixed earlier value (no status change, so the trigger does not fire).
+      await db.query("update public.attempts set received_at = '2001-01-01T00:00:00Z' where id = $1", [id]);
+      const count = await asService(
+        async (q) =>
+          (
+            await q.query(
+              "update public.attempts set status = 'received' where id = $1 and status = 'grading_failed' returning id",
+              [id],
+            )
+          ).rowCount,
+      );
+      expect(count).toBe(1);
+      const r = await row(id);
+      expect(r.status).toBe("received");
+      expect(r.received_at!.toISOString()).toBe("2001-01-01T00:00:00.000Z");
     });
 
     it("cannot be written by the service role or the owner", async () => {

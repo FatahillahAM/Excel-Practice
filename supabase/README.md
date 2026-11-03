@@ -33,7 +33,7 @@ Afterwards `list_migrations` (MCP) or `supabase migration list` must show the sa
 
 `tests/contract.db.test.ts` applies `tests/supabase-stub.sql` and then every file in `migrations/` as it is, in name order, to a scratch database `contract_<random>` (dropped afterwards), and checks the grants, RLS policies, the in-progress unique index and the `received_at` trigger as the `authenticated`, `anon` and `service_role` roles. CI runs it in the `db-contract` job against a `postgres:16` service.
 
-It runs only when `DATABASE_URL` is set (a superuser on a local or CI Postgres 16; never the `dev` or `prod` projects); `npm run test` skips it. Locally, in the dev container:
+It runs only when `DATABASE_URL` is set (a superuser on a local or CI Postgres 16; never the `dev` or `prod` projects). `npm run test` excludes `supabase/tests`; `npm run test:db` runs only it and fails at once when `DATABASE_URL` is missing. Locally, in the dev container:
 
 ```sh
 pg_ctlcluster 16 main start
