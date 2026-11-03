@@ -5,7 +5,8 @@ import { EMPTY_MODULE_SHA256, type VbaModuleHashes } from "./vba.ts";
  * `assets/templates/` plus the VBA fingerprint of the modules it pins: per
  * module whose normalized source is not empty, the SHA-256 of that source
  * (`readVbaModuleHashes`). A submitted workbook that does not match its
- * attempt's version is IDENTITY_ALTERED (AD-6). The bytes of
+ * attempt's version is IDENTITY_ALTERED (AD-6); so is one with code in a
+ * module the template does not pin (`matchesTemplate`). The bytes of
  * `xl/vbaProject.bin` are never compared: Excel rewrites them on every save (S2).
  *
  * Values come only from the adapter run on the committed `.xlsm`
@@ -36,9 +37,11 @@ export function pinnedModules(hashes: VbaModuleHashes): Record<string, string> {
 }
 
 /**
- * Whether a workbook's VBA fingerprint matches template `version`: its VBA
- * project is present and readable (`hashes` not `null`) and every pinned module
- * is present with an equal hash. Modules the template does not pin are ignored.
+ * Whether a workbook's VBA fingerprint matches template `version` (AD-4): its
+ * VBA project is present and readable (`hashes` not `null`), every pinned
+ * module is present with an equal hash, and every module the template does not
+ * pin normalizes to empty (`EMPTY_MODULE_SHA256`): a new sheet's empty module
+ * passes, code added to ThisWorkbook, a sheet or a new module does not.
  * Throws for a version that is not in the registry.
  */
 export function matchesTemplate(hashes: VbaModuleHashes | null, version: number): boolean {
@@ -47,5 +50,9 @@ export function matchesTemplate(hashes: VbaModuleHashes | null, version: number)
   const pinned = Object.entries(template.vbaModules);
   if (pinned.length === 0) throw new Error(`Template version ${version} pins no VBA module`);
   if (hashes === null) return false;
-  return pinned.every(([name, hash]) => Object.hasOwn(hashes, name) && hashes[name] === hash);
+  const pinnedOk = pinned.every(([name, hash]) => Object.hasOwn(hashes, name) && hashes[name] === hash);
+  const othersEmpty = Object.entries(hashes).every(
+    ([name, hash]) => Object.hasOwn(template.vbaModules, name) || hash === EMPTY_MODULE_SHA256,
+  );
+  return pinnedOk && othersEmpty;
 }

@@ -65,14 +65,14 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/submission/submit.ts` (+`index.ts`) -- `MAX_SUBMISSION_BYTES = 4 MiB`; `SubmissionFault` (`FILE_TOO_LARGE`, `INTERNAL_ERROR`, di luar `RejectionCode`); `Channel`; `SubmissionPorts`; `submit(bytes, channel, ports)` → hasil bertipe dengan field log. `ATTEMPT_TOKEN_RE` pindah ke core, `generate.ts` re-export.
-- [ ] `src/core/submission/submit.test.ts` -- port palsu: tiap baris matriks, urutan (dua alasan → kode langkah lebih awal), simpan sebelum CAS, `exists` → tetap CAS.
-- [ ] `src/adapters/workbook/read.ts` (+tes) -- `[Content_Types].xml` + main part dari `_rels/.rels`: bukan OOXML/tanpa main spreadsheet → `NotAWorkbookError`; spreadsheet non-macro-enabled `.xlsm` → `NotMacroEnabledError` sebelum sheet dibaca. Batas: ≤ 1 000 entri, ≤ 32 MiB inflate total, ukuran deklarasi tak dipercaya (inflate stream, berhenti melewati sisa anggaran) → `NotAWorkbookError`.
-- [ ] `src/adapters/workbook/templates.ts` (+tes) -- modul tak dipin wajib `EMPTY_MODULE_SHA256`; tes: modul standar tambahan dan kode di ThisWorkbook → tak cocok; sheet kosong baru dan S3 tetap cocok.
-- [ ] `src/adapters/workbook/submission.ts` (+tes) -- port workbook untuk core: `inspect(bytes)` → `not_excel | not_xlsm | xlsm {token, vba}`, `fingerprintMatches`, `hashToken`.
-- [ ] `src/adapters/supabase/attempts.ts` (+tes) -- di samping `findAttemptByTokenHash`/`markReceived`: `submissionFilePath(id, n)`; `storeSubmissionFile(service, id, n, bytes)` (pola `uploadGeneratedFile`) → `stored | exists | failed`.
-- [ ] `src/app/api/submissions/macro/route.ts` (+tes) -- `Content-Length` > batas → 413 tanpa baca; stream dibaca dengan batas; port service; HTTP 200 / 400 / 413 / 500; hapus `inspect.ts`. Tes lewat route: satu fixture per kode (termasuk `.xlsx`, `.xlsb`, modul tambahan, `graded`, `abandoned`, `closed`), duplikat, S3, body 4 MiB + 1 (dengan/tanpa Content-Length), zip bomb (banyak entri; satu entri nol besar).
-- [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- tandai batas ukuran/zip bomb dan modul tak dipin selesai.
+- [x] `src/core/submission/submit.ts` (+`index.ts`) -- `MAX_SUBMISSION_BYTES = 4 MiB`; `SubmissionFault` (`FILE_TOO_LARGE`, `INTERNAL_ERROR`, di luar `RejectionCode`); `Channel`; `SubmissionPorts`; `submit(bytes, channel, ports)` → hasil bertipe dengan field log. `ATTEMPT_TOKEN_RE` pindah ke core, `generate.ts` re-export.
+- [x] `src/core/submission/submit.test.ts` -- port palsu: tiap baris matriks, urutan (dua alasan → kode langkah lebih awal), simpan sebelum CAS, `exists` → tetap CAS.
+- [x] `src/adapters/workbook/read.ts` (+tes) -- `[Content_Types].xml` + main part dari `_rels/.rels`: bukan OOXML/tanpa main spreadsheet → `NotAWorkbookError`; spreadsheet non-macro-enabled `.xlsm` → `NotMacroEnabledError` sebelum sheet dibaca. Batas: ≤ 1 000 entri, ≤ 32 MiB inflate total, ukuran deklarasi tak dipercaya (inflate stream, berhenti melewati sisa anggaran) → `NotAWorkbookError`.
+- [x] `src/adapters/workbook/templates.ts` (+tes) -- modul tak dipin wajib `EMPTY_MODULE_SHA256`; tes: modul standar tambahan dan kode di ThisWorkbook → tak cocok; sheet kosong baru dan S3 tetap cocok.
+- [x] `src/adapters/workbook/submission.ts` (+tes) -- port workbook untuk core: `inspect(bytes)` → `not_excel | not_xlsm | xlsm {token, vba}`, `fingerprintMatches`, `hashToken`.
+- [x] `src/adapters/supabase/attempts.ts` (+tes) -- di samping `findAttemptByTokenHash`/`markReceived`: `submissionFilePath(id, n)`; `storeSubmissionFile(service, id, n, bytes)` (pola `uploadGeneratedFile`) → `stored | exists | failed`.
+- [x] `src/app/api/submissions/macro/route.ts` (+tes) -- `Content-Length` > batas → 413 tanpa baca; stream dibaca dengan batas; port service; HTTP 200 / 400 / 413 / 500; hapus `inspect.ts`. Tes lewat route: satu fixture per kode (termasuk `.xlsx`, `.xlsb`, modul tambahan, `graded`, `abandoned`, `closed`), duplikat, S3, body 4 MiB + 1 (dengan/tanpa Content-Length), zip bomb (banyak entri; satu entri nol besar).
+- [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- tandai batas ukuran/zip bomb dan modul tak dipin selesai.
 
 **Acceptance Criteria:**
 - Given tes route macro dan core, when `npm run test`, then tiap kode AD-6, duplikat, batas ukuran, dan zip bomb lolos, dan `matchesTemplate` tidak mengubah hasil template v1 maupun S3.

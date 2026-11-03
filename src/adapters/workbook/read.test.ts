@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
 import { cellMismatch, S2_FIXTURE, S2_MODFINISH_SHA256, s2Expected } from "./__fixtures__/s2-expected";
-import { NotAWorkbookError, readWorkbook } from "./read";
+import { MAX_INFLATED_BYTES, MAX_ZIP_ENTRIES, NotAWorkbookError, NotMacroEnabledError, readWorkbook } from "./read";
 import { readSheetParts } from "./template-patch";
 import { templates } from "./templates";
 import { EMPTY_MODULE_SHA256 } from "./vba";
@@ -93,13 +93,35 @@ const DATA_ROWS =
   '<row r="7"><c r="L7" t="str"><v>Lini B</v></c></row>' +
   '<row r="8"><c r="L8" t="str"><v>Lini C</v></c></row>';
 
+const XLSM_MAIN = "application/vnd.ms-excel.sheet.macroEnabled.main+xml";
+
+function contentTypesXml(mainContentType = XLSM_MAIN, partName = "/xl/workbook.xml"): string {
+  return (
+    `${XML_HEAD}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+    '<Default Extension="bin" ContentType="application/vnd.ms-office.vbaProject"/>' +
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+    '<Default Extension="xml" ContentType="application/xml"/>' +
+    `<Override PartName="${partName}" ContentType="${mainContentType}"/>` +
+    "</Types>"
+  );
+}
+
+function packageRelsXml(target = "xl/workbook.xml"): string {
+  return (
+    `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/custom-properties" Target="docProps/custom.xml"/>' +
+    `<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="${target}"/>` +
+    "</Relationships>"
+  );
+}
+
 /** Bytes that are not an MS-CFB container: a VBA project that cannot be read. */
 const VBA_PROJECT = Uint8Array.from({ length: 4096 }, (_, i) => (i * 37 + 11) % 256);
 
 async function makeWorkbook(overrides: Record<string, string | Uint8Array | null> = {}): Promise<Uint8Array> {
   const parts: Record<string, string | Uint8Array | null> = {
-    "[Content_Types].xml": `${XML_HEAD}<Types/>`,
-    "_rels/.rels": "<Relationships/>",
+    "[Content_Types].xml": contentTypesXml(),
+    "_rels/.rels": packageRelsXml(),
     "docProps/custom.xml": CUSTOM_XML,
     "xl/workbook.xml": WORKBOOK_XML,
     "xl/_rels/workbook.xml.rels": WORKBOOK_RELS_XML,
@@ -353,6 +375,126 @@ describe("readWorkbook", () => {
       await expect(readWorkbook(await makeWorkbook({ "xl/worksheets/sheet2.xml": null }))).rejects.toThrow(
         /sheet "Data" points to missing part xl\/worksheets\/sheet2\.xml/,
       );
+    });
+  });
+
+  describe("package and main part", () => {
+    it("rejects a zip without [Content_Types].xml or _rels/.rels as not an OOXML package", async () => {
+      for (const part of ["[Content_Types].xml", "_rels/.rels"]) {
+        const bytes = await makeWorkbook({ [part]: null });
+        await expect(readWorkbook(bytes), part).rejects.toThrow(NotAWorkbookError);
+        await expect(readWorkbook(bytes), part).rejects.toThrow(/not an OOXML package/);
+      }
+    });
+
+    it("rejects a package whose relationships name no main part", async () => {
+      const rels = packageRelsXml().replace(/<Relationship Id="rId1"[^>]*\/>/, "");
+      await expect(readWorkbook(await makeWorkbook({ "_rels/.rels": rels }))).rejects.toThrow(/names no main part/);
+    });
+
+    it("rejects a document that is not a spreadsheet (docx) as not a workbook", async () => {
+      const bytes = await makeWorkbook({
+        "[Content_Types].xml": contentTypesXml(
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+          "/word/document.xml",
+        ),
+        "_rels/.rels": packageRelsXml("word/document.xml"),
+        "word/document.xml": `${XML_HEAD}<document/>`,
+      });
+      await expect(readWorkbook(bytes)).rejects.toThrow(NotAWorkbookError);
+      await expect(readWorkbook(bytes)).rejects.toThrow(/is not a spreadsheet/);
+    });
+
+    it.each([
+      ["xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml", "xl/workbook.xml"],
+      ["xltx", "application/vnd.openxmlformats-officedocument.spreadsheetml.template.main+xml", "xl/workbook.xml"],
+      ["xltm", "application/vnd.ms-excel.template.macroEnabled.main+xml", "xl/workbook.xml"],
+      ["xlam", "application/vnd.ms-excel.addin.macroEnabled.main+xml", "xl/workbook.xml"],
+      ["xlsb", "application/vnd.ms-excel.sheet.binary.macroEnabled.main", "xl/workbook.bin"],
+    ])("throws NotMacroEnabledError for a .%s, before any sheet is read", async (_, contentType, mainPart) => {
+      const bytes = await makeWorkbook({
+        "[Content_Types].xml": contentTypesXml(contentType, `/${mainPart}`),
+        "_rels/.rels": packageRelsXml(mainPart),
+        // A broken sheet would be NotAWorkbookError if it were read.
+        "xl/worksheets/sheet2.xml": "not xml",
+        ...(mainPart === "xl/workbook.xml" ? {} : { "xl/workbook.xml": null, [mainPart]: new Uint8Array([0x83, 1, 0]) }),
+      });
+      await expect(readWorkbook(bytes)).rejects.toThrow(NotMacroEnabledError);
+      await expect(readWorkbook(bytes)).rejects.toMatchObject({ contentType });
+    });
+
+    it("takes the main part's content type from Default by extension when there is no Override", async () => {
+      const types = contentTypesXml().replace(/<Override [^>]*\/>/, "").replace(
+        '<Default Extension="xml" ContentType="application/xml"/>',
+        '<Default Extension="xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>',
+      );
+      await expect(readWorkbook(await makeWorkbook({ "[Content_Types].xml": types }))).rejects.toThrow(NotMacroEnabledError);
+    });
+
+    it("reads a main part named with a leading slash and Override PartName in another case", async () => {
+      const bytes = await makeWorkbook({
+        "[Content_Types].xml": contentTypesXml(XLSM_MAIN, "/XL/Workbook.xml"),
+        "_rels/.rels": packageRelsXml("/xl/workbook.xml"),
+      });
+      expect((await readWorkbook(bytes)).sheets.Data.H3.formula).toBe("F3/E3");
+    });
+
+    it("rejects an .xlsm whose main part is not xl/workbook.xml", async () => {
+      const bytes = await makeWorkbook({
+        "[Content_Types].xml": contentTypesXml(XLSM_MAIN, "/xl/book.xml"),
+        "_rels/.rels": packageRelsXml("xl/book.xml"),
+      });
+      await expect(readWorkbook(bytes)).rejects.toThrow(/main part xl\/book\.xml is not xl\/workbook\.xml/);
+    });
+  });
+
+  describe("bounds (zip bomb)", () => {
+    it(`rejects a zip with more than ${MAX_ZIP_ENTRIES} entries`, async () => {
+      const extra = Object.fromEntries(Array.from({ length: MAX_ZIP_ENTRIES }, (_, i) => [`xl/media/e${i}.bin`, "x"]));
+      const bytes = await makeWorkbook(extra);
+      await expect(readWorkbook(bytes)).rejects.toThrow(NotAWorkbookError);
+      await expect(readWorkbook(bytes)).rejects.toThrow(/entries/);
+    });
+
+    it("rejects one part that inflates past the budget, in a sheet or in vbaProject.bin", async () => {
+      const zeros = new Uint8Array(MAX_INFLATED_BYTES + 1);
+      for (const part of ["xl/worksheets/sheet1.xml", "xl/vbaProject.bin"]) {
+        const bytes = await makeWorkbook({ [part]: zeros });
+        expect(bytes.length).toBeLessThan(200_000);
+        await expect(readWorkbook(bytes), part).rejects.toThrow(NotAWorkbookError);
+        await expect(readWorkbook(bytes), part).rejects.toThrow(/exceeds/);
+      }
+    }, 20_000);
+
+    it("counts the budget across parts", async () => {
+      // Well-formed XML (trailing blanks) for the custom properties read first, then vbaProject.bin.
+      const half = MAX_INFLATED_BYTES / 2 + 1;
+      const bytes = await makeWorkbook({
+        "docProps/custom.xml": CUSTOM_XML + " ".repeat(half),
+        "xl/vbaProject.bin": new Uint8Array(half),
+      });
+      await expect(readWorkbook(bytes)).rejects.toThrow(/exceeds/);
+    }, 20_000);
+
+    it("does not trust the uncompressed size the zip declares", async () => {
+      const bytes = await makeWorkbook({ "xl/worksheets/sheet1.xml": new Uint8Array(MAX_INFLATED_BYTES + 1) });
+      const name = new TextEncoder().encode("xl/worksheets/sheet1.xml");
+      let patchedHeaders = 0;
+      const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+      for (let i = 0; i + 46 < bytes.length; i++) {
+        const sig = view.getUint32(i, true);
+        // Local file header: size at 22, name length at 26, name at 30. Central directory: size at 24, name length at 28, name at 46.
+        const [sizeAt, nameLengthAt, nameAt] =
+          sig === 0x04034b50 ? [22, 26, 30] : sig === 0x02014b50 ? [24, 28, 46] : [-1, -1, -1];
+        if (sizeAt < 0 || view.getUint16(i + nameLengthAt, true) !== name.length) continue;
+        if (!name.every((b, k) => bytes[i + nameAt + k] === b)) continue;
+        view.setUint32(i + sizeAt, 100, true);
+        patchedHeaders += 1;
+      }
+      expect(patchedHeaders).toBe(2);
+      const zip = await JSZip.loadAsync(bytes);
+      expect((zip.file("xl/worksheets/sheet1.xml") as unknown as { _data: { uncompressedSize: number } })._data.uncompressedSize).toBe(100);
+      await expect(readWorkbook(bytes)).rejects.toThrow(/exceeds/);
     });
   });
 

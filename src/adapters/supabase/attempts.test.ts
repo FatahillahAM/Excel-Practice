@@ -11,6 +11,8 @@ import {
   generatedFilePath,
   markReceived,
   readAttempt,
+  storeSubmissionFile,
+  submissionFilePath,
   uploadGeneratedFile,
   XLSM_CONTENT_TYPE,
 } from "./attempts";
@@ -194,6 +196,41 @@ describe("attempt files", () => {
   it("reports a failed upload", async () => {
     const { client } = fakeStorage({ upload: { data: null, error: { code: "403", message: "row-level security" } } });
     expect(await uploadGeneratedFile(client, ID, new Uint8Array([1]))).toBe(false);
+  });
+
+  it("stores a submission once at <attemptId>/submission-<n>.xlsm", async () => {
+    const bytes = new Uint8Array([4, 5, 6]);
+    const { client, from, upload } = fakeStorage({});
+    expect(await storeSubmissionFile(client, ID, 1, bytes)).toBe("stored");
+    expect(submissionFilePath(ID, 1)).toBe(`${ID}/submission-1.xlsm`);
+    expect(from).toHaveBeenCalledWith("attempt-files");
+    expect(upload).toHaveBeenCalledWith(`${ID}/submission-1.xlsm`, bytes, { contentType: XLSM_CONTENT_TYPE, upsert: false });
+  });
+
+  it.each([
+    ["statusCode 409", { statusCode: "409", error: "Duplicate", message: "The resource already exists" }],
+    ["status 409", { status: 409, message: "exists" }],
+    ["code ResourceAlreadyExists", { status: 400, code: "ResourceAlreadyExists", message: "exists" }],
+  ])("reports an existing submission (%s) as exists, without replacing it", async (_, error) => {
+    const { client, upload } = fakeStorage({ upload: { data: null, error } as unknown as Result });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await storeSubmissionFile(client, ID, 1, new Uint8Array([1]))).toBe("exists");
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it("reports and logs a failed submission store", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { client } = fakeStorage({ upload: { data: null, error: { code: "403", message: "row-level security" } } });
+    expect(await storeSubmissionFile(client, ID, 1, new Uint8Array([1]))).toBe("failed");
+    expect(errors).toHaveBeenCalledWith(JSON.stringify({ event: "attempt.submission_store_failed", code: "unknown" }));
+    const throwing = { storage: { from: () => ({ upload: async () => { throw new TypeError("fetch failed"); } }) } };
+    expect(await storeSubmissionFile(throwing as unknown as SupabaseClient, ID, 1, new Uint8Array([1]))).toBe("failed");
+  });
+
+  it("refuses a submission number that is not a positive integer", () => {
+    expect(() => submissionFilePath(ID, 0)).toThrow();
+    expect(() => submissionFilePath(ID, 1.5)).toThrow();
   });
 
   it("reads the stored bytes back", async () => {

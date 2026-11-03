@@ -140,10 +140,16 @@ function setCustomProperties(
 const SHEET_RE = /<sheet\b([^>]*?)\/?>/g;
 const RELATIONSHIP_RE = /<Relationship\b([^>]*?)\/?>/g;
 
-/** Sheet name → part name, in workbook order, via `xl/workbook.xml` and its relationships. Shared with the reader. */
-export async function readSheetParts(zip: JSZip): Promise<Map<string, string>> {
-  const workbook = await readPart(zip, WORKBOOK_PART);
-  const rels = await readPart(zip, WORKBOOK_RELS_PART);
+/**
+ * Sheet name → part name, in workbook order, via `xl/workbook.xml` and its
+ * relationships. Shared with the reader, which passes its bounded `read`.
+ */
+export async function readSheetParts(
+  zip: JSZip,
+  read: (name: string) => Promise<string | null> = (name) => readPart(zip, name),
+): Promise<Map<string, string>> {
+  const workbook = await read(WORKBOOK_PART);
+  const rels = await read(WORKBOOK_RELS_PART);
   if (workbook === null || rels === null) {
     throw new Error(`Template has no ${workbook === null ? WORKBOOK_PART : WORKBOOK_RELS_PART}`);
   }

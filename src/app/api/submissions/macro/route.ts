@@ -1,91 +1,139 @@
-import { findAttemptByTokenHash, markReceived, type AttemptStatus } from "../../../../adapters/supabase/attempts";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  findAttemptByTokenHash,
+  markReceived,
+  storeSubmissionFile,
+  type AttemptStatus,
+} from "../../../../adapters/supabase/attempts";
 import { createServiceClient } from "../../../../adapters/supabase/service";
-import { RejectionCode } from "../../../../core/submission/rejection-codes";
-import { fingerprintMatches, identifyMacroSubmission } from "./inspect";
-
-/** A server fault, not a reason the file is refused (outside the AD-6 rejection codes). */
-const INTERNAL_ERROR = "INTERNAL_ERROR";
+import { workbookPort } from "../../../../adapters/workbook/submission";
+import {
+  MAX_SUBMISSION_BYTES,
+  SubmissionFault,
+  submit,
+  type SubmissionCode,
+  type SubmissionLog,
+  type SubmissionPorts,
+} from "../../../../core/submission";
 
 export type MacroBody =
-  /** `status`: the attempt's status after this post (`received` for a first Finish). */
-  | { ok: true; data: { status: AttemptStatus } }
-  | { ok: false; code: RejectionCode | typeof INTERNAL_ERROR };
+  /** `status`: the attempt's status after this post; `duplicate`: it was already `received`/`grading_failed`. */
+  | { ok: true; data: { status: AttemptStatus; duplicate: boolean } }
+  | { ok: false; code: SubmissionCode };
 
 /** One JSON log line (Consistency Conventions › Logging): never file bytes, tokens or emails. */
-export interface MacroLog {
-  attemptId: string | null;
-  channel: "macro";
-  code: RejectionCode | typeof INTERNAL_ERROR | null;
-  /** First 12 hex of SHA-256 of the file's `WHE_AttemptToken`; `scripts/spike-s1.ts` prints the same value. */
-  tokenSha256: string | null;
-  /** Whether this post moved the attempt from `open` to `received`. */
-  received: boolean;
-}
+export type MacroLog = SubmissionLog;
 
 /**
  * `POST /api/submissions/macro` (AD-6): the Finish macro posts the workbook's
  * bytes as `application/octet-stream` with header `X-Attempt-Token`. No
- * session: the token authenticates, and the attempt is found by its hash
- * through the service-role client (AD-9). Decision order: (1) `NOT_EXCEL`,
- * (2) `IDENTITY_ALTERED`, (3) `NOT_THIS_ATTEMPT`, (4) `IDENTITY_ALTERED`
- * against the attempt's `template_version`; then `open` → `received`
- * (compare-and-set), any other status → accepted without change. Entry 3 adds
- * `ALREADY_GRADED` / `ATTEMPT_CLOSED`. No file bytes are stored yet.
+ * session: the token authenticates, and the ports use the service-role client
+ * (AD-9). The rules are `submit()`'s (core); this handler only bounds the
+ * body, wires the ports and maps the result to HTTP: 200 accepted (also a
+ * duplicate), 400 an AD-6 rejection code, 413 `FILE_TOO_LARGE`, 500
+ * `INTERNAL_ERROR`. The Finish macro treats only 200 with `"ok":true` as success.
  */
 export async function POST(request: Request): Promise<Response> {
-  const bytes = new Uint8Array(await request.arrayBuffer());
-  const log: MacroLog = { attemptId: null, channel: "macro", code: null, tokenSha256: null, received: false };
-  const answer = (status: number, body: MacroBody): Response => {
-    if (!body.ok) log.code = body.code;
+  const answer = (status: number, body: MacroBody, log: SubmissionLog): Response => {
     console.log(JSON.stringify(log));
     return Response.json(body, { status });
   };
-  const reject = (code: RejectionCode) => answer(400, { ok: false, code });
-  const fail = (event: string, detail?: string) => {
-    console.error(JSON.stringify({ event, attemptId: log.attemptId, ...(detail ? { code: detail } : {}) }));
-    return answer(500, { ok: false, code: INTERNAL_ERROR });
+
+  const bytes = await readBoundedBody(request, MAX_SUBMISSION_BYTES);
+  if (bytes === null) {
+    const log: SubmissionLog = {
+      attemptId: null,
+      channel: "macro",
+      code: SubmissionFault.FILE_TOO_LARGE,
+      tokenSha256: null,
+      received: false,
+      duplicate: false,
+    };
+    return answer(413, { ok: false, code: SubmissionFault.FILE_TOO_LARGE }, log);
+  }
+
+  // The service client is created on the first port call, so a file refused in
+  // steps (1)–(2) never needs the secret key.
+  let service: SupabaseClient | undefined;
+  let serviceFault: { event: string; code?: string } | null = null;
+  const serviceClient = (): SupabaseClient | null => {
+    if (service !== undefined) return service;
+    if (serviceFault !== null) return null;
+    try {
+      const client = createServiceClient();
+      if (client === null) serviceFault = { event: "macro.service_env_missing" };
+      else service = client;
+    } catch (error) {
+      serviceFault = { event: "macro.service_client_failed", code: errorName(error) };
+    }
+    return service ?? null;
   };
 
-  const identified = await identifyMacroSubmission(bytes, request.headers.get("x-attempt-token"));
-  log.tokenSha256 = identified.tokenSha256;
-  if (!identified.ok) return reject(identified.code);
+  const ports: SubmissionPorts = {
+    workbook: workbookPort,
+    attempts: {
+      findByTokenHash: async (hash) => {
+        const client = serviceClient();
+        return client === null ? { ok: false } : findAttemptByTokenHash(client, hash);
+      },
+      markReceived: async (attemptId) => {
+        const client = serviceClient();
+        return client === null ? { ok: false } : markReceived(client, attemptId);
+      },
+    },
+    files: {
+      storeSubmission: async (attemptId, n, file) => {
+        const client = serviceClient();
+        return client === null ? "failed" : storeSubmissionFile(client, attemptId, n, file);
+      },
+    },
+  };
 
-  let service;
-  try {
-    service = createServiceClient();
-  } catch (error) {
-    return fail("macro.service_client_failed", errorName(error));
+  const result = await submit(bytes, { kind: "macro", headerToken: request.headers.get("x-attempt-token") }, ports);
+  if (result.ok) {
+    return answer(200, { ok: true, data: { status: result.status, duplicate: result.duplicate } }, result.log);
   }
-  if (service === null) return fail("macro.service_env_missing");
-
-  // AD-6 (3): the attempt is found by the file's token.
-  const found = await findAttemptByTokenHash(service, identified.tokenSha256Hex);
-  if (!found.ok) return fail("macro.lookup_failed");
-  const attempt = found.value;
-  if (attempt === null) return reject(RejectionCode.NOT_THIS_ATTEMPT);
-  log.attemptId = attempt.id;
-
-  // AD-6 (4): the VBA fingerprint of the attempt's own template version.
-  let matches: boolean;
-  try {
-    matches = fingerprintMatches(identified.reading, attempt.templateVersion);
-  } catch (error) {
-    return fail("macro.template_version_unknown", errorName(error));
+  if (result.code === SubmissionFault.INTERNAL_ERROR) {
+    const { event, code }: { event: string; code?: string } = serviceFault ?? {
+      event: `macro.${result.failure ?? "internal_error"}`,
+    };
+    console.error(JSON.stringify({ event, attemptId: result.log.attemptId, ...(code ? { code } : {}) }));
+    return answer(500, { ok: false, code: result.code }, result.log);
   }
-  if (!matches) return reject(RejectionCode.IDENTITY_ALTERED);
+  if (result.code === SubmissionFault.FILE_TOO_LARGE) return answer(413, { ok: false, code: result.code }, result.log);
+  return answer(400, { ok: false, code: result.code }, result.log);
+}
 
-  if (attempt.status !== "open") return answer(200, { ok: true, data: { status: attempt.status } });
-  const marked = await markReceived(service, attempt.id);
-  if (!marked.ok) return fail("macro.mark_received_failed");
-  if (marked.value) {
-    log.received = true;
-    return answer(200, { ok: true, data: { status: "received" } });
+/**
+ * The body, or `null` when it is larger than `max`: a `Content-Length` over the
+ * limit is refused without reading; otherwise the stream is read until it
+ * passes the limit, then cancelled (a missing or false length is not trusted).
+ */
+async function readBoundedBody(request: Request, max: number): Promise<Uint8Array | null> {
+  const declared = request.headers.get("content-length");
+  if (declared !== null && /^\s*\d+\s*$/.test(declared) && Number(declared) > max) return null;
+  if (request.body === null) return new Uint8Array(0);
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
   }
-  // The compare-and-set lost: the attempt left `open` meanwhile. Answer with what it is now.
-  const now = await findAttemptByTokenHash(service, identified.tokenSha256Hex);
-  if (!now.ok) return fail("macro.lookup_failed");
-  if (now.value === null) return reject(RejectionCode.NOT_THIS_ATTEMPT);
-  return answer(200, { ok: true, data: { status: now.value.status } });
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
 }
 
 function errorName(error: unknown): string {

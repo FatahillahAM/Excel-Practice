@@ -12,12 +12,14 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
   summary: AD-4 ignores modules the template does not pin, so code added to ThisWorkbook, a sheet module, or a new module keeps the identity, while exam-bridge.md says changed macro code means identity altered.
   evidence: matchesTemplate compares pinned modules only (tested "extra standard module" case); options are requiring unpinned modules to normalize empty or recording that added code is accepted (spine decision).
+  status: done — `matchesTemplate` now requires every module the template does not pin to normalize to empty (`EMPTY_MODULE_SHA256`), as AD-4 says; added code in ThisWorkbook, a sheet or a new module is `IDENTITY_ALTERED`, a new sheet's empty module and S3 still match (story 2.3, 2026-11-03).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/story-sidik-jari-sumber-vba-ad-4-menggantikan-hash-vbaproject-bin-plan.md`
   summary: AD-4 says registry values are recomputed in CI, but the repo has no CI workflow that runs npm test.
   evidence: no .github/workflows; Vercel only runs next build, so the registry recompute test runs only locally.
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
   summary: POST /api/submissions/macro is public and runs readWorkbook on any body with no bound on inflated size, so a small zip bomb can exhaust the function.
   evidence: read.ts has no uncompressed-size or entry cap (pre-existing since S2); the spine defers the upload size limit to epic 2; bound inflated size and body size before or inside readWorkbook when submit() lands.
+  status: done — the macro route refuses bodies over 4 MiB (`MAX_SUBMISSION_BYTES`) with 413 `FILE_TOO_LARGE` before reading (Content-Length) or while streaming; `readWorkbook` caps a package at 1 000 entries and 32 MiB inflated in total, inflating each part as a stream without trusting declared sizes (→ `NOT_EXCEL`) (story 2.3, 2026-11-03). The upload route's limit and its web message stay with entry 5.
 - source_plan: `_bmad-output/initiative-excel-practice/epic-fondasi-platform/spike-s3-apakah-tombol-finish-bisa-mengirim-file-ke-https-dari-lap-plan.md`
   summary: Epic 2 modFinish follow-ups — map each AD-6 code to an Indonesian message box (rejection-codes.ts contract), give non-network hints for 413, TLS/certificate and local TEMP failures, and fix the TempCopyPath comment (always .xlsm).
   evidence: S3's modFinish shows the raw code and always blames the connection; any VBA edit needs a template rebuild and laptop run, so these ride the epic 2 VBA change.

@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   findAttemptByTokenHash: vi.fn(),
   markReceived: vi.fn(),
+  storeSubmissionFile: vi.fn(),
 }));
 vi.mock("../../../../adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
 vi.mock("../../../../adapters/supabase/attempts", () => ({
   findAttemptByTokenHash: mocks.findAttemptByTokenHash,
   markReceived: mocks.markReceived,
+  storeSubmissionFile: mocks.storeSubmissionFile,
 }));
 
 import { buildVbaProject, type ModuleSpec } from "../../../../adapters/workbook/__fixtures__/vba-project";
@@ -21,7 +23,7 @@ import { readWorkbook } from "../../../../adapters/workbook/read";
 import { patchTemplate, vbaProjectSha256 } from "../../../../adapters/workbook/template-patch";
 import { CURRENT_TEMPLATE_VERSION, templates } from "../../../../adapters/workbook/templates";
 import { readVbaModuleSources } from "../../../../adapters/workbook/vba";
-import { REJECTION_CODES, RejectionCode } from "../../../../core/submission/rejection-codes";
+import { MAX_SUBMISSION_BYTES, REJECTION_CODES, RejectionCode } from "../../../../core/submission";
 import { tokenSha256, tokenSha256Hex } from "../../../../adapters/workbook/token";
 import { POST } from "./route";
 
@@ -56,6 +58,7 @@ beforeEach(() => {
   mocks.createServiceClient.mockImplementation(() => SERVICE);
   attemptFound();
   mocks.markReceived.mockResolvedValue({ ok: true, value: true });
+  mocks.storeSubmissionFile.mockResolvedValue("stored");
 });
 
 afterEach(() => {
@@ -63,6 +66,7 @@ afterEach(() => {
   mocks.createServiceClient.mockReset();
   mocks.findAttemptByTokenHash.mockReset();
   mocks.markReceived.mockReset();
+  mocks.storeSubmissionFile.mockReset();
 });
 
 const newToken = () => randomBytes(32).toString("base64url");
@@ -138,11 +142,19 @@ interface Posted {
   logLines: string[];
 }
 
-async function post(body: Uint8Array, token?: string | null): Promise<Posted> {
+async function post(
+  body: Uint8Array | ReadableStream<Uint8Array>,
+  token?: string | null,
+  extraHeaders: Record<string, string> = {},
+): Promise<Posted> {
   const log = vi.spyOn(console, "log").mockImplementation(() => {});
-  const headers: Record<string, string> = { "content-type": "application/octet-stream" };
+  const headers: Record<string, string> = { "content-type": "application/octet-stream", ...extraHeaders };
   if (token != null) headers["x-attempt-token"] = token;
-  const response = await POST(new Request(ENDPOINT, { method: "POST", headers, body: Buffer.from(body) }));
+  const init: RequestInit & { duplex?: "half" } =
+    body instanceof ReadableStream
+      ? { method: "POST", headers, body, duplex: "half" }
+      : { method: "POST", headers, body: Buffer.from(body) };
+  const response = await POST(new Request(ENDPOINT, init));
   const logLines = log.mock.calls.map((args) => args.map(String).join(" "));
   log.mockRestore();
   const text = await response.text();
@@ -171,7 +183,7 @@ function logOf(posted: Posted, ...tokens: (string | null | undefined)[]): Record
   for (const token of tokens) if (token) expect(line).not.toContain(token);
   const log = JSON.parse(line) as Record<string, unknown>;
   expect(log.channel).toBe("macro");
-  expect(Object.keys(log).sort()).toEqual(["attemptId", "channel", "code", "received", "tokenSha256"]);
+  expect(Object.keys(log).sort()).toEqual(["attemptId", "channel", "code", "duplicate", "received", "tokenSha256"]);
   return log;
 }
 
@@ -183,7 +195,7 @@ describe("rejection codes (AD-6)", () => {
   });
 });
 
-const ACCEPTED = { ok: true, data: { status: "received" } };
+const ACCEPTED = { ok: true, data: { status: "received", duplicate: false } };
 
 describe("POST /api/submissions/macro: Finish", () => {
   it("moves an open attempt found by the file's token hash to received, and logs attemptId and received: true", async () => {
@@ -195,41 +207,68 @@ describe("POST /api/submissions/macro: Finish", () => {
     expect(posted.body).toEqual(ACCEPTED);
     expectRawText(posted, ACCEPTED);
     expect(mocks.findAttemptByTokenHash).toHaveBeenCalledWith(SERVICE, tokenSha256Hex(token));
+    expect(mocks.storeSubmissionFile).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID, 1, file);
     expect(mocks.markReceived).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    // Stored before the compare-and-set.
+    expect(mocks.storeSubmissionFile.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.markReceived.mock.invocationCallOrder[0],
+    );
     expect(logOf(posted, token, tokenSha256Hex(token))).toEqual({
       attemptId: ATTEMPT_ID,
       channel: "macro",
       code: null,
       tokenSha256: tokenSha256(token),
       received: true,
+      duplicate: false,
     });
   });
 
-  it.each(["received", "grading_failed", "graded", "abandoned", "closed"])(
-    "answers 200 without a change for an attempt already %s",
+  it("still moves the attempt to received when the file was stored by an earlier post (exists)", async () => {
+    mocks.storeSubmissionFile.mockResolvedValue("exists");
+    const token = newToken();
+    const posted = await post(await patched(token), token);
+    expect(posted.status).toBe(200);
+    expectRawText(posted, ACCEPTED);
+    expect(mocks.markReceived).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+  });
+
+  it.each(["received", "grading_failed"])(
+    "answers 200 duplicate for an attempt already %s, without storing or replacing the file",
     async (status) => {
       attemptFound(status);
       const token = newToken();
       const posted = await post(await patched(token), token);
 
       expect(posted.status).toBe(200);
-      expectRawText(posted, { ok: true, data: { status } });
+      expectRawText(posted, { ok: true, data: { status, duplicate: true } });
+      expect(mocks.storeSubmissionFile).not.toHaveBeenCalled();
       expect(mocks.markReceived).not.toHaveBeenCalled();
-      expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: null, received: false });
+      expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: null, received: false, duplicate: true });
     },
   );
 
-  it("answers the attempt's current status when the compare-and-set lost to another change", async () => {
+  it("decides again after a compare-and-set lost to another post: a duplicate", async () => {
+    mocks.markReceived.mockResolvedValue({ ok: true, value: false });
+    mocks.findAttemptByTokenHash
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "received", templateVersion: CURRENT_TEMPLATE_VERSION } });
+    const token = newToken();
+    const posted = await post(await patched(token), token);
+    expect(posted.status).toBe(200);
+    expectRawText(posted, { ok: true, data: { status: "received", duplicate: true } });
+  });
+
+  it("decides again after a compare-and-set lost to Abandon: ATTEMPT_CLOSED", async () => {
     mocks.markReceived.mockResolvedValue({ ok: true, value: false });
     mocks.findAttemptByTokenHash
       .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
       .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "abandoned", templateVersion: CURRENT_TEMPLATE_VERSION } });
     const token = newToken();
     const posted = await post(await patched(token), token);
-    expect(posted.status).toBe(200);
-    expectRawText(posted, { ok: true, data: { status: "abandoned" } });
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.ATTEMPT_CLOSED });
     expect(mocks.findAttemptByTokenHash).toHaveBeenCalledTimes(2);
-    expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, received: false });
+    expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: "ATTEMPT_CLOSED", received: false });
   });
 
   it("answers 500 when the re-read after a lost compare-and-set fails", async () => {
@@ -294,6 +333,7 @@ describe("POST /api/submissions/macro: refusals", () => {
       code: "NOT_EXCEL",
       tokenSha256: null,
       received: false,
+      duplicate: false,
     });
   });
 
@@ -331,6 +371,7 @@ describe("POST /api/submissions/macro: refusals", () => {
       code: "NOT_THIS_ATTEMPT",
       tokenSha256: tokenSha256(token),
       received: false,
+      duplicate: false,
     });
   });
 
@@ -361,6 +402,203 @@ describe("POST /api/submissions/macro: refusals", () => {
   });
 });
 
+const XLSM_MAIN = "application/vnd.ms-excel.sheet.macroEnabled.main+xml";
+
+/** The patched file with its main part's content type (and, for `.xlsb`, its main part) changed. */
+async function asPackage(token: string, contentType: string, mainPart = "xl/workbook.xml"): Promise<Uint8Array> {
+  return editZip(await patched(token), async (zip) => {
+    const types = await zip.file("[Content_Types].xml")!.async("string");
+    expect(types).toContain(XLSM_MAIN);
+    zip.file(
+      "[Content_Types].xml",
+      types.replace(`<Override PartName="/xl/workbook.xml" ContentType="${XLSM_MAIN}"/>`, `<Override PartName="/${mainPart}" ContentType="${contentType}"/>`),
+    );
+    if (mainPart !== "xl/workbook.xml") {
+      zip.remove("xl/workbook.xml");
+      zip.file(mainPart, new Uint8Array([0x83, 0x01, 0x00]));
+      const rels = await zip.file("_rels/.rels")!.async("string");
+      zip.file("_rels/.rels", rels.replace('Target="xl/workbook.xml"', `Target="${mainPart}"`));
+    }
+  });
+}
+
+describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
+  it.each([
+    [".xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml", undefined],
+    [".xlsb", "application/vnd.ms-excel.sheet.binary.macroEnabled.main", "xl/workbook.bin"],
+    [".xltm", "application/vnd.ms-excel.template.macroEnabled.main+xml", undefined],
+    [".xlam", "application/vnd.ms-excel.addin.macroEnabled.main+xml", undefined],
+  ])("refuses a %s with IDENTITY_ALTERED (main part content type), before any lookup", async (_, contentType, mainPart) => {
+    const token = newToken();
+    const posted = await post(await asPackage(token, contentType, mainPart), token);
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toMatchObject({ attemptId: null, code: "IDENTITY_ALTERED" });
+  });
+
+  it("refuses a Word document (docx) with NOT_EXCEL", async () => {
+    const token = newToken();
+    const file = await asPackage(
+      token,
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
+      "word/document.xml",
+    );
+    const posted = await post(file, token);
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.NOT_EXCEL });
+  });
+
+  it("refuses an extra standard module with code with IDENTITY_ALTERED and leaves the attempt open", async () => {
+    const token = newToken();
+    const file = await editZip(await patched(token), (zip) => {
+      zip.file(
+        VBA_PROJECT_PART,
+        buildVbaProject({
+          modules: [
+            emptyDocumentModule("ThisWorkbook"),
+            emptyDocumentModule("Sheet1"),
+            emptyDocumentModule("Sheet2"),
+            { name: "modFinish", source: templateModFinish },
+            { name: "Module1", source: "Sub Extra()\r\n  MsgBox 1\r\nEnd Sub\r\n" },
+          ],
+        }),
+      );
+    });
+    const posted = await post(file, token);
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
+    expect(mocks.storeSubmissionFile).not.toHaveBeenCalled();
+    expect(mocks.markReceived).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["graded", RejectionCode.ALREADY_GRADED],
+    ["abandoned", RejectionCode.ATTEMPT_CLOSED],
+    ["closed", RejectionCode.ATTEMPT_CLOSED],
+  ])("refuses a file for a %s attempt with %s, without storing it", async (status, code) => {
+    attemptFound(status);
+    const token = newToken();
+    const posted = await post(await patched(token), token);
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code });
+    expect(mocks.storeSubmissionFile).not.toHaveBeenCalled();
+    expect(mocks.markReceived).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code, received: false, duplicate: false });
+  });
+
+  it("answers 500 and leaves the attempt open when the file cannot be stored", async () => {
+    mocks.storeSubmissionFile.mockResolvedValue("failed");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const token = newToken();
+    const posted = await post(await patched(token), token);
+    expect(posted.status).toBe(500);
+    expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
+    expect(mocks.markReceived).not.toHaveBeenCalled();
+  });
+});
+
+/** A body stream of `total` bytes in 64 KiB chunks; `pulled()` counts the chunks read. */
+function streamOf(total: number) {
+  let sent = 0;
+  let pulls = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      pulls += 1;
+      if (sent >= total) return controller.close();
+      const size = Math.min(64 * 1024, total - sent);
+      sent += size;
+      controller.enqueue(new Uint8Array(size));
+    },
+  });
+  return { stream, pulled: () => pulls };
+}
+
+describe("POST /api/submissions/macro: size limit", () => {
+  const TOO_LARGE = { ok: false, code: "FILE_TOO_LARGE" };
+
+  it("refuses a Content-Length over 4 MiB with 413 without reading the body", async () => {
+    const { stream, pulled } = streamOf(MAX_SUBMISSION_BYTES + 1);
+    const token = newToken();
+    const posted = await post(stream, token, { "content-length": String(MAX_SUBMISSION_BYTES + 1) });
+    expect(posted.status).toBe(413);
+    expectRawText(posted, TOO_LARGE);
+    expect(pulled()).toBeLessThanOrEqual(1);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(logOf(posted, token)).toEqual({
+      attemptId: null,
+      channel: "macro",
+      code: "FILE_TOO_LARGE",
+      tokenSha256: null,
+      received: false,
+      duplicate: false,
+    });
+  });
+
+  it("refuses a body of 4 MiB + 1 with Content-Length", async () => {
+    const posted = await post(new Uint8Array(MAX_SUBMISSION_BYTES + 1), newToken(), {
+      "content-length": String(MAX_SUBMISSION_BYTES + 1),
+    });
+    expect(posted.status).toBe(413);
+    expectRawText(posted, TOO_LARGE);
+  });
+
+  it("refuses a streamed body of 4 MiB + 1 without Content-Length, and stops reading past the limit", async () => {
+    const { stream, pulled } = streamOf(MAX_SUBMISSION_BYTES * 4);
+    const posted = await post(stream, newToken());
+    expect(posted.status).toBe(413);
+    expectRawText(posted, TOO_LARGE);
+    expect(pulled()).toBeLessThan((MAX_SUBMISSION_BYTES * 4) / (64 * 1024));
+    expect(mocks.findAttemptByTokenHash).not.toHaveBeenCalled();
+  });
+
+  it("refuses a body of exactly 4 MiB + 1 that lies about its Content-Length", async () => {
+    const { stream } = streamOf(MAX_SUBMISSION_BYTES + 1);
+    const posted = await post(stream, newToken(), { "content-length": "100" });
+    expect(posted.status).toBe(413);
+  });
+
+  it("reads a streamed workbook within the limit like any other", async () => {
+    const token = newToken();
+    const file = await patched(token);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(file.slice(0, 1000));
+        controller.enqueue(file.slice(1000));
+        controller.close();
+      },
+    });
+    const posted = await post(stream, token);
+    expect(posted.status).toBe(200);
+    expectRawText(posted, ACCEPTED);
+  });
+});
+
+describe("POST /api/submissions/macro: zip bombs", () => {
+  it("refuses a zip with too many entries with NOT_EXCEL", async () => {
+    const token = newToken();
+    const file = await editZip(await patched(token), (zip) => {
+      for (let i = 0; i < 1001; i++) zip.file(`xl/media/e${i}.bin`, "x");
+    });
+    expect(file.byteLength).toBeLessThan(MAX_SUBMISSION_BYTES);
+    const posted = await post(file, token);
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.NOT_EXCEL });
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
+  it("refuses one large entry of zeros that inflates past the budget with NOT_EXCEL", async () => {
+    const token = newToken();
+    const file = await editZip(await patched(token), (zip) => {
+      zip.file("xl/worksheets/sheet1.xml", new Uint8Array(64 * 1024 * 1024));
+    });
+    expect(file.byteLength).toBeLessThan(MAX_SUBMISSION_BYTES);
+    const posted = await post(file, token);
+    expect(posted.status).toBe(400);
+    expectRawText(posted, { ok: false, code: RejectionCode.NOT_EXCEL });
+  }, 20_000);
+});
+
 describe("POST /api/submissions/macro: server faults", () => {
   it.each([
     ["the secret key is not set", () => mocks.createServiceClient.mockImplementation(() => null)],
@@ -373,6 +611,7 @@ describe("POST /api/submissions/macro: server faults", () => {
     ],
     ["the lookup fails", () => mocks.findAttemptByTokenHash.mockResolvedValue({ ok: false })],
     ["the attempt's template version is not in the registry", () => attemptFound("open", 999)],
+    ["the file cannot be stored", () => mocks.storeSubmissionFile.mockResolvedValue("failed")],
     ["the status change fails", () => mocks.markReceived.mockResolvedValue({ ok: false })],
   ])("answers 500 INTERNAL_ERROR when %s, and logs it without the token", async (_, arrange) => {
     arrange();

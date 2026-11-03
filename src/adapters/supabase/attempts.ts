@@ -7,7 +7,7 @@ import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus
  * Session functions take the user's client (`server.ts`), so RLS keeps every
  * read and write to the owner's rows and files. `findAttemptByTokenHash` and
  * `markReceived` take the service-role client (`service.ts`) and exist only for
- * the macro path (AD-9). Every status change asks the core state machine
+ * the macro path (AD-9); `storeSubmissionFile` takes either. Every status change asks the core state machine
  * (`core/services/attempts`, AD-5) for the next status, then writes it with a
  * compare-and-set on the current status (`changeStatus`).
  *
@@ -68,6 +68,15 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** `attempt-files/<attemptId>/generated.xlsm` (Consistency Conventions › Storage paths). */
 export function generatedFilePath(attemptId: string): string {
   return `${attemptId}/generated.xlsm`;
+}
+
+/**
+ * `attempt-files/<attemptId>/submission-<n>.xlsm` (Consistency Conventions ›
+ * Storage paths): `n` from 1; the first accepted file is the one graded.
+ */
+export function submissionFilePath(attemptId: string, n: number): string {
+  if (!Number.isInteger(n) || n < 1) throw new Error("Submission number must be a positive integer");
+  return `${attemptId}/submission-${n}.xlsm`;
 }
 
 /** Whether a route segment can be an attempt id (a malformed uuid would make Postgres raise). */
@@ -179,6 +188,32 @@ export async function uploadGeneratedFile(supabase: SupabaseClient, attemptId: s
     logError("attempt.upload_failed", errorName(error));
   }
   return false;
+}
+
+/**
+ * Stores a submitted workbook once (`upsert: false`, the pattern of
+ * `uploadGeneratedFile`): `stored`; `exists` when the object is already there
+ * (an earlier post stored it; it is never replaced); `failed` otherwise
+ * (logged). The macro path passes the service-role client, which bypasses
+ * Storage RLS; upload (entry 5) passes the user's session.
+ */
+export async function storeSubmissionFile(
+  client: SupabaseClient,
+  attemptId: string,
+  n: number,
+  bytes: Uint8Array,
+): Promise<"stored" | "exists" | "failed"> {
+  try {
+    const { error } = await client.storage
+      .from(ATTEMPT_FILES_BUCKET)
+      .upload(submissionFilePath(attemptId, n), bytes, { contentType: XLSM_CONTENT_TYPE, upsert: false });
+    if (!error) return "stored";
+    if (isAlreadyExists(error)) return "exists";
+    logError("attempt.submission_store_failed", storageErrorCode(error));
+  } catch (error) {
+    logError("attempt.submission_store_failed", errorName(error));
+  }
+  return "failed";
 }
 
 /** The stored generated workbook's bytes, through the user's session; `null` when it cannot be read. */
@@ -301,6 +336,17 @@ function toAttempt(row: AttemptRow): Attempt {
 
 function logError(event: string, code: string | undefined): void {
   console.error(JSON.stringify({ event, code: code ?? "unknown" }));
+}
+
+/** Storage answers a second `upsert: false` upload with 409 (`statusCode: "409"`, error `Duplicate`, code `ResourceAlreadyExists`). */
+function isAlreadyExists(error: unknown): boolean {
+  const e = error as { statusCode?: unknown; status?: unknown; code?: unknown; error?: unknown } | null;
+  return (
+    String(e?.statusCode) === "409" ||
+    String(e?.status) === "409" ||
+    e?.code === "ResourceAlreadyExists" ||
+    e?.error === "Duplicate"
+  );
 }
 
 function storageErrorCode(error: unknown): string {

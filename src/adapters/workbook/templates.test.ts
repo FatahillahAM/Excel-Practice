@@ -112,17 +112,51 @@ describe("matchesTemplate", () => {
     document: true,
   });
 
-  it("matches with modules the template does not pin: a new sheet's empty module, an extra standard module", async () => {
+  it("matches with a module the template does not pin when it is empty: a new sheet's module", async () => {
     const bin = await projectWith((modFinish) => [
       emptySheet("ThisWorkbook"),
       emptySheet("Sheet1"),
       emptySheet("Sheet3"),
       { name: "modFinish", source: modFinish },
-      { name: "Module1", source: "Sub Extra()\r\nEnd Sub\r\n" },
     ]);
     const hashes = readVbaModuleHashes(bin);
     expect(hashes?.Sheet3).toBe(EMPTY_MODULE_SHA256);
     expect(matchesTemplate(hashes, 1)).toBe(true);
+  });
+
+  it("does not match with an extra standard module that holds code", async () => {
+    const bin = await projectWith((modFinish) => [
+      emptySheet("ThisWorkbook"),
+      emptySheet("Sheet1"),
+      { name: "modFinish", source: modFinish },
+      { name: "Module1", source: "Sub Extra()\r\nEnd Sub\r\n" },
+    ]);
+    const hashes = readVbaModuleHashes(bin);
+    expect(hashes?.modFinish).toBe(templates[1].vbaModules.modFinish);
+    expect(matchesTemplate(hashes, 1)).toBe(false);
+  });
+
+  it("does not match with code added to ThisWorkbook or a sheet module", async () => {
+    for (const host of ["ThisWorkbook", "Sheet1"]) {
+      const withCode: ModuleSpec = {
+        name: host,
+        source: `Attribute VB_Name = "${host}"\r\nPrivate Sub Workbook_Open()\r\nEnd Sub\r\n`,
+        document: true,
+      };
+      const bin = await projectWith((modFinish) => [
+        ...["ThisWorkbook", "Sheet1"].map((name) => (name === host ? withCode : emptySheet(name))),
+        { name: "modFinish", source: modFinish },
+      ]);
+      expect(matchesTemplate(readVbaModuleHashes(bin), 1), host).toBe(false);
+    }
+  });
+
+  it("matches an extra standard module that holds only Attribute lines and blanks", async () => {
+    const bin = await projectWith((modFinish) => [
+      { name: "modFinish", source: modFinish },
+      { name: "Module1", source: 'Attribute VB_Name = "Module1"\r\n\r\n   \r\n' },
+    ]);
+    expect(matchesTemplate(readVbaModuleHashes(bin), 1)).toBe(true);
   });
 
   it("matches when only line endings, trailing blanks and Attribute lines of modFinish differ", async () => {
