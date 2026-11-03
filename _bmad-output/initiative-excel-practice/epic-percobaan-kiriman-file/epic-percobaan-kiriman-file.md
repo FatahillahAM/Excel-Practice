@@ -76,3 +76,4 @@ Siklus percobaan dan jalur kiriman file. Bukan: penilaian dan Results (epic 3), 
 - Decision: template v1 diubah di tempat untuk modFinish epic ini, lalu ditandai rilis di entry 12; perubahan sesudahnya = v2 (user, 2026-11-02).
 - Decision: modul VBA yang tidak dipin harus ternormalisasi kosong; kode tambahan di modul mana pun = IDENTITY_ALTERED (spine AD-4) (user, 2026-11-02).
 - Touch point: "Try again" penilaian gagal dan hint yang terbuka saat Resume milik epic 3 (CAP-7, CAP-20); pesan HP saat Start milik epic 4 (CAP-12). Kasus ALREADY_GRADED diuji di entry 12 dengan status yang diset lewat SQL.
+- Decision: tracer 2.1 lulus di Production: Start L1 P1 → unduh → Finish di Excel 2021 laptop → layar exam berpindah ke "File received — grading…". Tabel `attempts`, bucket `attempt-files`, dan kontrak `LevelModule` minimal ada; `bridge_proofs` dihapus (entry 1, user, 2026-11-03).
