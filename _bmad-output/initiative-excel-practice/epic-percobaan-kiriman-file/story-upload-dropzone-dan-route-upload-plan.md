@@ -3,7 +3,7 @@ title: 'Upload Dropzone dan route upload'
 type: 'feature'
 ticket: '5'
 created: '2026-11-03'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
