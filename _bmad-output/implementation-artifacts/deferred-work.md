@@ -59,3 +59,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-siklus-percobaan-ad-5-di-core-dan-tes-kontrak-db-plan.md`
   summary: The database does not fence service-role status writes against AD-5 (only the TS machine does); and abandoning a `received` attempt while grading runs makes the grader's compare-and-set come back `lost`.
   evidence: 2.2 review; decide a check trigger and the grader's `lost` handling with grading (epic 3).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-submit-penuh-lima-kode-ad-6-dan-batas-ukuran-plan.md`
+  summary: Bounded inflate relies on JSZip's private `ZipObject#internalStream` (jszip 3.10.2 pinned) and checks the budget per chunk; revisit on any jszip upgrade.
+  evidence: 2.3 review; a version bump could silently drop the zip-bomb guard.

@@ -3,12 +3,12 @@ title: 'submit() penuh: lima kode AD-6 dan batas ukuran'
 type: 'feature'
 ticket: '3'
 created: '2026-11-03'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '62c95aa2ee62fdd9488663fdcadb00bfc68c8ab6'
 context:
@@ -84,6 +84,27 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (4 lenses): 0 high, 3 medium, 12 low, 1 false; patched 8, deferred 3, rejected the rest.
+
+| # | Lens | Finding | Verdict | Route |
+|---|------|---------|---------|-------|
+| 1 | blind, edge | `exists` treated as `stored`: after a failed CAS, a re-post keeps the earlier unaccepted bytes | medium | patch: overwrite `submission-1` while the attempt is `open` |
+| 2 | blind, edge | `reader.read()` rejection escapes POST (framework 500, no log line) | medium | patch: catch → 500 `INTERNAL_ERROR` with log |
+| 3 | blind | New sheet modules with `Option Explicit` (Require Variable Declaration) fail the unpinned-empty rule | medium | patch: unpinned modules may hold only `Option …` lines; test |
+| 4 | blind | Every `readWorkbook` error becomes `not_excel` silently | low | patch: log unexpected (non-`NotAWorkbookError`) errors |
+| 5 | vg | Fault log event names untested | low | patch: assert event per fault row |
+| 6 | blind | `storageErrorCode` drops `code` | low | patch |
+| 7 | blind | Content-Length short-circuit test cannot fail | low | patch: assert pull count before and after POST |
+| 8 | vg | `Duplicate` branch and thrown-error log untested | low | patch |
+| 9 | blind | MS-OVBA decompression unbounded | false | `decompressVbaContainer` caps at `MAX_DECOMPRESSED_BYTES` (16 MiB) |
+| 10 | blind | Orphan `submission-1` when the re-read finds abandoned/closed | low | defer (with 2.1 orphan-files entry) |
+| 11 | blind | Macro contract changed without modFinish/template change | low | reject: entry 9 maps codes and 413 |
+| 12 | blind | Upload channel has no session-scoped lookup | low | reject: entry 5 supplies session ports |
+| 13 | blind, edge | Inflate budget checked per chunk; JSZip private `internalStream`; paused stream not released | low | defer: pin note on jszip upgrade; chunks are bounded |
+| 14 | intent | 4 MiB enforced in route and core | low | reject: core guards upload too (entry 5) |
+| 15 | blind | Over-budget message uses constant | low | reject: cosmetic |
+| 16 | intent | Storage/status writes only checked through mocks | low | defer: manual `dev` check after deploy |
 
 ## Design Notes
 
