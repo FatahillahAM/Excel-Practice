@@ -3,13 +3,14 @@ title: 'Upload Dropzone dan route upload'
 type: 'feature'
 ticket: '5'
 created: '2026-11-03'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'aa9b078eaf459420bdd7c88423d8730baf66c93f'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -84,6 +85,8 @@ context:
 - Given the wrong files of the matrix, when uploaded one after another, then each shows its own message in `role="alert"` and the attempt stays `open`.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
