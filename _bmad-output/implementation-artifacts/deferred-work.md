@@ -54,3 +54,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
   summary: ExamStatus polling/auto-download loop and the template trace on the deployed `/levels` function have no automated check.
   evidence: 2.1 verification-gap lens; needs a DOM harness (epic 4) and a post-build trace check.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-siklus-percobaan-ad-5-di-core-dan-tes-kontrak-db-plan.md`
+  summary: The database does not fence service-role status writes against AD-5 (only the TS machine does); and abandoning a `received` attempt while grading runs makes the grader's compare-and-set come back `lost`.
+  evidence: 2.2 review; decide a check trigger and the grader's `lost` handling with grading (epic 3).

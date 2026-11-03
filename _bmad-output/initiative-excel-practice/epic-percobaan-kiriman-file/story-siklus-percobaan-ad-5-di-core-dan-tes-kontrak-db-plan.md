@@ -3,12 +3,12 @@ title: 'Siklus percobaan AD-5 di core dan tes kontrak DB'
 type: 'feature'
 ticket: '2'
 created: '2026-11-03'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '45bbec117508fc0b5be1661a3e992c442bcb6b30'
 context:
@@ -87,6 +87,24 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Pass 1 (4 lenses): 0 high, 1 medium, 12 low; patched 5, deferred 2, rejected the rest. Verification-gap found no gaps.
+
+| # | Lens | Finding | Verdict | Route |
+|---|------|---------|---------|-------|
+| 1 | blind, edge | DB suite runs inside `npm run test` when `DATABASE_URL` is set, and `test:db` passes silently when it is unset | medium | patch: exclude `supabase/tests` from the default run; `test:db` fails without `DATABASE_URL` |
+| 2 | blind, vg, edge | `markReceived` failure log renamed to `attempt.submit_accepted_failed` | low | patch: keep `attempt.mark_received_failed` |
+| 3 | blind | Contract test hard-codes the newest migration version | low | patch: drop the literal, keep the newest-file check |
+| 4 | blind | No test that `grading_failed → received` keeps the first `received_at` | low | patch: add the case |
+| 5 | edge | `afterAll` queries an unconnected admin client and hides the setup error | low | patch: guard |
+| 6 | blind, intent | `abandon()` has no caller | low | reject: entry 7 (Attempt Card) |
+| 7 | blind, intent | Service role can make AD-5-forbidden transitions in the DB | low | defer: core is the single writer (AD-5); revisit a DB trigger with grading (epic 3) |
+| 8 | blind | Abandon while grading runs leaves the grader's CAS `lost` | low | defer: epic 3 grader handles `lost` |
+| 9 | intent | Storage policies not exercised by the contract suite | low | reject: stub storage is not Supabase's; covered by the Production check of 2.1 |
+| 10 | edge | `changeStatus` with a non-UUID id logs `failed` | low | reject: callers pass ids already read from the DB |
+| 11 | edge | Fake client returns undefined past its answers | low | reject: test-only, fails loudly as `failed` |
+| 12 | edge | Parallel contract runs race on role creation | low | reject: CI runs one job per cluster |
+| 13 | blind | RLS-hidden row counted as `lost` | low | reject: service role bypasses RLS; owner path returns `not_found` first |
 
 ## Design Notes
 
