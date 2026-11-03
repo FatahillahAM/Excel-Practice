@@ -62,3 +62,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-submit-penuh-lima-kode-ad-6-dan-batas-ukuran-plan.md`
   summary: Bounded inflate relies on JSZip's private `ZipObject#internalStream` (jszip 3.10.2 pinned) and checks the budget per chunk; revisit on any jszip upgrade.
   evidence: 2.3 review; a version bump could silently drop the zip-bomb guard.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-layar-exam-lengkap-plan.md`
+  summary: The Orbit Loader pause/play toggle (`data-paused`, label switch) and the button's absence under reduced motion after hydration have no automated test; neither have the ExamStatus tick/poll/slow-timer effects.
+  evidence: 2.4 review (medium if wrong, unverified); add with the DOM test harness in epic 4.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow } from "./exam-time";
+import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow, reanchor, slowGradingWaitMs } from "./exam-time";
 
 describe("formatElapsed", () => {
   it("shows mm:ss under an hour", () => {
@@ -51,5 +51,36 @@ describe("isGradingSlow (AD-11)", () => {
     expect(isGradingSlow("grading_failed", 120)).toBe(false);
     expect(isGradingSlow("open", 120)).toBe(false);
     expect(isGradingSlow("graded", 120)).toBe(false);
+  });
+});
+
+describe("reanchor", () => {
+  it("takes the server value when the server is ahead", () => {
+    expect(reanchor(754, 756)).toBe(756);
+  });
+
+  it("keeps the shown value when the server is 0–1 s behind, so the time never steps back", () => {
+    expect(reanchor(755, 755)).toBe(755);
+    expect(reanchor(755, 754)).toBe(755);
+  });
+
+  it("takes the server value for real drift", () => {
+    expect(reanchor(760, 755)).toBe(755);
+  });
+});
+
+describe("slowGradingWaitMs", () => {
+  it("waits the full 15 s for a fresh anchor", () => {
+    expect(slowGradingWaitMs(0, 1_000, 1_000)).toBe(15_000);
+  });
+
+  it("waits the rest when the server already counted 10 s", () => {
+    expect(slowGradingWaitMs(10, 1_000, 1_000)).toBe(5_000);
+    expect(slowGradingWaitMs(10, 1_000, 3_000)).toBe(3_000);
+  });
+
+  it("is 0 once past", () => {
+    expect(slowGradingWaitMs(20, 1_000, 1_000)).toBe(0);
+    expect(slowGradingWaitMs(0, 0, 16_000)).toBe(0);
   });
 });

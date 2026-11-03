@@ -34,3 +34,23 @@ export function elapsedAt(base: number, anchorMs: number, nowMs: number): number
 export function isGradingSlow(status: AttemptStatus, secondsInReceived: number): boolean {
   return status === "received" && secondsInReceived >= SLOW_GRADING_S;
 }
+
+/**
+ * The base for a new anchor when a poll answers: the server's floored seconds
+ * are often one behind what is shown, so a 0–1 s lag keeps the larger value
+ * (the time never steps backwards); any other difference takes the server's
+ * value, which stays the source of truth for real drift.
+ */
+export function reanchor(displayed: number, server: number): number {
+  const lag = displayed - server;
+  return lag === 0 || lag === 1 ? Math.max(displayed, server) : server;
+}
+
+/**
+ * Milliseconds until grading counts as slow, for a `received` anchor of
+ * `anchorBase` seconds taken at `anchorAt` (same client clock as `nowMs`);
+ * 0 once past.
+ */
+export function slowGradingWaitMs(anchorBase: number, anchorAt: number, nowMs: number): number {
+  return Math.max(0, (SLOW_GRADING_S - anchorBase) * 1000 - (nowMs - anchorAt));
+}

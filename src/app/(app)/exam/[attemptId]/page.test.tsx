@@ -97,7 +97,7 @@ describe("Exam page", () => {
     const html = await render();
     expect(html).toContain('<h1 class="sr-only">Level 1 · Practice 1, in progress</h1>');
     expect(html).toContain("Finish not working?");
-    expect(html).toMatch(/<a href="\/setup-guide"[^>]*>Setup Guide<\/a>/);
+    expect(html).toMatch(/<a [^>]*href="\/setup-guide"[^>]*>Setup Guide<\/a>/);
   });
 
   it("shows the slow-grading message for a file received 20 s ago, not 5 s ago", async () => {

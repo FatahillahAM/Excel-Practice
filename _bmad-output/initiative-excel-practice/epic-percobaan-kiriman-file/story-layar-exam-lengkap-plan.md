@@ -3,7 +3,7 @@ title: 'Layar exam lengkap'
 type: 'feature'
 ticket: '4'
 created: '2026-11-03'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -85,6 +85,24 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Thorough lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment): 0 high, 2 medium, 3 low patched; 1 deferred; the rest rejected.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | Shown time steps back 1 s on re-anchor (blind, edge) | medium | patch | Poll sets the floored server value after latency; pure `reanchor(displayed, server)` keeps max for a 0–1 s gap, server otherwise; unit-tested |
+| 2 | Client poll/slow-timer logic untested (verification-gap, blind) | medium | patch | Wait maths moved to pure `slowGradingWaitMs`, re-anchor to `reanchor`; both unit-tested. The effects themselves stay manual checks (no DOM harness, epic 4) |
+| 3 | `ExamSkeleton` still draws heading bar + card (blind, edge) | low | patch | Now a centered square placeholder + two text bars |
+| 4 | Setup Guide link is a plain `<a>` (blind) | low | patch | `next/link` |
+| 5 | Orbit pause/play and reduced-motion button untested (verification-gap, blind) | maybe-false | defer | Needs a DOM test environment (epic 4) |
+| 6 | Slow count should come from `received_at` on every poll (blind, edge) | false | reject | Intent forbids changing the status response; matrix counts from `received_at` only on reload |
+| 7 | Time lags from server render until the first poll (edge, intent) | false | reject | Follows from "never compare client clock with `started_at`"; ≤ 2 s, then re-anchored |
+| 8 | 1 s interval not aligned with the anchor (blind) | low | reject | Value is computed from the anchor each tick; a repeated/skipped second near a boundary is rare and cosmetic |
+| 9 | Reduced motion loses to inline `animationDuration` (blind) | false | reject | Global rules use `animation: none !important` |
+| 10 | Pause button has no focus style; prefer `aria-pressed` (blind) | false | reject | Global `:focus-visible` ring in `globals.css`; labels "Pause animation"/"Play animation" are what the matrix specifies |
+| 11 | Download test's write mocks might not match real exports (blind) | false | reject | verification-gap checked: all seven names are the adapter's write exports |
+| 12 | `liveRegionText` regex fragile with nested tags; message tests in the status test file; elapsed time lacks an accessible label; test name says "start time unchanged" (blind) | low | reject | No nested same-tag elements in the live regions today; the rest is cosmetic |
+| 13 | Two `role="status"` regions instead of one (intent) | false | reject | Only way to keep the time on line 1 outside every live region, as the Always rule requires |
 
 ## Design Notes
 

@@ -1,5 +1,6 @@
 import { BookOpen } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
 import { readAttempt, type Attempt } from "../../../../adapters/supabase/attempts";
@@ -63,9 +64,9 @@ async function Exam({ params }: { params: Promise<{ attemptId: string }> }) {
       <p className="mt-[22px] flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <BookOpen aria-hidden="true" className="size-3.5" />
         Finish not working?{" "}
-        <a href="/setup-guide" className="font-bold text-primary underline-offset-4 hover:underline">
+        <Link href="/setup-guide" className="font-bold text-primary underline-offset-4 hover:underline">
           Setup Guide
-        </a>
+        </Link>
       </p>
     </>
   );
@@ -111,11 +112,12 @@ function LoadFailed({ path }: { path: string }) {
   );
 }
 
+/** The loaded layout's shape: the Orbit's square, then the status line's two text lines; no card. */
 function ExamSkeleton() {
   return (
-    <div aria-hidden="true" className="flex w-full flex-col gap-6">
-      <div className="h-9 w-64 rounded-sm bg-muted" />
-      <div className={CARD}>
+    <div aria-hidden="true" className="flex w-full flex-col items-center">
+      <div className="aspect-square w-full max-w-[320px] rounded-lg bg-muted" />
+      <div className="mt-[18px] flex flex-col items-center gap-2">
         <div className="h-4 w-56 rounded-sm bg-muted" />
         <div className="h-4 w-72 rounded-sm bg-muted" />
       </div>

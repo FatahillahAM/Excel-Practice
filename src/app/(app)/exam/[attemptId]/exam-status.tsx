@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
 import { OrbitLoader } from "../../../../components/exam/orbit-loader";
 import { examMessages, shellMessages } from "../../../../messages/id";
-import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow } from "./exam-time";
+import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow, reanchor, slowGradingWaitMs } from "./exam-time";
 
 /** AD-11: the exam screen polls every 2 s while the attempt is in one of these. */
 const POLLED: readonly AttemptStatus[] = ["open", "received", "grading_failed"];
@@ -107,7 +107,7 @@ export function ExamStatus({
     const anchor = receivedAnchor.current;
     if (anchor.at === null) anchor.at = performance.now();
     const at = anchor.at;
-    const wait = Math.max(0, (SLOW_GRADING_S - anchor.base) * 1000 - (performance.now() - at));
+    const wait = slowGradingWaitMs(anchor.base, at, performance.now());
     const timer = window.setTimeout(() => {
       setReceivedSeconds(Math.max(SLOW_GRADING_S, elapsedAt(receivedAnchor.current.base, at, performance.now())));
     }, wait);
@@ -129,8 +129,13 @@ export function ExamStatus({
         if (cancelled || !body.ok) return;
         const seconds = body.data?.elapsedSeconds;
         if (typeof seconds === "number" && Number.isFinite(seconds)) {
-          elapsedAnchor.current = { base: seconds, at: performance.now() };
-          setElapsed(seconds);
+          // What is on screen now, so a 0–1 s lag from flooring never steps the time back.
+          const now = performance.now();
+          const { base, at } = elapsedAnchor.current;
+          const shown = elapsedAt(base, at ?? now, now);
+          const next = reanchor(shown, seconds);
+          elapsedAnchor.current = { base: next, at: now };
+          setElapsed(next);
         }
         const next = body.data?.status;
         if (typeof next === "string") {
