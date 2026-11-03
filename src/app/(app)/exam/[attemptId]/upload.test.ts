@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "../../../../core/submission";
 import { loginMessages, uploadMessages } from "../../../../messages/id";
-import { UPLOAD_ACCEPT, pickFile, tooLarge, uploadOutcome } from "./upload";
+import { UPLOAD_ACCEPT, afterUpload, pickFile, tooLarge, uploadOutcome } from "./upload";
 
 describe("Upload Dropzone logic", () => {
   it("sends only the first file of a pick or a drop", () => {
@@ -55,6 +55,11 @@ describe("Upload Dropzone logic", () => {
     ["a body that is not JSON", 502, null],
     ["a 200 without a status", 200, { ok: true, data: {} }],
     ["a 200 with an unknown status", 200, { ok: true, data: { status: "weird" } }],
+    ["a 200 saying open", 200, { ok: true, data: { status: "open", duplicate: false } }],
+    ["a 200 saying graded", 200, { ok: true, data: { status: "graded", duplicate: true } }],
+    ["a 200 saying abandoned", 200, { ok: true, data: { status: "abandoned", duplicate: false } }],
+    ["a 200 saying closed", 200, { ok: true, data: { status: "closed", duplicate: false } }],
+    ["a 415 for the wrong content type", 415, { ok: false, code: "UNSUPPORTED_MEDIA_TYPE" }],
     ["a string body", 200, "ok"],
   ])("fails on %s", (_, status, body) => {
     expect(uploadOutcome(status, body)).toEqual({ kind: "failed" });
@@ -72,5 +77,37 @@ describe("Upload Dropzone logic", () => {
       FILE_TOO_LARGE: "File ini terlalu besar (maksimal 4 MB). Pakai file .xlsm asli dari Start, ya.",
     });
     expect(uploadMessages.failed).toBe(loginMessages.network);
+  });
+
+  it("after received: ready, tells the screen the status, no refocus", () => {
+    expect(afterUpload({ kind: "received", status: "grading_failed" })).toEqual({
+      state: { kind: "ready" },
+      notify: { kind: "received", status: "grading_failed" },
+      refocus: false,
+    });
+  });
+
+  it("after a lost session: ready, tells the screen", () => {
+    expect(afterUpload({ kind: "session_lost" })).toEqual({
+      state: { kind: "ready" },
+      notify: { kind: "session_lost" },
+      refocus: false,
+    });
+  });
+
+  it("after a rejection: shows its message and gives focus back", () => {
+    expect(afterUpload({ kind: "rejected", message: uploadMessages.NOT_EXCEL })).toEqual({
+      state: { kind: "rejected", message: uploadMessages.NOT_EXCEL },
+      notify: null,
+      refocus: true,
+    });
+  });
+
+  it("after a failure: shows the connection message and gives focus back", () => {
+    expect(afterUpload({ kind: "failed" })).toEqual({
+      state: { kind: "rejected", message: uploadMessages.failed },
+      notify: null,
+      refocus: true,
+    });
   });
 });

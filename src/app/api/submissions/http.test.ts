@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MAX_SUBMISSION_BYTES, type SubmissionLog, type SubmitResult } from "../../../core/submission";
 import { streamOf } from "./__fixtures__/files";
-import { bodyFault, readBoundedBody, readSubmissionBody, submissionResponse } from "./http";
+import { bodyFault, isOctetStream, readBoundedBody, readSubmissionBody, submissionResponse } from "./http";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -164,5 +164,30 @@ describe("readBoundedBody", () => {
     vi.spyOn(console, "log").mockImplementation(() => {});
     const out = await readSubmissionBody(request(new Uint8Array(MAX_SUBMISSION_BYTES + 1)), "upload");
     expect((out as Response).status).toBe(413);
+  });
+});
+
+describe("route faults", () => {
+  it("answers UNAUTHENTICATED with 401 and UNSUPPORTED_MEDIA_TYPE with 415, each with one log line", async () => {
+    const out = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(await answered(bodyFault("UNAUTHENTICATED", "upload"))).toEqual({
+      status: 401,
+      text: JSON.stringify({ ok: false, code: "UNAUTHENTICATED" }),
+    });
+    expect(await answered(bodyFault("UNSUPPORTED_MEDIA_TYPE", "upload"))).toEqual({
+      status: 415,
+      text: JSON.stringify({ ok: false, code: "UNSUPPORTED_MEDIA_TYPE" }),
+    });
+    expect(out).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["application/octet-stream", true],
+    ["Application/Octet-Stream; charset=binary", true],
+    ["text/plain", false],
+    ["application/octet-streamx", false],
+    [null, false],
+  ])("isOctetStream(%s) is %s", (type, expected) => {
+    expect(isOctetStream(request(null, type === null ? {} : { "content-type": type }))).toBe(expected);
   });
 });

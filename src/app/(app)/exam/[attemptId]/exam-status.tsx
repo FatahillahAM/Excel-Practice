@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
 import { OrbitLoader } from "../../../../components/exam/orbit-loader";
 import { examMessages, shellMessages } from "../../../../messages/id";
-import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow, reanchor, slowGradingWaitMs } from "./exam-time";
+import {
+  SLOW_GRADING_S,
+  elapsedAt,
+  formatElapsed,
+  isGradingSlow,
+  reanchor,
+  receivedAnchorOnChange,
+  slowGradingWaitMs,
+  type Anchor,
+} from "./exam-time";
 import { UploadDropzone } from "./upload-dropzone";
 
 /** AD-11: the exam screen polls every 2 s while the attempt is in one of these. */
@@ -31,9 +40,6 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
       return "This attempt is closed.";
   }
 }
-
-/** A server value in seconds and the moment (client monotonic clock) it was taken; `at` is set after hydration. */
-type Anchor = { base: number; at: number | null };
 
 type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number } };
 
@@ -79,14 +85,18 @@ export function ExamStatus({
   const downloadStarted = useRef(false);
   const downloadUrl = `/exam/${attemptId}/download`;
 
-  /** The attempt's status after an accepted upload (or a duplicate), without waiting for a poll. */
-  const onReceived = (next: AttemptStatus) => {
-    if (next === "received" && status !== "received") {
-      receivedAnchor.current = { base: 0, at: performance.now() };
-      setReceivedSeconds(0);
-    }
-    setStatus(next);
-  };
+  /** A status the screen learned (poll or accepted upload); a move to `received` counts from now. */
+  const applyStatus = useCallback(
+    (next: AttemptStatus) => {
+      const anchor = receivedAnchorOnChange(status, next, performance.now());
+      if (anchor !== null) {
+        receivedAnchor.current = anchor;
+        setReceivedSeconds(anchor.base);
+      }
+      setStatus(next);
+    },
+    [status],
+  );
 
   useEffect(() => {
     if (downloadStarted.current) return;
@@ -151,14 +161,7 @@ export function ExamStatus({
           setElapsed(next);
         }
         const next = body.data?.status;
-        if (typeof next === "string") {
-          if (next === "received" && status !== "received") {
-            // The transition seen by this poll: count from now (≤ 2 s after `received_at`).
-            receivedAnchor.current = { base: 0, at: performance.now() };
-            setReceivedSeconds(0);
-          }
-          setStatus(next);
-        }
+        if (typeof next === "string") applyStatus(next);
       } catch {
         // Network error: the time keeps stepping; the next tick tries again.
       } finally {
@@ -170,7 +173,7 @@ export function ExamStatus({
       window.clearTimeout(timer);
     };
     // `tick` re-arms the timer after every poll, also when the status did not change.
-  }, [attemptId, status, tick, lost]);
+  }, [attemptId, status, tick, lost, applyStatus]);
 
   if (lost) {
     return (
@@ -216,7 +219,7 @@ export function ExamStatus({
       </div>
       {open && (
         <div className="mt-[26px] w-full max-w-[400px]">
-          <UploadDropzone onReceived={onReceived} onSessionLost={() => setLost(true)} />
+          <UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />
         </div>
       )}
     </div>

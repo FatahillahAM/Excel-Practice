@@ -5,12 +5,11 @@ import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus
  * `attempts` and the `attempt-files` bucket (migration `20261102000001`).
  *
  * Session functions take the user's client (`server.ts`), so RLS keeps every
- * read and write to the owner's rows and files. The submission functions
- * (`findAttemptByTokenHash`, `markReceived`, `storeSubmissionFile`) take
- * either client: the service-role client (`service.ts`) on the macro path,
- * the user's session on the upload path (AD-9), where RLS hides other users'
- * attempts and lets the owner store `submission-1` and move `open` →
- * `received` only. Every status change asks the core state machine
+ * read and write to the owner's rows and files. `findAttemptByTokenHash` and
+ * `markReceived` take the service-role client (`service.ts`) and exist only for
+ * the submission paths (AD-9): macro, and upload after its route has checked
+ * the session and that the attempt is the session user's;
+ * `storeSubmissionFile` takes either. Every status change asks the core state machine
  * (`core/services/attempts`, AD-5) for the next status, then writes it with a
  * compare-and-set on the current status (`changeStatus`).
  *
@@ -31,9 +30,11 @@ export interface Attempt {
   receivedAt: string | null;
 }
 
-/** What a submission (macro or upload) needs of an attempt found by its token hash. */
+/** What a submission path needs of an attempt found by its token hash. */
 export interface AttemptIdentity {
   id: string;
+  /** The owner: upload treats an attempt of anyone but the session user as not found. */
+  userId: string;
   status: AttemptStatus;
   templateVersion: number;
 }
@@ -199,9 +200,8 @@ export async function uploadGeneratedFile(supabase: SupabaseClient, attemptId: s
  * set (it is not replaced); `failed` otherwise (logged). `replace: true`
  * upserts: `submit()` stores only while the attempt is `open`, so a file left
  * by an earlier post whose compare-and-set failed gives way to the accepted
- * one. The macro path passes the service-role client, which bypasses Storage
- * RLS; upload passes the user's session, which Storage RLS lets write the
- * owner's `<attemptId>/submission-1.xlsm` while the attempt is `open`.
+ * one. Both submission paths pass the service-role client, which bypasses
+ * Storage RLS (the session has no write access to submitted files, AD-9).
  */
 export async function storeSubmissionFile(
   client: SupabaseClient,
@@ -241,19 +241,15 @@ export async function downloadGeneratedFile(supabase: SupabaseClient, attemptId:
   }
 }
 
-/**
- * The attempt whose token has this SHA-256 (64 hex), or `null`. Macro: the
- * service-role client finds any attempt. Upload: the user's session finds only
- * their own (RLS), so another user's token is `null` (`NOT_THIS_ATTEMPT`).
- */
+/** Submission paths (service role): the attempt whose token has this SHA-256 (64 hex), or `null`. */
 export async function findAttemptByTokenHash(
-  client: SupabaseClient,
+  service: SupabaseClient,
   tokenSha256: string,
 ): Promise<Read<AttemptIdentity | null>> {
   try {
-    const { data, error } = await client
+    const { data, error } = await service
       .from(TABLE)
-      .select("id, status, template_version")
+      .select("id, user_id, status, template_version")
       .eq("token_sha256", tokenSha256)
       .maybeSingle();
     if (error) {
@@ -261,8 +257,11 @@ export async function findAttemptByTokenHash(
       return { ok: false };
     }
     if (!data) return { ok: true, value: null };
-    const row = data as Pick<AttemptRow, "id" | "status" | "template_version">;
-    return { ok: true, value: { id: row.id, status: row.status, templateVersion: row.template_version } };
+    const row = data as Pick<AttemptRow, "id" | "status" | "template_version"> & { user_id: string };
+    return {
+      ok: true,
+      value: { id: row.id, userId: row.user_id, status: row.status, templateVersion: row.template_version },
+    };
   } catch (error) {
     logError("attempt.find_by_token_failed", errorName(error));
     return { ok: false };
@@ -304,13 +303,12 @@ export async function changeStatus(
 }
 
 /**
- * `open` → `received` through `changeStatus`, with the service-role client
- * (macro) or the user's session (upload: RLS allows the owner exactly this
- * move, migration `20261103000002`); the database stamps `received_at`.
- * `value: false` when the attempt was no longer `open` (another post won).
+ * Submission paths (service role): `open` → `received` through `changeStatus`; the
+ * database stamps `received_at`. `value: false` when the attempt was no longer
+ * `open` (another post won).
  */
-export async function markReceived(client: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
-  const result = await changeStatus(client, attemptId, "open", "submit_accepted", "attempt.mark_received_failed");
+export async function markReceived(service: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
+  const result = await changeStatus(service, attemptId, "open", "submit_accepted", "attempt.mark_received_failed");
   if (result.outcome === "failed") return { ok: false };
   return { ok: true, value: result.outcome === "changed" };
 }

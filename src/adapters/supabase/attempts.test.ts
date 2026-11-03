@@ -256,13 +256,13 @@ describe("attempt files", () => {
 
 describe("findAttemptByTokenHash (service role)", () => {
   it("finds the attempt by the full token hash", async () => {
-    const { client, calls } = fakeClient({ data: { id: ID, status: "open", template_version: 1 }, error: null });
+    const { client, calls } = fakeClient({ data: { id: ID, user_id: "user-1", status: "open", template_version: 1 }, error: null });
     expect(await findAttemptByTokenHash(client, HASH)).toEqual({
       ok: true,
-      value: { id: ID, status: "open", templateVersion: 1 },
+      value: { id: ID, userId: "user-1", status: "open", templateVersion: 1 },
     });
     expect(calls).toEqual([
-      ["select", ["id, status, template_version"]],
+      ["select", ["id, user_id, status, template_version"]],
       ["eq", ["token_sha256", HASH]],
       ["maybeSingle", []],
     ]);

@@ -54,3 +54,15 @@ export function reanchor(displayed: number, server: number): number {
 export function slowGradingWaitMs(anchorBase: number, anchorAt: number, nowMs: number): number {
   return Math.max(0, (SLOW_GRADING_S - anchorBase) * 1000 - (nowMs - anchorAt));
 }
+
+/** A server value in seconds and the moment (client monotonic clock) it was taken; `at` is set after hydration. */
+export type Anchor = { base: number; at: number | null };
+
+/**
+ * The new `received` anchor when the screen learns of a move to `received`
+ * (a poll or an accepted upload): it counts from 0 at `nowMs`, ≤ 2 s after
+ * `received_at`. `null` when nothing changes (not `received`, or already was).
+ */
+export function receivedAnchorOnChange(previous: AttemptStatus, next: AttemptStatus, nowMs: number): Anchor | null {
+  return next === "received" && previous !== "received" ? { base: 0, at: nowMs } : null;
+}

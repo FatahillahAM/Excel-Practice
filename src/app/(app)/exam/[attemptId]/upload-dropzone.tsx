@@ -4,9 +4,16 @@ import { Upload } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
 import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
 import { uploadMessages } from "../../../../messages/id";
-import { UPLOAD_ACCEPT, UPLOAD_ENDPOINT, pickFile, tooLarge, uploadOutcome, type UploadOutcome } from "./upload";
-
-type DropzoneState = { kind: "ready" } | { kind: "uploading" } | { kind: "rejected"; message: string };
+import {
+  UPLOAD_ACCEPT,
+  UPLOAD_ENDPOINT,
+  afterUpload,
+  pickFile,
+  tooLarge,
+  uploadOutcome,
+  type DropzoneState,
+  type UploadOutcome,
+} from "./upload";
 
 /**
  * Upload Dropzone (EXPERIENCE.md › Upload Dropzone, DESIGN.md
@@ -32,14 +39,17 @@ export function UploadDropzone({
   const [state, setState] = useState<DropzoneState>({ kind: "ready" });
   const [dragOver, setDragOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  /** The lock: set before the first await, so two drops or changes before a re-render post once. */
+  const inFlight = useRef(false);
   const uploading = state.kind === "uploading";
 
   async function send(file: File | null) {
-    if (file === null || uploading) return;
+    if (file === null || inFlight.current) return;
     if (tooLarge(file.size)) {
       setState({ kind: "rejected", message: uploadMessages.FILE_TOO_LARGE });
       return;
     }
+    inFlight.current = true;
     setState({ kind: "uploading" });
     let outcome: UploadOutcome;
     try {
@@ -52,31 +62,21 @@ export function UploadDropzone({
       outcome = uploadOutcome(res.status, await res.json().catch(() => null));
     } catch {
       outcome = { kind: "failed" };
+    } finally {
+      inFlight.current = false;
     }
-    switch (outcome.kind) {
-      case "received":
-        setState({ kind: "ready" });
-        onReceived(outcome.status);
-        return;
-      case "session_lost":
-        setState({ kind: "ready" });
-        onSessionLost();
-        return;
-      case "rejected":
-        setState({ kind: "rejected", message: outcome.message });
-        break;
-      case "failed":
-        setState({ kind: "rejected", message: uploadMessages.failed });
-        break;
-    }
+    const next = afterUpload(outcome);
+    setState(next.state);
+    if (next.notify?.kind === "received") onReceived(next.notify.status);
+    else if (next.notify?.kind === "session_lost") onSessionLost();
     // Ready for the right file: the input was disabled while uploading, so give focus back.
-    window.setTimeout(() => input.current?.focus(), 0);
+    if (next.refocus) window.setTimeout(() => input.current?.focus(), 0);
   }
 
   function onDrop(event: DragEvent<HTMLElement>) {
     event.preventDefault();
     setDragOver(false);
-    if (!uploading) void send(pickFile(event.dataTransfer.files));
+    void send(pickFile(event.dataTransfer.files));
   }
 
   function onDragOver(event: DragEvent<HTMLElement>) {

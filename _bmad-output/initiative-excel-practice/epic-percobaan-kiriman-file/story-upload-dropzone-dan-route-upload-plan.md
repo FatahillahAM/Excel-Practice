@@ -3,7 +3,7 @@ title: 'Upload Dropzone dan route upload'
 type: 'feature'
 ticket: '5'
 created: '2026-11-03'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -59,10 +59,10 @@ context:
 
 - `src/core/submission/submit.ts` -- `submit()`; `Channel { kind: "upload" }` skips the header check; `MAX_SUBMISSION_BYTES`, `SubmissionFault`.
 - `src/app/api/submissions/macro/route.ts` (+tests) -- `readBoundedBody`, `MacroBody`, the 200/400/413/500 mapping and log line; moved to a shared module.
-- `src/adapters/supabase/attempts.ts` -- `findAttemptByTokenHash`, `markReceived`, `storeSubmissionFile({replace})`; docs say "macro path / service role", now session too.
+- `src/adapters/supabase/attempts.ts` -- `findAttemptByTokenHash`, `markReceived`, `storeSubmissionFile({replace})`; service role on both submission paths; the lookup also returns `userId`.
 - `src/adapters/supabase/{auth,server,auth-rules,proxy}.ts` -- `getSessionUser`, `createClient`, `UNAUTHENTICATED`; `/api/submissions/upload` is not a public path, so the proxy already answers 401.
 - `supabase/migrations/20261102000001_attempts.sql`, `20261103000001_attempts_abandon.sql` -- the owner may only move to `abandoned`; in Storage the owner may only insert `generated.xlsm`.
-- `supabase/tests/contract.db.test.ts` -- "refuses the owner moving an open attempt to received" (changes) and "…grading_failed attempt back to received" (stays 42501).
+- `supabase/tests/contract.db.test.ts` -- the session still cannot move `open`/`grading_failed` → `received` or write `submission-1.xlsm` (no migration for 2.5).
 - `src/app/(app)/exam/[attemptId]/{page,exam-status}.tsx` -- Dropzone slot comment; `setStatus`, `receivedAnchor`, `setLost`.
 
 ## Tasks & Acceptance
@@ -70,9 +70,9 @@ context:
 **Execution:**
 - [x] `src/app/api/submissions/http.ts` (+tests) -- `readBoundedBody` (moved), `SubmissionBody`, `submissionResponse(result, channel)` (HTTP status, log line, error log `<channel>.<failure>`), `bodyFault(code, channel)` -- one mapping for both channels.
 - [x] `src/app/api/submissions/macro/route.ts` -- use `http.ts`; `MacroBody` = alias of `SubmissionBody`; macro tests pass unchanged.
-- [x] `supabase/migrations/20261103000002_attempts_upload.sql` -- owner update policy `open` → `received`; a `before update` trigger that, for `authenticated`, allows only `open → received` and `open|received|grading_failed → abandoned` (else `42501`), since permissive policies are OR-ed; Storage insert + update policies for the owner on `<id>/submission-1.xlsm` while `open`; bump `schema_version`.
-- [x] `supabase/tests/contract.db.test.ts` -- owner `open → received` allowed (stamps `received_at`), `grading_failed → received` still 42501, other user 0 rows; Storage: owner writes and overwrites `submission-1` while `open`, not when `received` or someone else's.
-- [x] `src/adapters/supabase/attempts.ts` -- docs and parameter names: lookup, CAS and store take the session or the service client.
+- [x] ~~`supabase/migrations/20261103000002_attempts_upload.sql`~~ -- dropped after review (user 2026-11-03): upload uses the service role after the session check; no migration.
+- [x] `supabase/tests/contract.db.test.ts` -- the session cannot move `open`/`grading_failed` → `received` (42501) and cannot write or overwrite `submission-1.xlsm`.
+- [x] `src/adapters/supabase/attempts.ts` -- docs: lookup and CAS are service role for both submission paths; the lookup returns `userId` for upload's owner check (`src/app/api/submissions/service-ports.ts`).
 - [x] `src/app/api/submissions/upload/route.ts` (+tests) -- session first (401 without reading the body), bounded body, session ports from `createClient()`, `submit(…, { kind: "upload" })`. Tests: one fixture per code, duplicate, 401, 413 (Content-Length and stream), 500 on store failure, another user's token → `NOT_THIS_ATTEMPT`, and parity: the same fixtures through macro and upload give the same code and status.
 - [x] `src/messages/id.ts` -- `uploadMessages`: the five codes verbatim; `FILE_TOO_LARGE` "File ini terlalu besar (maksimal 4 MB). Pakai file .xlsm asli dari Start, ya." and `failed` = the "network" row (illustrative, like `startMessages`).
 - [x] `src/app/(app)/exam/[attemptId]/upload.ts` (+tests) -- pure: `pickFile(files)` (first or `null`), `tooLarge(size)`, `uploadOutcome(httpStatus, body)` → `received {status} | rejected {message} | session_lost | failed`; unknown code → `failed`.
@@ -90,12 +90,32 @@ context:
 
 ## Plan Change Log
 
+- 2026-11-03 (review, user decision): upload ports on the service role after the session check, owner checked by `user_id`; migration `20261103000002` and its contract tests removed. Upload also requires `Content-Type: application/octet-stream` (415 `UNSUPPORTED_MEDIA_TYPE`, client `failed`), logs every answer (401 included), answers 500 on any throw; `inFlight` lock; 200 only for `received`/`grading_failed`; `afterUpload()` and `receivedAnchorOnChange()` extracted.
+
 ## Review Triage Log
+
+Thorough lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment): 1 high (HALT, user decided), 3 medium and 4 low patched; 1 deferred; the rest rejected.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | Session write grants let the owner bypass `submit()`: PATCH status to `received` without a file, or write any bytes to `submission-1.xlsm` (blind, edge) | high | HALT → user 2026-11-03: service role after the session check | Migration deleted; `serviceSubmissionPorts(channel, ownerId)` treats another user's attempt as not found; spine AD-9 and `.memlog.md` amended; contract tests assert the session still cannot move status or write the file |
+| 2 | Guard trigger fired on every UPDATE; `grading_failed → received` row missing (blind) | medium | patch (obsolete) | Trigger removed with the migration; session-refusal rows added |
+| 3 | No fault handling around session/client/`submit()` in the upload route; 401 skipped the shared log (blind, edge) | medium | patch | `upload.session_failed` / `submit_failed` / `service_*` → JSON 500; every answer logs one line |
+| 4 | Cookie-authenticated POST reads any content type (cross-site simple request) (blind) | medium | patch | `application/octet-stream` required, else 415 `UNSUPPORTED_MEDIA_TYPE` (route fault, not a RejectionCode) |
+| 5 | Two drops before re-render post twice (blind, edge) | low | patch | `inFlight` ref lock |
+| 6 | `uploadOutcome` accepted any status on 200 (blind) | low | patch | Only `received`/`grading_failed`; others `failed` |
+| 7 | Outcome handling in `send()` and the received-anchor rule untested and duplicated (verification-gap) | low | patch | Pure `afterUpload` and `receivedAnchorOnChange`, both tested; one `applyStatus` for poll and Dropzone |
+| 8 | "Status change fails" test row asserted nothing extra (blind) | low | patch | Asserts stored with `replace: true` and `markReceived` called |
+| 9 | Dropzone interaction (focus return, alert/status regions, drag, keyboard) untested (verification-gap, intent) | maybe-false | defer | Needs the DOM harness (epic 4) |
+| 10 | Macro and upload racing: the loser's store is refused → 500 although accepted (blind, edge) | low | reject | Needs both channels within the same second for one user; the next poll shows `received` |
+| 11 | "maksimal 4 MB" vs 4 MiB limit (blind) | low | reject | Limit is slightly above the stated value; no file under 4 MB is refused |
+| 12 | Two Supabase clients per upload; message-test titles; unused `UploadMessage` type (blind) | low | reject | Cosmetic |
+| 13 | Owner check lives only in `service-ports.ts` (implementer note) | low | reject | Both submission routes go through it; macro has no session and is fenced by the token |
 
 ## Design Notes
 
 - Token, not `attemptId`: matching the screen's id first would turn graded or abandoned files into `NOT_THIS_ATTEMPT`, while Done when 3 wants each its own message. One attempt in progress per user (AD-5) means an accepted file always belongs to the attempt on screen, except a screen stale ≤ 2 s after Abandon on another device; its next poll then shows its own status.
-- Session, not service role: AD-9 keeps the service role to macro and grading. The new permissive update policy is OR-ed with Abandon's, which would also let `grading_failed → received` through; the pair-guard trigger keeps that contract test at 42501. Core stays the one decider of transitions (AD-5).
+- Service role after the session check (user, 2.5 review; AD-9): the session gets no write access to attempt status or submitted files. `service-ports.ts` builds the same ports as the macro and, for upload, treats an attempt whose `user_id` is not the session user's as not found (`NOT_THIS_ATTEMPT`). Core stays the one decider of transitions (AD-5).
 - `accept=".xlsm,.xlsx"` follows EXPERIENCE.md › Upload Dropzone: a Save-As `.xlsx` copy can be picked and gets the identity message instead of being filtered silently.
 - Raw body like macro: the same `readBoundedBody` applies; `fetch` has no upload progress, so the bar is indeterminate (files ≤ 4 MiB).
 - No DOM harness (epic 4): client logic lives in `upload.ts`; drag, focus and the transition are manual checks.
@@ -106,4 +126,4 @@ context:
 - `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build` -- expected: clean; CI job `db-contract` green.
 
 **Manual checks (if no CLI):**
-- Preview (`dev`, after the migration): Start → upload the real file via `Tab`/`Enter` → "File received — grading…"; old file, `.xlsx`, PDF, an abandoned attempt's file → each its own message; drag-over and drop; NVDA reads "Uploading…" and the rejection.
+- Preview (`dev`): Start → upload the real file via `Tab`/`Enter` → "File received — grading…"; old file, `.xlsx`, PDF, an abandoned attempt's file → each its own message; drag-over and drop; NVDA reads "Uploading…" and the rejection.

@@ -1,44 +1,49 @@
-import { findAttemptByTokenHash, markReceived, storeSubmissionFile } from "../../../../adapters/supabase/attempts";
-import { getSessionUser } from "../../../../adapters/supabase/auth";
-import { UNAUTHENTICATED } from "../../../../adapters/supabase/auth-rules";
-import { createClient } from "../../../../adapters/supabase/server";
-import { workbookPort } from "../../../../adapters/workbook/submission";
-import { submit, type SubmissionPorts } from "../../../../core/submission";
-import { readSubmissionBody, submissionResponse } from "../http";
+import { getSessionUser, type SessionUser } from "../../../../adapters/supabase/auth";
+import { SubmissionFault, submit, type SubmitResult } from "../../../../core/submission";
+import { RouteFault, bodyFault, errorName, isOctetStream, readSubmissionBody, submissionResponse } from "../http";
+import { serviceSubmissionPorts } from "../service-ports";
 
 /**
  * `POST /api/submissions/upload` (AD-6, CAP-4): the Upload Dropzone posts the
- * picked file's bytes as `application/octet-stream`. The session is checked
- * first, so a request without one is answered 401 `UNAUTHENTICATED` before
- * the body is read. The attempt is the one the file's token names (AD-6
- * step 3), never an id in the URL; the ports use the user's session (AD-9),
- * so RLS hides another user's attempt (`NOT_THIS_ATTEMPT`) and lets the owner
- * store `submission-1` and move `open` → `received` only. Body limit,
- * envelope, HTTP mapping and logs are the macro's (`../http.ts`).
+ * picked file's bytes as `application/octet-stream`. In order:
+ *
+ * 1. the session: none → 401 `UNAUTHENTICATED`, before the body is read;
+ * 2. the content type: anything but `application/octet-stream` → 415
+ *    `UNSUPPORTED_MEDIA_TYPE` (so no cross-site "simple" POST gets this far);
+ * 3. the body within the macro's limit (413);
+ * 4. `submit(…, { kind: "upload" })` on service-role ports (AD-9) that treat
+ *    an attempt of anyone but the session user as not found
+ *    (`NOT_THIS_ATTEMPT`). The attempt is the one the file's token names
+ *    (AD-6 step 3), never an id in the URL.
+ *
+ * Envelope, HTTP mapping and logs are the macro's (`../http.ts`); every
+ * answer logs one line, and any throw answers 500 `INTERNAL_ERROR` with an
+ * `upload.*` error log.
  */
 export async function POST(request: Request): Promise<Response> {
-  const user = await getSessionUser();
-  if (!user) return Response.json({ ok: false, code: UNAUTHENTICATED }, { status: 401 });
+  let user: SessionUser | null;
+  try {
+    user = await getSessionUser();
+  } catch (error) {
+    return internalError("upload.session_failed", error);
+  }
+  if (!user) return bodyFault(RouteFault.UNAUTHENTICATED, "upload");
+  if (!isOctetStream(request)) return bodyFault(RouteFault.UNSUPPORTED_MEDIA_TYPE, "upload");
 
   const bytes = await readSubmissionBody(request, "upload");
   if (bytes instanceof Response) return bytes;
 
-  const supabase = await createClient();
-  const ports: SubmissionPorts = {
-    workbook: workbookPort,
-    attempts: {
-      findByTokenHash: (hash) => findAttemptByTokenHash(supabase, hash),
-      markReceived: (attemptId) => markReceived(supabase, attemptId),
-    },
-    files: {
-      storeSubmission: async (attemptId, n, file) => {
-        // Upsert: `submit()` stores only while the attempt is `open` (never for a duplicate).
-        const stored = await storeSubmissionFile(supabase, attemptId, n, file, { replace: true });
-        return stored === "failed" ? "failed" : "stored";
-      },
-    },
-  };
+  const { ports, fault } = serviceSubmissionPorts("upload", user.id);
+  let result: SubmitResult;
+  try {
+    result = await submit(bytes, { kind: "upload" }, ports);
+  } catch (error) {
+    return internalError("upload.submit_failed", error);
+  }
+  return submissionResponse(result, "upload", fault());
+}
 
-  const result = await submit(bytes, { kind: "upload" }, ports);
-  return submissionResponse(result, "upload");
+function internalError(event: string, error: unknown): Response {
+  console.error(JSON.stringify({ event, attemptId: null, code: errorName(error) }));
+  return bodyFault(SubmissionFault.INTERNAL_ERROR, "upload");
 }

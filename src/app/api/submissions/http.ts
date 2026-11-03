@@ -18,10 +18,35 @@ import {
  * in this key order.
  */
 
+/**
+ * Answers a route gives before `submit()` runs, outside the AD-6
+ * `RejectionCode`s: no session (401) and a body that is not
+ * `application/octet-stream` (415, upload only).
+ */
+export const RouteFault = {
+  UNAUTHENTICATED: "UNAUTHENTICATED",
+  UNSUPPORTED_MEDIA_TYPE: "UNSUPPORTED_MEDIA_TYPE",
+} as const;
+
+export type RouteFault = (typeof RouteFault)[keyof typeof RouteFault];
+
+/** Every code a submission route can answer. */
+export type SubmissionRouteCode = SubmissionCode | RouteFault;
+
 export type SubmissionBody =
   /** `status`: the attempt's status after this post; `duplicate`: it was already `received`/`grading_failed`. */
   | { ok: true; data: { status: AttemptStatus; duplicate: boolean } }
-  | { ok: false; code: SubmissionCode };
+  | { ok: false; code: SubmissionRouteCode };
+
+/** The log line of every answer: `SubmissionLog`, whose code may also be a route fault. */
+export type SubmissionRouteLog = Omit<SubmissionLog, "code"> & { code: SubmissionRouteCode | null };
+
+const FAULT_STATUS: Record<SubmissionFault | RouteFault, number> = {
+  FILE_TOO_LARGE: 413,
+  INTERNAL_ERROR: 500,
+  UNAUTHENTICATED: 401,
+  UNSUPPORTED_MEDIA_TYPE: 415,
+};
 
 export type ChannelKind = Channel["kind"];
 
@@ -42,9 +67,13 @@ export function submissionResponse(result: SubmitResult, channel: ChannelKind, f
   return answer(400, { ok: false, code: result.code }, result.log);
 }
 
-/** A refusal before `submit()` runs (body too large or unreadable): the same envelope and log line. */
-export function bodyFault(code: SubmissionFault, channel: ChannelKind): Response {
-  const log: SubmissionLog = {
+/**
+ * An answer without `submit()`'s result (no session, wrong content type, body
+ * too large or unreadable, a fault around `submit()`): the same envelope and
+ * one log line. 401, 415, 413 or 500 by code.
+ */
+export function bodyFault(code: SubmissionFault | RouteFault, channel: ChannelKind): Response {
+  const log: SubmissionRouteLog = {
     attemptId: null,
     channel,
     code,
@@ -52,7 +81,13 @@ export function bodyFault(code: SubmissionFault, channel: ChannelKind): Response
     received: false,
     duplicate: false,
   };
-  return answer(code === SubmissionFault.FILE_TOO_LARGE ? 413 : 500, { ok: false, code }, log);
+  return answer(FAULT_STATUS[code], { ok: false, code }, log);
+}
+
+/** Whether the request says its body is `application/octet-stream` (parameters ignored). */
+export function isOctetStream(request: Request): boolean {
+  const type = request.headers.get("content-type");
+  return type !== null && type.split(";")[0].trim().toLowerCase() === "application/octet-stream";
 }
 
 /**
@@ -108,7 +143,7 @@ export function errorName(error: unknown): string {
 }
 
 /** One JSON log line (Consistency Conventions › Logging: never file bytes, tokens or emails), then the answer. */
-function answer(status: number, body: SubmissionBody, log: SubmissionLog): Response {
+function answer(status: number, body: SubmissionBody, log: SubmissionRouteLog): Response {
   console.log(JSON.stringify(log));
   return Response.json(body, { status });
 }

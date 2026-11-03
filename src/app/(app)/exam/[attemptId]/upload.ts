@@ -17,7 +17,7 @@ export const UPLOAD_ACCEPT = ".xlsm,.xlsx";
  * What an upload ended in: `received` (accepted, or a duplicate: the screen
  * moves to `status`); `rejected` (the message for the Dropzone's alert);
  * `session_lost` (401: the first-load alert with Try again); `failed` (no or
- * an unknown answer, a server fault: the connection message).
+ * an unknown answer, a server fault, a 415: the connection message).
  */
 export type UploadOutcome =
   | { kind: "received"; status: AttemptStatus }
@@ -35,7 +35,8 @@ export function tooLarge(size: number): boolean {
   return size > MAX_SUBMISSION_BYTES;
 }
 
-const STATUSES: readonly AttemptStatus[] = ["open", "received", "graded", "grading_failed", "abandoned", "closed"];
+/** The statuses an accepted upload (or a duplicate) can leave the attempt in. */
+const RECEIVED_STATUSES: readonly AttemptStatus[] = ["received", "grading_failed"];
 const MESSAGE_CODES: readonly string[] = [...REJECTION_CODES, "FILE_TOO_LARGE"];
 
 /** The answer (HTTP status + parsed JSON body, `null` when it was not JSON) as an outcome. */
@@ -48,7 +49,7 @@ export function uploadOutcome(httpStatus: number, body: unknown): UploadOutcome 
   };
   if (httpStatus === 200 && b.ok === true) {
     const status = b.data?.status;
-    if (typeof status === "string" && (STATUSES as readonly string[]).includes(status)) {
+    if (typeof status === "string" && (RECEIVED_STATUSES as readonly string[]).includes(status)) {
       return { kind: "received", status: status as AttemptStatus };
     }
     return { kind: "failed" };
@@ -57,4 +58,31 @@ export function uploadOutcome(httpStatus: number, body: unknown): UploadOutcome 
     return { kind: "rejected", message: uploadMessages[b.code as keyof typeof uploadMessages] };
   }
   return { kind: "failed" };
+}
+
+/** What the Dropzone shows. */
+export type DropzoneState = { kind: "ready" } | { kind: "uploading" } | { kind: "rejected"; message: string };
+
+/**
+ * What the Dropzone does once an upload ended: its next state, what to tell
+ * the exam screen (`received` with the status, or `session_lost`), and
+ * whether to give focus back to the input (it was disabled while uploading).
+ */
+export interface AfterUpload {
+  state: DropzoneState;
+  notify: { kind: "received"; status: AttemptStatus } | { kind: "session_lost" } | null;
+  refocus: boolean;
+}
+
+export function afterUpload(outcome: UploadOutcome): AfterUpload {
+  switch (outcome.kind) {
+    case "received":
+      return { state: { kind: "ready" }, notify: { kind: "received", status: outcome.status }, refocus: false };
+    case "session_lost":
+      return { state: { kind: "ready" }, notify: { kind: "session_lost" }, refocus: false };
+    case "rejected":
+      return { state: { kind: "rejected", message: outcome.message }, notify: null, refocus: true };
+    case "failed":
+      return { state: { kind: "rejected", message: uploadMessages.failed }, notify: null, refocus: true };
+  }
 }

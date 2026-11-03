@@ -288,7 +288,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect((await row(id)).status).toBe(status);
     });
 
-    it.each(["graded", "grading_failed", "closed", "open"])(
+    it.each(["received", "graded", "grading_failed", "closed", "open"])(
       "refuses the owner moving an open attempt to %s",
       async (to) => {
         const { uid, id } = await attemptIn("open");
@@ -324,110 +324,36 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     });
   });
 
-  describe("upload: received (session + RLS)", () => {
-    /** The upload's compare-and-set: `update … set status = 'received' where id = ? and status = 'open'`. */
-    function receiveAs(uid: string, id: string) {
-      return asUser(uid, async (q) =>
-        (await q.query("update public.attempts set status = 'received' where id = $1 and status = 'open' returning id", [id]))
-          .rowCount,
-      );
-    }
-
-    it("moves the owner's open attempt to received and stamps received_at", async () => {
-      const { uid, id } = await attemptIn("open");
-      expect(await receiveAs(uid, id)).toBe(1);
-      const r = await row(id);
-      expect(r.status).toBe("received");
-      expect(r.received_at).toBeInstanceOf(Date);
-      expect(Math.abs(r.received_at!.getTime() - Date.now())).toBeLessThan(60_000);
-      // A second post loses the compare-and-set: no row.
-      expect(await receiveAs(uid, id)).toBe(0);
-    });
-
-    it("matches no row of another user", async () => {
-      const { id } = await attemptIn("open");
-      const stranger = await newUser();
-      expect(await receiveAs(stranger, id)).toBe(0);
-      expect((await row(id)).status).toBe("open");
-    });
-
-    it.each([
-      ["received", "graded"],
-      ["received", "grading_failed"],
-      ["grading_failed", "graded"],
-    ] as const)("refuses the owner moving a %s attempt to %s", async (from, to) => {
+  describe("upload: the session has no write access (AD-9: the route uses the service role)", () => {
+    it.each(["open", "grading_failed"] as const)("refuses the owner moving a %s attempt to received", async (from) => {
       const { uid, id } = await attemptIn(from);
       await expectSqlError(
-        asUser(uid, (q) => q.query("update public.attempts set status = $2 where id = $1", [id, to])),
+        asUser(uid, (q) =>
+          q.query("update public.attempts set status = 'received' where id = $1 and status = $2", [id, from]),
+        ),
         "42501",
       );
       expect((await row(id)).status).toBe(from);
     });
 
-    it("leaves the service role's moves alone (grading_failed back to received)", async () => {
-      const { id } = await attemptIn("grading_failed");
-      const count = await asService(
-        async (q) =>
-          (
-            await q.query(
-              "update public.attempts set status = 'received' where id = $1 and status = 'grading_failed' returning id",
-              [id],
-            )
-          ).rowCount,
-      );
-      expect(count).toBe(1);
-    });
-  });
-
-  describe("attempt-files (Storage RLS)", () => {
-    /** Storage's upsert of one object, as the user: insert, or update the existing row. */
-    function putAs(uid: string, name: string) {
-      return asUser(uid, async (q) =>
-        (
-          await q.query(
-            `insert into storage.objects (bucket_id, name, owner) values ('attempt-files', $1, $2)
-             on conflict (bucket_id, name) do update set owner = excluded.owner, created_at = now()
-             returning id`,
-            [name, uid],
-          )
-        ).rowCount,
-      );
-    }
-    const objects = async (name: string) =>
-      (await db.query("select id from storage.objects where bucket_id = 'attempt-files' and name = $1", [name])).rowCount;
-
-    it("lets the owner write and overwrite submission-1 while the attempt is open", async () => {
+    it("refuses the owner writing submission-1.xlsm, also while the attempt is open", async () => {
       const { uid, id } = await attemptIn("open");
       const name = `${id}/submission-1.xlsm`;
-      expect(await putAs(uid, name)).toBe(1);
-      expect(await putAs(uid, name)).toBe(1);
-      expect(await objects(name)).toBe(1);
-    });
-
-    it("refuses submission-1 once the attempt is received, also overwriting the stored one", async () => {
-      const { uid, id } = await attemptIn("open");
-      const name = `${id}/submission-1.xlsm`;
-      expect(await putAs(uid, name)).toBe(1);
-      await db.query("update public.attempts set status = 'received' where id = $1", [id]);
-      await expectSqlError(putAs(uid, name), "42501");
-
-      const other = await attemptIn("received");
-      await expectSqlError(putAs(other.uid, `${other.id}/submission-1.xlsm`), "42501");
-    });
-
-    it("refuses another user's attempt", async () => {
-      const { id } = await attemptIn("open");
-      const stranger = await newUser();
-      await expectSqlError(putAs(stranger, `${id}/submission-1.xlsm`), "42501");
-      expect(await objects(`${id}/submission-1.xlsm`)).toBe(0);
-    });
-
-    it("refuses other names: submission-2 and overwriting generated.xlsm", async () => {
-      const { uid, id } = await attemptIn("open");
-      await expectSqlError(putAs(uid, `${id}/submission-2.xlsm`), "42501");
-      // Start's one write of the generated file is allowed; replacing it is not.
-      expect(await putAs(uid, `${id}/generated.xlsm`)).toBe(1);
-      await expectSqlError(putAs(uid, `${id}/generated.xlsm`), "42501");
+      await expectSqlError(
+        asUser(uid, (q) =>
+          q.query("insert into storage.objects (bucket_id, name, owner) values ('attempt-files', $1, $2)", [name, uid]),
+        ),
+        "42501",
+      );
+      // An object written by the service role cannot be overwritten by the owner either.
+      await asService((q) =>
+        q.query("insert into storage.objects (bucket_id, name, owner) values ('attempt-files', $1, null)", [name]),
+      );
+      const updated = await asUser(uid, async (q) =>
+        (await q.query("update storage.objects set owner = $2 where bucket_id = 'attempt-files' and name = $1", [name, uid]))
+          .rowCount,
+      );
+      expect(updated).toBe(0);
     });
   });
 

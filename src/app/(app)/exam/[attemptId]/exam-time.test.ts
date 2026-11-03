@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { SLOW_GRADING_S, elapsedAt, formatElapsed, isGradingSlow, reanchor, slowGradingWaitMs } from "./exam-time";
+import {
+  SLOW_GRADING_S,
+  elapsedAt,
+  formatElapsed,
+  isGradingSlow,
+  reanchor,
+  receivedAnchorOnChange,
+  slowGradingWaitMs,
+} from "./exam-time";
 
 describe("formatElapsed", () => {
   it("shows mm:ss under an hour", () => {
@@ -82,5 +90,19 @@ describe("slowGradingWaitMs", () => {
   it("is 0 once past", () => {
     expect(slowGradingWaitMs(20, 1_000, 1_000)).toBe(0);
     expect(slowGradingWaitMs(0, 0, 16_000)).toBe(0);
+  });
+});
+
+describe("receivedAnchorOnChange", () => {
+  it("counts from 0 now when the attempt moves to received", () => {
+    expect(receivedAnchorOnChange("open", "received", 5_000)).toEqual({ base: 0, at: 5_000 });
+    expect(receivedAnchorOnChange("grading_failed", "received", 7)).toEqual({ base: 0, at: 7 });
+  });
+
+  it("changes nothing when it already was received, or moves elsewhere", () => {
+    expect(receivedAnchorOnChange("received", "received", 5_000)).toBeNull();
+    expect(receivedAnchorOnChange("open", "grading_failed", 5_000)).toBeNull();
+    expect(receivedAnchorOnChange("received", "graded", 5_000)).toBeNull();
+    expect(receivedAnchorOnChange("open", "open", 5_000)).toBeNull();
   });
 });
