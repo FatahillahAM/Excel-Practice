@@ -3,7 +3,7 @@ title: 'Layar exam lengkap'
 type: 'feature'
 ticket: '4'
 created: '2026-11-03'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
