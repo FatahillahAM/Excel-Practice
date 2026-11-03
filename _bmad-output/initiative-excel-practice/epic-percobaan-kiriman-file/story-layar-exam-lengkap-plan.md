@@ -3,12 +3,12 @@ title: 'Layar exam lengkap'
 type: 'feature'
 ticket: '4'
 created: '2026-11-03'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '1ca5774da6d1f2595e6ed684d023e50df0858f8c'
 context:
