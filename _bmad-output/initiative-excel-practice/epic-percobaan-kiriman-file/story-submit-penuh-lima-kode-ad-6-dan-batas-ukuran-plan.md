@@ -3,13 +3,14 @@ title: 'submit() penuh: lima kode AD-6 dan batas ukuran'
 type: 'feature'
 ticket: '3'
 created: '2026-11-03'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '62c95aa2ee62fdd9488663fdcadb00bfc68c8ab6'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -77,6 +78,8 @@ context:
 - Given tes route macro dan core, when `npm run test`, then tiap kode AD-6, duplikat, batas ukuran, dan zip bomb lolos, dan `matchesTemplate` tidak mengubah hasil template v1 maupun S3.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
