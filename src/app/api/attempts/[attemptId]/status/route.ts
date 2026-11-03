@@ -2,6 +2,7 @@ import { readAttempt, type AttemptStatus } from "../../../../../adapters/supabas
 import { getSessionUser } from "../../../../../adapters/supabase/auth";
 import { UNAUTHENTICATED } from "../../../../../adapters/supabase/auth-rules";
 import { createClient } from "../../../../../adapters/supabase/server";
+import { elapsedSeconds } from "../../../../../core/services/attempts";
 
 export interface AttemptStatusData {
   status: AttemptStatus;
@@ -27,9 +28,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ att
   if (!attempt.ok) return json({ ok: false, code: "INTERNAL_ERROR" }, 500);
   if (attempt.value === null) return json({ ok: false, code: "NOT_FOUND" }, 404);
 
-  const started = Date.parse(attempt.value.startedAt);
-  const elapsedSeconds = Number.isNaN(started) ? 0 : Math.max(0, Math.floor((Date.now() - started) / 1000));
-  return json({ ok: true, data: { status: attempt.value.status, elapsedSeconds, resultId: null } }, 200);
+  const data: AttemptStatusData = {
+    status: attempt.value.status,
+    elapsedSeconds: elapsedSeconds(attempt.value.startedAt, Date.now()),
+    resultId: null,
+  };
+  return json({ ok: true, data }, 200);
 }
 
 function json(body: AttemptStatusBody, status: number): Response {

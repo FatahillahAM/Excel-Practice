@@ -66,13 +66,13 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/services/attempts/elapsed.ts` (+ `index.ts`) -- `elapsedSeconds(fromIso, nowMs)`: bulat, ≥ 0, ISO rusak → 0 -- satu rumus AD-8 untuk route dan halaman; route memakainya, respons tetap.
-- [ ] `src/messages/id.ts` -- `examMessages.finishHint` (pindahan `FINISH_HINT`), `gradingSlow`.
-- [ ] `src/app/(app)/exam/[attemptId]/exam-time.ts` -- murni: `formatElapsed` (`mm:ss`, ≥ 1 jam `h:mm:ss`), `elapsedAt(base, anchorMs, nowMs)`, `SLOW_GRADING_S = 15`, `isGradingSlow(status, secondsInReceived)`.
-- [ ] `src/components/exam/orbit-loader.tsx` + `globals.css` -- SVG 320px per DESIGN.md › Orbit Loader (6 cincin, satu dot per cincin, sudut awal 0/90/180/0/270/90°, pusat glyph logo); `@keyframes` + durasi 44/40/36/14/16/15 s; tombol ghost kanan bawah men-toggle `data-paused` → `animation-play-state: paused`, tidak dirender saat `useMotionPreference()` = `reduce`.
-- [ ] `src/app/(app)/exam/[attemptId]/exam-status.tsx` -- props `initialElapsed`, `initialReceivedSeconds`; interval 1 s hanya saat `open`; jangkar received = nilai server atau 0 saat transisi terlihat lewat poll. Live region: baris 1 + instruksi + pesan lambat; waktu (`font-mono tabular-nums`) sebaris di luarnya. Orbit selama status dipolling.
-- [ ] `src/app/(app)/exam/[attemptId]/page.tsx` -- kolom tengah tanpa kartu: h1 `sr-only` "Level 1 · Practice 1, in progress", ExamStatus, lalu "Finish not working? Setup Guide" (`/setup-guide`). Hitung detik dari `startedAt`/`receivedAt` setelah baca sesi. Dropzone entry 5 nanti di antara status line dan tautan.
-- [ ] Tes -- helper: tiap baris waktu/lambat di matriks; `page.test.tsx` (`vi.setSystemTime`): 12:34 dari `startedAt`, waktu di luar `role="status"`, SVG `aria-hidden`, tanpa tombol pause di SSR, pesan lambat untuk `received_at` 20 s lalu (bukan 5 s), tautan Setup Guide; `download/route.test.ts`: dua GET → SHA-256 sama, tanpa tulis.
+- [x] `src/core/services/attempts/elapsed.ts` (+ `index.ts`) -- `elapsedSeconds(fromIso, nowMs)`: bulat, ≥ 0, ISO rusak → 0 -- satu rumus AD-8 untuk route dan halaman; route memakainya, respons tetap.
+- [x] `src/messages/id.ts` -- `examMessages.finishHint` (pindahan `FINISH_HINT`), `gradingSlow`.
+- [x] `src/app/(app)/exam/[attemptId]/exam-time.ts` -- murni: `formatElapsed` (`mm:ss`, ≥ 1 jam `h:mm:ss`), `elapsedAt(base, anchorMs, nowMs)`, `SLOW_GRADING_S = 15`, `isGradingSlow(status, secondsInReceived)`.
+- [x] `src/components/exam/orbit-loader.tsx` + `globals.css` -- SVG 320px per DESIGN.md › Orbit Loader (6 cincin, satu dot per cincin, sudut awal 0/90/180/0/270/90°, pusat glyph logo); `@keyframes` + durasi 44/40/36/14/16/15 s; tombol ghost kanan bawah men-toggle `data-paused` → `animation-play-state: paused`, tidak dirender saat `useMotionPreference()` = `reduce`.
+- [x] `src/app/(app)/exam/[attemptId]/exam-status.tsx` -- props `initialElapsed`, `initialReceivedSeconds`; interval 1 s hanya saat `open`; jangkar received = nilai server atau 0 saat transisi terlihat lewat poll. Live region: baris 1 + instruksi + pesan lambat; waktu (`font-mono tabular-nums`) sebaris di luarnya. Orbit selama status dipolling.
+- [x] `src/app/(app)/exam/[attemptId]/page.tsx` -- kolom tengah tanpa kartu: h1 `sr-only` "Level 1 · Practice 1, in progress", ExamStatus, lalu "Finish not working? Setup Guide" (`/setup-guide`). Hitung detik dari `startedAt`/`receivedAt` setelah baca sesi. Dropzone entry 5 nanti di antara status line dan tautan.
+- [x] Tes -- helper: tiap baris waktu/lambat di matriks; `page.test.tsx` (`vi.setSystemTime`): 12:34 dari `startedAt`, waktu di luar `role="status"`, SVG `aria-hidden`, tanpa tombol pause di SSR, pesan lambat untuk `received_at` 20 s lalu (bukan 5 s), tautan Setup Guide; `download/route.test.ts`: dua GET → SHA-256 sama, tanpa tulis.
 
 **Acceptance Criteria:**
 - Given layar exam terbuka 3 menit, when dimuat ulang, then waktu langsung tampil ±3:00 dan terus berdetik tanpa diumumkan pembaca layar.

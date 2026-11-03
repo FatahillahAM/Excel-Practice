@@ -9,3 +9,4 @@ export {
   transition,
 } from "./lifecycle";
 export type { AttemptStatus, TransitionResult } from "./lifecycle";
+export { elapsedSeconds } from "./elapsed";

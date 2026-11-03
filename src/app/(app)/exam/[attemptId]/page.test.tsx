@@ -22,13 +22,9 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("../../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-// The shell's title component resolves the `@/` alias, which Vitest does not; a plain <h1> stands in.
-vi.mock("../../../../components/shell/page-title", () => ({
-  PageTitle: ({ children }: { children: React.ReactNode }) => <h1>{children}</h1>,
-}));
 vi.mock("../../../../adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
 
-import { shellMessages } from "../../../../messages/id";
+import { examMessages, shellMessages } from "../../../../messages/id";
 import ExamPage from "./page";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
@@ -40,6 +36,12 @@ const ATTEMPT = {
   startedAt: "2026-11-02T01:00:00+00:00",
   receivedAt: null,
 };
+
+/** The text inside every `role="status"` live region of the markup. */
+function liveRegionText(html: string): string {
+  const regions = [...html.matchAll(/<(span|div|p)[^>]*role="status"[^>]*>([\s\S]*?)<\/\1>/g)].map((m) => m[2]);
+  return regions.join("\n");
+}
 
 /** Renders the page's streamed part (the async component inside Suspense) to HTML. */
 async function render(): Promise<string> {
@@ -56,6 +58,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
   mocks.getSessionUser.mockReset();
   mocks.readAttempt.mockReset();
@@ -71,6 +74,61 @@ describe("Exam page", () => {
     expect(html).toContain("Excel is open — Practice 1");
     expect(html).toContain(`/exam/${ID}/download`);
     expect(mocks.readAttempt).toHaveBeenCalledWith(SUPABASE, ID);
+  });
+
+  it("renders the server's time since Start (12:34) outside the live regions, with a decorative Orbit", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-02T01:12:34.600Z"));
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+    const html = await render();
+    expect(html).toContain("12:34");
+    const live = liveRegionText(html);
+    expect(live).toContain("Excel is open — Practice 1");
+    expect(live).toContain(examMessages.finishHint);
+    expect(live).not.toContain("12:34");
+    expect(html).toMatch(/<svg[^>]*viewBox="0 0 100 100"[^>]*aria-hidden="true"/);
+    // `useMotionPreference()` is "reduce" on the server: no pause button until hydration.
+    expect(html).not.toContain("Pause animation");
+    expect(html).not.toContain("Play animation");
+  });
+
+  it("titles the page for screen readers only and links the Setup Guide", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+    const html = await render();
+    expect(html).toContain('<h1 class="sr-only">Level 1 · Practice 1, in progress</h1>');
+    expect(html).toContain("Finish not working?");
+    expect(html).toMatch(/<a href="\/setup-guide"[^>]*>Setup Guide<\/a>/);
+  });
+
+  it("shows the slow-grading message for a file received 20 s ago, not 5 s ago", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-02T01:10:20.000Z"));
+    const received = (receivedAt: string) => ({ ...ATTEMPT, status: "received", receivedAt });
+
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: received("2026-11-02T01:10:00+00:00") });
+    let html = await render();
+    expect(liveRegionText(html)).toContain("File received — grading…");
+    expect(liveRegionText(html)).toContain(examMessages.gradingSlow);
+    expect(html).not.toContain(examMessages.finishHint);
+    expect(html).not.toContain("10:20");
+    expect(html).toMatch(/<svg[^>]*viewBox="0 0 100 100"/);
+
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: received("2026-11-02T01:10:15+00:00") });
+    html = await render();
+    expect(html).toContain("File received — grading…");
+    expect(html).not.toContain(examMessages.gradingSlow);
+  });
+
+  it("shows no slow-grading message once grading failed", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-02T01:20:00.000Z"));
+    mocks.readAttempt.mockResolvedValue({
+      ok: true,
+      value: { ...ATTEMPT, status: "grading_failed", receivedAt: "2026-11-02T01:10:00+00:00" },
+    });
+    const html = await render();
+    expect(html).toContain("File received — grading…");
+    expect(html).not.toContain(examMessages.gradingSlow);
   });
 
   it("is notFound for an attempt that is missing or not the user's", async () => {

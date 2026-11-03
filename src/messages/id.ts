@@ -30,3 +30,11 @@ export const startMessages = {
 } as const;
 
 export type StartError = keyof typeof startMessages;
+
+/** Exam in progress (EXPERIENCE.md › Component Patterns › Exam Status Line, Message set). */
+export const examMessages = {
+  /** Exam Status Line, line 2 while the attempt is open. */
+  finishHint: "Klik Finish di file kalau sudah selesai, ya.",
+  /** "Grading slow" row: after 15 s in `received` (AD-11). */
+  gradingSlow: "Penilaian agak lama, tunggu sebentar ya.",
+} as const;

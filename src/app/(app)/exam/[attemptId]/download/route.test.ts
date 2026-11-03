@@ -1,17 +1,31 @@
+import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   getSessionUser: vi.fn(),
   readAttempt: vi.fn(),
   downloadGeneratedFile: vi.fn(),
+  // Every attempts write: a download must call none of them.
+  writes: {
+    createAttempt: vi.fn(),
+    deleteOpenAttempt: vi.fn(),
+    uploadGeneratedFile: vi.fn(),
+    storeSubmissionFile: vi.fn(),
+    changeStatus: vi.fn(),
+    markReceived: vi.fn(),
+    abandon: vi.fn(),
+  },
+  // The session client: any table or Storage access past the mocked reads shows up here.
+  supabase: { from: vi.fn(), storage: { from: vi.fn() } },
 }));
-const SUPABASE = { session: true };
+const SUPABASE = mocks.supabase;
 vi.mock("../../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("../../../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
 vi.mock("../../../../../adapters/supabase/attempts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../../../adapters/supabase/attempts")>()),
   readAttempt: mocks.readAttempt,
   downloadGeneratedFile: mocks.downloadGeneratedFile,
+  ...mocks.writes,
 }));
 
 import { GET } from "./route";
@@ -43,7 +57,12 @@ afterEach(() => {
   mocks.getSessionUser.mockReset();
   mocks.readAttempt.mockReset();
   mocks.downloadGeneratedFile.mockReset();
+  for (const write of Object.values(mocks.writes)) write.mockReset();
+  mocks.supabase.from.mockReset();
+  mocks.supabase.storage.from.mockReset();
 });
+
+const sha256 = async (res: Response) => createHash("sha256").update(new Uint8Array(await res.arrayBuffer())).digest("hex");
 
 describe("GET /exam/<attemptId>/download", () => {
   it("serves the stored bytes as an uncached .xlsm attachment, each time the same", async () => {
@@ -59,6 +78,19 @@ describe("GET /exam/<attemptId>/download", () => {
 
     const again = await get();
     expect(new Uint8Array(await again.arrayBuffer())).toEqual(STORED);
+  });
+
+  it("Download again: two GETs give the same SHA-256 and write nothing (start time unchanged)", async () => {
+    const first = await get();
+    const second = await get();
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    const [a, b] = [await sha256(first), await sha256(second)];
+    expect(a).toBe(createHash("sha256").update(STORED).digest("hex"));
+    expect(b).toBe(a);
+    for (const write of Object.values(mocks.writes)) expect(write).not.toHaveBeenCalled();
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(mocks.supabase.storage.from).not.toHaveBeenCalled();
   });
 
   it("answers 404 for an attempt that is not the user's or does not exist, without reading Storage", async () => {
