@@ -64,16 +64,16 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/services/attempts/lifecycle.ts` (+`index.ts`) -- `AttemptStatus` (+skema zod), `IN_PROGRESS_STATUSES`, `INITIAL_STATUS`, `AttemptEvent` (`submit_accepted`, `abandon`, `time_limit`, `grade_ok`, `grade_error`, `retry_grading`), `transition(from, event)`.
-- [ ] `src/core/services/attempts/lifecycle.test.ts` -- semua pasangan status × event: 8 sah, sisanya ditolak.
-- [ ] `src/adapters/supabase/attempts.ts` (+tes) -- tipe dari core (re-export); `changeStatus(client, attemptId, from, event)` → `transition` lalu CAS, hasil `changed | refused | lost | failed`; `markReceived` = `changeStatus(service, id, 'open', 'submit_accepted')`, kontrak tetap; `abandon(supabase, attemptId)` (sesi): `readAttempt` → `changeStatus(…, status, 'abandon')`.
-- [ ] `supabase/migrations/20261103000001_attempts_abandon.sql` -- `grant update (status) on public.attempts to authenticated`; policy update `using (owner and status in ('open','received','grading_failed')) with check (owner and status = 'abandoned')`; `schema_version`.
-- [ ] `supabase/tests/supabase-stub.sql` -- peran (`anon`, `authenticated`, `service_role bypassrls`, `supabase_auth_admin`), `auth.users`, `auth.uid()` dari `request.jwt.claims ->> 'sub'`, `storage.buckets`/`objects` + `storage.foldername`, usage schema, dan default privileges `public` ke tiga peran API (agar `revoke` teruji).
-- [ ] `supabase/tests/contract.db.test.ts` -- `describe.skipIf(!process.env.DATABASE_URL)`; DB scratch `contract_<rand>` (stub + semua migrasi, drop di akhir); `asUser(uid)` = transaksi `set local role authenticated` + claims. Kasus: Start kedua 23505 pada `attempts_one_in_progress_idx`; `received_at` dari trigger, tak bisa diisi klien; tak bisa baca baris orang lain; delete hanya `open`; abandon hanya dari tiga status, ke `abandoned` saja, milik sendiri; `anon` tanpa akses.
-- [ ] `package.json` -- devDeps `pg` + `@types/pg` (versi pas); script `test:db` = `vitest run supabase/tests`.
-- [ ] `.github/workflows/ci.yml` -- job `db-contract`: service `postgres:16` (health check `pg_isready`), `DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres`, `npm ci`, `npm run test:db`.
-- [ ] `supabase/README.md` -- bagian "Contract tests": cara lokal (lihat Verification); stub bukan Supabase penuh.
-- [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- tandai entri contract test (baris ~41) selesai.
+- [x] `src/core/services/attempts/lifecycle.ts` (+`index.ts`) -- `AttemptStatus` (+skema zod), `IN_PROGRESS_STATUSES`, `INITIAL_STATUS`, `AttemptEvent` (`submit_accepted`, `abandon`, `time_limit`, `grade_ok`, `grade_error`, `retry_grading`), `transition(from, event)`.
+- [x] `src/core/services/attempts/lifecycle.test.ts` -- semua pasangan status × event: 8 sah, sisanya ditolak.
+- [x] `src/adapters/supabase/attempts.ts` (+tes) -- tipe dari core (re-export); `changeStatus(client, attemptId, from, event)` → `transition` lalu CAS, hasil `changed | refused | lost | failed`; `markReceived` = `changeStatus(service, id, 'open', 'submit_accepted')`, kontrak tetap; `abandon(supabase, attemptId)` (sesi): `readAttempt` → `changeStatus(…, status, 'abandon')`.
+- [x] `supabase/migrations/20261103000001_attempts_abandon.sql` -- `grant update (status) on public.attempts to authenticated`; policy update `using (owner and status in ('open','received','grading_failed')) with check (owner and status = 'abandoned')`; `schema_version`.
+- [x] `supabase/tests/supabase-stub.sql` -- peran (`anon`, `authenticated`, `service_role bypassrls`, `supabase_auth_admin`), `auth.users`, `auth.uid()` dari `request.jwt.claims ->> 'sub'`, `storage.buckets`/`objects` + `storage.foldername`, usage schema, dan default privileges `public` ke tiga peran API (agar `revoke` teruji).
+- [x] `supabase/tests/contract.db.test.ts` -- `describe.skipIf(!process.env.DATABASE_URL)`; DB scratch `contract_<rand>` (stub + semua migrasi, drop di akhir); `asUser(uid)` = transaksi `set local role authenticated` + claims. Kasus: Start kedua 23505 pada `attempts_one_in_progress_idx`; `received_at` dari trigger, tak bisa diisi klien; tak bisa baca baris orang lain; delete hanya `open`; abandon hanya dari tiga status, ke `abandoned` saja, milik sendiri; `anon` tanpa akses.
+- [x] `package.json` -- devDeps `pg` + `@types/pg` (versi pas); script `test:db` = `vitest run supabase/tests`.
+- [x] `.github/workflows/ci.yml` -- job `db-contract`: service `postgres:16` (health check `pg_isready`), `DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres`, `npm ci`, `npm run test:db`.
+- [x] `supabase/README.md` -- bagian "Contract tests": cara lokal (lihat Verification); stub bukan Supabase penuh.
+- [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- tandai entri contract test (baris ~41) selesai.
 
 **Acceptance Criteria:**
 - Given `DATABASE_URL` tidak di-set, when `npm run test`, then suite kontrak di-skip dan sisa tes lolos.

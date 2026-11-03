@@ -1,6 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  abandon,
+  changeStatus,
   createAttempt,
   deleteOpenAttempt,
   downloadGeneratedFile,
@@ -18,10 +20,17 @@ type Result = { data: unknown; error: { code: string; message: string } | null }
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const HASH = "a".repeat(64);
 
-/** A PostgREST query builder that records every call and answers `result` at the end of the chain. */
-function fakeClient(result: Result | (() => Promise<Result>)) {
+/**
+ * A PostgREST query builder that records every call and answers `result` at
+ * the end of the chain (an array: one answer per query, in order).
+ */
+function fakeClient(result: Result | Result[] | (() => Promise<Result>)) {
   const calls: [string, unknown[]][] = [];
-  const answer = () => (typeof result === "function" ? result() : Promise.resolve(result));
+  let query = 0;
+  const answer = () =>
+    typeof result === "function"
+      ? result()
+      : Promise.resolve(Array.isArray(result) ? result[query++] : result);
   const builder: Record<string, unknown> = {};
   for (const name of ["select", "insert", "update", "delete", "eq", "in"]) {
     builder[name] = (...args: unknown[]) => (calls.push([name, args]), builder);
@@ -243,5 +252,86 @@ describe("markReceived (service role)", () => {
       throw new TypeError("fetch failed");
     });
     expect(await markReceived(threw.client, ID)).toEqual({ ok: false });
+  });
+});
+
+describe("changeStatus (AD-5)", () => {
+  it("asks the state machine, then writes with a compare-and-set on the old status", async () => {
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(client, ID, "received", "abandon")).toEqual({ outcome: "changed", status: "abandoned" });
+    expect(calls).toEqual([
+      ["update", [{ status: "abandoned" }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "received"]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it("sends no query for a transition AD-5 refuses", async () => {
+    for (const [from, event] of [
+      ["graded", "abandon"],
+      ["open", "grade_ok"],
+      ["abandoned", "submit_accepted"],
+    ] as const) {
+      const { client, from: fromTable } = fakeClient({ data: [{ id: ID }], error: null });
+      expect(await changeStatus(client, ID, from, event)).toEqual({ outcome: "refused" });
+      expect(fromTable).not.toHaveBeenCalled();
+    }
+  });
+
+  it("is lost when no row matched the old status, failed on an error or a throw", async () => {
+    expect(await changeStatus(fakeClient({ data: [], error: null }).client, ID, "open", "abandon")).toEqual({ outcome: "lost" });
+    const denied = fakeClient({ data: null, error: { code: "42501", message: "x" } });
+    expect(await changeStatus(denied.client, ID, "open", "abandon")).toEqual({ outcome: "failed" });
+    const threw = fakeClient(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(await changeStatus(threw.client, ID, "open", "abandon")).toEqual({ outcome: "failed" });
+    expect(errors).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("abandon (session)", () => {
+  const row = (status: string) => ({
+    id: ID,
+    item_id: "L01-P1",
+    status,
+    template_version: 1,
+    started_at: "2026-11-02T01:00:00+00:00",
+    received_at: status === "open" ? null : "2026-11-02T01:10:00+00:00",
+  });
+
+  it.each(["open", "received", "grading_failed"])("moves %s to abandoned with a compare-and-set", async (status) => {
+    const { client, calls } = fakeClient([
+      { data: row(status), error: null },
+      { data: [{ id: ID }], error: null },
+    ]);
+    expect(await abandon(client, ID)).toEqual({ outcome: "changed", status: "abandoned" });
+    expect(calls.slice(-4)).toEqual([
+      ["update", [{ status: "abandoned" }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", status]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it.each(["graded", "abandoned", "closed"])("refuses %s without an update", async (status) => {
+    const { client, calls } = fakeClient([{ data: row(status), error: null }]);
+    expect(await abandon(client, ID)).toEqual({ outcome: "refused" });
+    expect(calls.some(([name]) => name === "update")).toBe(false);
+  });
+
+  it("is lost when the status changed between the read and the write", async () => {
+    const { client } = fakeClient([
+      { data: row("open"), error: null },
+      { data: [], error: null },
+    ]);
+    expect(await abandon(client, ID)).toEqual({ outcome: "lost" });
+  });
+
+  it("is not_found for an attempt RLS hides, failed when the read fails", async () => {
+    expect(await abandon(fakeClient([{ data: null, error: null }]).client, ID)).toEqual({ outcome: "not_found" });
+    const failed = fakeClient([{ data: null, error: { code: "08006", message: "x" } }]);
+    expect(await abandon(failed.client, ID)).toEqual({ outcome: "failed" });
   });
 });

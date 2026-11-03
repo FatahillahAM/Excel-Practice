@@ -29,6 +29,20 @@ Schema changes happen only through SQL files in `migrations/` (AD-13): never thr
 
 Afterwards `list_migrations` (MCP) or `supabase migration list` must show the same versions on both projects as the files here, and `/health` on Preview (`dev`) and Production (`prod`) shows the newest version.
 
+## Contract tests
+
+`tests/contract.db.test.ts` applies `tests/supabase-stub.sql` and then every file in `migrations/` as it is, in name order, to a scratch database `contract_<random>` (dropped afterwards), and checks the grants, RLS policies, the in-progress unique index and the `received_at` trigger as the `authenticated`, `anon` and `service_role` roles. CI runs it in the `db-contract` job against a `postgres:16` service.
+
+It runs only when `DATABASE_URL` is set (a superuser on a local or CI Postgres 16; never the `dev` or `prod` projects); `npm run test` skips it. Locally, in the dev container:
+
+```sh
+pg_ctlcluster 16 main start
+su postgres -c "psql -c \"alter user postgres password 'postgres'\""
+DATABASE_URL=postgres://postgres:postgres@localhost:5432/postgres npm run test:db
+```
+
+The stub is not a full Supabase: it creates only the API roles (`anon`, `authenticated`, `service_role` with `bypassrls`, `supabase_auth_admin`), `auth.users`, `auth.uid()` (from `request.jwt.claims` ->> `sub`), `storage.buckets`/`storage.objects` with `storage.foldername`, and Supabase's default privileges on `public`. There is no PostgREST, Auth or Storage server, so the tests run SQL as PostgREST would (`set local role` + claims per transaction), not through `supabase-js`. A migration that needs more of Supabase needs the stub extended.
+
 ## Auth (Google)
 
 Only one Google account gets a session (CAP-17, AD-9). Two gates, both required:

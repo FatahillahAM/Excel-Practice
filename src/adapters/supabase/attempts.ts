@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "../../core/services/attempts";
 
 /**
  * `attempts` and the `attempt-files` bucket (migration `20261102000001`).
@@ -6,16 +7,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
  * Session functions take the user's client (`server.ts`), so RLS keeps every
  * read and write to the owner's rows and files. `findAttemptByTokenHash` and
  * `markReceived` take the service-role client (`service.ts`) and exist only for
- * the macro path (AD-9). Status changes are compare-and-set on the current
- * status. Entry 2 moves the transitions into `core/services/attempts` (AD-5).
+ * the macro path (AD-9). Every status change asks the core state machine
+ * (`core/services/attempts`, AD-5) for the next status, then writes it with a
+ * compare-and-set on the current status (`changeStatus`).
  *
  * Log lines carry an event and the database error code: never tokens or hashes.
  */
 
-export type AttemptStatus = "open" | "received" | "graded" | "grading_failed" | "abandoned" | "closed";
-
-/** Statuses the partial unique index allows only once per user: an attempt in progress. */
-export const IN_PROGRESS_STATUSES: readonly AttemptStatus[] = ["open", "received", "grading_failed"];
+// The lifecycle types live in core (AD-5); re-exported for existing callers.
+export { IN_PROGRESS_STATUSES } from "../../core/services/attempts";
+export type { AttemptEvent, AttemptStatus } from "../../core/services/attempts";
 
 export interface Attempt {
   id: string;
@@ -36,6 +37,19 @@ export interface AttemptIdentity {
 
 /** A read that can fail: `ok: false` when the database could not answer (already logged). */
 export type Read<T> = { ok: true; value: T } | { ok: false };
+
+/**
+ * A status change: `changed` (the row moved to `status`); `refused` (AD-5 has
+ * no such edge, nothing was written); `lost` (the compare-and-set matched no
+ * row: the status changed first, or RLS hides the row; read it again);
+ * `failed` (the database could not answer, already logged).
+ */
+export type ChangeStatusResult =
+  | { outcome: "changed"; status: AttemptStatus }
+  | { outcome: "refused" | "lost" | "failed" };
+
+/** Abandon: a status change, or `not_found` when the attempt does not exist or is not the user's. */
+export type AbandonResult = ChangeStatusResult | { outcome: "not_found" };
 
 export type CreateAttemptResult =
   | { ok: true; id: string }
@@ -207,27 +221,60 @@ export async function findAttemptByTokenHash(
 }
 
 /**
- * Macro path (service role): `open` → `received`, compare-and-set on
- * `status = 'open'`; the database stamps `received_at`. `value: false` when the
- * attempt was no longer `open` (another post won).
+ * The one writer of `attempts.status` (AD-5): asks `transition(from, event)`
+ * for the next status, then updates `where id = ? and status = <from>`. A
+ * refused transition sends no query. `received_at` is the trigger's, never
+ * sent here.
  */
-export async function markReceived(service: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
+export async function changeStatus(
+  client: SupabaseClient,
+  attemptId: string,
+  from: AttemptStatus,
+  event: AttemptEvent,
+): Promise<ChangeStatusResult> {
+  const next = transition(from, event);
+  if (!next.ok) return { outcome: "refused" };
   try {
-    const { data, error } = await service
+    const { data, error } = await client
       .from(TABLE)
-      .update({ status: "received" })
+      .update({ status: next.to })
       .eq("id", attemptId)
-      .eq("status", "open")
+      .eq("status", from)
       .select("id");
     if (error) {
-      logError("attempt.mark_received_failed", error.code);
-      return { ok: false };
+      logError(`attempt.${event}_failed`, error.code);
+      return { outcome: "failed" };
     }
-    return { ok: true, value: Array.isArray(data) && data.length === 1 };
+    return Array.isArray(data) && data.length === 1 ? { outcome: "changed", status: next.to } : { outcome: "lost" };
   } catch (error) {
-    logError("attempt.mark_received_failed", errorName(error));
-    return { ok: false };
+    logError(`attempt.${event}_failed`, errorName(error));
+    return { outcome: "failed" };
   }
+}
+
+/**
+ * Macro path (service role): `open` → `received` through `changeStatus`; the
+ * database stamps `received_at`. `value: false` when the attempt was no longer
+ * `open` (another post won).
+ */
+export async function markReceived(service: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
+  const result = await changeStatus(service, attemptId, "open", "submit_accepted");
+  if (result.outcome === "failed") return { ok: false };
+  return { ok: true, value: result.outcome === "changed" };
+}
+
+/**
+ * Abandon through the user's session (RLS: the owner may move their own
+ * `open`, `received` or `grading_failed` attempt to `abandoned`, nothing
+ * else). Reads the current status, then `changeStatus(…, status, 'abandon')`:
+ * `refused` for `graded`, `abandoned` or `closed` (no update sent); `lost`
+ * when the status changed between the read and the write.
+ */
+export async function abandon(supabase: SupabaseClient, attemptId: string): Promise<AbandonResult> {
+  const read = await readAttempt(supabase, attemptId);
+  if (!read.ok) return { outcome: "failed" };
+  if (!read.value) return { outcome: "not_found" };
+  return changeStatus(supabase, attemptId, read.value.status, "abandon");
 }
 
 interface AttemptRow {
