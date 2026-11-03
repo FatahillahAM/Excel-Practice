@@ -39,17 +39,24 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(body, { status });
   };
 
-  const bytes = await readBoundedBody(request, MAX_SUBMISSION_BYTES);
+  const bodyLog = (code: SubmissionCode): SubmissionLog => ({
+    attemptId: null,
+    channel: "macro",
+    code,
+    tokenSha256: null,
+    received: false,
+    duplicate: false,
+  });
+  let bytes: Uint8Array | null;
+  try {
+    bytes = await readBoundedBody(request, MAX_SUBMISSION_BYTES);
+  } catch (error) {
+    // The client went away or the stream broke mid-body.
+    console.error(JSON.stringify({ event: "macro.body_read_failed", attemptId: null, code: errorName(error) }));
+    return answer(500, { ok: false, code: SubmissionFault.INTERNAL_ERROR }, bodyLog(SubmissionFault.INTERNAL_ERROR));
+  }
   if (bytes === null) {
-    const log: SubmissionLog = {
-      attemptId: null,
-      channel: "macro",
-      code: SubmissionFault.FILE_TOO_LARGE,
-      tokenSha256: null,
-      received: false,
-      duplicate: false,
-    };
-    return answer(413, { ok: false, code: SubmissionFault.FILE_TOO_LARGE }, log);
+    return answer(413, { ok: false, code: SubmissionFault.FILE_TOO_LARGE }, bodyLog(SubmissionFault.FILE_TOO_LARGE));
   }
 
   // The service client is created on the first port call, so a file refused in
@@ -84,7 +91,10 @@ export async function POST(request: Request): Promise<Response> {
     files: {
       storeSubmission: async (attemptId, n, file) => {
         const client = serviceClient();
-        return client === null ? "failed" : storeSubmissionFile(client, attemptId, n, file);
+        if (client === null) return "failed";
+        // Upsert: `submit()` stores only while the attempt is `open` (never for a duplicate).
+        const stored = await storeSubmissionFile(client, attemptId, n, file, { replace: true });
+        return stored === "failed" ? "failed" : "stored";
       },
     },
   };

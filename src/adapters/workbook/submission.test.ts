@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { inspectWorkbook, workbookPort } from "./submission";
 import { patchTemplate } from "./template-patch";
 import { CURRENT_TEMPLATE_VERSION, templates } from "./templates";
@@ -25,6 +25,10 @@ beforeAll(async () => {
     },
     cells: {},
   });
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 async function edit(bytes: Uint8Array, change: (zip: JSZip) => Promise<void> | void): Promise<Uint8Array> {
@@ -54,10 +58,28 @@ describe("workbook port for submit()", () => {
     expect(await inspectWorkbook(bytes)).toEqual({ kind: "not_xlsm" });
   });
 
-  it("reports bytes that are not a workbook as not_excel", async () => {
+  it("reports bytes that are not a workbook as not_excel, without logging", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     expect(await inspectWorkbook(new TextEncoder().encode("a,b\n1,2\n"))).toEqual({ kind: "not_excel" });
     const broken = await edit(file, (zip) => void zip.file("xl/workbook.xml", "<workbook"));
     expect(await inspectWorkbook(broken)).toEqual({ kind: "not_excel" });
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it("logs one line (event and error name, no token) for another reader error, and still answers not_excel", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    // A shared formula child without its master: a plain Error from the reader, not NotAWorkbookError.
+    const bytes = await edit(file, async (zip) => {
+      const part = "xl/worksheets/sheet2.xml";
+      const xml = await zip.file(part)!.async("string");
+      const orphan = '<row r="3"><c r="H3"><f t="shared" si="7"/><v>1</v></c></row>';
+      expect(xml).toContain("<sheetData/>");
+      zip.file(part, xml.replace("<sheetData/>", `<sheetData>${orphan}</sheetData>`));
+    });
+    expect(await inspectWorkbook(bytes)).toEqual({ kind: "not_excel" });
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(errors.mock.calls[0][0]))).toEqual({ event: "workbook.inspect_failed", code: "Error" });
+    expect(String(errors.mock.calls[0][0])).not.toContain(TOKEN);
   });
 
   it("hashes a token to the full SHA-256 hex the attempts table keys on", () => {

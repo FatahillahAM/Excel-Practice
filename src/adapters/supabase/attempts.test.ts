@@ -207,10 +207,18 @@ describe("attempt files", () => {
     expect(upload).toHaveBeenCalledWith(`${ID}/submission-1.xlsm`, bytes, { contentType: XLSM_CONTENT_TYPE, upsert: false });
   });
 
+  it("upserts submission-<n> with replace: true", async () => {
+    const bytes = new Uint8Array([7]);
+    const { client, upload } = fakeStorage({});
+    expect(await storeSubmissionFile(client, ID, 1, bytes, { replace: true })).toBe("stored");
+    expect(upload).toHaveBeenCalledWith(`${ID}/submission-1.xlsm`, bytes, { contentType: XLSM_CONTENT_TYPE, upsert: true });
+  });
+
   it.each([
     ["statusCode 409", { statusCode: "409", error: "Duplicate", message: "The resource already exists" }],
     ["status 409", { status: 409, message: "exists" }],
     ["code ResourceAlreadyExists", { status: 400, code: "ResourceAlreadyExists", message: "exists" }],
+    ["error Duplicate", { error: "Duplicate", message: "The resource already exists" }],
   ])("reports an existing submission (%s) as exists, without replacing it", async (_, error) => {
     const { client, upload } = fakeStorage({ upload: { data: null, error } as unknown as Result });
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -223,9 +231,10 @@ describe("attempt files", () => {
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const { client } = fakeStorage({ upload: { data: null, error: { code: "403", message: "row-level security" } } });
     expect(await storeSubmissionFile(client, ID, 1, new Uint8Array([1]))).toBe("failed");
-    expect(errors).toHaveBeenCalledWith(JSON.stringify({ event: "attempt.submission_store_failed", code: "unknown" }));
+    expect(errors).toHaveBeenCalledWith(JSON.stringify({ event: "attempt.submission_store_failed", code: "403" }));
     const throwing = { storage: { from: () => ({ upload: async () => { throw new TypeError("fetch failed"); } }) } };
     expect(await storeSubmissionFile(throwing as unknown as SupabaseClient, ID, 1, new Uint8Array([1]))).toBe("failed");
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.submission_store_failed", code: "TypeError" }));
   });
 
   it("refuses a submission number that is not a positive integer", () => {

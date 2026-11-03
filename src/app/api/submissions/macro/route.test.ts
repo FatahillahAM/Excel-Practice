@@ -207,7 +207,7 @@ describe("POST /api/submissions/macro: Finish", () => {
     expect(posted.body).toEqual(ACCEPTED);
     expectRawText(posted, ACCEPTED);
     expect(mocks.findAttemptByTokenHash).toHaveBeenCalledWith(SERVICE, tokenSha256Hex(token));
-    expect(mocks.storeSubmissionFile).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID, 1, file);
+    expect(mocks.storeSubmissionFile).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID, 1, file, { replace: true });
     expect(mocks.markReceived).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
     // Stored before the compare-and-set.
     expect(mocks.storeSubmissionFile.mock.invocationCallOrder[0]).toBeLessThan(
@@ -223,13 +223,20 @@ describe("POST /api/submissions/macro: Finish", () => {
     });
   });
 
-  it("still moves the attempt to received when the file was stored by an earlier post (exists)", async () => {
-    mocks.storeSubmissionFile.mockResolvedValue("exists");
+  it("overwrites submission-1 (upsert) while open, so a re-post after a failed compare-and-set stores its own bytes", async () => {
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const first = await patched(token);
+    const second = await withAddedSheet(first);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.markReceived.mockResolvedValueOnce({ ok: false });
+    expect((await post(first, token)).status).toBe(500);
+    const posted = await post(second, token);
     expect(posted.status).toBe(200);
     expectRawText(posted, ACCEPTED);
-    expect(mocks.markReceived).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    expect(mocks.storeSubmissionFile.mock.calls).toEqual([
+      [SERVICE, ATTEMPT_ID, 1, first, { replace: true }],
+      [SERVICE, ATTEMPT_ID, 1, second, { replace: true }],
+    ]);
   });
 
   it.each(["received", "grading_failed"])(
@@ -520,10 +527,14 @@ describe("POST /api/submissions/macro: size limit", () => {
   it("refuses a Content-Length over 4 MiB with 413 without reading the body", async () => {
     const { stream, pulled } = streamOf(MAX_SUBMISSION_BYTES + 1);
     const token = newToken();
+    // The stream pulls once after construction (high-water mark); POST must not pull again.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const pulledBefore = pulled();
+    expect(pulledBefore).toBe(1);
     const posted = await post(stream, token, { "content-length": String(MAX_SUBMISSION_BYTES + 1) });
     expect(posted.status).toBe(413);
     expectRawText(posted, TOO_LARGE);
-    expect(pulled()).toBeLessThanOrEqual(1);
+    expect(pulled()).toBe(pulledBefore);
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
     expect(logOf(posted, token)).toEqual({
       attemptId: null,
@@ -601,19 +612,32 @@ describe("POST /api/submissions/macro: zip bombs", () => {
 
 describe("POST /api/submissions/macro: server faults", () => {
   it.each([
-    ["the secret key is not set", () => mocks.createServiceClient.mockImplementation(() => null)],
+    ["the secret key is not set", () => mocks.createServiceClient.mockImplementation(() => null), { event: "macro.service_env_missing" }],
     [
       "the client cannot be created",
       () =>
         mocks.createServiceClient.mockImplementation(() => {
           throw new Error("Invalid supabaseUrl");
         }),
+      { event: "macro.service_client_failed", code: "Error" },
     ],
-    ["the lookup fails", () => mocks.findAttemptByTokenHash.mockResolvedValue({ ok: false })],
-    ["the attempt's template version is not in the registry", () => attemptFound("open", 999)],
-    ["the file cannot be stored", () => mocks.storeSubmissionFile.mockResolvedValue("failed")],
-    ["the status change fails", () => mocks.markReceived.mockResolvedValue({ ok: false })],
-  ])("answers 500 INTERNAL_ERROR when %s, and logs it without the token", async (_, arrange) => {
+    ["the lookup fails", () => mocks.findAttemptByTokenHash.mockResolvedValue({ ok: false }), { event: "macro.lookup_failed" }],
+    [
+      "the attempt's template version is not in the registry",
+      () => attemptFound("open", 999),
+      { event: "macro.template_version_unknown", attemptId: ATTEMPT_ID },
+    ],
+    [
+      "the file cannot be stored",
+      () => mocks.storeSubmissionFile.mockResolvedValue("failed"),
+      { event: "macro.store_failed", attemptId: ATTEMPT_ID },
+    ],
+    [
+      "the status change fails",
+      () => mocks.markReceived.mockResolvedValue({ ok: false }),
+      { event: "macro.mark_received_failed", attemptId: ATTEMPT_ID },
+    ],
+  ])("answers 500 INTERNAL_ERROR when %s, and logs it without the token", async (_, arrange, expected) => {
     arrange();
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const token = newToken();
@@ -623,9 +647,44 @@ describe("POST /api/submissions/macro: server faults", () => {
     expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
     expect(logOf(posted, token)).toMatchObject({ code: "INTERNAL_ERROR", received: false });
     expect(errors).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(errors.mock.calls[0][0]))).toEqual({ attemptId: null, ...expected });
     for (const [line] of errors.mock.calls) {
       expect(String(line)).not.toContain(token);
       expect(String(line)).not.toContain(tokenSha256Hex(token));
     }
+  });
+
+  it("answers 500 INTERNAL_ERROR with one log line when the body stream fails mid-read", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    let sent = false;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (!sent) {
+          sent = true;
+          controller.enqueue(new Uint8Array(1024));
+        } else {
+          controller.error(new TypeError("terminated"));
+        }
+      },
+    });
+    const token = newToken();
+    const posted = await post(stream, token);
+    expect(posted.status).toBe(500);
+    expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
+    expect(logOf(posted, token)).toEqual({
+      attemptId: null,
+      channel: "macro",
+      code: "INTERNAL_ERROR",
+      tokenSha256: null,
+      received: false,
+      duplicate: false,
+    });
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(errors.mock.calls[0][0]))).toEqual({
+      event: "macro.body_read_failed",
+      attemptId: null,
+      code: "TypeError",
+    });
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
   });
 });

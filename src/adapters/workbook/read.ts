@@ -105,7 +105,13 @@ export async function readWorkbook(bytes: Uint8Array): Promise<WorkbookReading> 
     if (zip.file(part) === null) throw new NotAWorkbookError(`${part} is missing`);
   }
 
-  const sheetParts = await readSheetParts(zip, (name) => parts.text(name));
+  let sheetParts: Map<string, string>;
+  try {
+    sheetParts = await readSheetParts(zip, (name) => parts.text(name));
+  } catch (error) {
+    if (error instanceof NotAWorkbookError) throw error;
+    throw new NotAWorkbookError(`the sheets cannot be found (${(error as Error).message})`);
+  }
   const sharedStrings = await readSharedStrings(parts);
   const sheets = new Map<string, Record<string, CellReading>>();
   for (const [name, part] of sheetParts) {

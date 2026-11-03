@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { EMPTY_MODULE_SHA256, type VbaModuleHashes } from "./vba.ts";
 
 /**
@@ -31,6 +32,44 @@ export const templates: Readonly<Record<number, TemplateInfo>> = {
 
 export const CURRENT_TEMPLATE_VERSION = 1;
 
+/**
+ * Option statements a module may hold and still count as having no code. Excel
+ * with "Require Variable Declaration" writes `Option Explicit` into every new
+ * module, including a new sheet's. One line per kind, at most once each.
+ */
+const OPTION_STATEMENT_KINDS: readonly (readonly string[])[] = [
+  ["Option Explicit"],
+  ["Option Compare Binary", "Option Compare Text", "Option Compare Database"],
+  ["Option Base 0", "Option Base 1"],
+  ["Option Private Module"],
+];
+
+/**
+ * Hashes of every normalized source (lines joined with LF, as `vba.ts`
+ * normalizes) made only of option statements, in any order, each kind at most
+ * once. The VBA editor writes keywords with this case and single spaces.
+ */
+const OPTION_ONLY_SHA256: ReadonlySet<string> = (() => {
+  const hashes = new Set<string>();
+  const extend = (lines: string[], used: ReadonlySet<number>) => {
+    OPTION_STATEMENT_KINDS.forEach((variants, kind) => {
+      if (used.has(kind)) return;
+      for (const line of variants) {
+        const next = [...lines, line];
+        hashes.add(createHash("sha256").update(next.join("\n"), "latin1").digest("hex"));
+        extend(next, new Set([...used, kind]));
+      }
+    });
+  };
+  extend([], new Set());
+  return hashes;
+})();
+
+/** Whether an unpinned module holds no code: empty, or only option statements. */
+function holdsNoCode(hash: string): boolean {
+  return hash === EMPTY_MODULE_SHA256 || OPTION_ONLY_SHA256.has(hash);
+}
+
 /** The modules a template pins: those whose normalized source is not empty. */
 export function pinnedModules(hashes: VbaModuleHashes): Record<string, string> {
   return Object.fromEntries(Object.entries(hashes).filter(([, hash]) => hash !== EMPTY_MODULE_SHA256));
@@ -40,8 +79,9 @@ export function pinnedModules(hashes: VbaModuleHashes): Record<string, string> {
  * Whether a workbook's VBA fingerprint matches template `version` (AD-4): its
  * VBA project is present and readable (`hashes` not `null`), every pinned
  * module is present with an equal hash, and every module the template does not
- * pin normalizes to empty (`EMPTY_MODULE_SHA256`): a new sheet's empty module
- * passes, code added to ThisWorkbook, a sheet or a new module does not.
+ * pin normalizes to empty (`EMPTY_MODULE_SHA256`) or to option statements only
+ * (`Option Explicit`, …): a new sheet's module passes, code added to
+ * ThisWorkbook, a sheet or a new module does not.
  * Throws for a version that is not in the registry.
  */
 export function matchesTemplate(hashes: VbaModuleHashes | null, version: number): boolean {
@@ -52,7 +92,7 @@ export function matchesTemplate(hashes: VbaModuleHashes | null, version: number)
   if (hashes === null) return false;
   const pinnedOk = pinned.every(([name, hash]) => Object.hasOwn(hashes, name) && hashes[name] === hash);
   const othersEmpty = Object.entries(hashes).every(
-    ([name, hash]) => Object.hasOwn(template.vbaModules, name) || hash === EMPTY_MODULE_SHA256,
+    ([name, hash]) => Object.hasOwn(template.vbaModules, name) || holdsNoCode(hash),
   );
   return pinnedOk && othersEmpty;
 }

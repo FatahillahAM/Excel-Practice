@@ -1,5 +1,5 @@
 import type { WorkbookInspection, WorkbookPort } from "../../core/submission";
-import { NotMacroEnabledError, readWorkbook } from "./read.ts";
+import { NotAWorkbookError, NotMacroEnabledError, readWorkbook } from "./read.ts";
 import { matchesTemplate } from "./templates.ts";
 import { tokenSha256Hex } from "./token.ts";
 
@@ -13,7 +13,8 @@ export const TOKEN_PROPERTY = "WHE_AttemptToken";
 
 /**
  * `not_excel`: not a zip, not an OOXML spreadsheet, or a workbook the reader
- * cannot read (including a zip bomb past the reader's bounds). `not_xlsm`: a
+ * cannot read (including a zip bomb past the reader's bounds); an error that
+ * is not `NotAWorkbookError` is logged first (event and error name only). `not_xlsm`: a
  * spreadsheet whose main part is not a macro-enabled `.xlsm`. `xlsm`: its
  * `WHE_AttemptToken` (`null` when missing) and VBA fingerprint.
  */
@@ -23,7 +24,12 @@ export async function inspectWorkbook(bytes: Uint8Array): Promise<WorkbookInspec
     const token = Object.hasOwn(reading.properties, TOKEN_PROPERTY) ? reading.properties[TOKEN_PROPERTY] : null;
     return { kind: "xlsm", token, vba: reading.vbaModuleHashes };
   } catch (error) {
-    return error instanceof NotMacroEnabledError ? { kind: "not_xlsm" } : { kind: "not_excel" };
+    if (error instanceof NotMacroEnabledError) return { kind: "not_xlsm" };
+    if (!(error instanceof NotAWorkbookError)) {
+      // Not one of the reader's own refusals: still NOT_EXCEL, but visible. Only the error's name, never its message.
+      console.error(JSON.stringify({ event: "workbook.inspect_failed", code: error instanceof Error ? error.name : typeof error }));
+    }
+    return { kind: "not_excel" };
   }
 }
 

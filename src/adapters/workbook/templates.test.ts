@@ -151,6 +151,31 @@ describe("matchesTemplate", () => {
     }
   });
 
+  it("matches a new sheet's module that holds only Option Explicit (Require Variable Declaration)", async () => {
+    const bin = await projectWith((modFinish) => [
+      emptySheet("ThisWorkbook"),
+      emptySheet("Sheet1"),
+      { name: "Sheet3", source: 'Attribute VB_Name = "Sheet3"\r\nOption Explicit\r\n\r\n', document: true },
+      { name: "Module2", source: 'Attribute VB_Name = "Module2"\r\nOption Private Module\r\nOption Explicit\r\nOption Compare Text\r\nOption Base 1\r\n' },
+      { name: "modFinish", source: modFinish },
+    ]);
+    expect(matchesTemplate(readVbaModuleHashes(bin), 1)).toBe(true);
+  });
+
+  it("does not match an Option Explicit module that also holds code, or repeats an option", async () => {
+    for (const source of [
+      "Option Explicit\r\nPrivate Sub Worksheet_Activate()\r\nEnd Sub\r\n",
+      "Option Explicit\r\nDim x As Long\r\n",
+      "Option Explicit\r\nOption Explicit\r\n",
+    ]) {
+      const bin = await projectWith((modFinish) => [
+        { name: "Sheet3", source: `Attribute VB_Name = "Sheet3"\r\n${source}`, document: true },
+        { name: "modFinish", source: modFinish },
+      ]);
+      expect(matchesTemplate(readVbaModuleHashes(bin), 1), source).toBe(false);
+    }
+  });
+
   it("matches an extra standard module that holds only Attribute lines and blanks", async () => {
     const bin = await projectWith((modFinish) => [
       { name: "modFinish", source: modFinish },

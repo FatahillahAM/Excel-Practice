@@ -191,22 +191,28 @@ export async function uploadGeneratedFile(supabase: SupabaseClient, attemptId: s
 }
 
 /**
- * Stores a submitted workbook once (`upsert: false`, the pattern of
- * `uploadGeneratedFile`): `stored`; `exists` when the object is already there
- * (an earlier post stored it; it is never replaced); `failed` otherwise
- * (logged). The macro path passes the service-role client, which bypasses
- * Storage RLS; upload (entry 5) passes the user's session.
+ * Stores a submitted workbook (the pattern of `uploadGeneratedFile`):
+ * `stored`; `exists` when the object is already there and `replace` is not
+ * set (it is not replaced); `failed` otherwise (logged). `replace: true`
+ * upserts: `submit()` stores only while the attempt is `open`, so a file left
+ * by an earlier post whose compare-and-set failed gives way to the accepted
+ * one. The macro path passes the service-role client, which bypasses Storage
+ * RLS; upload (entry 5) passes the user's session.
  */
 export async function storeSubmissionFile(
   client: SupabaseClient,
   attemptId: string,
   n: number,
   bytes: Uint8Array,
+  options: { replace?: boolean } = {},
 ): Promise<"stored" | "exists" | "failed"> {
   try {
     const { error } = await client.storage
       .from(ATTEMPT_FILES_BUCKET)
-      .upload(submissionFilePath(attemptId, n), bytes, { contentType: XLSM_CONTENT_TYPE, upsert: false });
+      .upload(submissionFilePath(attemptId, n), bytes, {
+        contentType: XLSM_CONTENT_TYPE,
+        upsert: options.replace === true,
+      });
     if (!error) return "stored";
     if (isAlreadyExists(error)) return "exists";
     logError("attempt.submission_store_failed", storageErrorCode(error));
@@ -350,8 +356,8 @@ function isAlreadyExists(error: unknown): boolean {
 }
 
 function storageErrorCode(error: unknown): string {
-  const e = error as { statusCode?: unknown; status?: unknown; name?: unknown } | null;
-  const status = e?.statusCode ?? e?.status;
+  const e = error as { statusCode?: unknown; status?: unknown; code?: unknown; name?: unknown } | null;
+  const status = e?.statusCode ?? e?.status ?? e?.code;
   if (typeof status === "string" || typeof status === "number") return String(status);
   return typeof e?.name === "string" ? e.name : "unknown";
 }

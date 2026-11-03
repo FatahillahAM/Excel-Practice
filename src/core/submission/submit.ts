@@ -15,7 +15,8 @@ import { RejectionCode } from "./rejection-codes";
  *    `template_version` (never `WHE_TemplateVersion`) → `IDENTITY_ALTERED`;
  * 5. `graded` → `ALREADY_GRADED`; `abandoned`/`closed` → `ATTEMPT_CLOSED`;
  *    `received`/`grading_failed` → accepted as a duplicate (nothing stored);
- *    `open` → the file is stored as `submission-1`, then `open` → `received`
+ *    `open` → the file is stored as `submission-1` (replacing a file an earlier,
+ *    never-accepted post left), then `open` → `received`
  *    by compare-and-set; a lost compare-and-set re-reads and runs (5) again.
  *
  * Bytes, zip, hashing, the database and Storage are reached only through
@@ -83,8 +84,12 @@ export interface AttemptsPort {
 }
 
 export interface FilesPort {
-  /** Stores `submission-<n>` once (`upsert: false`): `exists` when it is already there, never replaced. */
-  storeSubmission(attemptId: string, n: number, bytes: Uint8Array): Promise<"stored" | "exists" | "failed">;
+  /**
+   * Stores `submission-<n>`, replacing what is there: called only while the
+   * attempt is `open`, so a file an earlier post stored before its
+   * compare-and-set failed gives way to the bytes that are accepted.
+   */
+  storeSubmission(attemptId: string, n: number, bytes: Uint8Array): Promise<"stored" | "failed">;
 }
 
 export interface SubmissionPorts {
@@ -187,7 +192,7 @@ export async function submit(bytes: Uint8Array, channel: Channel, ports: Submiss
         return { ok: true, status: attempt.status, duplicate: true, log };
       case "open": {
         // Stored before the status changes, so a `received` attempt always has its file.
-        // `exists`: an earlier post stored it and lost (or failed) its compare-and-set.
+        // Overwrites a file from an earlier post whose compare-and-set failed: only an `open` attempt stores.
         const stored = await ports.files.storeSubmission(attempt.id, SUBMISSION_NUMBER, bytes);
         if (stored === "failed") return fail("store_failed");
         const marked = await ports.attempts.markReceived(attempt.id);

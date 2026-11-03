@@ -26,7 +26,7 @@ interface Arrange {
   inspection?: WorkbookInspection;
   statuses?: (AttemptStatus | null)[];
   matches?: boolean | "throw";
-  store?: "stored" | "exists" | "failed";
+  store?: "stored" | "failed";
   marks?: (boolean | "fail")[];
   lookupFails?: boolean;
   templateVersion?: number;
@@ -109,11 +109,13 @@ describe("submit: accepted", () => {
     expect(p.workbook.fingerprintMatches).toHaveBeenCalledWith(VBA, 7);
   });
 
-  it("carries on to the compare-and-set when the file already exists", async () => {
-    const { ports: p, calls } = ports({ store: "exists" });
-    const result = await submit(BYTES, macro(), p);
-    expect(result).toMatchObject({ ok: true, status: "received", duplicate: false });
-    expect(calls).toEqual(["inspect", "find", "fingerprint", "store", "mark"]);
+  it("stores again on a re-post while open, after an earlier post's compare-and-set failed", async () => {
+    const { ports: p } = ports({ marks: ["fail", true] });
+    const first = new Uint8Array([1]);
+    const second = new Uint8Array([2]);
+    expect(await submit(first, macro(), p)).toMatchObject({ ok: false, code: "INTERNAL_ERROR" });
+    expect(await submit(second, macro(), p)).toMatchObject({ ok: true, status: "received", duplicate: false });
+    expect(p.files.storeSubmission.mock.calls.map((call) => (call as unknown[])[2])).toEqual([first, second]);
   });
 
   it.each(["received", "grading_failed"] as const)("accepts a %s attempt as a duplicate without storing", async (status) => {
@@ -217,7 +219,7 @@ describe("submit: lost compare-and-set", () => {
     expect(await submit(BYTES, macro(), p)).toMatchObject({ ok: true, status: "received", duplicate: true });
   });
 
-  it("stores again (exists) and retries the compare-and-set when it is still open", async () => {
+  it("stores again and retries the compare-and-set when it is still open", async () => {
     const { ports: p } = ports({ statuses: ["open", "open"], marks: [false, true] });
     const result = await submit(BYTES, macro(), p);
     expect(result).toMatchObject({ ok: true, status: "received", log: { received: true } });

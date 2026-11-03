@@ -3,7 +3,7 @@ title: 'submit() penuh: lima kode AD-6 dan batas ukuran'
 type: 'feature'
 ticket: '3'
 created: '2026-11-03'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -80,6 +80,8 @@ context:
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+
+- Review fixes: `submission-1` is upserted while the attempt is `open` (departs from the plan's `upsert: false`; entry 5 needs a session update/upsert Storage policy for upload); body read errors answer 500 with a log line; unpinned modules may hold only `Option` statements. No migration in this entry.
 
 ## Plan Change Log
 
