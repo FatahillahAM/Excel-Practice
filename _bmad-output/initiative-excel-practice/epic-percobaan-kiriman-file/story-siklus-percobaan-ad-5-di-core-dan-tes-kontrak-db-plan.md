@@ -84,6 +84,8 @@ context:
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes); the orchestrator applies the migration to `dev` then `prod`.
 
+- Review fixes in 30ca8dd (518 unit tests, 27 DB contract tests, lint, typecheck, build). CI run 68 green including the new `db-contract` job. Migration `20261103000001_attempts_abandon` applied to `dev` and `prod` (additive; version renamed).
+
 ## Plan Change Log
 
 ## Review Triage Log
