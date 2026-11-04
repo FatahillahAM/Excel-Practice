@@ -3,7 +3,7 @@ title: 'Konten Level 1 Practice 1'
 type: 'feature'
 ticket: '8'
 created: '2026-11-04'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -58,7 +58,8 @@ context:
 - `src/app/(app)/levels/start-actions.ts` (+test) -- Start pipeline: `findItem` → `examCells()` → `examCellsSchema` → `generateExamWorkbook({cells})` → `createAttempt` → upload. Test spies `examCells`. If 2.6's `level-panel.ts` reads `examCells` to tell items with content, switch it to `generate`.
 - `src/adapters/workbook/{generate,template-patch}.ts` -- writes string/number cells by sheet + A1; no formulas. Unchanged.
 - `assets/templates/README.md` -- layout v1 (B2, B4, B6:B10, Data from A1; B4/B6:B10 wrap text, column B width 80).
-- `src/adapters/supabase/attempts.ts` -- `createAttempt` inserts `item_id, token_sha256, template_version`.
+- `src/adapters/supabase/attempts.ts` -- `createAttempt` inserts `item_id, token_sha256, template_version` (session, never `snapshot`); `writeSnapshot` sets `snapshot` on the service role (`where id, user_id, snapshot is null`, exactly one row).
+- `src/adapters/supabase/service.ts` -- `createServiceClient()`; Start uses it per request for the snapshot write (AD-9 as amended).
 - `supabase/migrations/20261102000001_attempts.sql`, `supabase/tests/contract.db.test.ts` -- column-level insert grant for `authenticated`; contract test asserts other columns are refused (42501).
 
 ## Tasks & Acceptance
@@ -85,7 +86,27 @@ context:
 
 ## Plan Change Log
 
+- 2026-11-04 (review of 2.8, HIGH): the session could forge the answer key through `grant insert (snapshot)` (insert its own row with any key/checks via PostgREST). Changed: `authenticated` has no privilege on `snapshot`; `service_role` gets `update (snapshot)`; set-once trigger; Start writes the snapshot with the service role after the session insert, deleting the row on failure (`attempt.start_snapshot_failed`). Supersedes the Execution items for the migration, `createAttempt` and Start where they say the session inserts `snapshot`. Spine AD-9 amended accordingly.
+
 ## Review Triage Log
+
+Thorough lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment): 1 high and 7 medium/low patched; 1 deferred; the rest rejected.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | `grant insert (snapshot)` lets a session forge the answer key the grader will trust (blind, edge) | high | patch (precedent: user's 2.5 AD-9 decision) | Session has no privilege on `snapshot`; Start writes it with the service role after the session insert (`writeSnapshot`, `snapshot is null`, own row); set-once trigger; failure deletes the row; spine AD-9 + `.memlog.md` amended; contract tests |
+| 2 | Snapshot not validated before storing (blind) | medium | patch | `examSnapshotSchema.safeParse` before the write |
+| 3 | Scenario draw untested: a fixed scenario would pass (verification-gap) | medium | patch | `randomInt` stubbed; `level.scenarios[3]` asserted |
+| 4 | `start_no_scenarios` guard untested (verification-gap, blind) | low | patch | Test added (deferral not needed; cheap) |
+| 5 | M365 scan skips Data strings (blind, edge) | low | patch | Data string cells scanned; test |
+| 6 | `columnNumber` accepts junk input (blind, edge) | low | patch | Throws outside `^[A-Z]{1,3}$`; `a1.test.ts` |
+| 7 | A 5-question item would write the Finish line to `lines[5]` (blind, intent) | low | patch | `MAX_QUESTIONS = 4` (B10 reserved for Finish); stricter than Intent's n ≤ 5, noted in Design Notes |
+| 8 | "Exact doubles" comments wrong; Q4 fractions unlabeled (blind) | low | patch | Comments name `KEY_TOLERANCE`; prompt explains 0.02 = 2% |
+| 9 | Snapshot write through the real PostgREST layer unverified (implementer) | maybe-false | defer → Preview check | SQL contract tests pass; confirm `insert … select("id")` and service `update … select("id")` on Preview |
+| 10 | Column-level select list goes stale for future columns (blind) | low | patch | Header note in the migration |
+| 11 | Open tracer rows without snapshot block Start (blind) | low | reject | Abandon arrives in 2.7; manual reset meanwhile |
+| 12 | Require `snapshot` not null for new rows (edge) | false | reject | Written after the insert by design; failure deletes the row |
+| 13 | Load-time sweep cost; duplicate regex/wrappers; recomputation not fully independent; "kamu" register unchecked (blind, intent) | low | reject | ~10 parses today; cosmetic; content tests cover the shipped layout |
 
 ## Design Notes
 
@@ -93,7 +114,8 @@ context:
 - [ASSUMPTION] Domain = production batches (one generator schema, column headers fixed: Kode Batch, Lini, Shift, Produk, Unit Diproduksi, Unit Cacat, Biaya per Unit); scenarios vary company, products, lines, shifts and ranges. Maintenance, kaizen, time study and warehouse fit later items.
 - [ASSUMPTION] Scenarios at level, `generate` per item: AD-2 lists both on the module; "≥10 per level" is shared by its 6 items.
 - [ASSUMPTION] Seed and scenario: two independent `crypto.randomInt` draws at Start (uniform; no avoid-last rule). Seed is a uint32 so it fits JSON exactly.
-- [ASSUMPTION] Snapshot stored now, in one `attempts.snapshot jsonb` written by Start's session insert (AD-3 says "at Start"; otherwise attempts made before epic 3 cannot be graded). The session can insert it but not read or update it (column grants), so the answer key is not reachable with the user's session; only the service role (grading, epic 3) reads it. (Reviewer note 2026-11-04, consistent with the 2.5 AD-9 decision to keep the DB fence tight.)
+- [ASSUMPTION] Snapshot stored now, in one `attempts.snapshot jsonb` (AD-3 says "at Start"; otherwise attempts made before epic 3 cannot be graded). The session has no privilege on `snapshot` (no insert, select or update), so it can neither read nor forge the key. Start: session insert (no snapshot) → service-role `update … set snapshot where id and user_id = session user and snapshot is null` (exactly one row) → upload; a failed snapshot write or upload deletes the open row through the session. A `before update` trigger makes `snapshot` set-once (null → value only). Only the service role (Start, grading in epic 3) touches it (AD-9 amended 2026-11-04).
+- `MAX_QUESTIONS` = 4: B6:B9 hold prompts, B10 is kept for the Finish line.
 - Practice 1 layout (row count `n` = 12–20 random; parameter in `Data!K2` label / `L2` value):
 
   | Soal | Points | Answer | Expected formula (top cell) | Checks |

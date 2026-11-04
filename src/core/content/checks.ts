@@ -49,7 +49,12 @@ export const checkSchema = z.discriminatedUnion("name", [
 
 export type Check = z.infer<typeof checkSchema>;
 
-/** The default relative tolerance of `value_equals_key` (content-generation: keys are exact doubles). */
+/**
+ * The default relative tolerance of `value_equals_key`. Keys are doubles
+ * computed like Excel computes the expected formula, but a product such as
+ * 12178.14 × 1.04 is not exact in binary floating point and Excel may round
+ * differently, so the checker compares within this tolerance, never exactly.
+ */
 export const KEY_TOLERANCE = 1e-9;
 
 /**

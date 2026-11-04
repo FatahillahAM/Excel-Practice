@@ -71,3 +71,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-level-detail-panel-level-1-plan.md`
   summary: Level Detail Panel has no "Start Test" once all practices are done, and no done state for a passed Test; the "Active" eyebrow is hard-coded.
   evidence: 2.6 review; unreachable until Test content and graded progress exist (epics 3–4) — add with them.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-konten-level-1-practice-1-plan.md`
+  summary: Start's session `insert … select("id")` with column-level select grants and the service-role `update (snapshot) … select("id")` are verified only in SQL, not through PostgREST.
+  evidence: 2.8 review (medium if wrong, unverified); a Preview Start after applying migration 20261104000001 to dev settles it.

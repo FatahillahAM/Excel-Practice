@@ -1,8 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * The service-role client (AD-9): bypasses RLS, so it exists only on the macro
- * submission path, which has no session (the token authenticates, AD-6).
+ * The service-role client (AD-9): bypasses RLS, so it exists only on the
+ * submission paths (macro: no session, the token authenticates, AD-6; upload
+ * after the session check), in Start to write the attempt's snapshot after the
+ * session has created the row, and (epic 3) in grading.
  * `SUPABASE_SECRET_KEY` is a server-only env var (no `NEXT_PUBLIC_`), so it
  * never reaches a browser bundle. `null` when the env is not set: callers carry
  * on without writing.

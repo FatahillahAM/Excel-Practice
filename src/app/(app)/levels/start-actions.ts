@@ -8,14 +8,21 @@ import {
   deleteOpenAttempt,
   findOpenAttemptId,
   uploadGeneratedFile,
+  writeSnapshot,
 } from "../../../adapters/supabase/attempts";
 import { getSessionUser } from "../../../adapters/supabase/auth";
 import { loginRedirectPath, normalizeTimeZone } from "../../../adapters/supabase/auth-rules";
 import { ensureProfile, readTimeZone } from "../../../adapters/supabase/profiles";
 import { createClient } from "../../../adapters/supabase/server";
+import { createServiceClient } from "../../../adapters/supabase/service";
 import { generateExamWorkbook, type GeneratedWorkbook } from "../../../adapters/workbook/generate";
 import { newAttemptToken, tokenSha256, tokenSha256Hex } from "../../../adapters/workbook/token";
-import { generatedExamSchema, type ExamSnapshot, type GeneratedExam } from "../../../core/content/level-module";
+import {
+  examSnapshotSchema,
+  generatedExamSchema,
+  type ExamSnapshot,
+  type GeneratedExam,
+} from "../../../core/content/level-module";
 import { findItem } from "../../../content/levels";
 import type { StartError } from "../../../messages/id";
 
@@ -29,11 +36,14 @@ const LEVELS_PATH = "/levels";
 
 /**
  * Start (CAP-2): session → profile → item → seed and scenario → content
- * `generate` (validated) → token → workbook → insert with the snapshot (AD-3)
- * → upload → the exam screen, which starts the download. Generation runs before
- * the insert, so a failed generation leaves no row; the upload runs after it
- * because the Storage policy needs the row; a failed upload deletes the row
- * again, since a row without a file would lock every other Start.
+ * `generate` and snapshot (validated) → token → workbook → session insert →
+ * snapshot write on the service role (AD-9: the session has no privilege on
+ * the answer key) → upload → the exam screen, which starts the download.
+ * Generation runs before the insert, so a failed generation leaves no row. A
+ * failed snapshot write or upload deletes the row again (through the session,
+ * while it is `open`): a row without a snapshot could not be graded, and a
+ * row without a file would lock every other Start. The snapshot is written
+ * before the upload, so its failure leaves no file behind.
  */
 export async function startAttempt(_previous: StartState, formData: FormData): Promise<StartState> {
   let outcome: StartState | { redirectTo: string };
@@ -92,12 +102,17 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     );
     return { status: "error", error: "startFailed" };
   }
-  const snapshot: ExamSnapshot = {
+  const checkedSnapshot = examSnapshotSchema.safeParse({
     contentVersion: level.contentVersion,
     scenarioId: scenario.id,
     seed,
     questions: exam.questions,
-  };
+  } satisfies ExamSnapshot);
+  if (!checkedSnapshot.success) {
+    console.error(JSON.stringify({ event: "attempt.start_invalid_exam", ...context, part: "snapshot" }));
+    return { status: "error", error: "startFailed" };
+  }
+  const snapshot: ExamSnapshot = checkedSnapshot.data;
 
   const token = newAttemptToken();
   const hash = tokenSha256Hex(token);
@@ -124,12 +139,20 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     itemId: item.id,
     tokenSha256: hash,
     templateVersion: generated.templateVersion,
-    snapshot,
   });
   if (!created.ok) {
     if (created.reason === "failed") return { status: "error", error: "startFailed" };
     const open = await findOpenAttemptId(supabase, user.id);
     return { status: "blocked", attemptId: open.ok ? open.value : null };
+  }
+
+  const written = await writeStartSnapshot(user.id, created.id, snapshot);
+  if (written !== "ok") {
+    const deleted = await deleteOpenAttempt(supabase, created.id).catch(() => false);
+    console.error(
+      JSON.stringify({ event: "attempt.start_snapshot_failed", attemptId: created.id, code: written, deleted }),
+    );
+    return { status: "error", error: "startFailed" };
   }
 
   // A thrown upload is a failed one: the row must still be deleted.
@@ -151,6 +174,26 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     }),
   );
   return { redirectTo: `/exam/${created.id}?download=1` };
+}
+
+/**
+ * Writes the snapshot of the attempt the session just created, on the
+ * service-role client (AD-9), created here per request like the submission
+ * routes' (`service-ports.ts`): `ok`, or why it failed.
+ */
+async function writeStartSnapshot(
+  userId: string,
+  attemptId: string,
+  snapshot: ExamSnapshot,
+): Promise<"ok" | "service_env_missing" | "service_client_failed" | "write_failed"> {
+  let service: ReturnType<typeof createServiceClient>;
+  try {
+    service = createServiceClient();
+  } catch {
+    return "service_client_failed";
+  }
+  if (service === null) return "service_env_missing";
+  return (await writeSnapshot(service, attemptId, userId, snapshot)) ? "ok" : "write_failed";
 }
 
 /**

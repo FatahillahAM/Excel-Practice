@@ -110,7 +110,11 @@ export const INSTRUCTIONS_CELLS = {
   lines: ["B6", "B7", "B8", "B9", "B10"],
 } as const;
 
-export const MAX_QUESTIONS = INSTRUCTIONS_CELLS.lines.length;
+/**
+ * At most 4 questions: prompts take lines B6:B9, and the last line (B10) is
+ * kept for the Finish line, so no item can write past `INSTRUCTIONS_CELLS.lines`.
+ */
+export const MAX_QUESTIONS = INSTRUCTIONS_CELLS.lines.length - 1;
 export const TOTAL_POINTS = 100;
 /** Practices in V1 have at least this many scenarios (AD-2). */
 export const MIN_SCENARIOS_V1 = 10;
@@ -180,10 +184,11 @@ function addM365Issue(text: string, path: (string | number)[], ctx: z.Refinement
  * The output of `generate()`, as Start writes it into template v1 and stores
  * it (AD-3): only the Instructions and Data sheets; Instructions only in
  * `INSTRUCTIONS_CELLS`, with the title and scenario, prompt `n` on line `n`
- * as "n. …"; Data from A1; questions 1…n (n ≤ 5) whose integer points sum
+ * as "n. …"; Data from A1; questions 1…n (n ≤ `MAX_QUESTIONS`) whose integer points sum
  * to 100, each with `value_equals_key` and a key covering exactly its answer
  * cells, which stay empty and belong to one question only; no Microsoft
- * 365-only function name anywhere.
+ * 365-only function name anywhere (Instructions and Data text, prompts,
+ * `uses_functions`).
  */
 export const generatedExamSchema = z
   .object({ cells: examCellsSchema, questions: z.array(examQuestionSchema).min(1).max(MAX_QUESTIONS) })
@@ -214,6 +219,12 @@ export const generatedExamSchema = z
         if (instructions[ref] === undefined) {
           ctx.addIssue({ code: "custom", path: ["cells", INSTRUCTIONS_SHEET, ref], message: `Instructions!${ref} missing` });
         }
+      }
+    }
+    for (const [sheet, cells] of Object.entries(exam.cells)) {
+      if (sheet === INSTRUCTIONS_SHEET) continue;
+      for (const [ref, value] of Object.entries(cells)) {
+        if (typeof value === "string") addM365Issue(value, ["cells", sheet, ref], ctx);
       }
     }
     if (!data || data.A1 === undefined) {

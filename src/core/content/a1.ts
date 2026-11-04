@@ -7,8 +7,11 @@ export const RANGE_RE = /^[A-Z]{1,3}[1-9]\d{0,6}(:[A-Z]{1,3}[1-9]\d{0,6})?$/;
 const MAX_COLUMN = 16384;
 const MAX_ROW = 1048576;
 
-/** `A` → 1, `Z` → 26, `AA` → 27. */
+const COLUMN_RE = /^[A-Z]{1,3}$/;
+
+/** `A` → 1, `Z` → 26, `AA` → 27; throws on anything but 1–3 uppercase letters. */
 export function columnNumber(letters: string): number {
+  if (!COLUMN_RE.test(letters)) throw new Error(`Not a column: ${JSON.stringify(letters)}`);
   let n = 0;
   for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64);
   return n;

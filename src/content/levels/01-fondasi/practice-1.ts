@@ -143,6 +143,7 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       number: 4,
       prompt:
         `Di O2:R${gridLast}, buat simulasi kenaikan biaya: "${GRID_HEADERS.baseCost}" di kolom N dikali (1 + persentase kenaikan di O1:R1). ` +
+        `Kenaikan di O1:R1 ditulis dalam desimal: 0.02 artinya 2%. ` +
         `Tulis satu rumus di O2 yang tetap benar saat disalin ke kanan dan ke bawah sampai R${gridLast}.`,
       points: 30,
       sheet: DATA_SHEET,

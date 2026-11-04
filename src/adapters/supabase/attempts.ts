@@ -90,16 +90,16 @@ export function isAttemptId(value: string): boolean {
 }
 
 /**
- * Start's insert, through the user's session: only the item, the token hash,
- * the template version and the exam snapshot (AD-3; `user_id`, `status`,
- * `started_at` are defaults). The session may insert `snapshot` but never read
- * or update it (migration 20261104000001): only `id` is selected back, and
- * the grader reads the snapshot with the service role. The partial unique
- * index refuses a second attempt in progress: `open_attempt_exists`.
+ * Start's insert, through the user's session: only the item, the token hash
+ * and the template version (`user_id`, `status`, `started_at` are defaults).
+ * The session has no privilege on `snapshot` (AD-9, migration
+ * 20261104000001): Start writes it next with `writeSnapshot` on the service
+ * role. The partial unique index refuses a second attempt in progress:
+ * `open_attempt_exists`.
  */
 export async function createAttempt(
   supabase: SupabaseClient,
-  attempt: { itemId: string; tokenSha256: string; templateVersion: number; snapshot: ExamSnapshot },
+  attempt: { itemId: string; tokenSha256: string; templateVersion: number },
 ): Promise<CreateAttemptResult> {
   try {
     const { data, error } = await supabase
@@ -108,7 +108,6 @@ export async function createAttempt(
         item_id: attempt.itemId,
         token_sha256: attempt.tokenSha256,
         template_version: attempt.templateVersion,
-        snapshot: attempt.snapshot,
       })
       .select("id")
       .single();
@@ -130,6 +129,38 @@ export async function createAttempt(
     logError("attempt.create_failed", errorName(error));
     return { ok: false, reason: "failed" };
   }
+}
+
+/**
+ * Start (service role, AD-9): writes the exam snapshot (AD-3) of the attempt
+ * the session just created, `where id = ? and user_id = <session user> and
+ * snapshot is null`. `true` only when exactly that one row was written; the
+ * database refuses any later change (set-once trigger).
+ */
+export async function writeSnapshot(
+  service: SupabaseClient,
+  attemptId: string,
+  userId: string,
+  snapshot: ExamSnapshot,
+): Promise<boolean> {
+  try {
+    const { data, error } = await service
+      .from(TABLE)
+      .update({ snapshot })
+      .eq("id", attemptId)
+      .eq("user_id", userId)
+      .is("snapshot", null)
+      .select("id");
+    if (error) {
+      logError("attempt.snapshot_write_failed", error.code);
+      return false;
+    }
+    if (Array.isArray(data) && data.length === 1) return true;
+    logError("attempt.snapshot_write_failed", "no_row");
+  } catch (error) {
+    logError("attempt.snapshot_write_failed", errorName(error));
+  }
+  return false;
 }
 
 /**

@@ -89,7 +89,8 @@ describe("L01-P1 generate", () => {
       const n = Object.keys(data).filter((ref) => /^A\d+$/.test(ref)).length - 1;
       expect(n).toBeGreaterThanOrEqual(12);
       expect(n).toBeLessThanOrEqual(20);
-      // Units are integers, costs have at most two decimals, so keys are exact doubles.
+      // Units are integers, costs have at most two decimals. Products such as 12178.14 × 1.04 are not exact
+      // in binary floating point; grading compares within KEY_TOLERANCE, never for exact equality.
       for (let r = 2; r <= n + 1; r++) {
         expect(Number.isInteger(data[`E${r}`])).toBe(true);
         expect(Number.isInteger(data[`F${r}`])).toBe(true);
@@ -204,6 +205,20 @@ describe("defineLevelModule (load-time checks)", () => {
     ],
     ["TAKE in the Instructions", { items: [brokenItem((e) => (e.cells.Instructions.B4 += " Pakai TAKE."))] }, /Microsoft 365-only function TAKE/],
     ["VSTACK in the level functions", { functions: ["VSTACK"] }, /Microsoft 365-only function VSTACK/],
+    ["DROP in a Data cell", { items: [brokenItem((e) => (e.cells.Data.A2 = "DROP"))] }, /Microsoft 365-only function DROP/],
+    [
+      "a fifth question (B10 is the Finish line)",
+      {
+        items: [
+          brokenItem((e) => {
+            e.questions[3].points = 10;
+            e.questions.push({ ...e.questions[3], number: 5, points: 20, key: { Z2: 1 }, range: "Z2" } as (typeof e.questions)[number]);
+            e.cells.Instructions.B10 = `5. ${e.questions[4].prompt}`;
+          }),
+        ],
+      },
+      /Too big: expected array to have <=4 items/,
+    ],
     ["a key missing one cell", { items: [brokenItem((e) => delete e.questions[0].key.H2)] }, /missing H2/],
     ["a key with an extra cell", { items: [brokenItem((e) => (e.questions[0].key.Z99 = 1))] }, /extra Z99/],
     ["an answer cell that is written", { items: [brokenItem((e) => (e.cells.Data.H2 = 1))] }, /Answer cell Data!H2 is written/],
