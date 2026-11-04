@@ -9,6 +9,7 @@ describe("level registry", () => {
     const [fondasi] = levels;
     expect(fondasi).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3 });
     expect(fondasi.items.map((item) => item.id)).toEqual(["L01-P1"]);
+    expect(fondasi.functions).toEqual(["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"]);
     for (const level of levels) expect(levelModuleSchema.safeParse(level).success).toBe(true);
   });
 
@@ -35,7 +36,7 @@ describe("level registry", () => {
 
 describe("LevelModule schema", () => {
   const item = { id: "L01-P1", kind: "practice" as const, number: 1, examCells: () => ({ Data: { A1: "x" } }) };
-  const level = { id: "01-fondasi", number: 1, name: "Fondasi", phase: "v1" as const, hintQuota: 3, items: [item] };
+  const level = { id: "01-fondasi", number: 1, name: "Fondasi", phase: "v1" as const, functions: ["SUM"], hintQuota: 3, items: [item] };
 
   it("accepts the item ids of the attempts table", () => {
     for (const id of ["L01-P1", "L09-P5", "L03-T", "UA"]) expect(id).toMatch(ITEM_ID_RE);
@@ -49,6 +50,8 @@ describe("LevelModule schema", () => {
     ["a folder that does not start with the level number", { id: "02-fondasi" }],
     ["a negative hint quota", { hintQuota: -1 }],
     ["an unknown phase", { phase: "later" }],
+    ["no curriculum functions", { functions: [] }],
+    ["an empty curriculum function", { functions: [""] }],
     ["an item without examCells", { items: [{ id: "L01-P1", kind: "practice", number: 1 }] }],
   ])("rejects %s", (_, change) => {
     const candidate = { ...level, ...change } as unknown as Parameters<typeof defineLevelModule>[0];

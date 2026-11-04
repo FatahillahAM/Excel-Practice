@@ -7,6 +7,7 @@ export const fondasi = defineLevelModule({
   number: 1,
   name: "Fondasi",
   phase: "v1",
+  functions: ["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"],
   hintQuota: 3,
   items: [practice1],
 });

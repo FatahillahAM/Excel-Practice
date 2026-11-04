@@ -35,6 +35,8 @@ export interface LevelModule {
   /** Curriculum name (Indonesian): `Fondasi`. */
   name: string;
   phase: LevelPhase;
+  /** Curriculum functions of the level, in Excel's own (English) names (`level-curriculum.md`). */
+  functions: readonly string[];
   /** Hints per attempt (CAP-7). */
   hintQuota: number;
   items: readonly LevelItem[];
@@ -71,6 +73,7 @@ export const levelModuleSchema = z
     number: z.number().int().min(1).max(99),
     name: z.string().min(1),
     phase: z.enum(["v1", "next"]),
+    functions: z.array(z.string().trim().min(1)).min(1),
     hintQuota: z.number().int().min(0),
     items: z.array(levelItemSchema),
   })

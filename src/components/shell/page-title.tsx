@@ -1,4 +1,4 @@
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 /** Page title in `headline` (DESIGN.md › Typography). */
 export function PageTitle({ children, className }: { children: React.ReactNode; className?: string }) {
