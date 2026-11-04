@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
 import { OrbitLoader } from "../../../../components/exam/orbit-loader";
@@ -36,9 +37,16 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
     case "grading_failed":
     case "graded":
       return "File received — grading…";
+    case "abandoned":
+      return "This attempt was abandoned.";
     default:
       return "This attempt is closed.";
   }
+}
+
+/** Statuses after which the exam screen only offers the way back to Dashboard. */
+export function isEnded(status: AttemptStatus): boolean {
+  return status === "abandoned" || status === "closed";
 }
 
 type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number } };
@@ -189,6 +197,8 @@ export function ExamStatus({
   }
 
   const open = status === "open";
+  /** Abandoned (here or on another device) or closed: nothing more to do on this screen. */
+  const ended = isEnded(status);
   const slow = isGradingSlow(status, receivedSeconds);
 
   return (
@@ -217,6 +227,11 @@ export function ExamStatus({
           </p>
         )}
       </div>
+      {ended && (
+        <Link href="/dashboard" className="mt-2 font-bold text-primary underline-offset-4 hover:underline">
+          Back to Dashboard
+        </Link>
+      )}
       {open && (
         <div className="mt-[26px] w-full max-w-[400px]">
           <UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />

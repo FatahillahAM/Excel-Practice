@@ -5,16 +5,11 @@ import { useActionState, useEffect, useRef } from "react";
 import { cn } from "../../../lib/utils";
 import { startMessages } from "../../../messages/id";
 import { startAttempt, type StartState } from "./start-actions";
+import { BLOCKED_MESSAGE, type StartLock } from "./start-lock";
+
+export { BLOCKED_MESSAGE, type StartLock };
 
 const INITIAL: StartState = { status: "idle" };
-
-/** EXPERIENCE.md › Attempt Card: the line every other Start shows while an attempt is in progress. */
-export const BLOCKED_MESSAGE = "Resume or abandon the attempt in progress first.";
-
-/** Why Start is not offered right now (entry 7: an attempt in progress); shown under the disabled button. */
-export interface StartLock {
-  reason: string;
-}
 
 /**
  * "Start Practice N" (CAP-2): posts the item and the browser's time zone (for
@@ -23,7 +18,8 @@ export interface StartLock {
  * inline slot under the button. With `lock`, the Primary Button is
  * `aria-disabled` (DESIGN.md › Primary Button: muted fill, no edge, no glow),
  * stays focusable so its reason (a caption under it, in `aria-describedby`) is
- * read, and never submits. `fullWidth` fills its container at every width
+ * read, and never submits; with `lock.attemptId` the caption adds "Go to the
+ * attempt", as the `blocked` slot does. `fullWidth` fills its container at every width
  * (Level Detail Panel foot).
  */
 export function StartControl({
@@ -79,6 +75,12 @@ export function StartControl({
       {lock && (
         <p id={lockId} className="text-xs leading-[1.4] font-medium text-muted-foreground">
           {lock.reason}
+          {lock.attemptId && (
+            <>
+              {" "}
+              <AttemptLink attemptId={lock.attemptId} />
+            </>
+          )}
         </p>
       )}
       <div id={messageId} role="alert" className="min-h-5 text-xs leading-[1.4] font-medium">
@@ -93,17 +95,21 @@ export function StartControl({
             {state.attemptId && (
               <>
                 {" "}
-                <a
-                  href={`/exam/${state.attemptId}`}
-                  className="font-bold text-primary underline-offset-4 hover:underline"
-                >
-                  Go to the attempt
-                </a>
+                <AttemptLink attemptId={state.attemptId} />
               </>
             )}
           </span>
         )}
       </div>
     </form>
+  );
+}
+
+/** "Go to the attempt": the exam screen of the attempt in progress. */
+function AttemptLink({ attemptId }: { attemptId: string }) {
+  return (
+    <a href={`/exam/${attemptId}`} className="font-bold text-primary underline-offset-4 hover:underline">
+      Go to the attempt
+    </a>
   );
 }

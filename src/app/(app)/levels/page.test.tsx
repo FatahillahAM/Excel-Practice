@@ -1,14 +1,35 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn() }));
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
+vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
 
 import { levels } from "../../../content/levels";
 import { LevelDetailPanel } from "./level-detail-panel";
 import Page from "./page";
 import { BLOCKED_MESSAGE, StartControl } from "./start-control";
 
-const html = renderToStaticMarkup(<Page />);
+const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
+const OPEN = {
+  attempt: {
+    id: ID,
+    itemId: "L01-P1",
+    status: "open",
+    templateVersion: 1,
+    startedAt: "2026-11-02T01:00:00+00:00",
+    receivedAt: null,
+  },
+  title: "Practice 1 · Level 1",
+  elapsed: 754,
+};
+
+async function renderPage(): Promise<string> {
+  return renderToStaticMarkup(await Page());
+}
+
+mocks.loadOpenAttempt.mockResolvedValue(null);
+const html = await renderPage();
 
 /** The markup of `<tbody>`, where the rows live. */
 const body = html.match(/<tbody>([\s\S]*?)<\/tbody>/)?.[1] ?? "";
@@ -83,5 +104,43 @@ describe("LevelDetailPanel with startLock", () => {
     expect(button).toContain('aria-describedby="start-L01-P1-lock start-L01-P1-message"');
     expect(markup).toMatch(new RegExp(`<p id="start-L01-P1-lock"[^>]*>${BLOCKED_MESSAGE}</p>`));
     expect(markup.match(new RegExp(BLOCKED_MESSAGE, "g"))).toHaveLength(1);
+  });
+});
+
+describe("/levels — Start lock from the attempt in progress", () => {
+  beforeEach(() => mocks.loadOpenAttempt.mockReset());
+  afterEach(() => mocks.loadOpenAttempt.mockResolvedValue(null));
+
+  it("an attempt in progress: Start aria-disabled, focusable, the reason in aria-describedby, and a link to it", async () => {
+    mocks.loadOpenAttempt.mockResolvedValue(OPEN);
+    const markup = await renderPage();
+    const button = markup.match(/<button[^>]*>/)?.[0] ?? "";
+    expect(button).toContain('aria-disabled="true"');
+    expect(button).not.toMatch(/\sdisabled=""/);
+    expect(button).toContain('aria-describedby="start-L01-P1-lock start-L01-P1-message"');
+    expect(markup).toMatch(
+      new RegExp(`<p id="start-L01-P1-lock"[^>]*>${BLOCKED_MESSAGE} <a href="/exam/${ID}"[^>]*>Go to the attempt</a></p>`),
+    );
+    expect(markup.match(new RegExp(BLOCKED_MESSAGE, "g"))).toHaveLength(1);
+  });
+
+  it.each([
+    ["no attempt", null],
+    ["a failed read", "failed"],
+  ])("%s: Start is not locked", async (_name, loaded) => {
+    mocks.loadOpenAttempt.mockResolvedValue(loaded);
+    const markup = await renderPage();
+    expect(markup).not.toContain("aria-disabled");
+    expect(markup).not.toContain(BLOCKED_MESSAGE);
+    expect(markup).not.toContain("Go to the attempt");
+    expect(markup).toContain('aria-describedby="start-L01-P1-message"');
+  });
+});
+
+describe("StartControl lock without attemptId (the { reason } shape)", () => {
+  it("shows the reason only", () => {
+    const markup = renderToStaticMarkup(<StartControl itemId="L01-P1" label="Practice 1" lock={{ reason: BLOCKED_MESSAGE }} />);
+    expect(markup).toMatch(new RegExp(`<p id="start-L01-P1-lock"[^>]*>${BLOCKED_MESSAGE}</p>`));
+    expect(markup).not.toContain("Go to the attempt");
   });
 });

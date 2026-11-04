@@ -2,11 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   abandon,
+  ATTEMPT_COLUMNS,
   changeStatus,
   createAttempt,
   deleteOpenAttempt,
   downloadGeneratedFile,
   findAttemptByTokenHash,
+  findOpenAttempt,
   findOpenAttemptId,
   generatedFilePath,
   markReceived,
@@ -170,16 +172,55 @@ describe("deleteOpenAttempt", () => {
   });
 });
 
-describe("findOpenAttemptId", () => {
-  it("reads the user's attempt in open, received or grading_failed", async () => {
-    const { client, calls } = fakeClient({ data: { id: ID }, error: null });
-    expect(await findOpenAttemptId(client, "user-1")).toEqual({ ok: true, value: ID });
+describe("findOpenAttempt", () => {
+  const row = {
+    id: ID,
+    item_id: "L01-P1",
+    status: "received",
+    template_version: 1,
+    started_at: "2026-11-02T01:00:00+00:00",
+    received_at: "2026-11-02T01:10:00+00:00",
+  };
+
+  it("reads the user's attempt in open, received or grading_failed, with the attempt columns", async () => {
+    const { client, calls } = fakeClient({ data: row, error: null });
+    expect(await findOpenAttempt(client, "user-1")).toEqual({
+      ok: true,
+      value: {
+        id: ID,
+        itemId: "L01-P1",
+        status: "received",
+        templateVersion: 1,
+        startedAt: row.started_at,
+        receivedAt: row.received_at,
+      },
+    });
     expect(calls).toEqual([
-      ["select", ["id"]],
+      ["select", [ATTEMPT_COLUMNS]],
       ["eq", ["user_id", "user-1"]],
       ["in", ["status", ["open", "received", "grading_failed"]]],
       ["maybeSingle", []],
     ]);
+  });
+
+  it("is null without one, not ok on an error or a throw", async () => {
+    expect(await findOpenAttempt(fakeClient({ data: null, error: null }).client, "user-1")).toEqual({ ok: true, value: null });
+    const failed = fakeClient({ data: null, error: { code: "08006", message: "x" } });
+    expect(await findOpenAttempt(failed.client, "user-1")).toEqual({ ok: false });
+    const threw = fakeClient(() => Promise.reject(new TypeError("fetch failed")));
+    expect(await findOpenAttempt(threw.client, "user-1")).toEqual({ ok: false });
+    expect(errors).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("findOpenAttemptId", () => {
+  it("is the id of findOpenAttempt's row (one query)", async () => {
+    const { client, from } = fakeClient({
+      data: { id: ID, item_id: "L01-P1", status: "open", template_version: 1, started_at: "2026-11-02T01:00:00+00:00", received_at: null },
+      error: null,
+    });
+    expect(await findOpenAttemptId(client, "user-1")).toEqual({ ok: true, value: ID });
+    expect(from).toHaveBeenCalledTimes(1);
   });
 
   it("is null without one and not ok on an error", async () => {

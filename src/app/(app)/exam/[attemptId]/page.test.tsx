@@ -155,6 +155,21 @@ describe("Exam page", () => {
     expect(html).not.toContain("Upload file (.xlsm)");
   });
 
+  it("an abandoned attempt: no Orbit, no Dropzone, 'This attempt was abandoned.' and a link back to Dashboard", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, status: "abandoned" } });
+    const html = await render();
+    expect(liveRegionText(html)).toContain("This attempt was abandoned.");
+    expect(html).not.toMatch(/<svg[^>]*viewBox="0 0 100 100"/);
+    expect(html).not.toContain('type="file"');
+    expect(html).not.toContain("Download again");
+    expect(html).toMatch(/<a [^>]*href="\/dashboard"[^>]*>Back to Dashboard<\/a>/);
+  });
+
+  it("an open attempt has no link back to Dashboard", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+    expect(await render()).not.toContain("Back to Dashboard");
+  });
+
   it("is notFound for an attempt that is missing or not the user's", async () => {
     mocks.readAttempt.mockResolvedValue({ ok: true, value: null });
     await expect(render()).rejects.toMatchObject({ notFound: true });

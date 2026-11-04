@@ -2,7 +2,8 @@ import { Flame, Lock } from "lucide-react";
 import type { LevelModule } from "../../../core/content/level-module";
 import { cn } from "../../../lib/utils";
 import { levelPanel, PRACTICE_COUNT, testLockLine, type PipState, type PracticeStatus } from "./level-panel";
-import { StartControl, type StartLock } from "./start-control";
+import { StartControl } from "./start-control";
+import type { StartLock } from "./start-lock";
 
 const LABEL = "font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] uppercase";
 const CAPTION = "text-xs leading-[1.4] font-medium";
@@ -28,7 +29,7 @@ const PRACTICE_STATUS: Record<PracticeStatus, string> = {
  * on /levels until the Level Map (epic 4) wraps it in a `Sheet`. Header,
  * Practice Pips with "x/5 practices done", one row per practice and the
  * Test, and one Start in the foot for the next item. Rows carry no buttons.
- * `startLock` (entry 7) disables that Start with its reason.
+ * `startLock` (an attempt in progress) disables that Start with its reason.
  */
 export function LevelDetailPanel({
   level,

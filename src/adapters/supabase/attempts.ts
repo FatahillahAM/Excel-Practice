@@ -67,7 +67,7 @@ const TABLE = "attempts";
 const UNIQUE_VIOLATION = "23505";
 /** The partial unique index on attempts in progress (migration 20261102000001). */
 const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
-const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at";
+export const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** `attempt-files/<attemptId>/generated.xlsm` (Consistency Conventions › Storage paths). */
@@ -182,12 +182,17 @@ export async function deleteOpenAttempt(supabase: SupabaseClient, attemptId: str
   return false;
 }
 
-/** The user's attempt in progress (`open`, `received`, `grading_failed`), if any. */
-export async function findOpenAttemptId(supabase: SupabaseClient, userId: string): Promise<Read<string | null>> {
+/**
+ * The user's attempt in progress (`open`, `received`, `grading_failed`), if
+ * any: the one read behind the Attempt Card (Dashboard), the Start lock
+ * (/levels) and Start's `blocked` link. The partial unique index allows at
+ * most one such row, so `maybeSingle()` holds.
+ */
+export async function findOpenAttempt(supabase: SupabaseClient, userId: string): Promise<Read<Attempt | null>> {
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("id")
+      .select(ATTEMPT_COLUMNS)
       .eq("user_id", userId)
       .in("status", [...IN_PROGRESS_STATUSES])
       .maybeSingle();
@@ -195,12 +200,17 @@ export async function findOpenAttemptId(supabase: SupabaseClient, userId: string
       logError("attempt.find_open_failed", error.code);
       return { ok: false };
     }
-    const id = (data as { id?: unknown } | null)?.id;
-    return { ok: true, value: typeof id === "string" ? id : null };
+    return { ok: true, value: data ? toAttempt(data as AttemptRow) : null };
   } catch (error) {
     logError("attempt.find_open_failed", errorName(error));
     return { ok: false };
   }
+}
+
+/** The id of the user's attempt in progress, if any (`findOpenAttempt`). */
+export async function findOpenAttemptId(supabase: SupabaseClient, userId: string): Promise<Read<string | null>> {
+  const read = await findOpenAttempt(supabase, userId);
+  return read.ok ? { ok: true, value: read.value?.id ?? null } : read;
 }
 
 /** One attempt through the user's session (RLS: owner only); `null` when it does not exist or is not theirs. */
