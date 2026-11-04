@@ -3,12 +3,12 @@ title: 'Attempt Card: Resume, Abandon, dan kunci Start'
 type: 'feature'
 ticket: '7'
 created: '2026-11-04'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '1535cb239c2aa643fed6c96aa253fbf8b3dbf52f'
 context:
