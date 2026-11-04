@@ -3,13 +3,14 @@ title: 'Level Detail Panel Level 1'
 type: 'feature'
 ticket: '6'
 created: '2026-11-04'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'e0468ab1f85da80db7366002811ce5ef85cde85c'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -76,6 +77,8 @@ context:
 - Given a signed-in user with no attempt in progress, when "Start Practice 1" is pressed in the panel, then an attempt is created and the exam screen opens with the download, exactly as in entry 1.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
