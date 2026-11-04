@@ -20,9 +20,10 @@ export interface StartLock {
  * "Start Practice N" (CAP-2): posts the item and the browser's time zone (for
  * a profile that does not exist yet) to the Start action, which moves on to
  * the exam screen. Disabled while pending; every failure lands in the one
- * inline slot under the button. With `lock`, the Primary Button is disabled
- * (DESIGN.md › Primary Button: muted fill, no edge, no glow) and the reason
- * sits in a caption under it. `fullWidth` fills its container at every width
+ * inline slot under the button. With `lock`, the Primary Button is
+ * `aria-disabled` (DESIGN.md › Primary Button: muted fill, no edge, no glow),
+ * stays focusable so its reason (a caption under it, in `aria-describedby`) is
+ * read, and never submits. `fullWidth` fills its container at every width
  * (Level Detail Panel foot).
  */
 export function StartControl({
@@ -51,18 +52,24 @@ export function StartControl({
   const lockId = `start-${itemId}-lock`;
 
   return (
-    <form action={formAction} className="flex flex-col gap-2">
+    <form
+      action={lock ? undefined : formAction}
+      onSubmit={lock ? (event) => event.preventDefault() : undefined}
+      className="flex flex-col gap-2"
+    >
       <input type="hidden" name="itemId" value={itemId} />
       <input ref={timeZoneRef} type="hidden" name="timeZone" defaultValue="" />
       <button
         type="submit"
-        disabled={pending || Boolean(lock)}
+        disabled={!lock && pending}
+        aria-disabled={lock ? true : undefined}
+        onClick={lock ? (event) => event.preventDefault() : undefined}
         aria-describedby={lock ? `${lockId} ${messageId}` : messageId}
         className={cn(
           "mb-1 inline-flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-md px-[18px] font-bold transition-[transform,box-shadow,opacity] disabled:cursor-not-allowed",
           !fullWidth && "sm:w-auto sm:self-start",
           lock
-            ? "mb-0 bg-muted text-muted-foreground"
+            ? "mb-0 cursor-not-allowed bg-muted text-muted-foreground"
             : "bg-primary text-primary-foreground shadow-[0_4px_0_0_var(--primary-edge)] hover:shadow-[0_4px_0_0_var(--primary-edge),0_0_0_4px_var(--glow-soft)] active:translate-y-[2px] active:shadow-[0_2px_0_0_var(--primary-edge)] disabled:translate-y-0 disabled:opacity-60",
         )}
       >
@@ -80,7 +87,7 @@ export function StartControl({
             {startMessages[state.error]}
           </span>
         )}
-        {state.status === "blocked" && (
+        {!lock && state.status === "blocked" && (
           <span>
             {BLOCKED_MESSAGE}
             {state.attemptId && (

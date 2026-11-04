@@ -3,7 +3,7 @@ title: 'Level Detail Panel Level 1'
 type: 'feature'
 ticket: '6'
 created: '2026-11-04'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -83,6 +83,24 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Thorough lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment): 1 medium and 5 low patched; 1 deferred; the rest rejected. verification-gap found no gaps.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | Locked Start used native `disabled`: not focusable, reason not announced (blind) | medium | patch | `aria-disabled` + submit blocked on click and form; entry 7 fills the lock |
+| 2 | Lock and `blocked` alert could show the same message twice (edge) | low | patch | Alert slot only without a lock |
+| 3 | `next` skipped an unavailable practice to a later one (blind, edge) | low | patch | First not-done practice or null; P1 done / P2 missing / P3 present tested |
+| 4 | Literal 5 instead of `PRACTICE_COUNT` (blind) | low | patch | Constant used |
+| 5 | Rows have hover styling but no action (blind, intent) | low | patch | Hover removed |
+| 6 | Test row lacks the phone "Best — · —" caption; panel lock passthrough untested (edge, intent) | low | patch | Caption added; `LevelDetailPanel` + `startLock` render test |
+| 7 | Open Test has no Start; passed Test has no done state (blind, edge) | maybe-false | defer | Unreachable until Test content (later Fondasi entry) and grading/progress (epics 3–4) |
+| 8 | Test shows locked though it has no content (blind, edge) | false | reject | The Default matrix row specifies the lock line |
+| 9 | Only the first `v1` level renders; no empty state without one (blind, edge) | false | reject | Intent: one panel for the first V1 level; registry always has Fondasi |
+| 10 | Header "Active" hard-coded (blind, edge) | low | reject | Only the first level renders; state arrives with progress (epic 4) |
+| 11 | "—" read as "em dash"; empty lock reason; untrimmed `functions`; no schema check on practice numbers (blind, edge) | low | reject | Cosmetic or content-authoring errors caught in review |
+| 12 | Imports switched to relative paths (blind, intent) | low | reject | Follows the existing tested pages (Vitest has no `@/` alias) |
+| 13 | `functions` field and StartControl restyle beyond the stated surface (intent) | false | reject | Both come from the mockup/DESIGN.md the intent cites; the action is unchanged |
 
 ## Design Notes
 

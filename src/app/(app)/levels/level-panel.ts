@@ -34,7 +34,7 @@ export interface LevelPanel {
   pips: PipState[];
   practices: PanelPractice[];
   test: PanelTest;
-  /** The one item the panel's Start starts: the first practice with content not yet completed. */
+  /** The one item the panel's Start starts: the first practice not done, when it has content. */
   next: { itemId: string; label: string } | null;
 }
 
@@ -45,7 +45,9 @@ export function levelPanel(level: Pick<LevelModule, "items">, completed: Readonl
   const testItem = level.items.find((item) => item.kind === "test");
 
   const doneCount = practiceItems.filter((item) => item && completed.has(item.id)).length;
-  const nextIndex = practiceItems.findIndex((item) => item && !completed.has(item.id));
+  // The first practice not done; when it has no content yet, nothing is next (no skipping ahead).
+  const firstOpen = practiceItems.findIndex((item) => !item || !completed.has(item.id));
+  const nextIndex = firstOpen !== -1 && practiceItems[firstOpen] ? firstOpen : -1;
 
   const practices: PanelPractice[] = practiceItems.map((item, index) => {
     const number = index + 1;
@@ -64,7 +66,7 @@ export function levelPanel(level: Pick<LevelModule, "items">, completed: Readonl
   const testStatus: TestStatus =
     toGo === 0 ? (testItem ? "open" : "unavailable") : hasContent ? "locked" : "unavailable";
   const test: PanelTest = {
-    label: itemLabel({ kind: "test", number: 6 }),
+    label: itemLabel({ kind: "test", number: PRACTICE_COUNT + 1 }),
     itemId: testItem?.id ?? null,
     status: testStatus,
     toGo,

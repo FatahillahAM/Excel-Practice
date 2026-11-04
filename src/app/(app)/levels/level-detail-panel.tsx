@@ -1,7 +1,7 @@
 import { Flame, Lock } from "lucide-react";
 import type { LevelModule } from "../../../core/content/level-module";
 import { cn } from "../../../lib/utils";
-import { levelPanel, testLockLine, type PipState, type PracticeStatus } from "./level-panel";
+import { levelPanel, PRACTICE_COUNT, testLockLine, type PipState, type PracticeStatus } from "./level-panel";
 import { StartControl, type StartLock } from "./start-control";
 
 const LABEL = "font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] uppercase";
@@ -65,7 +65,7 @@ export function LevelDetailPanel({
           ))}
         </div>
         <span className={cn(CAPTION, "whitespace-nowrap text-muted-foreground")}>
-          {panel.doneCount}/5 practices done
+          {panel.doneCount}/{PRACTICE_COUNT} practices done
         </span>
       </div>
 
@@ -88,7 +88,7 @@ export function LevelDetailPanel({
             {panel.practices.map((practice) => {
               const muted = practice.status === "unavailable";
               return (
-                <tr key={practice.number} className="h-[52px] border-t border-border transition-colors hover:bg-muted">
+                <tr key={practice.number} className="h-[52px] border-t border-border">
                   <td className="px-3 py-1.5">
                     <span className={cn("block font-bold", muted && "text-muted-foreground")}>{practice.label}</span>
                     <span
@@ -111,7 +111,7 @@ export function LevelDetailPanel({
                 </tr>
               );
             })}
-            <tr className="h-[52px] border-t border-border bg-accent/55 transition-colors hover:bg-accent">
+            <tr className="h-[52px] border-t border-border bg-accent/55">
               <td className="px-3 py-1.5">
                 <span className={cn("block font-bold", panel.test.status !== "open" && "text-muted-foreground")}>
                   {panel.test.label}
@@ -126,6 +126,9 @@ export function LevelDetailPanel({
                 {panel.test.status === "unavailable" && (
                   <span className={cn(CAPTION, "block text-muted-foreground")}>{PRACTICE_STATUS.unavailable}</span>
                 )}
+                <span className={cn(CAPTION, "block text-muted-foreground sm:hidden")}>
+                  Best {NO_VALUE} · {NO_VALUE}
+                </span>
               </td>
               <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{NO_VALUE}</td>
               <td className={cn(VALUE, "hidden px-3 sm:table-cell")}>{NO_VALUE}</td>

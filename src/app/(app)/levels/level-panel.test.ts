@@ -54,6 +54,13 @@ describe("levelPanel", () => {
     expect(panel.next).toEqual({ itemId: "L01-P2", label: "Practice 2" });
   });
 
+  it("P1 done, P2 missing, P3 present: nothing is next (no skipping past P2)", () => {
+    const panel = levelPanel({ items: [practice(1), practice(3)] }, new Set(["L01-P1"]));
+    expect(panel.practices.map((p) => p.status)).toEqual(["done", "unavailable", "not_started", "unavailable", "unavailable"]);
+    expect(panel.pips).toEqual(["done", "pending", "pending", "pending", "pending"]);
+    expect(panel.next).toBeNull();
+  });
+
   it("opens the Test only at 5 done with Test content", () => {
     const all = [1, 2, 3, 4, 5].map(practice);
     const done = new Set(all.map((item) => item.id));

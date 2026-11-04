@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
 
+import { levels } from "../../../content/levels";
+import { LevelDetailPanel } from "./level-detail-panel";
 import Page from "./page";
 import { BLOCKED_MESSAGE, StartControl } from "./start-control";
 
@@ -54,6 +56,7 @@ describe("StartControl", () => {
   it("is enabled and describes itself by the message slot without a lock", () => {
     const markup = renderToStaticMarkup(<StartControl itemId="L01-P1" label="Practice 1" />);
     expect(markup).not.toMatch(/<button[^>]*\sdisabled=""/);
+    expect(markup).not.toContain("aria-disabled");
     expect(markup).toContain('aria-describedby="start-L01-P1-message"');
   });
 
@@ -61,11 +64,24 @@ describe("StartControl", () => {
     const markup = renderToStaticMarkup(
       <StartControl itemId="L01-P1" label="Practice 1" lock={{ reason: BLOCKED_MESSAGE }} fullWidth />,
     );
-    expect(markup).toMatch(/<button type="submit" disabled=""/);
+    expect(markup).toMatch(/<button type="submit" aria-disabled="true"/);
+    expect(markup).not.toMatch(/<button[^>]*\sdisabled=""/);
     expect(markup).toContain('aria-describedby="start-L01-P1-lock start-L01-P1-message"');
     expect(markup).toContain(`<p id="start-L01-P1-lock"`);
     expect(markup).toContain(BLOCKED_MESSAGE);
     expect(markup).toContain("bg-muted");
     expect(markup).not.toContain("--primary-edge");
+  });
+});
+
+describe("LevelDetailPanel with startLock", () => {
+  it("passes the lock to the foot Start: aria-disabled, focusable, reason read", () => {
+    const markup = renderToStaticMarkup(<LevelDetailPanel level={levels[0]} startLock={{ reason: BLOCKED_MESSAGE }} />);
+    const button = markup.match(/<button[^>]*>/)?.[0] ?? "";
+    expect(button).toContain('aria-disabled="true"');
+    expect(button).not.toMatch(/\sdisabled=""/);
+    expect(button).toContain('aria-describedby="start-L01-P1-lock start-L01-P1-message"');
+    expect(markup).toMatch(new RegExp(`<p id="start-L01-P1-lock"[^>]*>${BLOCKED_MESSAGE}</p>`));
+    expect(markup.match(new RegExp(BLOCKED_MESSAGE, "g"))).toHaveLength(1);
   });
 });
