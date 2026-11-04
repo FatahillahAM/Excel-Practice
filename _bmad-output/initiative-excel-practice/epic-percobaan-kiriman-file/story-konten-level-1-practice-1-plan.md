@@ -3,12 +3,12 @@ title: 'Konten Level 1 Practice 1'
 type: 'feature'
 ticket: '8'
 created: '2026-11-04'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: 'e4d5d1eb71aeb27a20b88bdc64493b928f3b5c26'
 context:
