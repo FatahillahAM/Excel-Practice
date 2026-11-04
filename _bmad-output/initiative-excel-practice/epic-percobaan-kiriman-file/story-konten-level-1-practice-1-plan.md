@@ -3,13 +3,14 @@ title: 'Konten Level 1 Practice 1'
 type: 'feature'
 ticket: '8'
 created: '2026-11-04'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'e4d5d1eb71aeb27a20b88bdc64493b928f3b5c26'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -79,6 +80,8 @@ context:
 - Given `npm run test`, when the content tests run, then every scenario × 50 seeds yields a valid exam whose key matches an independent recomputation.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
