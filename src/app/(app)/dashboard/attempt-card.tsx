@@ -33,14 +33,20 @@ export function AttemptCard({ attemptId, view }: { attemptId: string; view: Atte
       <h2 id={headingId} className="mt-1.5 text-base font-extrabold">
         {view.title}
       </h2>
-      {view.time !== null ? (
-        <p className="mt-0.5 mb-3 flex items-baseline gap-2">
+      <p className="mt-0.5 mb-3 flex items-baseline gap-2">
+        {view.time !== null && (
           <span className="font-mono text-[26px] font-extrabold tracking-[-0.04em] tabular-nums">{view.time}</span>
-          <span className="text-xs leading-[1.4] font-medium text-muted-foreground">since Start</span>
-        </p>
-      ) : (
-        <p className="mt-0.5 mb-3 font-semibold text-muted-foreground">{view.line}</p>
-      )}
+        )}
+        <span
+          className={
+            view.time !== null
+              ? "text-xs leading-[1.4] font-medium text-muted-foreground"
+              : "font-semibold text-muted-foreground"
+          }
+        >
+          {view.caption}
+        </span>
+      </p>
       <div className="flex gap-2">
         <Link href={view.resumeHref} className={PRIMARY}>
           <Play aria-hidden="true" className="size-4 fill-current stroke-none" />

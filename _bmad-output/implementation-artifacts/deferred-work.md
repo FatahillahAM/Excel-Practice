@@ -74,3 +74,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-konten-level-1-practice-1-plan.md`
   summary: Start's session `insert … select("id")` with column-level select grants and the service-role `update (snapshot) … select("id")` are verified only in SQL, not through PostgREST.
   evidence: 2.8 review (medium if wrong, unverified); a Preview Start after applying migration 20261104000001 to dev settles it.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-attempt-card-resume-abandon-dan-kunci-start-plan.md`
+  summary: Abandon dialog behaviour (error slot, stale-error hiding, close on done, pending lock, focus trap and return) has no automated test.
+  evidence: 2.7 review (medium if wrong, unverified); add with the DOM test harness in epic 4.

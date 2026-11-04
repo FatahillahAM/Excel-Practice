@@ -3,7 +3,7 @@ title: 'Attempt Card: Resume, Abandon, dan kunci Start'
 type: 'feature'
 ticket: '7'
 created: '2026-11-04'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -95,6 +95,25 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Thorough lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment; re-run after a usage-limit interruption): 2 medium and 5 low patched; 1 deferred; the rest rejected.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | A rejected client call to `abandonAttempt` (offline/transport) reached the error boundary (edge) | medium | patch | Caught → `{status:"error"}`; Next interrupts rethrown |
+| 2 | Removing `unstable_rethrow` in `loadOpenAttempt` would pass every test (verification-gap) | medium | patch | Interrupt-shaped rejection test: rethrown, nothing logged |
+| 3 | `done.current` never reset: later Cancel/Esc focused the title (edge, blind) | low | patch | Reset on open; cleanup reuses `focusTitle` |
+| 4 | Dialog didn't name the attempt to assistive tech (blind) | low | patch | Title inside `AlertDialogDescription`; redundant aria pair dropped |
+| 5 | `abandonFailed` claimed a connection problem for every error (blind) | low | patch | Neutral copy |
+| 6 | `"use client"` `start-control.tsx` re-exported `BLOCKED_MESSAGE` (blind) | low | patch | Imports from `./start-lock` only |
+| 7 | Dead view fields (`OpenAttempt.title`, unused `line`) (blind) | low | patch | One view shape rendered as-is |
+| 8 | AbandonButton result handling (error slot, stale flag, close on done, pending lock) untested (verification-gap, blind) | maybe-false | defer | Needs the DOM harness (epic 4) |
+| 9 | `grading_failed` card reads "File received — grading…" (blind) | false | reject | Matrix row "Received / gagal nilai" specifies it; "Try again" is epic 3 |
+| 10 | Exam polling may continue after `abandoned` (blind) | false | reject | `POLLED` excludes `abandoned`; polling and Orbit stop |
+| 11 | `graded` exam screen has no way onward (edge) | low | reject | Unreachable until grading (epic 3), which adds Results |
+| 12 | Dialog animations lack reduced-motion fallback (blind) | false | reject | Global `animation: none !important` rules cover them |
+| 13 | Pending also blocks Esc/Cancel, wider than the Intent (intent) | low | reject | Keeps the pending result and error visible; closing mid-request would hide them |
+| 14 | English chrome inline; inconsistent error-name extraction; brittle markup asserts; server-rendered alert; no runtime row check; login return implicit (blind, intent) | low | reject | Chrome English per Intent; cosmetic; Login's default landing is /dashboard |
 
 ## Design Notes
 

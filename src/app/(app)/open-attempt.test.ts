@@ -44,15 +44,15 @@ describe("attemptCardView", () => {
   it("open: 'Practice 1 · Level 1', 'mm:ss since Start', Resume to the exam screen without ?download=1", () => {
     expect(attemptCardView(ATTEMPT, 754)).toEqual({
       title: "Practice 1 · Level 1",
-      line: "12:34 since Start",
       time: "12:34",
+      caption: "since Start",
       resumeHref: `/exam/${ID}`,
     });
   });
 
   it.each(["received", "grading_failed"] as const)("%s: 'File received — grading…' instead of the time", (status) => {
     const view = attemptCardView({ ...ATTEMPT, status }, 754);
-    expect(view.line).toBe("File received — grading…");
+    expect(view.caption).toBe("File received — grading…");
     expect(view.time).toBeNull();
     expect(view.title).toBe("Practice 1 · Level 1");
     expect(view.resumeHref).toBe(`/exam/${ID}`);
@@ -60,7 +60,7 @@ describe("attemptCardView", () => {
 
   it("an unknown item keeps its id as the title; an hour or more shows h:mm:ss", () => {
     expect(attemptTitle("L99-P1")).toBe("L99-P1");
-    expect(attemptCardView(ATTEMPT, 3725).line).toBe("1:02:05 since Start");
+    expect(attemptCardView(ATTEMPT, 3725).time).toBe("1:02:05");
   });
 });
 
@@ -69,7 +69,7 @@ describe("loadOpenAttempt", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-02T01:12:34.600Z"));
     mocks.findOpenAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
-    expect(await loadOpenAttempt()).toEqual({ attempt: ATTEMPT, title: "Practice 1 · Level 1", elapsed: 754 });
+    expect(await loadOpenAttempt()).toEqual({ attempt: ATTEMPT, elapsed: 754 });
     expect(mocks.findOpenAttempt).toHaveBeenCalledWith(SUPABASE, "user-1");
   });
 
@@ -88,5 +88,12 @@ describe("loadOpenAttempt", () => {
     mocks.createClient.mockRejectedValue(new TypeError("cookies"));
     expect(await loadOpenAttempt()).toBe("failed");
     expect(console.error).toHaveBeenCalledWith(JSON.stringify({ event: "attempt.load_open_failed", name: "TypeError" }));
+  });
+
+  it("lets Next's redirect/interrupt errors through without logging", async () => {
+    const interrupt = Object.assign(new Error("NEXT_REDIRECT"), { url: "/login" });
+    mocks.getSessionUser.mockRejectedValue(interrupt);
+    await expect(loadOpenAttempt()).rejects.toBe(interrupt);
+    expect(console.error).not.toHaveBeenCalled();
   });
 });

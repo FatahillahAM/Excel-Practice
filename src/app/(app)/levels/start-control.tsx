@@ -7,8 +7,6 @@ import { startMessages } from "../../../messages/id";
 import { startAttempt, type StartState } from "./start-actions";
 import { BLOCKED_MESSAGE, type StartLock } from "./start-lock";
 
-export { BLOCKED_MESSAGE, type StartLock };
-
 const INITIAL: StartState = { status: "idle" };
 
 /**

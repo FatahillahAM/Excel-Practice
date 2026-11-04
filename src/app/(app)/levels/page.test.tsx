@@ -8,7 +8,8 @@ vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
 import { levels } from "../../../content/levels";
 import { LevelDetailPanel } from "./level-detail-panel";
 import Page from "./page";
-import { BLOCKED_MESSAGE, StartControl } from "./start-control";
+import { StartControl } from "./start-control";
+import { BLOCKED_MESSAGE } from "./start-lock";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const OPEN = {
@@ -20,7 +21,6 @@ const OPEN = {
     startedAt: "2026-11-02T01:00:00+00:00",
     receivedAt: null,
   },
-  title: "Practice 1 · Level 1",
   elapsed: 754,
 };
 

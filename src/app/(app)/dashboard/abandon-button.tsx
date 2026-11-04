@@ -1,5 +1,6 @@
 "use client";
 
+import { unstable_rethrow } from "next/navigation";
 import { useActionState, useEffect, useRef, useState } from "react";
 import {
   AlertDialog,
@@ -16,7 +17,6 @@ import { attemptMessages } from "../../../messages/id";
 import { abandonAttempt, type AbandonState } from "./abandon-actions";
 
 const INITIAL: AbandonState = { status: "idle" };
-
 
 /**
  * Attempt Card's outline "Abandon": opens a confirm dialog (role
@@ -44,9 +44,16 @@ export function AbandonButton({
   const done = useRef(false);
   const focusTitle = () => document.getElementById(focusAfterId)?.focus();
 
-  const [state, formAction, pending] = useActionState(async (previous: AbandonState, formData: FormData) => {
+  const [state, formAction, pending] = useActionState(async (previous: AbandonState, formData: FormData): Promise<AbandonState> => {
     setStale(false);
-    const next = await abandonAttempt(previous, formData);
+    let next: AbandonState;
+    try {
+      next = await abandonAttempt(previous, formData);
+    } catch (error) {
+      // Next's redirect (no session → Login) and interrupts go on; a transport failure is a message in the dialog.
+      unstable_rethrow(error);
+      return { status: "error" };
+    }
     if (next.status === "done") {
       done.current = true;
       setOpen(false);
@@ -57,12 +64,12 @@ export function AbandonButton({
   // The card leaves with the revalidated page: hand focus to the title after radix restores its own.
   useEffect(
     () => () => {
-      if (done.current) window.setTimeout(() => document.getElementById(focusAfterId)?.focus(), 0);
+      if (done.current) window.setTimeout(focusTitle, 0);
     },
-    [focusAfterId],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup on unmount only; `focusTitle` reads the id at call time.
+    [],
   );
 
-  const titleId = `abandon-${attemptId}-title`;
   const errorId = `abandon-${attemptId}-error`;
   const showError = state.status === "error" && !pending && !stale;
 
@@ -71,13 +78,16 @@ export function AbandonButton({
       open={open}
       onOpenChange={(next) => {
         if (pending) return;
-        if (next) setStale(true);
+        if (next) {
+          // A fresh open: Cancel/Esc return focus to "Abandon" again.
+          done.current = false;
+          setStale(true);
+        }
         setOpen(next);
       }}
     >
       <AlertDialogTrigger className={`${alertDialogButton.outline} flex-1`}>Abandon</AlertDialogTrigger>
       <AlertDialogContent
-        aria-labelledby={titleId}
         onEscapeKeyDown={(event) => pending && event.preventDefault()}
         onCloseAutoFocus={(event) => {
           if (!done.current) return;
@@ -86,9 +96,12 @@ export function AbandonButton({
         }}
       >
         <AlertDialogHeader>
-          <AlertDialogTitle id={titleId}>Abandon this attempt?</AlertDialogTitle>
-          <p className="font-bold">{attemptTitle}</p>
-          <AlertDialogDescription lang="id">{attemptMessages.abandonBody}</AlertDialogDescription>
+          {/* radix wires the title to aria-labelledby and the description, which names the attempt, to aria-describedby. */}
+          <AlertDialogTitle>Abandon this attempt?</AlertDialogTitle>
+          <AlertDialogDescription>
+            <span className="block font-bold text-foreground">{attemptTitle}</span>{" "}
+            <span lang="id">{attemptMessages.abandonBody}</span>
+          </AlertDialogDescription>
         </AlertDialogHeader>
         <div id={errorId} role="alert" lang="id" className="min-h-5 text-xs leading-[1.4] font-medium text-destructive">
           {showError && attemptMessages.abandonFailed}

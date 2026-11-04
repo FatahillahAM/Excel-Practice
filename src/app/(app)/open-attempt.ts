@@ -7,21 +7,20 @@ import { elapsedSeconds } from "../../core/services/attempts";
 import { findItem } from "../../content/levels";
 import { formatElapsed } from "./exam/[attemptId]/exam-time";
 
-/** The user's attempt in progress as read at render: its title and the server's seconds since Start (AD-8). */
+/** The user's attempt in progress as read at render, with the server's seconds since Start (AD-8). */
 export interface OpenAttempt {
   attempt: Attempt;
-  /** "Practice 1 · Level 1" (DESIGN.md › Attempt Card); the item id when the item is unknown. */
-  title: string;
   elapsed: number;
 }
 
 /** What the Attempt Card shows (DESIGN.md › Attempt Card, `key-dashboard.html`). */
 export interface AttemptCardView {
+  /** "Practice 1 · Level 1" (DESIGN.md › Attempt Card); the item id when the item is unknown. */
   title: string;
-  /** "12:34 since Start" while open; "File received — grading…" once received (as on the exam screen). */
-  line: string;
-  /** The `stat-value` part of `line` while open ("12:34"); `null` once received. */
+  /** The time since Start in `stat-value` while open ("12:34"); `null` once received. */
   time: string | null;
+  /** After `time`: "since Start" while open; "File received — grading…" once received (as on the exam screen). */
+  caption: string;
   /** The exam screen of this attempt; no `?download=1`, so returning on the laptop downloads nothing. */
   resumeHref: string;
 }
@@ -44,7 +43,7 @@ export async function loadOpenAttempt(): Promise<OpenAttempt | null | "failed"> 
     const attempt = read.value;
     // After the session read: request time, so the page is dynamic.
     const elapsed = elapsedSeconds(attempt.startedAt, Date.now());
-    return { attempt, title: attemptTitle(attempt.itemId), elapsed };
+    return { attempt, elapsed };
   } catch (error) {
     // Next's own interrupts (prerender, redirect) are not failures.
     unstable_rethrow(error);
@@ -64,7 +63,7 @@ export function attemptCardView(attempt: Pick<Attempt, "id" | "itemId" | "status
   const time = attempt.status === "open" ? formatElapsed(elapsed) : null;
   return {
     title: attemptTitle(attempt.itemId),
-    line: time === null ? "File received — grading…" : `${time} since Start`,
+    caption: time === null ? "File received — grading…" : "since Start",
     time,
     resumeHref: `/exam/${attempt.id}`,
   };

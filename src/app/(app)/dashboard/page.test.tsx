@@ -43,7 +43,7 @@ describe("Dashboard", () => {
   });
 
   it("open: the Attempt Card with name, time since Start, Resume to the exam screen and an Abandon trigger", async () => {
-    mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt("open"), title: "Practice 1 · Level 1", elapsed: 754 });
+    mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt("open"), elapsed: 754 });
     const html = await render();
     expect(html).toContain("Attempt in progress");
     expect(html).toContain("Practice 1 · Level 1");
@@ -58,7 +58,7 @@ describe("Dashboard", () => {
   });
 
   it.each(["received", "grading_failed"])("%s: 'File received — grading…' instead of the time", async (status) => {
-    mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt(status), title: "Practice 1 · Level 1", elapsed: 754 });
+    mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt(status), elapsed: 754 });
     const html = await render();
     expect(html).toContain("File received — grading…");
     expect(html).not.toContain("since Start");

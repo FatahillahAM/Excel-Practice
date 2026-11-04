@@ -35,8 +35,8 @@ export type StartError = keyof typeof startMessages;
 export const attemptMessages = {
   /** The dialog's body: what Abandon does. */
   abandonBody: "Percobaan ini dibatalkan dan nggak dinilai. File-nya nggak bisa dikirim lagi, ya.",
-  /** Abandon could not be written (the Login "network" row). */
-  abandonFailed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
+  /** Abandon did not go through, for any reason (illustrative). */
+  abandonFailed: "Percobaannya belum bisa dibatalkan. Coba lagi, ya.",
 } as const;
 
 /** Exam in progress (EXPERIENCE.md › Component Patterns › Exam Status Line, Message set). */
