@@ -3,13 +3,14 @@ title: 'Attempt Card: Resume, Abandon, dan kunci Start'
 type: 'feature'
 ticket: '7'
 created: '2026-11-04'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '1535cb239c2aa643fed6c96aa253fbf8b3dbf52f'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -86,6 +87,8 @@ context:
 - Given the exam screen open on another device, when the attempt is abandoned, then within one poll it stops showing the Orbit and Dropzone, and a later Finish of that file is refused with `ATTEMPT_CLOSED`.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
