@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -14,7 +15,7 @@ import { ensureProfile, readTimeZone } from "../../../adapters/supabase/profiles
 import { createClient } from "../../../adapters/supabase/server";
 import { generateExamWorkbook, type GeneratedWorkbook } from "../../../adapters/workbook/generate";
 import { newAttemptToken, tokenSha256, tokenSha256Hex } from "../../../adapters/workbook/token";
-import { examCellsSchema } from "../../../core/content/level-module";
+import { generatedExamSchema, type ExamSnapshot, type GeneratedExam } from "../../../core/content/level-module";
 import { findItem } from "../../../content/levels";
 import type { StartError } from "../../../messages/id";
 
@@ -27,8 +28,9 @@ export type StartState =
 const LEVELS_PATH = "/levels";
 
 /**
- * Start (CAP-2): session → profile → item → token → generate → insert →
- * upload → the exam screen, which starts the download. Generation runs before
+ * Start (CAP-2): session → profile → item → seed and scenario → content
+ * `generate` (validated) → token → workbook → insert with the snapshot (AD-3)
+ * → upload → the exam screen, which starts the download. Generation runs before
  * the insert, so a failed generation leaves no row; the upload runs after it
  * because the Storage policy needs the row; a failed upload deletes the row
  * again, since a row without a file would lock every other Start.
@@ -63,11 +65,39 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     console.error(JSON.stringify({ event: "attempt.start_unknown_item" }));
     return { status: "error", error: "startFailed" };
   }
-  const cells = found.item.examCells();
-  if (!examCellsSchema.safeParse(cells).success) {
-    console.error(JSON.stringify({ event: "attempt.start_invalid_cells", itemId: found.item.id }));
+  const { level, item } = found;
+  if (level.scenarios.length === 0) {
+    console.error(JSON.stringify({ event: "attempt.start_no_scenarios", itemId: item.id }));
     return { status: "error", error: "startFailed" };
   }
+  // Two independent uniform draws (CAP-6); the seed is a uint32 so it fits JSON exactly.
+  const seed = randomInt(2 ** 32);
+  const scenario = level.scenarios[randomInt(level.scenarios.length)];
+  const context = { itemId: item.id, scenarioId: scenario.id, contentVersion: level.contentVersion };
+  let exam: GeneratedExam;
+  try {
+    const parsed = generatedExamSchema.safeParse(item.generate(seed, scenario));
+    if (!parsed.success) {
+      console.error(JSON.stringify({ event: "attempt.start_invalid_exam", ...context }));
+      return { status: "error", error: "startFailed" };
+    }
+    exam = parsed.data;
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "attempt.start_invalid_exam",
+        ...context,
+        name: error instanceof Error ? error.name : typeof error,
+      }),
+    );
+    return { status: "error", error: "startFailed" };
+  }
+  const snapshot: ExamSnapshot = {
+    contentVersion: level.contentVersion,
+    scenarioId: scenario.id,
+    seed,
+    questions: exam.questions,
+  };
 
   const token = newAttemptToken();
   const hash = tokenSha256Hex(token);
@@ -76,13 +106,13 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     generated = await generateExamWorkbook({
       token,
       serverUrl: requestOrigin(await headers()),
-      cells,
+      cells: exam.cells,
     });
   } catch (error) {
     console.error(
       JSON.stringify({
         event: "attempt.generate_failed",
-        itemId: found.item.id,
+        ...context,
         tokenSha256: tokenSha256(token),
         name: error instanceof Error ? error.name : typeof error,
       }),
@@ -91,9 +121,10 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
   }
 
   const created = await createAttempt(supabase, {
-    itemId: found.item.id,
+    itemId: item.id,
     tokenSha256: hash,
     templateVersion: generated.templateVersion,
+    snapshot,
   });
   if (!created.ok) {
     if (created.reason === "failed") return { status: "error", error: "startFailed" };
@@ -111,9 +142,10 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
 
   console.log(
     JSON.stringify({
+      // Which content the attempt got; never the key, nor the seed that rebuilds it.
       event: "attempt.started",
       attemptId: created.id,
-      itemId: found.item.id,
+      ...context,
       templateVersion: generated.templateVersion,
       tokenSha256: tokenSha256(token),
     }),

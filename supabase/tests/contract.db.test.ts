@@ -185,6 +185,69 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     });
   });
 
+  describe("snapshot (AD-3: the session writes it once, only the service role reads it)", () => {
+    const SNAPSHOT = { contentVersion: 1, scenarioId: "baut-sinar-presisi", seed: 42, questions: [{ number: 1, key: { H2: 10 } }] };
+
+    function startWithSnapshot(uid: string, snapshot: unknown = SNAPSHOT): Promise<string> {
+      return asUser(uid, async (q) => {
+        const { rows } = await q.query(
+          "insert into public.attempts (item_id, token_sha256, template_version, snapshot) values ('L01-P1', $1, 1, $2) returning id",
+          [hash(), JSON.stringify(snapshot)],
+        );
+        return rows[0].id as string;
+      });
+    }
+
+    it("is inserted by the owner's Start, and read by the service role", async () => {
+      const uid = await newUser();
+      const id = await startWithSnapshot(uid);
+      const { rows } = await asService((q) => q.query("select snapshot from public.attempts where id = $1", [id]));
+      expect(rows[0].snapshot).toEqual(SNAPSHOT);
+    });
+
+    it("stays null for an attempt started without one (tracer rows)", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      const { rows } = await db.query("select snapshot from public.attempts where id = $1", [id]);
+      expect(rows[0].snapshot).toBeNull();
+    });
+
+    it("refuses a snapshot that is not a JSON object", async () => {
+      const uid = await newUser();
+      await expectSqlError(startWithSnapshot(uid, [1, 2]), "23514");
+      await expectSqlError(startWithSnapshot(uid, "key"), "23514");
+    });
+
+    it("cannot be read or updated by the owner, while the other columns stay readable", async () => {
+      const uid = await newUser();
+      const id = await startWithSnapshot(uid);
+      await expectSqlError(asUser(uid, (q) => q.query("select snapshot from public.attempts where id = $1", [id])), "42501");
+      await expectSqlError(asUser(uid, (q) => q.query("select * from public.attempts where id = $1", [id])), "42501");
+      await expectSqlError(
+        asUser(uid, (q) => q.query("update public.attempts set snapshot = '{}'::jsonb where id = $1", [id])),
+        "42501",
+      );
+      const { rows } = await asUser(uid, (q) =>
+        q.query(
+          "select id, user_id, item_id, token_sha256, template_version, status, started_at, received_at from public.attempts where id = $1",
+          [id],
+        ),
+      );
+      expect(rows).toHaveLength(1);
+      // Abandon (status only) still works on a row with a snapshot.
+      expect(await abandonAs(uid, id, "open")).toBe(1);
+    });
+
+    it("cannot be updated by the service role", async () => {
+      const uid = await newUser();
+      const id = await startWithSnapshot(uid);
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set snapshot = '{}'::jsonb where id = $1", [id])),
+        "42501",
+      );
+    });
+  });
+
   describe("received_at", () => {
     it("is stamped by the trigger when the macro path moves open to received", async () => {
       const uid = await newUser();

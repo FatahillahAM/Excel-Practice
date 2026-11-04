@@ -58,14 +58,30 @@ function expectNoHashLogged() {
 }
 
 describe("createAttempt", () => {
-  const attempt = { itemId: "L01-P1", tokenSha256: HASH, templateVersion: 1 };
+  const snapshot = {
+    contentVersion: 1,
+    scenarioId: "baut-sinar-presisi",
+    seed: 42,
+    questions: [
+      {
+        number: 1,
+        prompt: "Di H2:H3, hitung Total Biaya.",
+        points: 100,
+        sheet: "Data",
+        range: "H2:H3",
+        checks: [{ name: "value_equals_key" as const, tolerance: 1e-9 }],
+        key: { H2: 10, H3: 20 },
+      },
+    ],
+  };
+  const attempt = { itemId: "L01-P1", tokenSha256: HASH, templateVersion: 1, snapshot };
 
-  it("inserts only item, token hash and template version, and returns the new id", async () => {
+  it("inserts only item, token hash, template version and snapshot, and selects back only the id", async () => {
     const { client, from, calls } = fakeClient({ data: { id: ID }, error: null });
     expect(await createAttempt(client, attempt)).toEqual({ ok: true, id: ID });
     expect(from).toHaveBeenCalledWith("attempts");
     expect(calls).toEqual([
-      ["insert", [{ item_id: "L01-P1", token_sha256: HASH, template_version: 1 }]],
+      ["insert", [{ item_id: "L01-P1", token_sha256: HASH, template_version: 1, snapshot }]],
       ["select", ["id"]],
       ["single", []],
     ]);

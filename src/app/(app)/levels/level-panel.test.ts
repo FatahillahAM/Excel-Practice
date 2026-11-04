@@ -3,9 +3,9 @@ import type { LevelItem } from "../../../core/content/level-module";
 import { levels } from "../../../content/levels";
 import { levelPanel, testLockLine } from "./level-panel";
 
-const examCells = () => ({ Data: { A1: "x" } });
-const practice = (number: number): LevelItem => ({ id: `L01-P${number}`, kind: "practice", number, examCells });
-const TEST: LevelItem = { id: "L01-T", kind: "test", number: 6, examCells };
+const generate = () => ({ cells: { Data: { A1: "x" } }, questions: [] });
+const practice = (number: number): LevelItem => ({ id: `L01-P${number}`, kind: "practice", number, generate });
+const TEST: LevelItem = { id: "L01-T", kind: "test", number: 6, generate };
 const NONE: ReadonlySet<string> = new Set();
 
 describe("levelPanel", () => {

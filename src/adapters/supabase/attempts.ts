@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ExamSnapshot } from "../../core/content/level-module";
 import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "../../core/services/attempts";
 
 /**
@@ -89,19 +90,26 @@ export function isAttemptId(value: string): boolean {
 }
 
 /**
- * Start's insert, through the user's session: only the item, the token hash
- * and the template version (`user_id`, `status`, `started_at` are defaults).
- * The partial unique index refuses a second attempt in progress:
- * `open_attempt_exists`.
+ * Start's insert, through the user's session: only the item, the token hash,
+ * the template version and the exam snapshot (AD-3; `user_id`, `status`,
+ * `started_at` are defaults). The session may insert `snapshot` but never read
+ * or update it (migration 20261104000001): only `id` is selected back, and
+ * the grader reads the snapshot with the service role. The partial unique
+ * index refuses a second attempt in progress: `open_attempt_exists`.
  */
 export async function createAttempt(
   supabase: SupabaseClient,
-  attempt: { itemId: string; tokenSha256: string; templateVersion: number },
+  attempt: { itemId: string; tokenSha256: string; templateVersion: number; snapshot: ExamSnapshot },
 ): Promise<CreateAttemptResult> {
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .insert({ item_id: attempt.itemId, token_sha256: attempt.tokenSha256, template_version: attempt.templateVersion })
+      .insert({
+        item_id: attempt.itemId,
+        token_sha256: attempt.tokenSha256,
+        template_version: attempt.templateVersion,
+        snapshot: attempt.snapshot,
+      })
       .select("id")
       .single();
     if (error) {
