@@ -4,7 +4,7 @@
  * `xl/vbaProject.bin` came through byte for byte and that the VBA fingerprint
  * (AD-4) matches the template registry.
  *
- *   node scripts/spike-s1.ts [--out <dir>] [--template <file>] [--server-url <url>]
+ *   node --experimental-transform-types scripts/spike-s1.ts [--out <dir>] [--template <file>] [--server-url <url>]
  */
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";

@@ -92,7 +92,7 @@ Pesan yang sama juga muncul bila nama property salah ketik, jadi periksa juga: *
 1. Buka repo `FatahillahAM/Excel-Practice` di GitHub, pilih branch kerja yang sedang dipakai untuk pekerjaan template ini (bukan `main`), lalu masuk ke folder `assets/templates/`.
 2. **Add file → Upload files**, seret `exam.v1.xlsm`.
 3. Pilih **Commit directly to the … branch** untuk branch kerja itu (bukan `main`) → **Commit changes**.
-4. Beri tahu agent. Agent menjalankan `git pull`, lalu `node scripts/spike-s1.ts --template <file>` dan menyalin baris `registry entry:` (sidik jari VBA: hash per modul yang tidak kosong, dihitung adapter) ke `src/adapters/workbook/templates.ts`, lalu menjalankan `node scripts/spike-s1.ts` tanpa `--template` dan mengirim file hasil patch beserta token yang dicetak.
+4. Beri tahu agent. Agent menjalankan `git pull`, lalu `node --experimental-transform-types scripts/spike-s1.ts --template <file>` dan menyalin baris `registry entry:` (sidik jari VBA: hash per modul yang tidak kosong, dihitung adapter) ke `src/adapters/workbook/templates.ts`, lalu menjalankan `node --experimental-transform-types scripts/spike-s1.ts` tanpa `--template` dan mengirim file hasil patch beserta token yang dicetak.
 
 ## Menguji file hasil patch di laptop (spike S1)
 
@@ -136,7 +136,7 @@ Mengganti modul membuat file dari percobaan lama yang masih terbuka ditolak deng
 
 1. Klik sel **A1** di sheet `Instructions`.
 2. **Ctrl+S** (tetap `exam.v1.xlsm`, format `.xlsm`). Tutup Excel.
-3. Unggah `exam.v1.xlsm` ke `assets/templates/` di branch kerja yang sama, seperti di [Mengirim template ke repo](#mengirim-template-ke-repo), lalu beri tahu agent. Orchestrator menghitung ulang sidik jari registry v1 (`node scripts/spike-s1.ts --template assets/templates/exam.v1.xlsm`), meng-commit template baru beserta sidik jari itu ke branch kerja, dan memberi tahu bila Preview branch itu siap. Perubahan ini sampai ke Production lewat PR berikutnya dari branch kerja ke `main`.
+3. Unggah `exam.v1.xlsm` ke `assets/templates/` di branch kerja yang sama, seperti di [Mengirim template ke repo](#mengirim-template-ke-repo), lalu beri tahu agent. Orchestrator menghitung ulang sidik jari registry v1 (`node --experimental-transform-types scripts/spike-s1.ts --template assets/templates/exam.v1.xlsm`), meng-commit template baru beserta sidik jari itu ke branch kerja, dan memberi tahu bila Preview branch itu siap. Perubahan ini sampai ke Production lewat PR berikutnya dari branch kerja ke `main`.
 
 ### 5. Buat ulang fixture `s3-excel2021.xlsm`
 

@@ -8,7 +8,7 @@ Spike S2 membuktikan bahwa server membaca teks rumus (termasuk rumus hasil fill 
 
 ### 1. Buka file S1
 
-1. Pakai file uji S1 yang sudah ada di laptop (`spike-s1-XD3PPwFf.xlsm`, ditutup tanpa disimpan), atau minta agent membuat file baru dengan `node scripts/spike-s1.ts`. Sheet `Data` harus berisi tabel produksi A1:G11 dari S1 dan belum diubah.
+1. Pakai file uji S1 yang sudah ada di laptop (`spike-s1-XD3PPwFf.xlsm`, ditutup tanpa disimpan), atau minta agent membuat file baru dengan `node --experimental-transform-types scripts/spike-s1.ts`. Sheet `Data` harus berisi tabel produksi A1:G11 dari S1 dan belum diubah.
 2. Buka di Excel 2021. Bila muncul bar kuning **Protected View**, klik **Enable Editing**. Macro tidak perlu dijalankan; bar **Enable Content** boleh diabaikan.
 
 ### 2. Pemisah argumen
