@@ -3,12 +3,12 @@ title: 'Setup Guide'
 type: 'feature'
 ticket: '10'
 created: '2026-11-06'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: 'a71989811cabdbe67327caf4065396dd1234ee53'
 context:
