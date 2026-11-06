@@ -3,13 +3,14 @@ title: 'modFinish: pesan per kode dan tutup workbook'
 type: 'feature'
 ticket: '9'
 created: '2026-11-06'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '402f8e97e9326e38f99e1957054c1faa07dc3f57'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -94,6 +95,8 @@ context:
 - Given checklist steps 6–10 on the laptop, then an accepted Finish closes the workbook (and Excel only when nothing else is open), and each refused file shows its code's message with the workbook still open.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 - Agent work makes no Supabase or Vercel setting changes; the only remote action is pushing the work branch for the laptop loop.
 
