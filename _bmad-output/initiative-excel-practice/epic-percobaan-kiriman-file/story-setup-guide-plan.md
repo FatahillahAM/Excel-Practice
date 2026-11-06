@@ -62,16 +62,16 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/components/ui/kbd.tsx` -- shadcn-style `Kbd` (`<kbd lang="en">`, DESIGN.md `kbd` tokens) -- Setup Steps and later Tips Cards share it.
-- [ ] `src/app/(app)/setup-guide/setup-steps.ts` -- `SETUP_STEPS`: `{ title, body }[]` where body parts are text or `{ kbd }`; `SETUP_FOLDER = "C:\\ExcelPractice"`; `STILL_BLOCKED = "Still blocked? Upload appears on the exam screen after Start"` -- one source for page and test. Steps (illustrative Indonesian bodies):
+- [x] `src/components/ui/kbd.tsx` -- shadcn-style `Kbd` (`<kbd lang="en">`, DESIGN.md `kbd` tokens) -- Setup Steps and later Tips Cards share it.
+- [x] `src/app/(app)/setup-guide/setup-steps.ts` -- `SETUP_STEPS`: `{ title, body }[]` where body parts are text or `{ kbd }`; `SETUP_FOLDER = "C:\\ExcelPractice"`; `STILL_BLOCKED = "Still blocked? Upload appears on the exam screen after Start"` -- one source for page and test. Steps (illustrative Indonesian bodies):
   1. "Make the working folder" -- buat folder `C:\ExcelPractice`; semua file latihan selalu di sini.
   2. "Save downloads there" -- di Chrome/Edge: `Settings > Downloads > Location > Change` ke folder itu (atau nyalakan "Ask where to save each file" dan pilih folder itu setiap Start).
   3. "Trust the folder in Excel" -- `File > Options > Trust Center > Trust Center Settings… > Trusted Locations > Add new location…`, pilih folder, centang "Subfolders of this location are also trusted", `OK`.
   4. "Open the file from the folder" -- buka `.xlsm` dari folder itu, bukan dari bar unduhan browser; klik **Finish** setelah selesai.
   5. "Unblock if Excel still blocks it" -- kalau muncul bar merah "Microsoft has blocked macros…": tutup Excel, klik kanan file → `Properties > General`, centang `Unblock`, `OK`, buka lagi.
-- [ ] `src/app/(app)/setup-guide/setup-steps-list.tsx` -- server `<ol>` of cards, number in `primary` circle, title, body `lang="id"` with `Kbd`.
-- [ ] `src/app/(app)/setup-guide/page.tsx` -- async: `PageTitle` "Setup Guide" in `page-enter`, `SetupStepsList`, then `STILL_BLOCKED` with a "Resume" `<Link>` to `resumeHref` when `loadOpenAttempt()` gives an attempt; `null`/`"failed"` → no link.
-- [ ] `src/app/(app)/setup-guide/page.test.tsx` -- server render per matrix rows 1–3: `<h1>`, 5 `<li>` in order, folder path and Trust Center path inside `<kbd lang="en">`, bodies `lang="id"`, `STILL_BLOCKED` text, Resume `href="/exam/<id>"` for `open` and `received`, absent for `null` and `"failed"`; `kbd.tsx` renders `lang="en"`.
+- [x] `src/app/(app)/setup-guide/setup-steps-list.tsx` -- server `<ol>` of cards, number in `primary` circle, title, body `lang="id"` with `Kbd`.
+- [x] `src/app/(app)/setup-guide/page.tsx` -- async: `PageTitle` "Setup Guide" in `page-enter`, `SetupStepsList`, then `STILL_BLOCKED` with a "Resume" `<Link>` to `resumeHref` when `loadOpenAttempt()` gives an attempt; `null`/`"failed"` → no link.
+- [x] `src/app/(app)/setup-guide/page.test.tsx` -- server render per matrix rows 1–3: `<h1>`, 5 `<li>` in order, folder path and Trust Center path inside `<kbd lang="en">`, bodies `lang="id"`, `STILL_BLOCKED` text, Resume `href="/exam/<id>"` for `open` and `received`, absent for `null` and `"failed"`; `kbd.tsx` renders `lang="en"`.
 
 **Laptop (user, hitl) — checklist:**
 1. Di Preview branch kerja, buka **Setup Guide** dan ikuti langkah 1–3 persis (folder `C:\ExcelPractice`, lokasi unduhan browser, Trusted Location).
