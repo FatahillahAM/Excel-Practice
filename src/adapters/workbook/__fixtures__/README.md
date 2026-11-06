@@ -82,6 +82,8 @@ Bila L6 menampilkan `#SPILL!`, L7 atau L8 tidak kosong: hapus isinya.
 3. Pilih **Commit directly to the … branch** untuk branch kerja itu (bukan `main`) → **Commit changes**.
 4. Beri tahu agent. Agent menjalankan `git pull`, `node scripts/spike-s2.ts` (mencetak tiap sel, cocok atau tidak, dan apakah hash `modFinish` file simpanan sama dengan hash era S1), lalu mencocokkan hasilnya dengan pembacaan openpyxl.
 
-## `s3-excel2021.xlsm` (spike S3)
+## `s3-excel2021.xlsm` (spike S3, dibuat ulang di story 2.9)
 
-File uji S3 (`spike-s1-pqlxiPRu.xlsm`, template v1 dengan `modFinish` yang mengirim file) yang di Excel 2021 laptop ditambah satu sheet (`Sheet1`), dibuka VBA editor-nya tanpa mengetik, dikirim lewat **Finish**, lalu disimpan dengan **Save As** `s3-excel2021.xlsm`. Langkahnya ada di `assets/templates/README.md`, bagian "Menguji Finish di laptop (spike S3)". `templates.test.ts` memakainya sebagai salinan simpanan Excel untuk registry v1: byte `vbaProject.bin` berbeda dari template, modul `Sheet3` baru kosong, dan sidik jari tetap cocok.
+Salinan template v1 yang disimpan Excel 2021: file dari **Start** Level 1 · Practice 1 di Preview branch kerja, yang di laptop ditambah satu sheet baru, dibuka VBA editor-nya (`modFinish` ditampilkan tanpa mengetik), lalu disimpan dengan **Save As** `s3-excel2021.xlsm` ke folder lain, tanpa pernah diklik **Finish**. Langkahnya ada di `assets/templates/README.md`, bagian "Mengganti `modFinish` di `exam.v1.xlsm`", langkah 5. Setiap kali `modFinish` diganti, file ini dibuat ulang dengan nama dan path yang sama, karena salinan lama tidak cocok lagi dengan v1.
+
+`templates.test.ts` memakainya sebagai salinan simpanan Excel untuk registry v1: byte `vbaProject.bin` berbeda dari template, modul sheet baru kosong, dan sidik jari tetap cocok. Route test (`macro/route.test.ts`, `upload/route.test.ts`) juga membacanya. Token di dalamnya milik percobaan dev yang sudah di-abandon, jadi file ini tidak bisa dinilai bila dikirim.

@@ -18,6 +18,12 @@ function vbaExpression(text: string): string {
   return `"${text.replaceAll('"', '""').replaceAll("—", '" & ChrW$(8212) & "')}"`;
 }
 
+/** The text of `Private Const <name> As String = "..."` in the `.bas`, quotes unescaped. */
+function constantText(bas: string, name: string): string | undefined {
+  const match = bas.match(new RegExp(`Private Const ${name} As String = "((?:[^"\\r\\n]|"")*)"\\r\\n`));
+  return match?.[1].replaceAll('""', '"');
+}
+
 async function source(): Promise<string> {
   return (await readFile(BAS)).toString("latin1");
 }
@@ -35,12 +41,32 @@ describe("modFinish.bas", () => {
     expect(await source()).toContain(vbaExpression(text));
   });
 
-  it.each(REJECTION_CODES)("maps the rejection code %s", async (code) => {
-    expect(await source()).toContain(`Case "${code}"`);
+  it.each(REJECTION_CODES)("maps the rejection code %s to its own message", async (code) => {
+    const bas = await source();
+    const assigned = bas.match(new RegExp(`Case "${code}"\\r\\n\\s+RejectionText = (\\w+)\\r\\n`));
+    expect(assigned, code).not.toBeNull();
+    expect(constantText(bas, assigned![1])).toBe(macroMessages[code]);
+  });
+
+  it("shows the sent message only for 200 with \"ok\":true, and the too-large message for 413", async () => {
+    const bas = await source();
+    const sent = bas.match(/If httpStatus = 200 And InStr\(1, answerText, """ok"":true", vbBinaryCompare\) > 0 Then\r\n\s+msg = (\w+)\r\n/);
+    expect(sent).not.toBeNull();
+    expect(constantText(bas, sent![1])).toBe(macroMessages.sent);
+    const tooLarge = bas.match(/ElseIf httpStatus = 413 Then\r\n(?:\s*'[^\r\n]*\r\n)*\s+msg = (\w+) /);
+    expect(tooLarge).not.toBeNull();
+    expect(constantText(bas, tooLarge![1])).toBe(macroMessages.FILE_TOO_LARGE);
   });
 
   it("refuses files over MAX_SUBMISSION_BYTES before sending", async () => {
-    expect(await source()).toContain(`Private Const MAX_SUBMISSION_BYTES As Long = ${MAX_SUBMISSION_BYTES}\r\n`);
+    const bas = await source();
+    expect(bas).toContain(`Private Const MAX_SUBMISSION_BYTES As Long = ${MAX_SUBMISSION_BYTES}\r\n`);
+    const checks = [...bas.matchAll(/If byteCount > MAX_SUBMISSION_BYTES Then\r\n(?:\s+DeleteCopy copyPath\r\n)?\s+ShowRefusal (\w+),/g)];
+    expect(checks).toHaveLength(2);
+    for (const check of checks) expect(constantText(bas, check[1])).toBe(macroMessages.FILE_TOO_LARGE);
+    const send = bas.indexOf("xhr.send (fileBytes)");
+    expect(send).toBeGreaterThan(0);
+    for (const check of checks) expect(check.index).toBeLessThan(send);
   });
 
   it("posts to the macro route", async () => {

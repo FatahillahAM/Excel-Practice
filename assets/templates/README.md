@@ -136,7 +136,7 @@ Mengganti modul membuat file dari percobaan lama yang masih terbuka ditolak deng
 
 1. Klik sel **A1** di sheet `Instructions`.
 2. **Ctrl+S** (tetap `exam.v1.xlsm`, format `.xlsm`). Tutup Excel.
-3. Unggah `exam.v1.xlsm` ke `assets/templates/` di branch kerja yang sama, seperti di [Mengirim template ke repo](#mengirim-template-ke-repo), lalu beri tahu agent. Agent menghitung ulang sidik jari registry v1 (`node scripts/spike-s1.ts --template assets/templates/exam.v1.xlsm`) dan memberi tahu bila Preview branch itu siap.
+3. Unggah `exam.v1.xlsm` ke `assets/templates/` di branch kerja yang sama, seperti di [Mengirim template ke repo](#mengirim-template-ke-repo), lalu beri tahu agent. Orchestrator menghitung ulang sidik jari registry v1 (`node scripts/spike-s1.ts --template assets/templates/exam.v1.xlsm`), meng-commit template baru beserta sidik jari itu ke branch kerja, dan memberi tahu bila Preview branch itu siap. Perubahan ini sampai ke Production lewat PR berikutnya dari branch kerja ke `main`.
 
 ### 5. Buat ulang fixture `s3-excel2021.xlsm`
 
@@ -146,9 +146,9 @@ Fixture `src/adapters/workbook/__fixtures__/s3-excel2021.xlsm` adalah salinan v1
 2. Klik **+** di sebelah tab sheet untuk menambah satu sheet baru (biarkan namanya).
 3. Tekan **Alt+F11**, klik dua kali `modFinish` agar kodenya tampil, jangan mengetik apa pun, lalu tutup Visual Basic Editor.
 4. **File → Save As → Browse**, pilih folder **lain** dari folder kerja, **Save as type** `Excel Macro-Enabled Workbook (*.xlsm)`, nama file `s3-excel2021.xlsm` → **Save**. Tutup Excel.
-5. Jangan klik **Finish** di file ini. Unggah `s3-excel2021.xlsm` ke `src/adapters/workbook/__fixtures__/` di branch kerja (**Add file → Upload files**, **Commit directly to the … branch**, bukan `main`), lalu beri tahu agent.
+5. Jangan klik **Finish** di file `s3-excel2021.xlsm`: Finish menyimpan file itu lagi, mengirimnya, lalu menutupnya, sehingga fixture bukan lagi salinan yang hanya disimpan Excel, dan percobaannya berubah menjadi `received`. Unggah `s3-excel2021.xlsm` ke `src/adapters/workbook/__fixtures__/` di branch kerja (**Add file → Upload files**, **Commit directly to the … branch**, bukan `main`), lalu beri tahu agent.
 
-File percobaan di folder kerja tetap bisa dipakai untuk menguji **Finish** (file itu tidak ikut diubah oleh Save As).
+File percobaan di folder kerja tetap bisa dipakai untuk menguji **Finish** (file itu tidak ikut diubah oleh Save As). Setelah selesai menguji, **Abandon** percobaan itu di Dashboard supaya Start berikutnya tidak terkunci. Token di dalam fixture lalu milik percobaan dev yang sudah di-abandon: fixture hanya dipakai tes sidik jari, dan bila dikirim server menolaknya dengan `ATTEMPT_CLOSED`.
 
 ## Menguji Finish di laptop (spike S3)
 

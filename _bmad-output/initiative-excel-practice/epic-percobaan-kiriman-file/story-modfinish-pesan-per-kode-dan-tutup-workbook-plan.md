@@ -82,8 +82,11 @@ context:
 7. Abandon percobaan itu di Dashboard; buka file yang sama, **Finish**: "Percobaan ini sudah ditutup…", workbook tetap terbuka. Tutup.
 8. Start baru; buka file, buka satu workbook kosong lain; ketik `Sub X()` / `End Sub` di modul `Sheet1`, **Finish**: pesan "Identitas file ini rusak…", tetap terbuka. Hapus kode itu, **Finish** lagi: terkirim, hanya workbook ini yang tertutup, Excel tetap terbuka.
 9. Buka file `spike-s1-….xlsm` dari agent, **Finish**: "File ini bukan dari percobaan yang sedang berjalan…".
-10. Matikan Wi-Fi, buka lagi file dari langkah 8, **Finish**: "File belum terkirim…", tetap terbuka, `%TEMP%` tanpa `whe-finish-*.xlsm`.
-11. Tiap message box: **Ctrl+C**, tempel ke chat. Unggah `s3-excel2021.xlsm` ke `src/adapters/workbook/__fixtures__/` di branch kerja.
+10. Matikan Wi-Fi, buka lagi file dari langkah 8, **Finish**: "File belum terkirim…", tetap terbuka, `%TEMP%` tanpa `whe-finish-*.xlsm`. Nyalakan lagi Wi-Fi, tutup.
+11. Bila Dashboard belum menampilkan percobaan langkah 8 sebagai dinilai, minta orchestrator mengubah status percobaan itu menjadi `graded` lewat SQL di dev, lalu tunggu konfirmasinya. Buka file dari langkah 8, ubah satu sel, **Finish**: "File ini sudah dinilai…", workbook tetap terbuka. Tutup tanpa menyimpan.
+12. **File → Open → Browse**, pilih file dari langkah 8, panah di tombol **Open** → **Open Read-Only**, **Finish**: "File belum bisa disimpan, jadi belum dikirim…", tetap terbuka, tidak ada yang terkirim. Tutup.
+13. Buka file dari langkah 8, tambah satu sheet, pilih **A1:J100000**, ketik `=RAND()`, **Ctrl+Enter** (file jadi > 4 MiB setelah disimpan), **Finish**: "File ini terlalu besar (maksimal 4 MB)…" + "Detail: … byte", tetap terbuka, tidak ada yang terkirim. Tutup tanpa menyimpan lagi; file ini tidak dipakai lagi.
+14. Tiap message box: **Ctrl+C**, tempel ke chat. Unggah `s3-excel2021.xlsm` ke `src/adapters/workbook/__fixtures__/` di branch kerja.
 
 **Execution (agent, after the laptop):**
 - [ ] `src/adapters/workbook/templates.ts` -- v1 `modFinish` from `node scripts/spike-s1.ts --template assets/templates/exam.v1.xlsm`; golden and registry tests green; the new `s3-excel2021.xlsm` matches v1 (route and template tests unchanged).
@@ -92,7 +95,7 @@ context:
 
 **Acceptance Criteria:**
 - Given the rebuilt `exam.v1.xlsm`, when CI runs, then the stored `modFinish` equals `modFinish.bas` and its hash equals registry v1, also in the Excel-saved fixture.
-- Given checklist steps 6–10 on the laptop, then an accepted Finish closes the workbook (and Excel only when nothing else is open), and each refused file shows its code's message with the workbook still open.
+- Given checklist steps 6–13 on the laptop, then an accepted Finish closes the workbook (and Excel only when nothing else is open), and each refused file shows its code's message with the workbook still open.
 
 ## Implementation Notes
 
@@ -105,6 +108,8 @@ context:
 - `src/adapters/workbook/__fixtures__/README.md` › `s3-excel2021.xlsm` still describes the S3 fixture; update it when the new fixture lands (post-laptop).
 
 ## Plan Change Log
+
+- 2026-11-06, review of c40abf7: TLS list +3 WinHTTP codes (12169, 12170, 12179); `responseText` read under its own handler (200 + unreadable body → `sendFailed` with "Detail: HTTP 200, …", never taken as sent); `DisplayAlerts` off around `Save`; `Application.Quit` only with no Protected View window and every other workbook hidden and saved; `saveFailed` says Save As `.xlsm`; source test asserts the code → message mapping and size check before send; laptop steps 11–13 (ALREADY_GRADED, read-only, > 4 MiB) added, old 11 → 14; fixture README and template README step 4.3/5 updated.
 
 ## Review Triage Log
 
@@ -125,4 +130,4 @@ context:
 - `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build` -- expected: clean after the rebuild; before it only the `vba.test.ts` golden fails.
 
 **Manual checks (if no CLI):**
-- Laptop checklist 6–10 with pasted message boxes; 413/TLS/TEMP rows are reviewed in code only (not reproducible on the laptop).
+- Laptop checklist 6–13 with pasted message boxes; the local size check is step 13, the server's 413, TLS and TEMP rows are reviewed in code only (not reproducible on the laptop).

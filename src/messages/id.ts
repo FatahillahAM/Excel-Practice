@@ -76,7 +76,8 @@ export type UploadMessage = keyof typeof uploadMessages;
  * The Finish macro's message boxes (`assets/templates/vba/modFinish.bas`, CAP-3,
  * CAP-18): one per answer of the macro route, the local size check and the
  * failures before or during the send. Rejection rows reuse `uploadMessages`
- * verbatim (the Message set rows are "Upload + macro"); `sent` and `sendFailed`
+ * verbatim (the Message set rows are "Upload + macro"), except `NOT_EXCEL`,
+ * whose row is upload-only and has its own text here; `sent` and `sendFailed`
  * are the "Macro sent" / "Macro send failed" rows. The `.bas` holds each string
  * as a literal (the em dash as `ChrW$(8212)`, the file is ASCII), which
  * `modfinish-source.test.ts` checks, so this object is the one source.
@@ -99,9 +100,9 @@ export const macroMessages = {
     "Koneksi aman ke server gagal. Biasanya karena tanggal dan jam laptop salah, bukan internet kamu. Cek jamnya lalu klik Finish lagi, atau upload lewat web, ya.",
   /** [ASSUMPTION] `TEMP`/`TMP` empty, or the copy could not be written or read there. */
   tempFailed: "Salinan file nggak bisa dibuat di folder TEMP Windows. Filenya sudah tersimpan — upload lewat web, ya.",
-  /** [ASSUMPTION] `ThisWorkbook.Save` failed (e.g. opened read-only): nothing is sent. */
+  /** [ASSUMPTION] `ThisWorkbook.Save` failed or the file is read-only: nothing is sent. Save As, because Ctrl+S on a read-only file opens Save As with a possibly wrong type. */
   saveFailed:
-    "File belum bisa disimpan, jadi belum dikirim. Simpan dulu ke folder kerja kamu (Ctrl+S), lalu klik Finish lagi, ya.",
+    "File belum bisa disimpan, jadi belum dikirim. Pakai File > Save As, simpan sebagai .xlsm di folder kerja kamu, lalu klik Finish lagi, ya.",
   /** Properties missing or still `TEMPLATE` (the raw template): wording kept, `assets/templates/README.md` relies on it. */
   incomplete: "File ini tidak berisi data ujian yang lengkap.",
   incompleteNext: "Unduh ulang file ujian dari aplikasi.",

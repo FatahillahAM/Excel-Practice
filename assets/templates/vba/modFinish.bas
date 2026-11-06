@@ -32,7 +32,10 @@ Private Const STEP_SAVE As Long = 1
 Private Const STEP_COPY As Long = 2
 Private Const STEP_SEND As Long = 3
 
-' WinHTTP errors of the secure connection (certificate, secure channel). Any
+' WinHTTP errors of the secure connection, as the HRESULTs Err.Number holds
+' (&H80070000 + ERROR_WINHTTP_*): secure failure (12175), secure channel
+' (12157), certificate date (12037), name (12038), CA (12045), revocation
+' check (12057), invalid (12169), revoked (12170) and wrong usage (12179). Any
 ' other send error, e.g. -2147012889 (name not resolved), is the network row.
 Private Const WINHTTP_SECURE_FAILURE As Long = -2147012721
 Private Const WINHTTP_SECURE_CHANNEL_ERROR As Long = -2147012739
@@ -40,6 +43,9 @@ Private Const WINHTTP_SECURE_CERT_DATE_INVALID As Long = -2147012859
 Private Const WINHTTP_SECURE_CERT_CN_INVALID As Long = -2147012858
 Private Const WINHTTP_SECURE_INVALID_CA As Long = -2147012851
 Private Const WINHTTP_SECURE_CERT_REV_FAILED As Long = -2147012839
+Private Const WINHTTP_SECURE_INVALID_CERT As Long = -2147012727
+Private Const WINHTTP_SECURE_CERT_REVOKED As Long = -2147012726
+Private Const WINHTTP_SECURE_CERT_WRONG_USAGE As Long = -2147012717
 
 ' Message texts (macroMessages). The two with an em dash are functions below.
 Private Const MSG_SENT As String = "File terkirim! Hasilnya muncul di web, ya."
@@ -50,7 +56,7 @@ Private Const MSG_ATTEMPT_CLOSED As String = "Percobaan ini sudah ditutup, jadi 
 Private Const MSG_NOT_EXCEL As String = "Server nggak bisa membaca file ini sebagai file Excel. Upload file ini lewat web, ya."
 Private Const MSG_TOO_LARGE As String = "File ini terlalu besar (maksimal 4 MB). Pakai file .xlsm asli dari Start, ya."
 Private Const MSG_TLS_FAILED As String = "Koneksi aman ke server gagal. Biasanya karena tanggal dan jam laptop salah, bukan internet kamu. Cek jamnya lalu klik Finish lagi, atau upload lewat web, ya."
-Private Const MSG_SAVE_FAILED As String = "File belum bisa disimpan, jadi belum dikirim. Simpan dulu ke folder kerja kamu (Ctrl+S), lalu klik Finish lagi, ya."
+Private Const MSG_SAVE_FAILED As String = "File belum bisa disimpan, jadi belum dikirim. Pakai File > Save As, simpan sebagai .xlsm di folder kerja kamu, lalu klik Finish lagi, ya."
 Private Const MSG_INCOMPLETE As String = "File ini tidak berisi data ujian yang lengkap."
 Private Const MSG_INCOMPLETE_NEXT As String = "Unduh ulang file ujian dari aplikasi."
 Private Const LABEL_CODE As String = "Kode: "
@@ -67,6 +73,8 @@ Public Sub Finish()
     Dim httpStatus As Long
     Dim answerText As String
     Dim stepNo As Long
+    Dim alertsWere As Boolean
+    Dim alertsOff As Boolean
     Dim errNumber As Long
     Dim errText As String
 
@@ -83,7 +91,13 @@ Public Sub Finish()
     If ThisWorkbook.ReadOnly Or Len(ThisWorkbook.Path) = 0 Then
         Err.Raise vbObjectError + 514, "modFinish", "Workbook ini read-only atau belum pernah disimpan."
     End If
+    ' No compatibility or privacy dialog may stop Finish; restored on every path.
+    alertsWere = Application.DisplayAlerts
+    alertsOff = True
+    Application.DisplayAlerts = False
     ThisWorkbook.Save
+    Application.DisplayAlerts = alertsWere
+    alertsOff = False
 
     byteCount = SavedFileSize()
     If byteCount > MAX_SUBMISSION_BYTES Then
@@ -120,10 +134,21 @@ Public Sub Finish()
     ' ServerXMLHTTP as VT_BYREF|VT_ARRAY, which send rejects (E_INVALIDARG).
     xhr.send (fileBytes)
     httpStatus = xhr.Status
-    answerText = xhr.responseText
 
+    ' The server has answered: a failure from here on is not "belum terkirim"
+    ' by network. An unreadable body is never taken as accepted (the file may
+    ' or may not be in): the send-failed box says the server answered, the
+    ' workbook stays open and an upload through the web is safe (duplicate).
+    On Error Resume Next
+    answerText = xhr.responseText
+    errNumber = Err.Number
+    errText = Err.Description
     On Error GoTo 0
     DeleteCopy copyPath
+    If errNumber <> 0 Then
+        ShowRefusal SendFailedText(), LABEL_DETAIL & "HTTP " & httpStatus & ", " & errText & " (" & errNumber & ")"
+        Exit Sub
+    End If
     If ShowAnswer(httpStatus, answerText) Then CloseWorkbook
     Exit Sub
 
@@ -134,6 +159,7 @@ Failed:
 
 ReportFailure:
     On Error Resume Next
+    If alertsOff Then Application.DisplayAlerts = alertsWere
     If fileNo <> 0 Then Close #fileNo
     DeleteCopy copyPath
     On Error GoTo 0
@@ -207,7 +233,8 @@ End Function
 Private Function IsTlsError(ByVal errNumber As Long) As Boolean
     Select Case errNumber
     Case WINHTTP_SECURE_FAILURE, WINHTTP_SECURE_CHANNEL_ERROR, WINHTTP_SECURE_CERT_DATE_INVALID, _
-         WINHTTP_SECURE_CERT_CN_INVALID, WINHTTP_SECURE_INVALID_CA, WINHTTP_SECURE_CERT_REV_FAILED
+         WINHTTP_SECURE_CERT_CN_INVALID, WINHTTP_SECURE_INVALID_CA, WINHTTP_SECURE_CERT_REV_FAILED, _
+         WINHTTP_SECURE_INVALID_CERT, WINHTTP_SECURE_CERT_REVOKED, WINHTTP_SECURE_CERT_WRONG_USAGE
         IsTlsError = True
     Case Else
         IsTlsError = False
@@ -228,32 +255,38 @@ Private Sub ShowRefusal(ByVal msg As String, ByVal detailLine As String)
 End Sub
 
 ' After an accepted Finish. The file was saved before sending, so nothing is
-' lost: close this workbook, or quit Excel when no other workbook is visible.
+' lost. Excel quits only when nothing else could be lost or hidden from the
+' user; otherwise only this workbook closes.
 Private Sub CloseWorkbook()
     On Error Resume Next
     ThisWorkbook.Saved = True
-    If OtherWorkbookVisible() Then
-        ThisWorkbook.Close False
-    Else
+    If ExcelCanQuit() Then
         Application.Quit
+    Else
+        ThisWorkbook.Close False
     End If
 End Sub
 
-' True when another workbook has a visible window (PERSONAL.XLSB is hidden).
-Private Function OtherWorkbookVisible() As Boolean
+' True when no Protected View window is open and every other workbook is
+' hidden (e.g. PERSONAL.XLSB) and saved. False also when this cannot be read.
+Private Function ExcelCanQuit() As Boolean
     Dim book As Workbook
     Dim bookWindow As Window
 
+    On Error GoTo CannotTell
+    If Application.ProtectedViewWindows.Count > 0 Then Exit Function
     For Each book In Application.Workbooks
         If Not book Is ThisWorkbook Then
+            If Not book.Saved Then Exit Function
             For Each bookWindow In book.Windows
-                If bookWindow.Visible Then
-                    OtherWorkbookVisible = True
-                    Exit Function
-                End If
+                If bookWindow.Visible Then Exit Function
             Next bookWindow
         End If
     Next book
+    ExcelCanQuit = True
+    Exit Function
+CannotTell:
+    ExcelCanQuit = False
 End Function
 
 ' The code of a JSON answer {"ok":false,"code":"..."}; "" when absent.
