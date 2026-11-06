@@ -68,3 +68,12 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-upload-dropzone-dan-route-upload-plan.md`
   summary: Upload Dropzone interaction (focus return after a rejection, alert/status announcements, drag-over, keyboard activation, disabled input while uploading) has no automated test.
   evidence: 2.5 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-level-detail-panel-level-1-plan.md`
+  summary: Level Detail Panel has no "Start Test" once all practices are done, and no done state for a passed Test; the "Active" eyebrow is hard-coded.
+  evidence: 2.6 review; unreachable until Test content and graded progress exist (epics 3–4) — add with them.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-konten-level-1-practice-1-plan.md`
+  summary: Start's session `insert … select("id")` with column-level select grants and the service-role `update (snapshot) … select("id")` are verified only in SQL, not through PostgREST.
+  evidence: 2.8 review (medium if wrong, unverified); a Preview Start after applying migration 20261104000001 to dev settles it.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-attempt-card-resume-abandon-dan-kunci-start-plan.md`
+  summary: Abandon dialog behaviour (error slot, stale-error hiding, close on done, pending lock, focus trap and return) has no automated test.
+  evidence: 2.7 review (medium if wrong, unverified); add with the DOM test harness in epic 4.

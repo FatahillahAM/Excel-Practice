@@ -185,6 +185,109 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     });
   });
 
+  describe("snapshot (AD-3, AD-9: only the service role writes it, once; the session never touches it)", () => {
+    const SNAPSHOT = { contentVersion: 1, scenarioId: "baut-sinar-presisi", seed: 42, questions: [{ number: 1, key: { H2: 10 } }] };
+
+    /** Start's snapshot write: service role, owner and still-null guard in the statement. */
+    function setSnapshot(id: string, uid: string, snapshot: unknown = SNAPSHOT) {
+      return asService(
+        async (q) =>
+          (
+            await q.query(
+              "update public.attempts set snapshot = $3 where id = $1 and user_id = $2 and snapshot is null returning id",
+              [id, uid, JSON.stringify(snapshot)],
+            )
+          ).rowCount,
+      );
+    }
+
+    it("cannot be inserted by the session", async () => {
+      const uid = await newUser();
+      await expectSqlError(
+        asUser(uid, (q) =>
+          q.query(
+            "insert into public.attempts (item_id, token_sha256, template_version, snapshot) values ('L01-P1', $1, 1, $2)",
+            [hash(), JSON.stringify(SNAPSHOT)],
+          ),
+        ),
+        "42501",
+      );
+    });
+
+    it("is set once by the service role after the session's Start, and read by it", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      expect(await setSnapshot(id, uid)).toBe(1);
+      const { rows } = await asService((q) => q.query("select snapshot from public.attempts where id = $1", [id]));
+      expect(rows[0].snapshot).toEqual(SNAPSHOT);
+    });
+
+    it("matches no row for another user's attempt", async () => {
+      const uid = await newUser();
+      const other = await newUser();
+      const id = await start(uid);
+      expect(await setSnapshot(id, other)).toBe(0);
+      expect((await db.query("select snapshot from public.attempts where id = $1", [id])).rows[0].snapshot).toBeNull();
+    });
+
+    it("cannot be set a second time or changed once set", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      expect(await setSnapshot(id, uid)).toBe(1);
+      expect(await setSnapshot(id, uid, { contentVersion: 2 })).toBe(0);
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set snapshot = '{\"forged\": true}'::jsonb where id = $1", [id])),
+        "23514",
+      );
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set snapshot = null where id = $1", [id])),
+        "23514",
+      );
+      const { rows } = await db.query("select snapshot from public.attempts where id = $1", [id]);
+      expect(rows[0].snapshot).toEqual(SNAPSHOT);
+    });
+
+    it("stays null for an attempt without one (tracer rows)", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      const { rows } = await db.query("select snapshot from public.attempts where id = $1", [id]);
+      expect(rows[0].snapshot).toBeNull();
+    });
+
+    it("refuses a snapshot that is not a JSON object", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      await expectSqlError(setSnapshot(id, uid, [1, 2]), "23514");
+      await expectSqlError(setSnapshot(id, uid, "key"), "23514");
+    });
+
+    it("cannot be read or updated by the owner, while the other columns stay readable", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      expect(await setSnapshot(id, uid)).toBe(1);
+      await expectSqlError(asUser(uid, (q) => q.query("select snapshot from public.attempts where id = $1", [id])), "42501");
+      await expectSqlError(asUser(uid, (q) => q.query("select * from public.attempts where id = $1", [id])), "42501");
+      await expectSqlError(
+        asUser(uid, (q) => q.query("update public.attempts set snapshot = '{}'::jsonb where id = $1", [id])),
+        "42501",
+      );
+      const { rows } = await asUser(uid, (q) =>
+        q.query(
+          "select id, user_id, item_id, token_sha256, template_version, status, started_at, received_at from public.attempts where id = $1",
+          [id],
+        ),
+      );
+      expect(rows).toHaveLength(1);
+      // Abandon (status only) and Start's compensation (delete while open) still work.
+      expect(await abandonAs(uid, id, "open")).toBe(1);
+      const fresh = await start(uid);
+      const deleted = await asUser(uid, async (q) =>
+        (await q.query("delete from public.attempts where id = $1 returning id", [fresh])).rowCount,
+      );
+      expect(deleted).toBe(1);
+    });
+  });
+
   describe("received_at", () => {
     it("is stamped by the trigger when the macro path moves open to received", async () => {
       const uid = await newUser();

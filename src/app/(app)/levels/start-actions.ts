@@ -1,5 +1,6 @@
 "use server";
 
+import { randomInt } from "node:crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -7,14 +8,21 @@ import {
   deleteOpenAttempt,
   findOpenAttemptId,
   uploadGeneratedFile,
+  writeSnapshot,
 } from "../../../adapters/supabase/attempts";
 import { getSessionUser } from "../../../adapters/supabase/auth";
 import { loginRedirectPath, normalizeTimeZone } from "../../../adapters/supabase/auth-rules";
 import { ensureProfile, readTimeZone } from "../../../adapters/supabase/profiles";
 import { createClient } from "../../../adapters/supabase/server";
+import { createServiceClient } from "../../../adapters/supabase/service";
 import { generateExamWorkbook, type GeneratedWorkbook } from "../../../adapters/workbook/generate";
 import { newAttemptToken, tokenSha256, tokenSha256Hex } from "../../../adapters/workbook/token";
-import { examCellsSchema } from "../../../core/content/level-module";
+import {
+  examSnapshotSchema,
+  generatedExamSchema,
+  type ExamSnapshot,
+  type GeneratedExam,
+} from "../../../core/content/level-module";
 import { findItem } from "../../../content/levels";
 import type { StartError } from "../../../messages/id";
 
@@ -27,11 +35,15 @@ export type StartState =
 const LEVELS_PATH = "/levels";
 
 /**
- * Start (CAP-2): session → profile → item → token → generate → insert →
- * upload → the exam screen, which starts the download. Generation runs before
- * the insert, so a failed generation leaves no row; the upload runs after it
- * because the Storage policy needs the row; a failed upload deletes the row
- * again, since a row without a file would lock every other Start.
+ * Start (CAP-2): session → profile → item → seed and scenario → content
+ * `generate` and snapshot (validated) → token → workbook → session insert →
+ * snapshot write on the service role (AD-9: the session has no privilege on
+ * the answer key) → upload → the exam screen, which starts the download.
+ * Generation runs before the insert, so a failed generation leaves no row. A
+ * failed snapshot write or upload deletes the row again (through the session,
+ * while it is `open`): a row without a snapshot could not be graded, and a
+ * row without a file would lock every other Start. The snapshot is written
+ * before the upload, so its failure leaves no file behind.
  */
 export async function startAttempt(_previous: StartState, formData: FormData): Promise<StartState> {
   let outcome: StartState | { redirectTo: string };
@@ -63,11 +75,44 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     console.error(JSON.stringify({ event: "attempt.start_unknown_item" }));
     return { status: "error", error: "startFailed" };
   }
-  const cells = found.item.examCells();
-  if (!examCellsSchema.safeParse(cells).success) {
-    console.error(JSON.stringify({ event: "attempt.start_invalid_cells", itemId: found.item.id }));
+  const { level, item } = found;
+  if (level.scenarios.length === 0) {
+    console.error(JSON.stringify({ event: "attempt.start_no_scenarios", itemId: item.id }));
     return { status: "error", error: "startFailed" };
   }
+  // Two independent uniform draws (CAP-6); the seed is a uint32 so it fits JSON exactly.
+  const seed = randomInt(2 ** 32);
+  const scenario = level.scenarios[randomInt(level.scenarios.length)];
+  const context = { itemId: item.id, scenarioId: scenario.id, contentVersion: level.contentVersion };
+  let exam: GeneratedExam;
+  try {
+    const parsed = generatedExamSchema.safeParse(item.generate(seed, scenario));
+    if (!parsed.success) {
+      console.error(JSON.stringify({ event: "attempt.start_invalid_exam", ...context }));
+      return { status: "error", error: "startFailed" };
+    }
+    exam = parsed.data;
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "attempt.start_invalid_exam",
+        ...context,
+        name: error instanceof Error ? error.name : typeof error,
+      }),
+    );
+    return { status: "error", error: "startFailed" };
+  }
+  const checkedSnapshot = examSnapshotSchema.safeParse({
+    contentVersion: level.contentVersion,
+    scenarioId: scenario.id,
+    seed,
+    questions: exam.questions,
+  } satisfies ExamSnapshot);
+  if (!checkedSnapshot.success) {
+    console.error(JSON.stringify({ event: "attempt.start_invalid_exam", ...context, part: "snapshot" }));
+    return { status: "error", error: "startFailed" };
+  }
+  const snapshot: ExamSnapshot = checkedSnapshot.data;
 
   const token = newAttemptToken();
   const hash = tokenSha256Hex(token);
@@ -76,13 +121,13 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     generated = await generateExamWorkbook({
       token,
       serverUrl: requestOrigin(await headers()),
-      cells,
+      cells: exam.cells,
     });
   } catch (error) {
     console.error(
       JSON.stringify({
         event: "attempt.generate_failed",
-        itemId: found.item.id,
+        ...context,
         tokenSha256: tokenSha256(token),
         name: error instanceof Error ? error.name : typeof error,
       }),
@@ -91,7 +136,7 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
   }
 
   const created = await createAttempt(supabase, {
-    itemId: found.item.id,
+    itemId: item.id,
     tokenSha256: hash,
     templateVersion: generated.templateVersion,
   });
@@ -99,6 +144,15 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     if (created.reason === "failed") return { status: "error", error: "startFailed" };
     const open = await findOpenAttemptId(supabase, user.id);
     return { status: "blocked", attemptId: open.ok ? open.value : null };
+  }
+
+  const written = await writeStartSnapshot(user.id, created.id, snapshot);
+  if (written !== "ok") {
+    const deleted = await deleteOpenAttempt(supabase, created.id).catch(() => false);
+    console.error(
+      JSON.stringify({ event: "attempt.start_snapshot_failed", attemptId: created.id, code: written, deleted }),
+    );
+    return { status: "error", error: "startFailed" };
   }
 
   // A thrown upload is a failed one: the row must still be deleted.
@@ -111,14 +165,35 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
 
   console.log(
     JSON.stringify({
+      // Which content the attempt got; never the key, nor the seed that rebuilds it.
       event: "attempt.started",
       attemptId: created.id,
-      itemId: found.item.id,
+      ...context,
       templateVersion: generated.templateVersion,
       tokenSha256: tokenSha256(token),
     }),
   );
   return { redirectTo: `/exam/${created.id}?download=1` };
+}
+
+/**
+ * Writes the snapshot of the attempt the session just created, on the
+ * service-role client (AD-9), created here per request like the submission
+ * routes' (`service-ports.ts`): `ok`, or why it failed.
+ */
+async function writeStartSnapshot(
+  userId: string,
+  attemptId: string,
+  snapshot: ExamSnapshot,
+): Promise<"ok" | "service_env_missing" | "service_client_failed" | "write_failed"> {
+  let service: ReturnType<typeof createServiceClient>;
+  try {
+    service = createServiceClient();
+  } catch {
+    return "service_client_failed";
+  }
+  if (service === null) return "service_env_missing";
+  return (await writeSnapshot(service, attemptId, userId, snapshot)) ? "ok" : "write_failed";
 }
 
 /**

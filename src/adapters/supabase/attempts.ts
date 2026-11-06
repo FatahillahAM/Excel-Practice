@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ExamSnapshot } from "../../core/content/level-module";
 import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "../../core/services/attempts";
 
 /**
@@ -66,7 +67,7 @@ const TABLE = "attempts";
 const UNIQUE_VIOLATION = "23505";
 /** The partial unique index on attempts in progress (migration 20261102000001). */
 const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
-const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at";
+export const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** `attempt-files/<attemptId>/generated.xlsm` (Consistency Conventions › Storage paths). */
@@ -91,7 +92,9 @@ export function isAttemptId(value: string): boolean {
 /**
  * Start's insert, through the user's session: only the item, the token hash
  * and the template version (`user_id`, `status`, `started_at` are defaults).
- * The partial unique index refuses a second attempt in progress:
+ * The session has no privilege on `snapshot` (AD-9, migration
+ * 20261104000001): Start writes it next with `writeSnapshot` on the service
+ * role. The partial unique index refuses a second attempt in progress:
  * `open_attempt_exists`.
  */
 export async function createAttempt(
@@ -101,7 +104,11 @@ export async function createAttempt(
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .insert({ item_id: attempt.itemId, token_sha256: attempt.tokenSha256, template_version: attempt.templateVersion })
+      .insert({
+        item_id: attempt.itemId,
+        token_sha256: attempt.tokenSha256,
+        template_version: attempt.templateVersion,
+      })
       .select("id")
       .single();
     if (error) {
@@ -125,6 +132,38 @@ export async function createAttempt(
 }
 
 /**
+ * Start (service role, AD-9): writes the exam snapshot (AD-3) of the attempt
+ * the session just created, `where id = ? and user_id = <session user> and
+ * snapshot is null`. `true` only when exactly that one row was written; the
+ * database refuses any later change (set-once trigger).
+ */
+export async function writeSnapshot(
+  service: SupabaseClient,
+  attemptId: string,
+  userId: string,
+  snapshot: ExamSnapshot,
+): Promise<boolean> {
+  try {
+    const { data, error } = await service
+      .from(TABLE)
+      .update({ snapshot })
+      .eq("id", attemptId)
+      .eq("user_id", userId)
+      .is("snapshot", null)
+      .select("id");
+    if (error) {
+      logError("attempt.snapshot_write_failed", error.code);
+      return false;
+    }
+    if (Array.isArray(data) && data.length === 1) return true;
+    logError("attempt.snapshot_write_failed", "no_row");
+  } catch (error) {
+    logError("attempt.snapshot_write_failed", errorName(error));
+  }
+  return false;
+}
+
+/**
  * Start's compensation when the file could not be stored: deletes the attempt
  * while it is still `open`. `true` only when exactly that one row was deleted.
  */
@@ -143,12 +182,17 @@ export async function deleteOpenAttempt(supabase: SupabaseClient, attemptId: str
   return false;
 }
 
-/** The user's attempt in progress (`open`, `received`, `grading_failed`), if any. */
-export async function findOpenAttemptId(supabase: SupabaseClient, userId: string): Promise<Read<string | null>> {
+/**
+ * The user's attempt in progress (`open`, `received`, `grading_failed`), if
+ * any: the one read behind the Attempt Card (Dashboard), the Start lock
+ * (/levels) and Start's `blocked` link. The partial unique index allows at
+ * most one such row, so `maybeSingle()` holds.
+ */
+export async function findOpenAttempt(supabase: SupabaseClient, userId: string): Promise<Read<Attempt | null>> {
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("id")
+      .select(ATTEMPT_COLUMNS)
       .eq("user_id", userId)
       .in("status", [...IN_PROGRESS_STATUSES])
       .maybeSingle();
@@ -156,12 +200,17 @@ export async function findOpenAttemptId(supabase: SupabaseClient, userId: string
       logError("attempt.find_open_failed", error.code);
       return { ok: false };
     }
-    const id = (data as { id?: unknown } | null)?.id;
-    return { ok: true, value: typeof id === "string" ? id : null };
+    return { ok: true, value: data ? toAttempt(data as AttemptRow) : null };
   } catch (error) {
     logError("attempt.find_open_failed", errorName(error));
     return { ok: false };
   }
+}
+
+/** The id of the user's attempt in progress, if any (`findOpenAttempt`). */
+export async function findOpenAttemptId(supabase: SupabaseClient, userId: string): Promise<Read<string | null>> {
+  const read = await findOpenAttempt(supabase, userId);
+  return read.ok ? { ok: true, value: read.value?.id ?? null } : read;
 }
 
 /** One attempt through the user's session (RLS: owner only); `null` when it does not exist or is not theirs. */

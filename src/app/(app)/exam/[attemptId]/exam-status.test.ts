@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { examMessages } from "../../../../messages/id";
-import { POLL_MS, TICK_MS, isFinalPollFailure, statusLine } from "./exam-status";
+import { POLL_MS, TICK_MS, isEnded, isFinalPollFailure, statusLine } from "./exam-status";
 
 describe("Exam Status Line", () => {
   it("says Excel is open while the attempt is open", () => {
@@ -26,5 +26,16 @@ describe("Exam Status Line", () => {
     expect(isFinalPollFailure(401)).toBe(true);
     expect(isFinalPollFailure(404)).toBe(true);
     for (const code of [200, 500, 502, 503]) expect(isFinalPollFailure(code)).toBe(false);
+  });
+
+  it("says an abandoned attempt was abandoned, and any other end is closed", () => {
+    expect(statusLine("abandoned", "Practice 1")).toBe("This attempt was abandoned.");
+    expect(statusLine("closed", "Practice 1")).toBe("This attempt is closed.");
+  });
+
+  it("offers the way back to Dashboard only once the attempt ended (abandoned or closed)", () => {
+    expect(isEnded("abandoned")).toBe(true);
+    expect(isEnded("closed")).toBe(true);
+    for (const status of ["open", "received", "grading_failed", "graded"] as const) expect(isEnded(status)).toBe(false);
   });
 });

@@ -13,9 +13,14 @@ const mocks = vi.hoisted(() => ({
   findOpenAttemptId: vi.fn(),
   uploadGeneratedFile: vi.fn(),
   generateExamWorkbook: vi.fn(),
+  writeSnapshot: vi.fn(),
+  createServiceClient: vi.fn(),
+  randomInt: vi.fn(),
+  realRandomInt: null as null | ((max: number) => number),
   realGenerate: null as null | ((...args: unknown[]) => unknown),
 }));
 const SUPABASE = { session: true };
+const SERVICE = { service: true };
 
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
@@ -30,7 +35,14 @@ vi.mock("../../../adapters/supabase/attempts", () => ({
   deleteOpenAttempt: mocks.deleteOpenAttempt,
   findOpenAttemptId: mocks.findOpenAttemptId,
   uploadGeneratedFile: mocks.uploadGeneratedFile,
+  writeSnapshot: mocks.writeSnapshot,
 }));
+vi.mock("../../../adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("node:crypto", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("node:crypto")>();
+  mocks.realRandomInt = actual.randomInt as (max: number) => number;
+  return { ...actual, default: actual, randomInt: mocks.randomInt };
+});
 vi.mock("../../../adapters/workbook/generate", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../adapters/workbook/generate")>();
   mocks.realGenerate = actual.generateExamWorkbook as (...args: unknown[]) => unknown;
@@ -41,6 +53,12 @@ import { readWorkbook } from "../../../adapters/workbook/read";
 import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "../../../adapters/workbook/templates";
 import { tokenSha256Hex } from "../../../adapters/workbook/token";
 import { findItem } from "../../../content/levels";
+import {
+  examSnapshotSchema,
+  type ExamSnapshot,
+  type GeneratedExam,
+  type Scenario,
+} from "../../../core/content/level-module";
 import { startMessages } from "../../../messages/id";
 import { startAttempt, type StartState } from "./start-actions";
 
@@ -78,6 +96,9 @@ beforeEach(() => {
   mocks.deleteOpenAttempt.mockResolvedValue(true);
   mocks.findOpenAttemptId.mockResolvedValue({ ok: true, value: OTHER_ID });
   mocks.uploadGeneratedFile.mockResolvedValue(true);
+  mocks.writeSnapshot.mockResolvedValue(true);
+  mocks.createServiceClient.mockReturnValue(SERVICE);
+  mocks.randomInt.mockImplementation((max: number) => mocks.realRandomInt!(max));
   mocks.generateExamWorkbook.mockImplementation((...args: unknown[]) => mocks.realGenerate!(...args));
   logs = vi.spyOn(console, "log").mockImplementation(() => {});
   errors = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -112,6 +133,14 @@ describe("startAttempt", () => {
       tokenSha256: tokenSha256Hex(token),
       templateVersion: CURRENT_TEMPLATE_VERSION,
     });
+    expect(mocks.writeSnapshot).toHaveBeenCalledWith(
+      SERVICE,
+      ID,
+      "user-1",
+      expect.objectContaining({ contentVersion: 1, seed: expect.any(Number) }),
+    );
+    // The snapshot is written before the file is stored.
+    expect(mocks.writeSnapshot.mock.invocationCallOrder[0]).toBeLessThan(mocks.uploadGeneratedFile.mock.invocationCallOrder[0]);
     const [client, attemptId, bytes] = mocks.uploadGeneratedFile.mock.calls[0] as [unknown, string, Uint8Array];
     expect(client).toBe(SUPABASE);
     expect(attemptId).toBe(ID);
@@ -205,11 +234,136 @@ describe("startAttempt", () => {
     for (const call of mocks.generateExamWorkbook.mock.calls) expectNoTokenLogged((call[0] as { token: string }).token);
   });
 
-  it("refuses an item whose exam cells fail the schema, before generating", async () => {
-    vi.spyOn(findItem("L01-P1")!.item, "examCells").mockReturnValue({});
+  type Generate = (seed: number, scenario: Scenario) => GeneratedExam;
+  it.each<[string, (real: Generate) => Generate]>([
+    ["is outside the exam schema", () => () => ({ cells: {}, questions: [] })],
+    [
+      "has points that do not sum to 100",
+      (real) => (seed, scenario) => {
+        const exam = real(seed, scenario);
+        return { ...exam, questions: exam.questions.map((q, i) => (i === 0 ? { ...q, points: q.points - 5 } : q)) };
+      },
+    ],
+    [
+      "throws",
+      () => () => {
+        throw new RangeError("bad scenario");
+      },
+    ],
+  ])("refuses an item whose generated exam %s: no workbook, no row", async (_, fake) => {
+    const item = findItem("L01-P1")!.item;
+    vi.spyOn(item, "generate").mockImplementation(fake(item.generate.bind(item)));
     expect(await start()).toEqual({ status: "error", error: "startFailed" });
     expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
     expect(mocks.createAttempt).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([
+      expect.objectContaining({ event: "attempt.start_invalid_exam", itemId: "L01-P1", contentVersion: 1, scenarioId: expect.any(String) }),
+    ]);
+  });
+
+  it("draws a seed and a scenario, writes that exam into the workbook, and stores its snapshot", async () => {
+    const { level, item } = findItem("L01-P1")!;
+    const generate = vi.spyOn(item, "generate");
+    expect(await start()).toEqual({ redirected: `/exam/${ID}?download=1` });
+
+    const snapshot = mocks.writeSnapshot.mock.calls[0][3] as ExamSnapshot;
+    expect(examSnapshotSchema.safeParse(snapshot).success).toBe(true);
+    const scenario = level.scenarios.find((s) => s.id === snapshot.scenarioId)!;
+    expect(scenario).toBeDefined();
+    expect(snapshot.contentVersion).toBe(level.contentVersion);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledWith(snapshot.seed, scenario);
+    const exam = generate.mock.results[0].value as GeneratedExam;
+    expect(snapshot.questions).toEqual(exam.questions);
+    expect(snapshot.questions.map((q) => q.points)).toEqual([20, 25, 25, 30]);
+
+    const [, , bytes] = mocks.uploadGeneratedFile.mock.calls[0] as [unknown, string, Uint8Array];
+    const reading = await readWorkbook(bytes);
+    expect(reading.sheets.Instructions.B2.value).toBe(exam.cells.Instructions.B2);
+    for (const [ref, value] of Object.entries(exam.cells.Data)) expect(reading.sheets.Data[ref]?.value, ref).toBe(value);
+    for (const question of snapshot.questions) {
+      for (const ref of Object.keys(question.key)) expect(reading.sheets.Data[ref]).toBeUndefined();
+    }
+
+    const [line] = logs.mock.calls.map((args) => JSON.parse(String(args[0])) as Record<string, unknown>);
+    expect(line).toMatchObject({ event: "attempt.started", scenarioId: scenario.id, contentVersion: 1 });
+    expect(Object.keys(line).sort()).toEqual(
+      ["attemptId", "contentVersion", "event", "itemId", "scenarioId", "templateVersion", "tokenSha256"].sort(),
+    );
+  });
+
+  it("gives two Starts their own seeds", async () => {
+    await start();
+    await start();
+    const [first, second] = mocks.writeSnapshot.mock.calls.map((call) => call[3] as ExamSnapshot);
+    expect(first.seed).not.toBe(second.seed);
+  });
+
+  it("uses the drawn seed and scenario index, not always the first scenario", async () => {
+    const { level, item } = findItem("L01-P1")!;
+    const draws = [123456789, 3];
+    mocks.randomInt.mockImplementation(() => draws.shift());
+    const generate = vi.spyOn(item, "generate");
+    expect(await start()).toEqual({ redirected: `/exam/${ID}?download=1` });
+    expect(mocks.randomInt.mock.calls).toEqual([[2 ** 32], [level.scenarios.length]]);
+    expect(generate).toHaveBeenCalledWith(123456789, level.scenarios[3]);
+    expect(mocks.writeSnapshot.mock.calls[0][3]).toMatchObject({ seed: 123456789, scenarioId: level.scenarios[3].id });
+  });
+
+  /** Runs `fn` with a level field replaced, then puts it back. */
+  async function withLevel<K extends "scenarios" | "contentVersion">(key: K, value: unknown, fn: () => Promise<void>) {
+    const level = findItem("L01-P1")!.level as unknown as Record<K, unknown>;
+    const saved = level[key];
+    level[key] = value;
+    try {
+      await fn();
+    } finally {
+      level[key] = saved;
+    }
+  }
+
+  it("refuses a level without scenarios: nothing generated or created", async () => {
+    const generate = vi.spyOn(findItem("L01-P1")!.item, "generate");
+    await withLevel("scenarios", [], async () => {
+      expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    });
+    expect(generate).not.toHaveBeenCalled();
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([expect.objectContaining({ event: "attempt.start_no_scenarios", itemId: "L01-P1" })]);
+  });
+
+  it("refuses a snapshot outside its schema before generating the workbook", async () => {
+    await withLevel("contentVersion", 0, async () => {
+      expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([expect.objectContaining({ event: "attempt.start_invalid_exam", part: "snapshot" })]);
+  });
+
+  it.each([
+    ["the write fails", () => mocks.writeSnapshot.mockResolvedValue(false), "write_failed"],
+    ["the service env is missing", () => mocks.createServiceClient.mockReturnValue(null), "service_env_missing"],
+    [
+      "the service client cannot be created",
+      () =>
+        mocks.createServiceClient.mockImplementation(() => {
+          throw new Error("bad key");
+        }),
+      "service_client_failed",
+    ],
+  ])("deletes the new row and stores no file when %s", async (_, arrange, code) => {
+    arrange();
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.deleteOpenAttempt).toHaveBeenCalledWith(SUPABASE, ID);
+    expect(mocks.uploadGeneratedFile).not.toHaveBeenCalled();
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([{ event: "attempt.start_snapshot_failed", attemptId: ID, code, deleted: true }]);
   });
 
   it("refuses an unknown item", async () => {
