@@ -3,12 +3,12 @@ title: 'modFinish: pesan per kode dan tutup workbook'
 type: 'feature'
 ticket: '9'
 created: '2026-11-06'
-status: 'in-progress'
+status: 'built'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: '402f8e97e9326e38f99e1957054c1faa07dc3f57'
 context:
@@ -98,6 +98,12 @@ context:
 - Given checklist steps 6–13 on the laptop, then an accepted Finish closes the workbook (and Excel only when nothing else is open), and each refused file shows its code's message with the workbook still open.
 
 ## Implementation Notes
+
+- Laptop run (user, Excel 2021, 2026-11-06, Preview `dpl_2W33njyo7o85m5XAQfGj5TmXoE5x` on dev): template rebuilt in Excel (b42cb90), v1 fingerprint recomputed (`modFinish` 0067736c…, 8750479), fixture `s3-excel2021.xlsm` re-made (9de609c); `npm run test` 895/895.
+  - Step 6: accepted, workbook and Excel closed. Step 7: `ATTEMPT_CLOSED` box, workbook open (log 03:11:01). Step 8: code in `Sheet1 (Instructions)` → "Identitas file ini rusak…"; removed → sent, only this workbook closed. Step 9: "bukan dari percobaan". Step 10: offline → "File belum terkirim…".
+  - Step 11: "File ini sudah dinilai. Hasilnya ada di History, ya. / Kode: ALREADY_GRADED" (status set to `graded` on dev via SQL). Step 12: read-only → saveFailed box, "Detail: Workbook ini read-only atau belum pernah disimpan. (-2147220990)". Step 13: "File ini terlalu besar (maksimal 4 MB)… Detail: 199756293 byte", nothing sent.
+  - First step-6 try failed with "Detail: HTTP 200": Preview had Vercel Authentication on, so the macro's POST was redirected to Vercel's login page (no function log). The macro correctly treated the non-JSON 200 as not sent. Vercel Authentication was turned off for the laptop runs (user, 2026-11-06) and is turned back on after 2.10's laptop check.
+  - Step 8's first try typed the code into Book1's `Sheet1`, not the attempt file's; repeated in `VBAProject (<attempt>.xlsm) › Sheet1 (Instructions)`.
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
