@@ -28,6 +28,10 @@ async function render(): Promise<string> {
   return renderToStaticMarkup(await SetupGuidePage());
 }
 
+/** The markup of each step: the text after each `<li`, up to its `</li>`. */
+const stepItems = (html: string) => html.split(/<li[\s>]/).slice(1).map((part) => part.split("</li>")[0]);
+const anchors = (html: string) => (html.match(/<a[\s>]/g) ?? []).length;
+
 /** `>` and `&` as React escapes them in text. */
 const escaped = (text: string) => text.replaceAll("&", "&amp;").replaceAll(">", "&gt;");
 
@@ -41,7 +45,7 @@ describe("Setup Guide", () => {
     const html = await render();
     expect(html).toMatch(/^<div class="page-enter[^"]*">/);
     expect(html).toMatch(/<h1[^>]*>Setup Guide<\/h1>/);
-    const items = html.match(/<li[\s>]/g) ?? [];
+    const items = stepItems(html);
     expect(items).toHaveLength(5);
     expect(SETUP_STEPS.map((s) => s.title)).toEqual([
       "Make the working folder",
@@ -50,11 +54,17 @@ describe("Setup Guide", () => {
       "Open the file from the folder",
       "Unblock if Excel still blocks it",
     ]);
-    const numbers = SETUP_STEPS.map((_, i) => html.indexOf(`>${i + 1}</span>`));
-    const titles = SETUP_STEPS.map((step) => html.indexOf(`>${step.title}</h2>`));
-    expect(titles.every((p) => p > 0)).toBe(true);
-    expect([...titles].sort((a, b) => a - b)).toEqual(titles);
-    expect(numbers.every((p, i) => p > 0 && p < titles[i])).toBe(true);
+    expect(html).toMatch(/<ol role="list"/);
+    SETUP_STEPS.forEach((step, i) => {
+      // Each <li> holds its own number (exposed, not aria-hidden) before its own title.
+      const item = items[i];
+      const number = item.search(new RegExp(`<span [^>]*>${i + 1}</span>`));
+      const title = item.indexOf(`>${step.title}</h2>`);
+      expect(number).toBeGreaterThan(0);
+      expect(title).toBeGreaterThan(number);
+      expect(item.slice(0, title)).not.toContain("aria-hidden");
+    });
+    expect(anchors(html)).toBe(0);
     expect(html).toContain(STILL_BLOCKED);
     expect(html).not.toContain("Resume");
     expect(html).not.toContain('role="alert"');
@@ -79,15 +89,27 @@ describe("Setup Guide", () => {
     const html = await render();
     expect(html).toMatch(new RegExp(`${STILL_BLOCKED.replace("?", "\\?")} <a [^>]*href="/exam/${ID}"[^>]*>Resume</a>`));
     expect(html).not.toContain("?download=1");
+    expect(anchors(html)).toBe(1);
   });
 
   it("a failed read: the guide without Resume and without an error", async () => {
     mocks.loadOpenAttempt.mockResolvedValue("failed");
     const html = await render();
-    expect((html.match(/<li[\s>]/g) ?? []).length).toBe(5);
+    expect(stepItems(html)).toHaveLength(5);
     expect(html).toContain(STILL_BLOCKED);
     expect(html).not.toContain("Resume");
+    expect(anchors(html)).toBe(0);
     expect(html).not.toContain('role="alert"');
+  });
+});
+
+describe("Setup Steps copy", () => {
+  it("names Finish as the workbook's button, not as a menu in Kbd", async () => {
+    mocks.loadOpenAttempt.mockResolvedValue(null);
+    const html = await render();
+    expect(html).not.toMatch(/<kbd [^>]*>Finish<\/kbd>/);
+    expect(stepItems(html)[3]).toContain("tombol Finish di sheet Instructions");
+    expect(stepItems(html)[2]).toMatch(/<kbd [^>]*>Browse…<\/kbd>/);
   });
 });
 
@@ -99,5 +121,14 @@ describe("Kbd", () => {
     expect(html).toContain("border-input-border");
     expect(html).toContain("border-b-2");
     expect(html).toContain("text-[11px]");
+    expect(html).toContain("[box-decoration-break:clone]");
+    expect(html).not.toContain("inline-block");
+  });
+
+  it("keeps lang=\"en\" even when a caller passes another lang", () => {
+    const props = { lang: "id" } as unknown as React.ComponentProps<typeof Kbd>;
+    const html = renderToStaticMarkup(<Kbd {...props}>Ctrl</Kbd>);
+    expect(html).toContain('lang="en"');
+    expect(html).not.toContain('lang="id"');
   });
 });

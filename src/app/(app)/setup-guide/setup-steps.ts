@@ -29,9 +29,15 @@ export const SETUP_STEPS: readonly SetupStep[] = [
   {
     title: "Make the working folder",
     body: [
-      "Buat folder ",
+      "Buka ",
+      { kbd: "File Explorer > This PC > Local Disk (C:)" },
+      ", klik ",
+      { kbd: "New folder" },
+      ", beri nama ",
+      { kbd: "ExcelPractice" },
+      " sampai jadi ",
       { kbd: SETUP_FOLDER },
-      ". Semua file latihan selalu disimpan dan dibuka dari sini, jangan dipindah-pindah.",
+      ". Semua file latihan selalu disimpan dan dibuka dari sini.",
     ],
   },
   {
@@ -43,7 +49,9 @@ export const SETUP_STEPS: readonly SetupStep[] = [
       { kbd: SETUP_FOLDER },
       ". Atau nyalakan ",
       { kbd: "Ask where to save each file before downloading" },
-      " dan pilih folder itu setiap kali Start.",
+      " (Chrome) / ",
+      { kbd: "Ask me what to do with each download" },
+      " (Edge) dan pilih folder itu setiap kali Start.",
     ],
   },
   {
@@ -51,13 +59,15 @@ export const SETUP_STEPS: readonly SetupStep[] = [
     body: [
       "Di Excel, buka ",
       { kbd: TRUST_CENTER_PATH },
-      ", pilih folder ",
+      ", klik ",
+      { kbd: "Browse…" },
+      " dan pilih folder ",
       { kbd: SETUP_FOLDER },
       ", centang ",
       { kbd: "Subfolders of this location are also trusted" },
       ", lalu ",
       { kbd: "OK" },
-      ". Cukup sekali.",
+      ". Cukup sekali. Kalau ada file latihan yang sedang terbuka, tutup lalu buka lagi.",
     ],
   },
   {
@@ -67,9 +77,7 @@ export const SETUP_STEPS: readonly SetupStep[] = [
       { kbd: ".xlsm" },
       " dari folder ",
       { kbd: SETUP_FOLDER },
-      ", bukan dari bar unduhan browser. Kalau sudah selesai mengerjakan, klik ",
-      { kbd: "Finish" },
-      ".",
+      ", bukan dari bar unduhan browser. Kalau sudah selesai mengerjakan, klik tombol Finish di sheet Instructions (di dalam workbook, bukan di menu Excel).",
     ],
   },
   {

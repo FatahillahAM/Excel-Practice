@@ -3,17 +3,18 @@ import type { SetupStep } from "./setup-steps";
 
 /**
  * Setup Steps (DESIGN.md › Setup Steps): a numbered list of cards, the number
- * in a `primary` circle, an English title and an Indonesian body with paths
+ * in a `primary` circle (read out, as the list has no markers), an English title and an Indonesian body with paths
  * and menus in `Kbd`. Server-rendered; a steps list only, no completion
  * tracking (EXPERIENCE.md).
  */
 export function SetupStepsList({ steps }: { steps: readonly SetupStep[] }) {
   return (
-    <ol className="flex flex-col gap-[14px]">
+    // `role="list"`: Safari drops list semantics from a list without markers.
+    <ol role="list" className="flex flex-col gap-[14px]">
       {steps.map((step, index) => (
         <li key={step.title} className="flex gap-4 rounded-lg border border-border bg-card p-4">
+          {/* The visible number is the step's announced number (the list has no markers). */}
           <span
-            aria-hidden="true"
             className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary font-mono text-[15px] font-bold text-primary-foreground tabular-nums"
           >
             {index + 1}

@@ -3,7 +3,7 @@ title: 'Setup Guide'
 type: 'feature'
 ticket: '10'
 created: '2026-11-06'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -91,6 +91,20 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Thorough lenses: edge-case-hunter and verification-gap found nothing; 7 low patched; the rest rejected. The laptop check (Verification, hitl) is still open and decides the Trusted Location claim.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | `<ol>` with list-style none loses list semantics in Safari; numbers hidden (blind) | low | patch | `role="list"`; numbers exposed |
+| 2 | `Kbd` `lang` overridable at runtime; inline-block wraps badly on phones (blind) | low | patch | `lang` after spread; inline + box-decoration-break clone |
+| 3 | Chrome's label presented as Edge's (blind) | low | patch | Both labels, each named |
+| 4 | Steps miss how to make the folder, the Browse… button, reopening, where Finish is (blind) | low | patch | Copy added; Finish no longer styled as Kbd |
+| 5 | Ordering test passes with misplaced numbers; no single-link check (blind) | low | patch | Per-`<li>` checks; exactly one `<a>` with Resume |
+| 6 | Stale `PlaceholderPage` JSDoc (blind) | low | patch | Updated |
+| 7 | Trusted Location bypass of Mark of the Web unproven (intent) | maybe-false | laptop check | Plan Verification steps 1–5 decide it; Unblock step stays as fallback |
+| 8 | Hand-rolled card instead of a shadcn Card (blind, intent) | low | reject | No Card primitive in the repo; recorded as an assumption in the plan |
+| 9 | Relative imports instead of `@/` (blind, intent) | low | reject | Vitest has no `@/` alias; follows the tested pages |
 
 ## Design Notes
 

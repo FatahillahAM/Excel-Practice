@@ -31,7 +31,7 @@ export function PageTitle({
 /**
  * A surface whose content is not built yet: the shell and its title only.
  * `enter` plays the secondary page entrance (History, Records, Tips & Tricks,
- * Setup Guide, Settings).
+ * Settings).
  */
 export function PlaceholderPage({ title, enter = false }: { title: string; enter?: boolean }) {
   return (
