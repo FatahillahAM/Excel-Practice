@@ -66,10 +66,10 @@ context:
 ## Tasks & Acceptance
 
 **Execution (agent, before the laptop):**
-- [ ] `src/messages/id.ts` -- `macroMessages`: rows of the matrix (verbatim reuse of `uploadMessages` rejection strings).
-- [ ] `assets/templates/vba/modFinish.bas` -- `Save` → size check → copy → send → map per matrix; TLS by `Err.Number` (Design Notes); on success `MsgBox` then close/quit; fix the `TempCopyPath` comment; header comment updated.
-- [ ] `src/adapters/workbook/modfinish-source.test.ts` -- `.bas` is ASCII+CRLF; holds every `macroMessages` string (em dash as `ChrW$(8212)`), every `RejectionCode`, `MAX_SUBMISSION_BYTES`, `SUBMIT_PATH`; `MsgBox msg` present.
-- [ ] `assets/templates/README.md` -- rebuild section generalized (S3 → 2.9), plus the new fixture steps.
+- [x] `src/messages/id.ts` -- `macroMessages`: rows of the matrix (verbatim reuse of `uploadMessages` rejection strings).
+- [x] `assets/templates/vba/modFinish.bas` -- `Save` → size check → copy → send → map per matrix; TLS by `Err.Number` (Design Notes); on success `MsgBox` then close/quit; fix the `TempCopyPath` comment; header comment updated.
+- [x] `src/adapters/workbook/modfinish-source.test.ts` -- `.bas` is ASCII+CRLF; holds every `macroMessages` string (em dash as `ChrW$(8212)`), every `RejectionCode`, `MAX_SUBMISSION_BYTES`, `SUBMIT_PATH`; `MsgBox msg` present.
+- [x] `assets/templates/README.md` -- rebuild section generalized (S3 → 2.9), plus the new fixture steps.
 - [ ] Commit and push the work branch (not `main`) so the user can download the `.bas`.
 
 **Laptop (user, hitl) — checklist:**
@@ -99,6 +99,10 @@ context:
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 - Agent work makes no Supabase or Vercel setting changes; the only remote action is pushing the work branch for the laptop loop.
+
+- Pre-laptop agent work done (2026-11-06): `macroMessages` (incl. `incomplete`/`incompleteNext`, `codeLabel`/`detailLabel`), `modFinish.bas` rewritten (Save → local size → TEMP copy (+ copy size) → send → one box per answer; TLS by the six WinHTTP numbers; success closes via `CloseWorkbook`), `modfinish-source.test.ts`, README section generalized with fixture step 5. lint, typecheck, build clean; tests 884/885, only the `vba.test.ts` golden fails, as expected before the rebuild. Committed locally; the orchestrator pushes.
+- Read-only or never-saved workbook (`ThisWorkbook.ReadOnly` / empty `Path`) is treated as the "Simpan gagal" row before `Save` is called, so Excel's own Save As prompt never appears.
+- `src/adapters/workbook/__fixtures__/README.md` › `s3-excel2021.xlsm` still describes the S3 fixture; update it when the new fixture lands (post-laptop).
 
 ## Plan Change Log
 

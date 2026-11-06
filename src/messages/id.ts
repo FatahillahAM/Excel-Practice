@@ -71,3 +71,44 @@ export const uploadMessages = {
 } as const;
 
 export type UploadMessage = keyof typeof uploadMessages;
+
+/**
+ * The Finish macro's message boxes (`assets/templates/vba/modFinish.bas`, CAP-3,
+ * CAP-18): one per answer of the macro route, the local size check and the
+ * failures before or during the send. Rejection rows reuse `uploadMessages`
+ * verbatim (the Message set rows are "Upload + macro"); `sent` and `sendFailed`
+ * are the "Macro sent" / "Macro send failed" rows. The `.bas` holds each string
+ * as a literal (the em dash as `ChrW$(8212)`, the file is ASCII), which
+ * `modfinish-source.test.ts` checks, so this object is the one source.
+ */
+export const macroMessages = {
+  /** "Macro sent" row: HTTP 200 with `"ok":true`, also a duplicate. */
+  sent: "File terkirim! Hasilnya muncul di web, ya.",
+  NOT_THIS_ATTEMPT: uploadMessages.NOT_THIS_ATTEMPT,
+  ALREADY_GRADED: uploadMessages.ALREADY_GRADED,
+  IDENTITY_ALTERED: uploadMessages.IDENTITY_ALTERED,
+  ATTEMPT_CLOSED: uploadMessages.ATTEMPT_CLOSED,
+  /** [ASSUMPTION] The Message set row is upload-only and says to pick another file; via the macro the file is this one. */
+  NOT_EXCEL: "Server nggak bisa membaca file ini sebagai file Excel. Upload file ini lewat web, ya.",
+  /** Larger than `MAX_SUBMISSION_BYTES` locally, or HTTP 413: the same text as upload. */
+  FILE_TOO_LARGE: uploadMessages.FILE_TOO_LARGE,
+  /** "Macro send failed" row: network, timeout, 500, any other HTTP status or an unknown code. */
+  sendFailed: "File belum terkirim. Filenya sudah tersimpan — upload lewat web, ya.",
+  /** [ASSUMPTION] WinHTTP certificate or secure-channel error: usually a wrong laptop clock. */
+  tlsFailed:
+    "Koneksi aman ke server gagal. Biasanya karena tanggal dan jam laptop salah, bukan internet kamu. Cek jamnya lalu klik Finish lagi, atau upload lewat web, ya.",
+  /** [ASSUMPTION] `TEMP`/`TMP` empty, or the copy could not be written or read there. */
+  tempFailed: "Salinan file nggak bisa dibuat di folder TEMP Windows. Filenya sudah tersimpan — upload lewat web, ya.",
+  /** [ASSUMPTION] `ThisWorkbook.Save` failed (e.g. opened read-only): nothing is sent. */
+  saveFailed:
+    "File belum bisa disimpan, jadi belum dikirim. Simpan dulu ke folder kerja kamu (Ctrl+S), lalu klik Finish lagi, ya.",
+  /** Properties missing or still `TEMPLATE` (the raw template): wording kept, `assets/templates/README.md` relies on it. */
+  incomplete: "File ini tidak berisi data ujian yang lengkap.",
+  incompleteNext: "Unduh ulang file ujian dari aplikasi.",
+  /** Line under a rejection: the code the server answered, so it can be reported (EXPERIENCE forbids codes alone). */
+  codeLabel: "Kode: ",
+  /** Line under any other failure: the HTTP status or the error text and number. */
+  detailLabel: "Detail: ",
+} as const;
+
+export type MacroMessage = keyof typeof macroMessages;
