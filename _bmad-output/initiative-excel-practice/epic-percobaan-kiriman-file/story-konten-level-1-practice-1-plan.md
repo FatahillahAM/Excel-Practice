@@ -3,7 +3,7 @@ title: 'Konten Level 1 Practice 1'
 type: 'feature'
 ticket: '8'
 created: '2026-11-04'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'

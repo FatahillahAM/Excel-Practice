@@ -3,7 +3,7 @@ title: 'Attempt Card: Resume, Abandon, dan kunci Start'
 type: 'feature'
 ticket: '7'
 created: '2026-11-04'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'

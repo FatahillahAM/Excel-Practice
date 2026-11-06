@@ -3,7 +3,7 @@ title: 'Level Detail Panel Level 1'
 type: 'feature'
 ticket: '6'
 created: '2026-11-04'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
