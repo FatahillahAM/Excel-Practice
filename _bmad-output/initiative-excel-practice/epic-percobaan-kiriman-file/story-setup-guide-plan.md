@@ -3,13 +3,14 @@ title: 'Setup Guide'
 type: 'feature'
 ticket: '10'
 created: '2026-11-06'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'a71989811cabdbe67327caf4065396dd1234ee53'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -84,6 +85,8 @@ context:
 - Given an attempt in progress, when the exam screen's "Setup Guide" link is followed, then "Resume" returns to that attempt.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
