@@ -86,6 +86,8 @@ context:
 
 ## Implementation Notes
 
+- Laptop check (user, Excel 2021, 2026-11-06, Preview with Vercel Authentication off): steps 2–4 matched the plan — a file saved by the browser into the Trusted Location `C:\ExcelPractice` ran Finish without a manual Unblock, and the control file opened from Downloads was blocked. Resume link checked. Vercel Authentication turned back on afterwards.
+
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log

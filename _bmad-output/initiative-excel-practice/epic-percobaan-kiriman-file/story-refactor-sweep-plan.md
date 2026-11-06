@@ -83,6 +83,8 @@ context:
 
 ## Implementation Notes
 
+- Paused 2026-11-06 at the user's request (usage limit) before any code edit was kept; the first, partial edit (read.ts parameter properties, tsconfig, script/README commands) was discarded. Resume from Tasks item 1 with the same baseline.
+
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
