@@ -3,13 +3,14 @@ title: 'Refactor sweep'
 type: 'refactor'
 ticket: '11'
 created: '2026-11-06'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'f283a6598d643121becdd85cae4e5de6fa386ba6'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -81,6 +82,8 @@ context:
 - Given `deferred-work.md`, when setiap entri dengan `source_plan` di epic ini dan setiap entri epic 1 yang diparkir di epic ini dibaca, then masing-masing punya `status:` yang cocok dengan tabel disposisi.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
