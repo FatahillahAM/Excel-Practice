@@ -113,6 +113,23 @@ context:
 
 ## Review Triage Log
 
+Thorough lenses on the pre-laptop work (c40abf7), before the user rebuilds the template: 1 medium and 8 low patched (258ccc0); 1 deferred; the rest rejected.
+
+| # | Finding (lens) | Verdict | Route | Evidence |
+|---|----------------|---------|-------|----------|
+| 1 | Code→message mapping, 413 branch and pre-send size checks pinned only by text presence (verification-gap, blind) | medium | patch | Test asserts each `Case` assigns its own message, 413→too-large, size checks before `xhr.send`; laptop steps 11–13 (ALREADY_GRADED, read-only, > 4 MiB) |
+| 2 | TLS list missed INVALID_CERT, CERT_REVOKED, CERT_WRONG_USAGE (blind, edge) | low | patch | Added with HRESULT comment |
+| 3 | 200 with an unreadable body reported as "belum terkirim" without saying the server answered (edge) | low | patch | Status read first; body read under its own handler; sendFailed + "HTTP 200" detail, never treated as sent |
+| 4 | A Save dialog (compatibility/privacy) could stop Finish (edge) | low | patch | `DisplayAlerts` off around Save, restored on every path |
+| 5 | `Application.Quit` with hidden unsaved workbooks or Protected View windows (blind, edge) | low | patch | `ExcelCanQuit()`; otherwise close only this workbook |
+| 6 | saveFailed told a read-only user to press Ctrl+S (blind) | low | patch | Save As as .xlsm in the working folder |
+| 7 | Fixture README and template README out of date; fixture attempt left open; route to main unstated (blind, intent) | low | patch | Both READMEs updated |
+| 8 | `macroMessages` doc claimed all rejections reuse `uploadMessages` (blind) | low | patch | NOT_EXCEL named as the exception |
+| 9 | New macro texts have no row in EXPERIENCE.md Message set (blind) | low | defer | Spec edit; add with the UX doc's next revision |
+| 10 | `Err.Raise` descriptions and "byte"/"HTTP" fragments outside `macroMessages` (intent) | low | reject | Only in the "Detail:" diagnostic line |
+| 11 | "4 MB" text vs 4 MiB constant; double size check (blind) | low | reject | Same decision as 2.5; the first check covers the saved file, the second the copy |
+| 12 | Branch CI red until the rebuild (verification-gap) | false | reject | Expected by the plan: only the `vba.test.ts` golden, fixed by the laptop rebuild |
+
 ## Design Notes
 
 - Save first: CAP-3 says Finish saves and sends, and the verbatim send-failed text claims "Filenya sudah tersimpan". `SaveCopyAs` to TEMP stays (proven in S3); the open file is not read while Excel holds it.

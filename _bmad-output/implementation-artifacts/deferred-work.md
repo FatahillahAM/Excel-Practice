@@ -77,3 +77,6 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-attempt-card-resume-abandon-dan-kunci-start-plan.md`
   summary: Abandon dialog behaviour (error slot, stale-error hiding, close on done, pending lock, focus trap and return) has no automated test.
   evidence: 2.7 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
+- source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-modfinish-pesan-per-kode-dan-tutup-workbook-plan.md`
+  summary: The new macro messages (NOT_EXCEL, tlsFailed, tempFailed, saveFailed) are [ASSUMPTION] in `src/messages/id.ts` but have no row in EXPERIENCE.md › Message set.
+  evidence: 2.9 review; add the rows with the next UX doc revision.
