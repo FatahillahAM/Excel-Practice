@@ -1,6 +1,7 @@
 import { getSessionUser, type SessionUser } from "@/adapters/supabase/auth";
 import { SubmissionFault, submit, type SubmitResult } from "@/core/submission";
 import { RouteFault, bodyFault, errorName, isOctetStream, readSubmissionBody, submissionResponse } from "../http";
+import { scheduleGrading } from "../grading";
 import { serviceSubmissionPorts } from "../service-ports";
 
 /**
@@ -15,6 +16,9 @@ import { serviceSubmissionPorts } from "../service-ports";
  *    an attempt of anyone but the session user as not found
  *    (`NOT_THIS_ATTEMPT`). The attempt is the one the file's token names
  *    (AD-6 step 3), never an id in the URL.
+ *
+ * A file that moved the attempt to `received` schedules grading after the
+ * response, through the macro's `scheduleGrading` (`../grading.ts`).
  *
  * Envelope, HTTP mapping and logs are the macro's (`../http.ts`); every
  * answer logs one line, and any throw answers 500 `INTERNAL_ERROR` with an
@@ -40,6 +44,7 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     return internalError("upload.submit_failed", error);
   }
+  if (result.ok && result.log.received && result.log.attemptId !== null) scheduleGrading("upload", result.log.attemptId);
   return submissionResponse(result, "upload", fault());
 }
 

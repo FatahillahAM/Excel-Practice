@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { examMessages } from "@/messages/id";
-import { POLL_MS, TICK_MS, isEnded, isFinalPollFailure, statusLine } from "./exam-status";
+import { POLL_MS, TICK_MS, isEnded, isFinalPollFailure, resultPath, statusLine } from "./exam-status";
 
 describe("Exam Status Line", () => {
   it("says Excel is open while the attempt is open", () => {
@@ -37,5 +37,22 @@ describe("Exam Status Line", () => {
     expect(isEnded("abandoned")).toBe(true);
     expect(isEnded("closed")).toBe(true);
     for (const status of ["open", "received", "grading_failed", "graded"] as const) expect(isEnded(status)).toBe(false);
+  });
+
+  it("moves to Results only on a graded answer with a resultId (AD-11)", () => {
+    const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
+    expect(resultPath({ ok: true, data: { status: "graded", elapsedSeconds: 9, resultId: ID } })).toBe(`/results/${ID}`);
+    expect(resultPath({ ok: true, data: { status: "graded", resultId: "a/b" } })).toBe("/results/a%2Fb");
+    for (const body of [
+      { ok: true, data: { status: "graded", resultId: null } },
+      { ok: true, data: { status: "graded", resultId: "" } },
+      { ok: true, data: { status: "received", resultId: ID } },
+      { ok: false, data: { status: "graded", resultId: ID } },
+      { ok: false, code: "NOT_FOUND" },
+      null,
+      "graded",
+    ]) {
+      expect(resultPath(body)).toBeNull();
+    }
   });
 });

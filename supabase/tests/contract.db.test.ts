@@ -37,6 +37,9 @@ async function expectSqlError(promise: Promise<unknown>, code: string, constrain
 
 const hash = () => randomBytes(32).toString("hex");
 
+/** A stored Result (only its JSON shape matters to the database). */
+const RESULT = { version: 1, score: 100, correctCount: 4, questionCount: 4 };
+
 describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => {
   const dbName = `contract_${randomBytes(6).toString("hex")}`;
   let admin: pg.Client;
@@ -128,7 +131,11 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       abandoned: ["abandoned"],
       closed: ["closed"],
     };
-    for (const next of steps[status]) await db.query("update public.attempts set status = $2 where id = $1", [id, next]);
+    for (const next of steps[status]) {
+      // A new `graded` row carries its Result (attempts_graded_has_result).
+      const result = next === "graded" ? JSON.stringify(RESULT) : null;
+      await db.query("update public.attempts set status = $2, result = $3 where id = $1", [id, next, result]);
+    }
     return { uid, id };
   }
 
@@ -285,6 +292,105 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
         (await q.query("delete from public.attempts where id = $1 returning id", [fresh])).rowCount,
       );
       expect(deleted).toBe(1);
+    });
+  });
+
+  describe("result (AD-3, AD-9: written once by the service role with graded; the owner only reads it)", () => {
+    /** Grading's compare-and-set: `received` → `graded` with the Result, in one UPDATE (service role). */
+    function writeResult(id: string, result: unknown = RESULT) {
+      return asService(
+        async (q) =>
+          (
+            await q.query(
+              "update public.attempts set status = 'graded', result = $2 where id = $1 and status = 'received' returning id",
+              [id, JSON.stringify(result)],
+            )
+          ).rowCount,
+      );
+    }
+
+    it("is written by the service role's compare-and-set from received, together with graded", async () => {
+      const { id } = await attemptIn("received");
+      expect(await writeResult(id)).toBe(1);
+      const { rows } = await db.query("select status, result from public.attempts where id = $1", [id]);
+      expect(rows[0]).toEqual({ status: "graded", result: RESULT });
+    });
+
+    it("is read by the owner through the session, and by no one else", async () => {
+      const { uid, id } = await attemptIn("received");
+      expect(await writeResult(id)).toBe(1);
+      const own = await asUser(uid, (q) => q.query("select status, result from public.attempts where id = $1", [id]));
+      expect(own.rows).toEqual([{ status: "graded", result: RESULT }]);
+      const stranger = await newUser();
+      const seen = await asUser(stranger, (q) => q.query("select result from public.attempts where id = $1", [id]));
+      expect(seen.rowCount).toBe(0);
+      await expectSqlError(as("anon", null, (q) => q.query("select result from public.attempts")), "42501");
+    });
+
+    it("cannot be written by the session (42501), neither on update nor on insert", async () => {
+      const { uid, id } = await attemptIn("received");
+      await expectSqlError(
+        asUser(uid, (q) => q.query("update public.attempts set result = $2 where id = $1", [id, JSON.stringify(RESULT)])),
+        "42501",
+      );
+      await expectSqlError(
+        asUser(uid, (q) =>
+          q.query(
+            "update public.attempts set status = 'abandoned', result = $2 where id = $1 and status = 'received'",
+            [id, JSON.stringify(RESULT)],
+          ),
+        ),
+        "42501",
+      );
+      const other = await newUser();
+      await expectSqlError(
+        asUser(other, (q) =>
+          q.query(
+            "insert into public.attempts (item_id, token_sha256, template_version, result) values ('L01-P1', $1, 1, $2)",
+            [hash(), JSON.stringify(RESULT)],
+          ),
+        ),
+        "42501",
+      );
+      expect((await db.query("select result from public.attempts where id = $1", [id])).rows[0].result).toBeNull();
+    });
+
+    it("cannot be written a second time or changed once set", async () => {
+      const { id } = await attemptIn("received");
+      expect(await writeResult(id)).toBe(1);
+      // The compare-and-set no longer matches: the attempt is graded.
+      expect(await writeResult(id, { ...RESULT, score: 0 })).toBe(0);
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set result = '{\"score\": 0}'::jsonb where id = $1", [id])),
+        "23514",
+      );
+      await expectSqlError(asService((q) => q.query("update public.attempts set result = null where id = $1", [id])), "23514");
+      expect((await db.query("select result from public.attempts where id = $1", [id])).rows[0].result).toEqual(RESULT);
+    });
+
+    it("exists only on a graded attempt, and every new graded attempt has one", async () => {
+      const { id } = await attemptIn("received");
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set result = $2 where id = $1", [id, JSON.stringify(RESULT)])),
+        "23514",
+        "attempts_result_only_when_graded",
+      );
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set status = 'graded' where id = $1 and status = 'received'", [id])),
+        "23514",
+        "attempts_graded_has_result",
+      );
+      const failed = await asService(
+        async (q) =>
+          (await q.query("update public.attempts set status = 'grading_failed' where id = $1 and status = 'received' returning id", [id]))
+            .rowCount,
+      );
+      expect(failed).toBe(1);
+    });
+
+    it("refuses a Result that is not a JSON object", async () => {
+      const { id } = await attemptIn("received");
+      await expectSqlError(writeResult(id, [1, 2]), "23514");
     });
   });
 

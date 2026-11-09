@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "@/adapters/supabase/attempts";
 import { OrbitLoader } from "@/components/exam/orbit-loader";
@@ -49,7 +50,15 @@ export function isEnded(status: AttemptStatus): boolean {
   return status === "abandoned" || status === "closed";
 }
 
-type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number } };
+type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number; resultId?: string | null } };
+
+/** Where a status answer sends the exam screen: `/results/<resultId>` once `graded` with a Result (AD-11), else `null`. */
+export function resultPath(body: unknown): string | null {
+  const data = (body as StatusBody | null)?.data;
+  if ((body as StatusBody | null)?.ok !== true || data?.status !== "graded") return null;
+  const id = data.resultId;
+  return typeof id === "string" && id !== "" ? `/results/${encodeURIComponent(id)}` : null;
+}
 
 /**
  * Orbit Loader + Exam Status Line. After Start (`?download=1`) navigates once
@@ -67,6 +76,7 @@ type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSecond
  *
  * While `open`, the Upload Dropzone sits under the status line (CAP-4). An
  * accepted upload moves the screen at once, as when a poll sees the change.
+ * A poll that sees `graded` with a `resultId` replaces this page with Results.
  */
 export function ExamStatus({
   attemptId,
@@ -83,6 +93,7 @@ export function ExamStatus({
   /** Seconds since `received_at` at server render; `null` when not received yet. */
   initialReceivedSeconds: number | null;
 }) {
+  const router = useRouter();
   const [status, setStatus] = useState<AttemptStatus>(initialStatus);
   const [elapsed, setElapsed] = useState(initialElapsed);
   const [receivedSeconds, setReceivedSeconds] = useState(initialReceivedSeconds ?? 0);
@@ -158,6 +169,13 @@ export function ExamStatus({
         if (!res.ok) return;
         const body = (await res.json()) as StatusBody;
         if (cancelled || !body.ok) return;
+        const results = resultPath(body);
+        if (results !== null) {
+          // `graded` is not polled: no more polls while Results loads.
+          applyStatus("graded");
+          router.replace(results);
+          return;
+        }
         const seconds = body.data?.elapsedSeconds;
         if (typeof seconds === "number" && Number.isFinite(seconds)) {
           // What is on screen now, so a 0–1 s lag from flooring never steps the time back.
@@ -181,7 +199,7 @@ export function ExamStatus({
       window.clearTimeout(timer);
     };
     // `tick` re-arms the timer after every poll, also when the status did not change.
-  }, [attemptId, status, tick, lost, applyStatus]);
+  }, [attemptId, status, tick, lost, applyStatus, router]);
 
   if (lost) {
     return (

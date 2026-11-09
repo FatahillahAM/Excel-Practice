@@ -6,13 +6,19 @@ const mocks = vi.hoisted(() => ({
   findAttemptByTokenHash: vi.fn(),
   markReceived: vi.fn(),
   storeSubmissionFile: vi.fn(),
+  after: vi.fn(),
 }));
+// Grading runs in `after()` (../grading.ts): captured here, never run.
+vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
 vi.mock("@/adapters/supabase/attempts", () => ({
   findAttemptByTokenHash: mocks.findAttemptByTokenHash,
   markReceived: mocks.markReceived,
   storeSubmissionFile: mocks.storeSubmissionFile,
+  changeStatus: vi.fn(),
+  downloadSubmissionFile: vi.fn(),
+  loadForGrading: vi.fn(),
 }));
 
 import { readWorkbook } from "@/adapters/workbook/read";
@@ -379,6 +385,33 @@ describe("POST /api/submissions/upload: server faults", () => {
   });
 });
 
+describe("POST /api/submissions/upload: grading", () => {
+  it("schedules grading once in after() when the file moves the attempt to received", async () => {
+    const token = newToken();
+    const posted = await post(await patched(template, token));
+    expect(posted.body).toEqual(ACCEPTED);
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    expect(mocks.after.mock.calls[0][0]).toBeTypeOf("function");
+  });
+
+  it.each(["received", "grading_failed"])("does not schedule grading for a duplicate (%s)", async (status) => {
+    attemptFound(status);
+    await post(await patched(template, newToken()));
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("does not schedule grading for a refusal, a lost compare-and-set or a server fault", async () => {
+    await post(PDF_BYTES);
+    attemptFound("graded");
+    await post(await patched(template, newToken()));
+    attemptFound();
+    mocks.storeSubmissionFile.mockResolvedValue("failed");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await post(await patched(template, newToken()));
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+});
+
 describe("parity: macro and upload answer the same file the same way (Consistency Conventions › Testing)", () => {
   const ACCEPT: [string, (token: string) => Promise<Uint8Array>, () => void, null][] = [
     ["the file from Start", (token) => patched(template, token), () => {}, null],
@@ -390,8 +423,15 @@ describe("parity: macro and upload answer the same file the same way (Consistenc
     const file = await make(token);
     arrange();
     const macro = await post(file, { "x-attempt-token": token }, macroPOST, "https://example.test/api/submissions/macro");
+    const macroScheduled = mocks.after.mock.calls.length;
     arrange();
     const upload = await post(file);
+    const uploadScheduled = mocks.after.mock.calls.length - macroScheduled;
+
+    // Both channels schedule grading through the same function: once for a fresh accept, never otherwise.
+    const fresh = code === null && macro.body !== null && (macro.body as { data?: { duplicate?: boolean } }).data?.duplicate === false;
+    expect(macroScheduled).toBe(fresh ? 1 : 0);
+    expect(uploadScheduled).toBe(macroScheduled);
 
     expect(upload.status).toBe(macro.status);
     expect(upload.text).toBe(macro.text);

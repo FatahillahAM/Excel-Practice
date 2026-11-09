@@ -1,0 +1,80 @@
+import { KEY_TOLERANCE, type Check } from "../../content/checks";
+import type { ExamSnapshot } from "../../content/level-module";
+import type { CellReading, WorkbookReading } from "../workbook-reading";
+
+/**
+ * A synthetic exam shaped like L01-P1 (4 questions, 20/25/25/30 points, the
+ * same checks), small enough to write readings by hand: Data!H2:H3, I2:I3,
+ * J2:J3 and O2:P3.
+ */
+
+const value: Check = { name: "value_equals_key", tolerance: KEY_TOLERANCE };
+const base: Check[] = [{ name: "formula_present" }, { name: "not_hard_coded" }, value];
+
+export const SNAPSHOT: ExamSnapshot = {
+  contentVersion: 1,
+  scenarioId: "baut-sinar-presisi",
+  seed: 42,
+  questions: [
+    { number: 1, prompt: "Total", points: 20, sheet: "Data", range: "H2:H3", checks: base, key: { H2: 1200, H3: 12178.14 * 1.04 } },
+    {
+      number: 2,
+      prompt: "Overhead",
+      points: 25,
+      sheet: "Data",
+      range: "I2:I3",
+      checks: [...base, { name: "uses_reference", ref: "$L$2" }],
+      key: { I2: 500, I3: 750 },
+    },
+    {
+      number: 3,
+      prompt: "Porsi",
+      points: 25,
+      sheet: "Data",
+      range: "J2:J3",
+      checks: [...base, { name: "uses_functions", functions: ["SUM"] }],
+      key: { J2: 0.4, J3: 0.6 },
+    },
+    {
+      number: 4,
+      prompt: "Simulasi",
+      points: 30,
+      sheet: "Data",
+      range: "O2:P3",
+      checks: [...base, { name: "uses_reference", ref: "$N2" }],
+      key: { O2: 10.2, P2: 10.5, O3: "Lini A", P3: 0 },
+    },
+  ],
+};
+
+export const formula = (text: string, cached: CellReading["value"]): CellReading => ({
+  formula: text,
+  value: cached,
+  type:
+    cached === null
+      ? "empty"
+      : typeof cached === "number"
+        ? "number"
+        : typeof cached === "boolean"
+          ? "boolean"
+          : "string",
+});
+
+export const typed = (cached: number | string): CellReading => ({
+  formula: null,
+  value: cached,
+  type: typeof cached === "number" ? "number" : "string",
+});
+
+/** Every answer cell holds a formula whose cached value is the key. */
+export function correctCells(snapshot: ExamSnapshot = SNAPSHOT): Record<string, CellReading> {
+  const cells: Record<string, CellReading> = {};
+  for (const question of snapshot.questions) {
+    for (const [ref, key] of Object.entries(question.key)) cells[ref] = formula(`=X${ref}`, key);
+  }
+  return cells;
+}
+
+export function readingOf(data: Record<string, CellReading>, extraSheets: WorkbookReading["sheets"] = {}): WorkbookReading {
+  return { sheets: { Instructions: {}, Data: data, ...extraSheets }, properties: {}, vbaModuleHashes: null };
+}

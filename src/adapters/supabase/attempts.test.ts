@@ -7,12 +7,15 @@ import {
   createAttempt,
   deleteOpenAttempt,
   downloadGeneratedFile,
+  downloadSubmissionFile,
   findAttemptByTokenHash,
   findOpenAttempt,
   findOpenAttemptId,
   generatedFilePath,
+  loadForGrading,
   markReceived,
   readAttempt,
+  readResult,
   storeSubmissionFile,
   submissionFilePath,
   uploadGeneratedFile,
@@ -469,5 +472,118 @@ describe("abandon (session)", () => {
     expect(await abandon(fakeClient([{ data: null, error: null }]).client, ID)).toEqual({ outcome: "not_found" });
     const failed = fakeClient([{ data: null, error: { code: "08006", message: "x" } }]);
     expect(await abandon(failed.client, ID)).toEqual({ outcome: "failed" });
+  });
+});
+
+describe("changeStatus with a Result (grading)", () => {
+  const RESULT = { version: 1, score: 100 } as never;
+
+  it("writes the Result in the same compare-and-set UPDATE as graded", async () => {
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(client, ID, "received", "grade_ok", "grading.x", { result: RESULT })).toEqual({
+      outcome: "changed",
+      status: "graded",
+    });
+    expect(calls).toEqual([
+      ["update", [{ status: "graded", result: RESULT }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "received"]],
+      ["select", ["id"]],
+    ]);
+  });
+
+  it("writes grading_failed without a Result, and nothing for a refused edge", async () => {
+    const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(client, ID, "received", "grade_error")).toEqual({ outcome: "changed", status: "grading_failed" });
+    expect(calls[0]).toEqual(["update", [{ status: "grading_failed" }]]);
+    const refused = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(refused.client, ID, "abandoned", "grade_ok", undefined, { result: RESULT })).toEqual({ outcome: "refused" });
+    expect(refused.from).not.toHaveBeenCalled();
+  });
+});
+
+describe("loadForGrading (service role)", () => {
+  it("reads status and snapshot by id", async () => {
+    const snapshot = { contentVersion: 1 };
+    const { client, calls } = fakeClient({ data: { status: "received", snapshot }, error: null });
+    expect(await loadForGrading(client, ID)).toEqual({ ok: true, value: { status: "received", snapshot } });
+    expect(calls).toEqual([
+      ["select", ["status, snapshot"]],
+      ["eq", ["id", ID]],
+      ["maybeSingle", []],
+    ]);
+  });
+
+  it("is null without a row (or for a malformed id), not ok on an error or a throw", async () => {
+    expect(await loadForGrading(fakeClient({ data: null, error: null }).client, ID)).toEqual({ ok: true, value: null });
+    const unused = fakeClient({ data: null, error: null });
+    expect(await loadForGrading(unused.client, "nope")).toEqual({ ok: true, value: null });
+    expect(unused.from).not.toHaveBeenCalled();
+    expect(await loadForGrading(fakeClient({ data: null, error: { code: "08006", message: "x" } }).client, ID)).toEqual({ ok: false });
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.load_for_grading_failed", code: "08006" }));
+    const threw = fakeClient(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(await loadForGrading(threw.client, ID)).toEqual({ ok: false });
+  });
+});
+
+describe("downloadSubmissionFile (service role)", () => {
+  function storage(answer: Result | (() => Promise<Result>)) {
+    const download = vi.fn(typeof answer === "function" ? answer : async () => answer);
+    const from = vi.fn(() => ({ download }));
+    return { client: { storage: { from } } as unknown as SupabaseClient, from, download };
+  }
+
+  it("reads submission-1's bytes", async () => {
+    const { client, from, download } = storage({ data: new Blob([new Uint8Array([1, 2])]), error: null } as unknown as Result);
+    expect(await downloadSubmissionFile(client, ID)).toEqual({ ok: true, value: new Uint8Array([1, 2]) });
+    expect(from).toHaveBeenCalledWith("attempt-files");
+    expect(download).toHaveBeenCalledWith(`${ID}/submission-1.xlsm`);
+  });
+
+  it.each([
+    ["status 404", { status: 404, message: "Not Found" }],
+    ["statusCode 404 (HTTP 400)", { status: 400, statusCode: "404", message: "Object not found" }],
+    ["NoSuchKey", { status: 400, code: "NoSuchKey", message: "x" }],
+  ])("is null when the object is missing (%s)", async (_, error) => {
+    const { client } = storage({ data: null, error } as unknown as Result);
+    expect(await downloadSubmissionFile(client, ID)).toEqual({ ok: true, value: null });
+    expect(errors).not.toHaveBeenCalled();
+  });
+
+  it("is not ok when Storage fails or throws", async () => {
+    const { client } = storage({ data: null, error: { status: 500, message: "boom" } } as unknown as Result);
+    expect(await downloadSubmissionFile(client, ID)).toEqual({ ok: false });
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.submission_download_failed", code: "500" }));
+    const threw = storage(async () => {
+      throw new TypeError("fetch failed");
+    });
+    expect(await downloadSubmissionFile(threw.client, ID)).toEqual({ ok: false });
+  });
+});
+
+describe("readResult (session)", () => {
+  it("reads item and result of the user's attempt", async () => {
+    const result = { version: 1 };
+    const { client, calls } = fakeClient({ data: { item_id: "L01-P1", result }, error: null });
+    expect(await readResult(client, ID)).toEqual({ ok: true, value: { itemId: "L01-P1", result } });
+    expect(calls).toEqual([
+      ["select", ["item_id, result"]],
+      ["eq", ["id", ID]],
+      ["maybeSingle", []],
+    ]);
+  });
+
+  it("is null for no row (RLS), a null result, or a malformed id; not ok on an error", async () => {
+    expect(await readResult(fakeClient({ data: null, error: null }).client, ID)).toEqual({ ok: true, value: null });
+    expect(await readResult(fakeClient({ data: { item_id: "L01-P1", result: null }, error: null }).client, ID)).toEqual({
+      ok: true,
+      value: null,
+    });
+    const unused = fakeClient({ data: null, error: null });
+    expect(await readResult(unused.client, "x")).toEqual({ ok: true, value: null });
+    expect(unused.from).not.toHaveBeenCalled();
+    expect(await readResult(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client, ID)).toEqual({ ok: false });
   });
 });
