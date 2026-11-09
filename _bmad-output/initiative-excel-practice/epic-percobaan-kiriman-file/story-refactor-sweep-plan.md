@@ -3,12 +3,12 @@ title: 'Refactor sweep'
 type: 'refactor'
 ticket: '11'
 created: '2026-11-06'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'quick'
+review_source: 'auto'
+lenses_ran: ['quick']
 review_loop_iteration: 0
 baseline_revision: 'f283a6598d643121becdd85cae4e5de6fa386ba6'
 context:
