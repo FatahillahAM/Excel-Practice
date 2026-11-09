@@ -3,11 +3,11 @@ title: 'Uji end-to-end di Production dan rilis template v1'
 type: 'story'
 ticket: '12'
 created: '2026-11-09'
-status: 'in-progress'
+status: 'built'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
+review: 'none'
+review_source: 'auto'
 lenses_ran: []
 review_loop_iteration: 0
 baseline_revision: 'b0ad43f09c1ce6b7eb0aa238bc4cf4235a5f11c0'
@@ -66,8 +66,8 @@ context:
 ## Tasks & Acceptance
 
 **Before the run (agent):**
-- [ ] Confirm Production serves `main` with 2.9–2.11 and that `assets/templates/exam.v1.xlsm` is unchanged between the deployed commit and HEAD (`git log -- assets/templates/exam.v1.xlsm`).
-- [ ] `node scripts/spike-s1.ts` → send the user the file (unknown token, `WHE_ServerUrl` = Production).
+- [x] Confirm Production serves `main` with 2.9–2.11 and that `assets/templates/exam.v1.xlsm` is unchanged between the deployed commit and HEAD (`git log -- assets/templates/exam.v1.xlsm`).
+- [x] `node scripts/spike-s1.ts` → send the user the file (unknown token, `WHE_ServerUrl` = Production).
 
 **Production checklist (user, hitl).** After each step, tell the orchestrator; it reads Vercel runtime logs within the hour and the `prod` row, and records them.
 
@@ -84,11 +84,11 @@ context:
 DW6 = rows 1–7 all on Production. Paste every message box / inline message into chat.
 
 **After the run (agent):**
-- [ ] `src/adapters/workbook/templates.ts` -- add optional `released?: { on: string; fileSha256: string }` to `TemplateInfo`; v1 gets the run's date and the SHA-256 of the committed `exam.v1.xlsm`; doc comment: a released entry is never edited, a change is a new version registered before it becomes current (AD-4).
-- [ ] `src/adapters/workbook/templates.test.ts` -- for each released template, the committed file's SHA-256 equals `released.fileSha256` (failure message: "released — ship exam.v<N+1>.xlsm"); `on` is an ISO date; v1 is released.
-- [ ] `assets/templates/README.md` -- under "Mengganti `modFinish`": v1 dirilis <tanggal>; procedure now produces `exam.v2.xlsm` + registry entry, never edits v1.
-- [ ] `deferred-work.md` -- B7 item → closed (2.12).
-- [ ] Epic Notes -- one `Decision:` line: 2.12 passed DW1–6 on Production (attempt prefixes, log times), v1 released (date, file SHA-256 prefix, `modFinish` 0067736c…). Epic `status` stays `in-progress`; `done` is the user's call.
+- [x] `src/adapters/workbook/templates.ts` -- add optional `released?: { on: string; fileSha256: string }` to `TemplateInfo`; v1 gets the run's date and the SHA-256 of the committed `exam.v1.xlsm`; doc comment: a released entry is never edited, a change is a new version registered before it becomes current (AD-4).
+- [x] `src/adapters/workbook/templates.test.ts` -- for each released template, the committed file's SHA-256 equals `released.fileSha256` (failure message: "released — ship exam.v<N+1>.xlsm"); `on` is an ISO date; v1 is released.
+- [x] `assets/templates/README.md` -- under "Mengganti `modFinish`": v1 dirilis <tanggal>; procedure now produces `exam.v2.xlsm` + registry entry, never edits v1.
+- [x] `deferred-work.md` -- B7 item → closed (2.12).
+- [x] Epic Notes -- one `Decision:` line: 2.12 passed DW1–6 on Production (attempt prefixes, log times), v1 released (date, file SHA-256 prefix, `modFinish` 0067736c…). Epic `status` stays `in-progress`; `done` is the user's call.
 
 **Acceptance Criteria:**
 - Given rows 1–7 done, then each Done when has at least one Production log line or `prod` row recorded in Implementation Notes, and no attempt is open in `prod`.
@@ -97,10 +97,27 @@ DW6 = rows 1–7 all on Production. Paste every message box / inline message int
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Production run 2026-11-09 (all times UTC) on deployment `dpl_4qx37LDsNZe7re3tgrYAwt9KWY6e` (`main`, PR #13 merge `273da77`). `git diff 273da77 HEAD -- assets/templates/exam.v1.xlsm` is empty: the released file is the one tested. Evidence copied from Vercel runtime logs (within the 1 h retention) and `prod` rows by the orchestrator.
+
+| # | Done when | Evidence (time · channel · event/code · attempt) | Deviation |
+|---|-----------|--------------------------------------------------|-----------|
+| pre | — | 01:53:58 · macro · `received` · `eb824d75` (roti-mentari), Finish on rebuilt v1 before the run | — |
+| 1 | DW3 sudah dinilai | 02:01:12 · macro · `ALREADY_GRADED` · `eb824d75` (`tokenSha256` 55b0f07b3b82), row set `graded` via SQL. 02:30:35 · upload · `ALREADY_GRADED` · `bcb40c19` | Upload half used attempt B (`bcb40c19`, kopi-bukit-hijau) set to `graded` via SQL at the user's request, because the roti-mentari file was not on the office PC. |
+| 2 | DW1, DW5 | 02:01:57 · `attempt.started` · `a78e00b8` (A, kabel-arus-prima). 02:10:32 · `attempt.started` · `bd3bdc8c` (C, furnitur-jati-makmur). Download again of C, PowerShell `Get-FileHash` on both files before opening: both `F1AA2C9477C4E2DCB0B9FAA34D56B88628FF3833B20EE08A7127256C91F8C6EE` | Hash check ran on attempt C (A was used up by row 3's first try). |
+| 3 | DW3 kode VBA, DW2 macro | 02:13:48 · macro · `IDENTITY_ALTERED` · `bd3bdc8c` (added code). 02:14:08 · macro · `received: true` · `bd3bdc8c` (code removed). 02:14:28 · macro · `duplicate: true` · `bd3bdc8c` (second Finish of the same file) | First try on A (02:05:23 · macro · `received` · `a78e00b8`) was sent without the added-code step (user had trouble adding `Sub X`); A abandoned 02:06:24 and the row redone on C. |
+| 4 | DW4 PC kantor | 02:14:48 · `attempt.abandoned` · `bd3bdc8c` (Dashboard); also `a78e00b8` 02:06:24 | — |
+| 5 | DW3 dibatalkan | 02:14:59 · macro · `ATTEMPT_CLOSED` · `bd3bdc8c`. 02:27:20 · upload · `ATTEMPT_CLOSED` · `bd3bdc8c` (file C) | Ran on C instead of A. |
+| 6 | DW3 file lama | 02:23:07 · macro · `NOT_THIS_ATTEMPT` · `tokenSha256` 9906a4f9bf9b (`spike-s1-hGezsRAz.xlsm`). 02:27:04 · upload · `NOT_THIS_ATTEMPT` · same `tokenSha256` 9906a4f9bf9b | Upload used the same `spike-s1` file as the laptop, not a Preview file; the token is unknown in `prod` either way. |
+| 7 | DW2 upload, DW3 `.xlsx`, DW4 laptop | 02:22:16 · `attempt.started` · `bcb40c19` (B, office PC). 02:23:51 · upload · `IDENTITY_ALTERED` (Save As `.xlsx`). 02:24:10 · upload · `received: true` · `bcb40c19`. 02:24:41 · `attempt.abandoned` · `bcb40c19` (Dashboard) | Extra attempt D `3ae91bb7` (keramik-tanah-liat) started 02:26:48 on the office PC for the upload checks of rows 5–6, abandoned 02:30:44. |
+| DW6 | all rows on Production | Every line above is from `excel-practice-omega.vercel.app` / Supabase `prod`. After 02:30:44 no `open`, `received` or `grading_failed` attempt left in `prod`. | — |
+
+- Release (agent, after the run): `templates.ts` `TemplateInfo.released?: { on, fileSha256 }`; v1 `released: { on: "2026-11-09", fileSha256: "aa2b82e2a5b12da15b80848c8ad8fa32b5dd83e9f4757ba5f5059382289cc42f" }` (`sha256sum` of the committed `assets/templates/exam.v1.xlsm`). `templates.test.ts` "released templates": v1 is released, `on` is a real ISO date, and the committed file's SHA-256 equals `fileSha256` (message "… is released — ship exam.v2.xlsm"). README, `deferred-work.md` B7 and one epic `Decision:` line updated; epic stays `in-progress`.
 
 ## Plan Change Log
 
 ## Review Triage Log
+
+No lens run: the code change is one optional registry field, its value and one test (verified by mutating the pinned hash, which failed with the "ship exam.v2.xlsm" message); the rest is evidence and docs. The orchestrator confirmed on prod at 02:31Z that no open/received/grading_failed attempt is left.
 
 ## Design Notes
 

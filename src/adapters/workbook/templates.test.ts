@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -77,6 +78,25 @@ describe.each(Object.entries(templates))("template v%s", (version, template) => 
       const result = (await after.file(name)?.async("string")) ?? "";
       expect(outsideSheetData(result), name).toBe(outsideSheetData(original));
     }
+  });
+});
+
+describe("released templates", () => {
+  const released = Object.entries(templates).filter(([, template]) => template.released !== undefined);
+
+  it("marks v1 released", () => {
+    expect(templates[1].released).toBeDefined();
+  });
+
+  it.each(released)("v%s: the committed file is byte-for-byte the released one", async (version, template) => {
+    const { on, fileSha256 } = template.released!;
+    expect(on).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(new Date(`${on}T00:00:00Z`).toISOString().slice(0, 10)).toBe(on);
+    expect(fileSha256).toMatch(/^[0-9a-f]{64}$/);
+    const actual = createHash("sha256")
+      .update(await readFile(path.join(repoRoot, template.file)))
+      .digest("hex");
+    expect(actual, `${template.file} is released — ship exam.v${Number(version) + 1}.xlsm`).toBe(fileSha256);
   });
 });
 

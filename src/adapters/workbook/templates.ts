@@ -12,6 +12,11 @@ import { EMPTY_MODULE_SHA256, type VbaModuleHashes } from "./vba.ts";
  *
  * Values come only from the adapter run on the committed `.xlsm`
  * (`pinnedModules`); `templates.test.ts` recomputes them.
+ *
+ * A released entry (`released`) is never edited, and neither is its file: a
+ * change (cells, button, VBA) ships as a new `exam.v<N+1>.xlsm` with its own
+ * entry, registered before it becomes `CURRENT_TEMPLATE_VERSION` (AD-4).
+ * `templates.test.ts` pins the released file's whole SHA-256.
  */
 
 export interface TemplateInfo {
@@ -19,6 +24,11 @@ export interface TemplateInfo {
   file: string;
   /** Per pinned module (MODULENAMEUNICODE), lowercase hex SHA-256 of its normalized source. */
   vbaModules: Readonly<Record<string, string>>;
+  /**
+   * Set once the version is released: `on` is the ISO date (YYYY-MM-DD),
+   * `fileSha256` the lowercase hex SHA-256 of the whole committed file.
+   */
+  released?: { on: string; fileSha256: string };
 }
 
 export const templates: Readonly<Record<number, TemplateInfo>> = {
@@ -26,6 +36,10 @@ export const templates: Readonly<Record<number, TemplateInfo>> = {
     file: "assets/templates/exam.v1.xlsm",
     vbaModules: {
       modFinish: "0067736ccfd53f73876ab36627ad86cc469fe11f17ccff2e41050a5194766cb7",
+    },
+    released: {
+      on: "2026-11-09",
+      fileSha256: "aa2b82e2a5b12da15b80848c8ad8fa32b5dd83e9f4757ba5f5059382289cc42f",
     },
   },
 };
