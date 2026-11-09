@@ -3,7 +3,7 @@ title: 'Refactor sweep'
 type: 'refactor'
 ticket: '11'
 created: '2026-11-06'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'quick'
@@ -91,7 +91,19 @@ context:
 
 ## Plan Change Log
 
+- AC 2 / Verification grep: `src/lint-rules.test.ts:90–92` still match; they are string fixtures fed to the AD-1 lint rule, not imports, so they stay (accepted exception, 2.11 review).
+- AC 1 "di Node 24": run on Node 22.22 here (type stripping on by default, same strip-only rules); CI's Node is the check of record.
+
 ## Review Triage Log
+
+Quick lens: no behaviour bugs; 3 low patched (bookkeeping); the rest rejected.
+
+- low, patch — AC 2 grep exception (`lint-rules.test.ts` fixtures) only in Implementation Notes: recorded in the Plan Change Log.
+- low, patch — Design Notes still said the 2.10 laptop check and Vercel Authentication were open: updated (both done 2026-11-06).
+- low, patch — the Preview / Vercel Authentication note sat in the historical S3 section: moved to "Mengganti `modFinish`", where Preview laptop runs happen.
+- low, reject — AC 1 run on Node 22 not 24: same strip-only rules; noted in the Change Log, CI is the check of record.
+- low, reject — CI, `db-contract` and `test:db` with the new `vitest.config.ts` not run: they run on this push; CI result checked before the PR.
+- false — 2.9/2.10 `status: done` and Decision lines "outside the plan": those are the user's ticketing marks committed before the sweep's baseline diff was taken from an earlier base, not sweep edits; the 11-06 laptop date vs 11-09 Decision date are the test day and the day the user marked them done.
 
 ## Design Notes
 
@@ -100,7 +112,7 @@ context:
 - [ASSUMPTION] Baris EXPERIENCE.md mencatat teks yang sudah dikirim dan bertanda illustrative, seperti baris lain yang bukan *decided*; ini penyelarasan dokumen, bukan keputusan UX baru (preseden: 1.10 mengubah spine lewat sweep).
 - [ASSUMPTION] Tulisan ke file tiket (Parked Notes, Decision) mengikuti preseden 1.10 (triage review 1.10: entri "moved" hanya di plan tidak terlihat oleh epic tujuan).
 - `PlaceholderPage` tetap ada: History/Records milik epic 4, Tips milik epic 3; yang dibersihkan hanya prop yang selalu sama.
-- Di luar sweep, tetap terbuka: uji laptop 2.10 (Trusted Location, temuan review 2.10 #7) milik 2.10 dan harus selesai sebelum 2.12; sesudahnya user menyalakan lagi Vercel Authentication di Preview (catatan laptop 2.9).
+- Uji laptop 2.10 (Trusted Location, temuan review 2.10 #7) selesai 2026-11-06 dan Vercel Authentication di Preview sudah dinyalakan lagi; tidak ada yang tersisa di luar sweep selain rilis v1 (2.12).
 
 **Disposisi entri tertunda** (bukti dicek 2026-11-06):
 

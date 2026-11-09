@@ -112,6 +112,8 @@ Prosedur ini dipakai setiap kali `vba/modFinish.bas` berubah selagi v1 belum dir
 
 Mengganti modul membuat file dari percobaan lama yang masih terbuka ditolak dengan `IDENTITY_ALTERED`, jadi **Abandon** dulu percobaan yang masih terbuka di Dashboard.
 
+**Uji di Preview:** bila file dibuat oleh deployment Preview (`WHE_ServerUrl` alamat Preview), Vercel Authentication (Project Settings › Deployment Protection) mengalihkan POST macro ke halaman login Vercel. Macro lalu melapor "File belum terkirim…" dengan "Detail: HTTP 200", dan tidak ada log function di Vercel. Matikan Vercel Authentication selama uji laptop di Preview (macro tidak bisa mengirim header bypass), lalu nyalakan lagi sesudahnya. Production tidak terdampak.
+
 ### 1. Siapkan file
 
 1. Unduh `assets/templates/exam.v1.xlsm` dan `assets/templates/vba/modFinish.bas` dari branch kerja di GitHub (buka filenya, tombol **Download raw file**). Jangan menyalin isi `.bas` lewat copy-paste.
@@ -155,8 +157,6 @@ File percobaan di folder kerja tetap bisa dipakai untuk menguji **Finish** (file
 Catatan riwayat: bagian ini menguji `modFinish` versi S3. Sejak story 2.9 pesannya mengikuti `macroMessages` di `src/messages/id.ts` (misalnya "File terkirim! Hasilnya muncul di web, ya."), workbook disimpan sebelum dikirim dan ditutup bila diterima, dan fixture dibuat ulang lewat langkah 5 di atas.
 
 Mulai setelah agent memberi tahu bahwa endpoint sudah ada di Production dan mengirim file `spike-s1-….xlsm`.
-
-**Uji di Preview:** bila file dibuat oleh deployment Preview (`WHE_ServerUrl` alamat Preview), Vercel Authentication (Project Settings › Deployment Protection) mengalihkan POST macro ke halaman login Vercel. Macro lalu melapor "File belum terkirim…" dengan "Detail: HTTP 200", dan tidak ada log function di Vercel. Matikan Vercel Authentication selama uji laptop di Preview (macro tidak bisa mengirim header bypass), lalu nyalakan lagi sesudahnya. Production tidak terdampak.
 
 ### 1. Siapkan file
 
