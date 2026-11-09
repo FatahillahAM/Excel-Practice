@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MAX_SUBMISSION_BYTES, type SubmissionLog, type SubmitResult } from "../../../core/submission";
+import { MAX_SUBMISSION_BYTES, type SubmissionLog, type SubmitResult } from "@/core/submission";
 import { streamOf } from "./__fixtures__/files";
 import { bodyFault, isOctetStream, readBoundedBody, readSubmissionBody, submissionResponse } from "./http";
 

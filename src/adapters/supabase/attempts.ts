@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ExamSnapshot } from "../../core/content/level-module";
-import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "../../core/services/attempts";
+import type { ExamSnapshot } from "@/core/content/level-module";
+import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "@/core/services/attempts";
 
 /**
  * `attempts` and the `attempt-files` bucket (migration `20261102000001`).
@@ -18,8 +18,8 @@ import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus
  */
 
 // The lifecycle types live in core (AD-5); re-exported for existing callers.
-export { IN_PROGRESS_STATUSES } from "../../core/services/attempts";
-export type { AttemptEvent, AttemptStatus } from "../../core/services/attempts";
+export { IN_PROGRESS_STATUSES } from "@/core/services/attempts";
+export type { AttemptEvent, AttemptStatus } from "@/core/services/attempts";
 
 export interface Attempt {
   id: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "../../../../core/submission";
-import { loginMessages, uploadMessages } from "../../../../messages/id";
+import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "@/core/submission";
+import { loginMessages, uploadMessages } from "@/messages/id";
 import { UPLOAD_ACCEPT, afterUpload, pickFile, tooLarge, uploadOutcome } from "./upload";
 
 describe("Upload Dropzone logic", () => {

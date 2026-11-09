@@ -7,18 +7,18 @@ const mocks = vi.hoisted(() => ({
   markReceived: vi.fn(),
   storeSubmissionFile: vi.fn(),
 }));
-vi.mock("../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../../adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
-vi.mock("../../../../adapters/supabase/attempts", () => ({
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("@/adapters/supabase/attempts", () => ({
   findAttemptByTokenHash: mocks.findAttemptByTokenHash,
   markReceived: mocks.markReceived,
   storeSubmissionFile: mocks.storeSubmissionFile,
 }));
 
-import { readWorkbook } from "../../../../adapters/workbook/read";
-import { CURRENT_TEMPLATE_VERSION } from "../../../../adapters/workbook/templates";
-import { tokenSha256, tokenSha256Hex } from "../../../../adapters/workbook/token";
-import { MAX_SUBMISSION_BYTES, RejectionCode } from "../../../../core/submission";
+import { readWorkbook } from "@/adapters/workbook/read";
+import { CURRENT_TEMPLATE_VERSION } from "@/adapters/workbook/templates";
+import { tokenSha256, tokenSha256Hex } from "@/adapters/workbook/token";
+import { MAX_SUBMISSION_BYTES, RejectionCode } from "@/core/submission";
 import {
   PDF_BYTES,
   asDocx,

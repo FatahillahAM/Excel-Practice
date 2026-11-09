@@ -59,9 +59,12 @@ export class NotAWorkbookError extends Error {
  * `IDENTITY_ALTERED`): `contentType` is its main part's content type.
  */
 export class NotMacroEnabledError extends Error {
-  constructor(readonly contentType: string) {
+  readonly contentType: string;
+
+  constructor(contentType: string) {
     super(`Not a macro-enabled workbook: main part is ${contentType}`);
     this.name = "NotMacroEnabledError";
+    this.contentType = contentType;
   }
 }
 
@@ -201,12 +204,11 @@ interface InternalStreamSource {
  * fails with `NotAWorkbookError`.
  */
 class PartReader {
+  private readonly zip: JSZip;
   private remaining: number;
 
-  constructor(
-    private readonly zip: JSZip,
-    budget: number,
-  ) {
+  constructor(zip: JSZip, budget: number) {
+    this.zip = zip;
     this.remaining = budget;
   }
 

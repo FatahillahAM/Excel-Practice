@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ signOut: vi.fn() }));
-vi.mock("../../../adapters/supabase/auth", () => mocks);
+vi.mock("@/adapters/supabase/auth", () => mocks);
 
 import { POST } from "./route";
 

@@ -1,5 +1,5 @@
-import { getSessionUser, type SessionUser } from "../../../../adapters/supabase/auth";
-import { SubmissionFault, submit, type SubmitResult } from "../../../../core/submission";
+import { getSessionUser, type SessionUser } from "@/adapters/supabase/auth";
+import { SubmissionFault, submit, type SubmitResult } from "@/core/submission";
 import { RouteFault, bodyFault, errorName, isOctetStream, readSubmissionBody, submissionResponse } from "../http";
 import { serviceSubmissionPorts } from "../service-ports";
 

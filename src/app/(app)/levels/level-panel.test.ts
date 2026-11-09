@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { LevelItem } from "../../../core/content/level-module";
-import { levels } from "../../../content/levels";
+import type { LevelItem } from "@/core/content/level-module";
+import { levels } from "@/content/levels";
 import { levelPanel, testLockLine } from "./level-panel";
 
 const generate = () => ({ cells: { Data: { A1: "x" } }, questions: [] });

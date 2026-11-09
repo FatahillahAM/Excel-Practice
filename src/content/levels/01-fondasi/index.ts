@@ -1,4 +1,4 @@
-import { defineLevelModule } from "../../../core/content/level-module";
+import { defineLevelModule } from "@/core/content/level-module";
 import { practice1 } from "./practice-1";
 import { fondasiScenarioSchema, scenarios } from "./scenarios";
 

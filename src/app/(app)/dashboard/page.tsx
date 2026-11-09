@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { surfaceTitle } from "../../../components/shell/nav-items";
-import { PageTitle } from "../../../components/shell/page-title";
-import { shellMessages } from "../../../messages/id";
+import { surfaceTitle } from "@/components/shell/nav-items";
+import { PageTitle } from "@/components/shell/page-title";
+import { shellMessages } from "@/messages/id";
 import { attemptCardView, loadOpenAttempt } from "../open-attempt";
 import { AttemptCard, DASHBOARD_TITLE_ID } from "./attempt-card";
 

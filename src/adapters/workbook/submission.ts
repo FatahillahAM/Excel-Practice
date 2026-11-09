@@ -1,4 +1,4 @@
-import type { WorkbookInspection, WorkbookPort } from "../../core/submission";
+import type { WorkbookInspection, WorkbookPort } from "@/core/submission";
 import { NotAWorkbookError, NotMacroEnabledError, readWorkbook } from "./read.ts";
 import { matchesTemplate } from "./templates.ts";
 import { tokenSha256Hex } from "./token.ts";

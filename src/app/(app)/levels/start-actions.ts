@@ -9,22 +9,22 @@ import {
   findOpenAttemptId,
   uploadGeneratedFile,
   writeSnapshot,
-} from "../../../adapters/supabase/attempts";
-import { getSessionUser } from "../../../adapters/supabase/auth";
-import { loginRedirectPath, normalizeTimeZone } from "../../../adapters/supabase/auth-rules";
-import { ensureProfile, readTimeZone } from "../../../adapters/supabase/profiles";
-import { createClient } from "../../../adapters/supabase/server";
-import { createServiceClient } from "../../../adapters/supabase/service";
-import { generateExamWorkbook, type GeneratedWorkbook } from "../../../adapters/workbook/generate";
-import { newAttemptToken, tokenSha256, tokenSha256Hex } from "../../../adapters/workbook/token";
+} from "@/adapters/supabase/attempts";
+import { getSessionUser } from "@/adapters/supabase/auth";
+import { loginRedirectPath, normalizeTimeZone } from "@/adapters/supabase/auth-rules";
+import { ensureProfile, readTimeZone } from "@/adapters/supabase/profiles";
+import { createClient } from "@/adapters/supabase/server";
+import { createServiceClient } from "@/adapters/supabase/service";
+import { generateExamWorkbook, type GeneratedWorkbook } from "@/adapters/workbook/generate";
+import { newAttemptToken, tokenSha256, tokenSha256Hex } from "@/adapters/workbook/token";
 import {
   examSnapshotSchema,
   generatedExamSchema,
   type ExamSnapshot,
   type GeneratedExam,
-} from "../../../core/content/level-module";
-import { findItem } from "../../../content/levels";
-import type { StartError } from "../../../messages/id";
+} from "@/core/content/level-module";
+import { findItem } from "@/content/levels";
+import type { StartError } from "@/messages/id";
 
 export type StartState =
   | { status: "idle" }

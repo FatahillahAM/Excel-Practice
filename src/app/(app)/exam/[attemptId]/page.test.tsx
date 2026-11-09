@@ -20,11 +20,11 @@ vi.mock("next/navigation", () => ({
     if ((error as { url?: string; notFound?: boolean })?.url || (error as { notFound?: boolean })?.notFound) throw error;
   },
 }));
-vi.mock("../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("../../../../adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
+vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
 
-import { examMessages, shellMessages } from "../../../../messages/id";
+import { examMessages, shellMessages } from "@/messages/id";
 import ExamPage from "./page";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";

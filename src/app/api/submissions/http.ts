@@ -1,4 +1,4 @@
-import type { AttemptStatus } from "../../../core/services/attempts";
+import type { AttemptStatus } from "@/core/services/attempts";
 import {
   MAX_SUBMISSION_BYTES,
   SubmissionFault,
@@ -6,7 +6,7 @@ import {
   type SubmissionCode,
   type SubmissionLog,
   type SubmitResult,
-} from "../../../core/submission";
+} from "@/core/submission";
 
 /**
  * The HTTP side both submission routes share (AD-6): the bounded body, the

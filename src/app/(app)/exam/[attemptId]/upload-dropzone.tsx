@@ -2,8 +2,8 @@
 
 import { Upload } from "lucide-react";
 import { useRef, useState, type DragEvent } from "react";
-import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
-import { uploadMessages } from "../../../../messages/id";
+import type { AttemptStatus } from "@/adapters/supabase/attempts";
+import { uploadMessages } from "@/messages/id";
 import {
   UPLOAD_ACCEPT,
   UPLOAD_ENDPOINT,

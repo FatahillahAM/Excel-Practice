@@ -8,10 +8,10 @@ vi.mock("../open-attempt", async (importOriginal) => {
   return { ...actual, loadOpenAttempt: mocks.loadOpenAttempt };
 });
 // `open-attempt` imports the session adapters; never reached with `loadOpenAttempt` mocked.
-vi.mock("../../../adapters/supabase/server", () => ({ createClient: vi.fn() }));
-vi.mock("../../../adapters/supabase/auth", () => ({ getSessionUser: vi.fn() }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: vi.fn() }));
 
-import { shellMessages } from "../../../messages/id";
+import { shellMessages } from "@/messages/id";
 import DashboardPage from "./page";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";

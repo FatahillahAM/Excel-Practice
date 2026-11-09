@@ -25,7 +25,7 @@ export const templates: Readonly<Record<number, TemplateInfo>> = {
   1: {
     file: "assets/templates/exam.v1.xlsm",
     vbaModules: {
-      modFinish: "e8579897d34cb249d4ab70d628c925a37a0ea5e0fa6d35a14ea319b8b04ecc81",
+      modFinish: "0067736ccfd53f73876ab36627ad86cc469fe11f17ccff2e41050a5194766cb7",
     },
   },
 };

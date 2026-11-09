@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), readAttempt: vi.fn() }));
 const SUPABASE = { session: true };
-vi.mock("../../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("../../../../../adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
+vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
 
 import { GET } from "./route";
 

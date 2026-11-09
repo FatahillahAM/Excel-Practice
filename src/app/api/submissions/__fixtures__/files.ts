@@ -3,10 +3,10 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
-import { buildVbaProject, type ModuleSpec } from "../../../../adapters/workbook/__fixtures__/vba-project";
-import { patchTemplate } from "../../../../adapters/workbook/template-patch";
-import { CURRENT_TEMPLATE_VERSION, templates } from "../../../../adapters/workbook/templates";
-import { readVbaModuleSources } from "../../../../adapters/workbook/vba";
+import { buildVbaProject, type ModuleSpec } from "@/adapters/workbook/__fixtures__/vba-project";
+import { patchTemplate } from "@/adapters/workbook/template-patch";
+import { CURRENT_TEMPLATE_VERSION, templates } from "@/adapters/workbook/templates";
+import { readVbaModuleSources } from "@/adapters/workbook/vba";
 
 /**
  * Test files for the submission routes (tests only): workbooks patched from
@@ -81,13 +81,9 @@ export async function asPackage(
 ): Promise<Uint8Array> {
   return editZip(await patched(template, token), async (zip) => {
     const types = await zip.file("[Content_Types].xml")!.async("string");
-    zip.file(
-      "[Content_Types].xml",
-      types.replace(
-        `<Override PartName="/xl/workbook.xml" ContentType="${XLSM_MAIN}"/>`,
-        `<Override PartName="/${mainPart}" ContentType="${contentType}"/>`,
-      ),
-    );
+    const override = `<Override PartName="/xl/workbook.xml" ContentType="${XLSM_MAIN}"/>`;
+    if (!types.includes(override)) throw new Error("asPackage: the /xl/workbook.xml override was not found in [Content_Types].xml");
+    zip.file("[Content_Types].xml", types.replace(override, `<Override PartName="/${mainPart}" ContentType="${contentType}"/>`));
     if (mainPart !== "xl/workbook.xml") {
       zip.remove("xl/workbook.xml");
       zip.file(mainPart, new Uint8Array([0x83, 0x01, 0x00]));

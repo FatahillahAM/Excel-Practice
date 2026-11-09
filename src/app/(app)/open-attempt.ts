@@ -1,10 +1,10 @@
 import { unstable_rethrow } from "next/navigation";
-import { findOpenAttempt, type Attempt } from "../../adapters/supabase/attempts";
-import { getSessionUser } from "../../adapters/supabase/auth";
-import { createClient } from "../../adapters/supabase/server";
-import { itemLabel } from "../../core/content/level-module";
-import { elapsedSeconds } from "../../core/services/attempts";
-import { findItem } from "../../content/levels";
+import { findOpenAttempt, type Attempt } from "@/adapters/supabase/attempts";
+import { getSessionUser } from "@/adapters/supabase/auth";
+import { createClient } from "@/adapters/supabase/server";
+import { itemLabel } from "@/core/content/level-module";
+import { elapsedSeconds } from "@/core/services/attempts";
+import { findItem } from "@/content/levels";
 import { formatElapsed } from "./exam/[attemptId]/exam-time";
 
 /** The user's attempt in progress as read at render, with the server's seconds since Start (AD-8). */

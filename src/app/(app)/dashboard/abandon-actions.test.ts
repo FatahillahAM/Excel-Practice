@@ -11,10 +11,10 @@ const mocks = vi.hoisted(() => ({
 const SUPABASE = { session: true };
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
-vi.mock("../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("../../../adapters/supabase/attempts", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../adapters/supabase/attempts")>();
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
+vi.mock("@/adapters/supabase/attempts", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/adapters/supabase/attempts")>();
   return { isAttemptId: actual.isAttemptId, abandon: mocks.abandon };
 });
 

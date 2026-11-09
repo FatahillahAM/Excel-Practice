@@ -106,13 +106,17 @@ Langkah ini untuk `modFinish` versi S1, yang hanya menampilkan tiga property. Se
 3. Bila ada bar **Enable Content**, klik. Klik **Finish**. MsgBox menampilkan tiga property; `WHE_AttemptToken` harus sama dengan token yang dicetak agent. Tekan **Ctrl+C** saat MsgBox terbuka untuk menyalin isinya, lalu tempel ke chat.
 4. Tutup tanpa menyimpan.
 
-## Mengganti `modFinish` di `exam.v1.xlsm` (spike S3)
+## Mengganti `modFinish` di `exam.v1.xlsm`
 
-Spike S3 mengganti isi `modFinish`: tombol **Finish** kini menyimpan salinan workbook ke folder TEMP, mengirimnya ke `WHE_ServerUrl` lewat HTTPS, lalu menampilkan hasilnya. Versi template tetap v1 (v1 belum dirilis), jadi file `exam.v1.xlsm` yang sama diubah di tempat. Selain modul, tidak ada yang diubah: sheet, sel, tombol, dan custom property dibiarkan.
+Prosedur ini dipakai setiap kali `vba/modFinish.bas` berubah selagi v1 belum dirilis: spike S3 (Finish mulai mengirim file) dan story 2.9 (Finish menyimpan workbook, menampilkan satu pesan per kode jawaban server, lalu menutup workbook bila file diterima). Versi template tetap v1, jadi file `exam.v1.xlsm` yang sama diubah di tempat. Selain modul, tidak ada yang diubah: sheet, sel, tombol, dan custom property dibiarkan. Setelah v1 dirilis, perubahan modul menjadi template baru `exam.v2.xlsm` (spine AD-4).
+
+Mengganti modul membuat file dari percobaan lama yang masih terbuka ditolak dengan `IDENTITY_ALTERED`, jadi **Abandon** dulu percobaan yang masih terbuka di Dashboard.
+
+**Uji di Preview:** bila file dibuat oleh deployment Preview (`WHE_ServerUrl` alamat Preview), Vercel Authentication (Project Settings › Deployment Protection) mengalihkan POST macro ke halaman login Vercel. Macro lalu melapor "File belum terkirim…" dengan "Detail: HTTP 200", dan tidak ada log function di Vercel. Matikan Vercel Authentication selama uji laptop di Preview (macro tidak bisa mengirim header bypass), lalu nyalakan lagi sesudahnya. Production tidak terdampak.
 
 ### 1. Siapkan file
 
-1. Unduh `assets/templates/exam.v1.xlsm` dan `assets/templates/vba/modFinish.bas` dari branch kerja spike ini di GitHub (buka filenya, tombol **Download raw file**). Jangan menyalin isi `.bas` lewat copy-paste.
+1. Unduh `assets/templates/exam.v1.xlsm` dan `assets/templates/vba/modFinish.bas` dari branch kerja di GitHub (buka filenya, tombol **Download raw file**). Jangan menyalin isi `.bas` lewat copy-paste.
 2. Klik kanan `exam.v1.xlsm` → **Properties → General**, centang **Unblock** → **OK** (atau simpan di Trusted Location).
 3. Buka `exam.v1.xlsm` di Excel 2021. Bila ada bar **Enable Content**, klik.
 
@@ -127,16 +131,30 @@ Spike S3 mengganti isi `modFinish`: tombol **Finish** kini menyimpan salinan wor
 ### 3. Periksa tombol dan property
 
 1. Klik kanan tombol **Finish** → **Assign Macro**. `Finish` harus terpilih; bila tidak, pilih `Finish` → **OK**. Klik sel lain.
-2. Klik tombol **Finish**. MsgBox harus menampilkan "File ini tidak berisi data ujian yang lengkap." (property masih `TEMPLATE`, jadi tidak ada yang dikirim).
+2. Klik tombol **Finish**. MsgBox harus menampilkan "File ini tidak berisi data ujian yang lengkap." (property masih `TEMPLATE`, jadi workbook tidak disimpan dan tidak ada yang dikirim).
 3. **File → Info → Properties → Advanced Properties → Custom**: tiga property `WHE_*` masih ada dengan nilai `TEMPLATE`. Tutup dialog tanpa mengubah apa pun.
 
 ### 4. Simpan dan kirim
 
 1. Klik sel **A1** di sheet `Instructions`.
 2. **Ctrl+S** (tetap `exam.v1.xlsm`, format `.xlsm`). Tutup Excel.
-3. Unggah `exam.v1.xlsm` ke `assets/templates/` di branch kerja yang sama, seperti di [Mengirim template ke repo](#mengirim-template-ke-repo), lalu beri tahu agent. Agent menghitung ulang sidik jari registry v1, membuka PR ke `main`, dan setelah PR di-merge mengirim file uji dari `node scripts/spike-s1.ts` beserta token dan `tokenSha256`-nya.
+3. Unggah `exam.v1.xlsm` ke `assets/templates/` di branch kerja yang sama, seperti di [Mengirim template ke repo](#mengirim-template-ke-repo), lalu beri tahu agent. Orchestrator menghitung ulang sidik jari registry v1 (`node scripts/spike-s1.ts --template assets/templates/exam.v1.xlsm`), meng-commit template baru beserta sidik jari itu ke branch kerja, dan memberi tahu bila Preview branch itu siap. Perubahan ini sampai ke Production lewat PR berikutnya dari branch kerja ke `main`.
+
+### 5. Buat ulang fixture `s3-excel2021.xlsm`
+
+Fixture `src/adapters/workbook/__fixtures__/s3-excel2021.xlsm` adalah salinan v1 yang disimpan Excel setelah ditambah sheet dan dibuka VBA editor-nya. Setelah modul diganti, fixture lama tidak cocok lagi dengan v1, jadi dibuat ulang dari template baru dengan nama dan path yang sama.
+
+1. Di Preview branch kerja, **Start** Level 1 · Practice 1, simpan file ke folder kerja, lalu buka di Excel 2021 (**Unblock** atau Trusted Location seperti di atas; bila ada bar **Enable Content**, klik).
+2. Klik **+** di sebelah tab sheet untuk menambah satu sheet baru (biarkan namanya).
+3. Tekan **Alt+F11**, klik dua kali `modFinish` agar kodenya tampil, jangan mengetik apa pun, lalu tutup Visual Basic Editor.
+4. **File → Save As → Browse**, pilih folder **lain** dari folder kerja, **Save as type** `Excel Macro-Enabled Workbook (*.xlsm)`, nama file `s3-excel2021.xlsm` → **Save**. Tutup Excel.
+5. Jangan klik **Finish** di file `s3-excel2021.xlsm`: Finish menyimpan file itu lagi, mengirimnya, lalu menutupnya, sehingga fixture bukan lagi salinan yang hanya disimpan Excel, dan percobaannya berubah menjadi `received`. Unggah `s3-excel2021.xlsm` ke `src/adapters/workbook/__fixtures__/` di branch kerja (**Add file → Upload files**, **Commit directly to the … branch**, bukan `main`), lalu beri tahu agent.
+
+File percobaan di folder kerja tetap bisa dipakai untuk menguji **Finish** (file itu tidak ikut diubah oleh Save As). Setelah selesai menguji, **Abandon** percobaan itu di Dashboard supaya Start berikutnya tidak terkunci. Token di dalam fixture lalu milik percobaan dev yang sudah di-abandon: fixture hanya dipakai tes sidik jari, dan bila dikirim server menolaknya dengan `ATTEMPT_CLOSED`.
 
 ## Menguji Finish di laptop (spike S3)
+
+Catatan riwayat: bagian ini menguji `modFinish` versi S3. Sejak story 2.9 pesannya mengikuti `macroMessages` di `src/messages/id.ts` (misalnya "File terkirim! Hasilnya muncul di web, ya."), workbook disimpan sebelum dikirim dan ditutup bila diterima, dan fixture dibuat ulang lewat langkah 5 di atas.
 
 Mulai setelah agent memberi tahu bahwa endpoint sudah ada di Production dan mengirim file `spike-s1-….xlsm`.
 
