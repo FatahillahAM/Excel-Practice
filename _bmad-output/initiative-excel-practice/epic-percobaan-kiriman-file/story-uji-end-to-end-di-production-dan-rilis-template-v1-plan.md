@@ -1,9 +1,9 @@
 ---
 title: 'Uji end-to-end di Production dan rilis template v1'
-type: 'story'
+type: 'feature'
 ticket: '12'
 created: '2026-11-09'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'none'
