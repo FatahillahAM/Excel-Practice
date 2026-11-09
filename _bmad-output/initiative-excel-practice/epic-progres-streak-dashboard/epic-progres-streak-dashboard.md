@@ -3,7 +3,7 @@ type: epic
 title: "Progres, streak, dan Dashboard"
 parent: initiative-excel-practice
 covers: [CAP-1, CAP-9, CAP-10, CAP-11, CAP-12, CAP-19]
-after: []
+after: ["3.1"]
 assignee: ""
 risk: medium
 ---
