@@ -3,7 +3,7 @@ title: 'Setup Guide'
 type: 'feature'
 ticket: '10'
 created: '2026-11-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'

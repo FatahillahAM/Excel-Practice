@@ -3,7 +3,7 @@ title: 'modFinish: pesan per kode dan tutup workbook'
 type: 'feature'
 ticket: '9'
 created: '2026-11-06'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
