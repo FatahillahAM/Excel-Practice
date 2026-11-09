@@ -108,6 +108,8 @@ Langkah ini untuk `modFinish` versi S1, yang hanya menampilkan tiga property. Se
 
 ## Mengganti `modFinish` di `exam.v1.xlsm`
 
+**v1 dirilis 2026-11-09** (story 2.12, setelah uji end-to-end di Production): `exam.v1.xlsm` tidak pernah diubah lagi. `templates.ts` mencatat `released` dengan SHA-256 seluruh file, dan `templates.test.ts` gagal ("released — ship exam.v2.xlsm") bila byte file berubah. Sejak itu prosedur di bawah dipakai untuk membuat `exam.v2.xlsm`: mulai dari salinan `exam.v1.xlsm` yang disimpan dengan nama `exam.v2.xlsm`, ganti modul seperti langkah 1–4, unggah sebagai file baru, lalu agent menambah entri registry v2 (sidik jari dari `node scripts/spike-s1.ts --template assets/templates/exam.v2.xlsm`) sebelum v2 menjadi `CURRENT_TEMPLATE_VERSION`. Entri dan file v1 dibiarkan apa adanya. Teks di bawah adalah riwayat saat v1 belum dirilis.
+
 Prosedur ini dipakai setiap kali `vba/modFinish.bas` berubah selagi v1 belum dirilis: spike S3 (Finish mulai mengirim file) dan story 2.9 (Finish menyimpan workbook, menampilkan satu pesan per kode jawaban server, lalu menutup workbook bila file diterima). Versi template tetap v1, jadi file `exam.v1.xlsm` yang sama diubah di tempat. Selain modul, tidak ada yang diubah: sheet, sel, tombol, dan custom property dibiarkan. Setelah v1 dirilis, perubahan modul menjadi template baru `exam.v2.xlsm` (spine AD-4).
 
 Mengganti modul membuat file dari percobaan lama yang masih terbuka ditolak dengan `IDENTITY_ALTERED`, jadi **Abandon** dulu percobaan yang masih terbuka di Dashboard.
