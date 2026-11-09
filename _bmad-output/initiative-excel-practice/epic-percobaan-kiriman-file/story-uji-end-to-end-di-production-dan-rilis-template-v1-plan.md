@@ -3,13 +3,14 @@ title: 'Uji end-to-end di Production dan rilis template v1'
 type: 'story'
 ticket: '12'
 created: '2026-11-09'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'b0ad43f09c1ce6b7eb0aa238bc4cf4235a5f11c0'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -94,6 +95,8 @@ DW6 = rows 1–7 all on Production. Paste every message box / inline message int
 - Given any later edit of `exam.v1.xlsm`, when CI runs, then `templates.test.ts` fails with the "ship v2" message.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
