@@ -3,13 +3,14 @@ title: 'Tracer: L01-P1 dinilai, Results muncul sendiri di Production'
 type: 'feature'
 ticket: '1'
 created: '2026-11-09'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'be7fbf9b616662ae72914bb125b895f41dc4a088'
 context:
   - '{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md'
 ---
@@ -84,6 +85,8 @@ context:
 - Given `npm run test`, when core grading tests run, then synthetic readings for every matrix row give the expected `Result`, and macro and upload schedule grading through the same function.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
