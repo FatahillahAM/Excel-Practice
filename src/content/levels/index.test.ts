@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expandRange } from "../../core/content/a1";
+import { expandRange } from "@/core/content/a1";
 import {
   defineLevelModule,
   examSnapshotSchema,
@@ -12,7 +12,7 @@ import {
   type GeneratedExam,
   type LevelItem,
   type LevelModule,
-} from "../../core/content/level-module";
+} from "@/core/content/level-module";
 import { findItem, levels } from "./index";
 import { fondasi } from "./01-fondasi";
 import { DATA_HEADERS, practice1 } from "./01-fondasi/practice-1";

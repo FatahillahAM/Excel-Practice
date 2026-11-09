@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { scenarioSchema } from "../../../core/content/level-module";
+import { scenarioSchema } from "@/core/content/level-module";
 
 /**
  * The Level 1 scenario bank (AD-2): production batches of a factory. Every

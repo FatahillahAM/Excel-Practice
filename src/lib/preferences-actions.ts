@@ -1,8 +1,8 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { getSessionUser } from "../adapters/supabase/auth";
-import { UNAUTHENTICATED } from "../adapters/supabase/auth-rules";
+import { getSessionUser } from "@/adapters/supabase/auth";
+import { UNAUTHENTICATED } from "@/adapters/supabase/auth-rules";
 import {
   isReduceMotion,
   isTheme,

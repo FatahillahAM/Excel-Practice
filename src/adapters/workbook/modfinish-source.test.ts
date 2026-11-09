@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "../../core/submission";
-import { macroMessages } from "../../messages/id";
+import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "@/core/submission";
+import { macroMessages } from "@/messages/id";
 
 // The Finish macro's source as the repo keeps it for import into the template
 // (assets/templates/README.md). The texts live once, in `macroMessages`; this

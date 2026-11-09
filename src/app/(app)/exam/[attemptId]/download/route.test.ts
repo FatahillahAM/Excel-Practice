@@ -19,10 +19,10 @@ const mocks = vi.hoisted(() => ({
   supabase: { from: vi.fn(), storage: { from: vi.fn() } },
 }));
 const SUPABASE = mocks.supabase;
-vi.mock("../../../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("../../../../../adapters/supabase/attempts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../../../adapters/supabase/attempts")>()),
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
+vi.mock("@/adapters/supabase/attempts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adapters/supabase/attempts")>()),
   readAttempt: mocks.readAttempt,
   downloadGeneratedFile: mocks.downloadGeneratedFile,
   ...mocks.writes,

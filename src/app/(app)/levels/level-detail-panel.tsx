@@ -1,6 +1,6 @@
 import { Flame, Lock } from "lucide-react";
-import type { LevelModule } from "../../../core/content/level-module";
-import { cn } from "../../../lib/utils";
+import type { LevelModule } from "@/core/content/level-module";
+import { cn } from "@/lib/utils";
 import { levelPanel, PRACTICE_COUNT, testLockLine, type PipState, type PracticeStatus } from "./level-panel";
 import { StartControl } from "./start-control";
 import type { StartLock } from "./start-lock";

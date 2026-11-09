@@ -24,42 +24,42 @@ const SERVICE = { service: true };
 
 vi.mock("next/headers", () => ({ headers: mocks.headers }));
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }));
-vi.mock("../../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../../adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("../../../adapters/supabase/profiles", () => ({
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
+vi.mock("@/adapters/supabase/profiles", () => ({
   readTimeZone: mocks.readTimeZone,
   ensureProfile: mocks.ensureProfile,
 }));
-vi.mock("../../../adapters/supabase/attempts", () => ({
+vi.mock("@/adapters/supabase/attempts", () => ({
   createAttempt: mocks.createAttempt,
   deleteOpenAttempt: mocks.deleteOpenAttempt,
   findOpenAttemptId: mocks.findOpenAttemptId,
   uploadGeneratedFile: mocks.uploadGeneratedFile,
   writeSnapshot: mocks.writeSnapshot,
 }));
-vi.mock("../../../adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
 vi.mock("node:crypto", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:crypto")>();
   mocks.realRandomInt = actual.randomInt as (max: number) => number;
   return { ...actual, default: actual, randomInt: mocks.randomInt };
 });
-vi.mock("../../../adapters/workbook/generate", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../../adapters/workbook/generate")>();
+vi.mock("@/adapters/workbook/generate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/adapters/workbook/generate")>();
   mocks.realGenerate = actual.generateExamWorkbook as (...args: unknown[]) => unknown;
   return { ...actual, generateExamWorkbook: mocks.generateExamWorkbook };
 });
 
-import { readWorkbook } from "../../../adapters/workbook/read";
-import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "../../../adapters/workbook/templates";
-import { tokenSha256Hex } from "../../../adapters/workbook/token";
-import { findItem } from "../../../content/levels";
+import { readWorkbook } from "@/adapters/workbook/read";
+import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "@/adapters/workbook/templates";
+import { tokenSha256Hex } from "@/adapters/workbook/token";
+import { findItem } from "@/content/levels";
 import {
   examSnapshotSchema,
   type ExamSnapshot,
   type GeneratedExam,
   type Scenario,
-} from "../../../core/content/level-module";
-import { startMessages } from "../../../messages/id";
+} from "@/core/content/level-module";
+import { startMessages } from "@/messages/id";
 import { startAttempt, type StartState } from "./start-actions";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";

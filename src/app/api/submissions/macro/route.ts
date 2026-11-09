@@ -1,4 +1,4 @@
-import { submit, type SubmissionLog } from "../../../../core/submission";
+import { submit, type SubmissionLog } from "@/core/submission";
 import { readSubmissionBody, submissionResponse, type SubmissionBody } from "../http";
 import { serviceSubmissionPorts } from "../service-ports";
 

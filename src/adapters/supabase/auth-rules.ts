@@ -4,7 +4,7 @@
  * proxy wire them to Supabase and Next.
  */
 
-import type { LoginError } from "../../messages/id";
+import type { LoginError } from "@/messages/id";
 
 /** How a sign-in attempt ended, as the popup reports it to the Login page. */
 export type AuthStatus = "success" | "not_allowed" | "cancelled" | "error";

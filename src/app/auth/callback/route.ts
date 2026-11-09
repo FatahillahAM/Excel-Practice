@@ -5,8 +5,8 @@ import {
   normalizeTimeZone,
   safeNext,
   type AuthStatus,
-} from "../../../adapters/supabase/auth-rules";
-import { completeGoogleSignIn, signOut } from "../../../adapters/supabase/auth";
+} from "@/adapters/supabase/auth-rules";
+import { completeGoogleSignIn, signOut } from "@/adapters/supabase/auth";
 
 /**
  * `GET /auth/callback`: Google → Supabase → here, inside the Login popup.

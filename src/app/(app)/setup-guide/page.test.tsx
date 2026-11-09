@@ -7,10 +7,10 @@ vi.mock("../open-attempt", async (importOriginal) => {
   return { ...actual, loadOpenAttempt: mocks.loadOpenAttempt };
 });
 // `open-attempt` imports the session adapters; never reached with `loadOpenAttempt` mocked.
-vi.mock("../../../adapters/supabase/server", () => ({ createClient: vi.fn() }));
-vi.mock("../../../adapters/supabase/auth", () => ({ getSessionUser: vi.fn() }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: vi.fn() }));
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: vi.fn() }));
 
-import { Kbd } from "../../../components/ui/kbd";
+import { Kbd } from "@/components/ui/kbd";
 import SetupGuidePage from "./page";
 import { SETUP_FOLDER, SETUP_STEPS, STILL_BLOCKED, TRUST_CENTER_PATH } from "./setup-steps";
 

@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn() }));
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
 vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
 
-import { levels } from "../../../content/levels";
+import { levels } from "@/content/levels";
 import { LevelDetailPanel } from "./level-detail-panel";
 import Page from "./page";
 import { StartControl } from "./start-control";

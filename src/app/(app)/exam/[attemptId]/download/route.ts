@@ -1,7 +1,7 @@
-import { downloadGeneratedFile, readAttempt, XLSM_CONTENT_TYPE } from "../../../../../adapters/supabase/attempts";
-import { getSessionUser } from "../../../../../adapters/supabase/auth";
-import { UNAUTHENTICATED } from "../../../../../adapters/supabase/auth-rules";
-import { createClient } from "../../../../../adapters/supabase/server";
+import { downloadGeneratedFile, readAttempt, XLSM_CONTENT_TYPE } from "@/adapters/supabase/attempts";
+import { getSessionUser } from "@/adapters/supabase/auth";
+import { UNAUTHENTICATED } from "@/adapters/supabase/auth-rules";
+import { createClient } from "@/adapters/supabase/server";
 
 const NOT_FOUND = "NOT_FOUND";
 const INTERNAL_ERROR = "INTERNAL_ERROR";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { examMessages } from "../../../../messages/id";
+import { examMessages } from "@/messages/id";
 import { POLL_MS, TICK_MS, isEnded, isFinalPollFailure, statusLine } from "./exam-status";
 
 describe("Exam Status Line", () => {

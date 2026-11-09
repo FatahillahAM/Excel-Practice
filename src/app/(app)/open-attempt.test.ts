@@ -11,9 +11,9 @@ vi.mock("next/navigation", () => ({
     if ((error as { url?: string })?.url) throw error;
   },
 }));
-vi.mock("../../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
-vi.mock("../../adapters/supabase/server", () => ({ createClient: mocks.createClient }));
-vi.mock("../../adapters/supabase/attempts", () => ({ findOpenAttempt: mocks.findOpenAttempt }));
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/server", () => ({ createClient: mocks.createClient }));
+vi.mock("@/adapters/supabase/attempts", () => ({ findOpenAttempt: mocks.findOpenAttempt }));
 
 import { attemptCardView, attemptTitle, loadOpenAttempt } from "./open-attempt";
 

@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: surfaceTitle("Tips & Tricks") };
 
 /** Tips & Tricks: content lands with its own epic; the shell and title are in place. */
 export default function Page() {
-  return <PlaceholderPage title="Tips & Tricks" enter />;
+  return <PlaceholderPage title="Tips & Tricks" />;
 }

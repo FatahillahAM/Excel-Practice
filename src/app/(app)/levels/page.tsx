@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { surfaceTitle } from "../../../components/shell/nav-items";
-import { PageTitle } from "../../../components/shell/page-title";
-import { levels } from "../../../content/levels";
+import { surfaceTitle } from "@/components/shell/nav-items";
+import { PageTitle } from "@/components/shell/page-title";
+import { levels } from "@/content/levels";
 import { loadOpenAttempt } from "../open-attempt";
 import { LevelDetailPanel } from "./level-detail-panel";
 import { BLOCKED_MESSAGE, type StartLock } from "./start-lock";

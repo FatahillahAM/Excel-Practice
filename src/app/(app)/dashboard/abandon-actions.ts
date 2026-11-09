@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { abandon, isAttemptId, type AbandonResult } from "../../../adapters/supabase/attempts";
-import { getSessionUser } from "../../../adapters/supabase/auth";
-import { loginRedirectPath } from "../../../adapters/supabase/auth-rules";
-import { createClient } from "../../../adapters/supabase/server";
+import { abandon, isAttemptId, type AbandonResult } from "@/adapters/supabase/attempts";
+import { getSessionUser } from "@/adapters/supabase/auth";
+import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
+import { createClient } from "@/adapters/supabase/server";
 
 export type AbandonState = { status: "idle" } | { status: "done" } | { status: "error" };
 

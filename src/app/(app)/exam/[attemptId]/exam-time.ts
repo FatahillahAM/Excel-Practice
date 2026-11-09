@@ -1,4 +1,4 @@
-import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
+import type { AttemptStatus } from "@/adapters/supabase/attempts";
 
 /**
  * Pure time helpers for the Exam Status Line. The server gives the seconds

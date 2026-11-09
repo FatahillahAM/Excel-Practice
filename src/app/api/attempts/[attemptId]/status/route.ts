@@ -1,8 +1,8 @@
-import { readAttempt, type AttemptStatus } from "../../../../../adapters/supabase/attempts";
-import { getSessionUser } from "../../../../../adapters/supabase/auth";
-import { UNAUTHENTICATED } from "../../../../../adapters/supabase/auth-rules";
-import { createClient } from "../../../../../adapters/supabase/server";
-import { elapsedSeconds } from "../../../../../core/services/attempts";
+import { readAttempt, type AttemptStatus } from "@/adapters/supabase/attempts";
+import { getSessionUser } from "@/adapters/supabase/auth";
+import { UNAUTHENTICATED } from "@/adapters/supabase/auth-rules";
+import { createClient } from "@/adapters/supabase/server";
+import { elapsedSeconds } from "@/core/services/attempts";
 
 export interface AttemptStatusData {
   status: AttemptStatus;

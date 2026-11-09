@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { findAttemptByTokenHash, markReceived, storeSubmissionFile } from "../../../adapters/supabase/attempts";
-import { createServiceClient } from "../../../adapters/supabase/service";
-import { workbookPort } from "../../../adapters/workbook/submission";
-import type { SubmissionPorts } from "../../../core/submission";
+import { findAttemptByTokenHash, markReceived, storeSubmissionFile } from "@/adapters/supabase/attempts";
+import { createServiceClient } from "@/adapters/supabase/service";
+import { workbookPort } from "@/adapters/workbook/submission";
+import type { SubmissionPorts } from "@/core/submission";
 import { errorName, type ChannelKind, type FaultLog } from "./http";
 
 /**

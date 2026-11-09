@@ -1,5 +1,5 @@
-import { cellRef, columnNumber } from "../../../core/content/a1";
-import { KEY_TOLERANCE, type Check } from "../../../core/content/checks";
+import { cellRef, columnNumber } from "@/core/content/a1";
+import { KEY_TOLERANCE, type Check } from "@/core/content/checks";
 import {
   DATA_SHEET,
   INSTRUCTIONS_CELLS,
@@ -8,8 +8,8 @@ import {
   type ExamQuestion,
   type GeneratedExam,
   type LevelItem,
-} from "../../../core/content/level-module";
-import { createRandom } from "../../../core/content/random";
+} from "@/core/content/level-module";
+import { createRandom } from "@/core/content/random";
 import type { FondasiScenario } from "./scenarios";
 
 /**

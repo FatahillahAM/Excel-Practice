@@ -1,6 +1,6 @@
 import * as React from "react";
 
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
 /**
  * A key or an Excel menu path, rendered statically (DESIGN.md › Kbd:

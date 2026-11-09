@@ -72,8 +72,13 @@ Santai and encouraging (Duolingo-like), addresses the user as *kamu*. Language s
 | Rejected — identity altered or damaged | Upload + macro | "Identitas file ini rusak atau berubah. Pakai file .xlsm asli dari Start dan jangan Save As ke format lain, ya." |
 | Rejected — attempt already closed | Upload + macro | "Percobaan ini sudah ditutup, jadi file-nya nggak bisa dinilai. Mulai percobaan baru, ya." |
 | Not an Excel file | Upload | "Ini bukan file Excel. Pilih file .xlsm dari percobaan ini, ya." |
+| Not an Excel file | Macro | "Server nggak bisa membaca file ini sebagai file Excel. Upload file ini lewat web, ya." |
+| Too large | Upload + macro | "File ini terlalu besar (maksimal 4 MB). Pakai file .xlsm asli dari Start, ya." |
 | Macro sent | Exam Workbook | "File terkirim! Hasilnya muncul di web, ya." |
 | Macro send failed | Exam Workbook | "File belum terkirim. Filenya sudah tersimpan — upload lewat web, ya." |
+| Macro TLS failed | Exam Workbook | "Koneksi aman ke server gagal. Biasanya karena tanggal dan jam laptop salah, bukan internet kamu. Cek jamnya lalu klik Finish lagi, atau upload lewat web, ya." |
+| Macro TEMP copy failed | Exam Workbook | "Salinan file nggak bisa dibuat di folder TEMP Windows. Filenya sudah tersimpan — upload lewat web, ya." |
+| Macro save failed | Exam Workbook | "File belum bisa disimpan, jadi belum dikirim. Pakai File > Save As, simpan sebagai .xlsm di folder kerja kamu, lalu klik Finish lagi, ya." |
 | Start on phone *(decided)* | Phone | "Latihan dikerjakan di Excel laptop, ya. Buka web ini di laptop untuk mulai." |
 | Freeze used | Dashboard | "Streak aman! Sisa freeze 0 dari 2 minggu ini." |
 | Streak restarted | Dashboard (once) | "Streak mulai lagi dari 0 — yuk, latihan hari ini." |

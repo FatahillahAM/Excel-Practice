@@ -62,19 +62,19 @@ context:
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/adapters/workbook/read.ts` -- ganti dua parameter property dengan field eksplisit yang diisi di constructor -- Node type stripping menolak parameter property.
-- [ ] `tsconfig.json` -- `"erasableSyntaxOnly": true` -- `npm run typecheck` menangkap sintaks yang mematahkan skrip.
-- [ ] `scripts/spike-s1.ts` (header), `assets/templates/README.md`, `src/adapters/workbook/__fixtures__/README.md` -- perintah jadi `node scripts/spike-s1.ts …` -- sesuai skrip sekarang.
-- [ ] `vitest.config.ts` (baru) -- hanya `resolve.alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) }` -- alias terbukti di Vitest 5 (probe di scratchpad); `include`/`exclude` bawaan tetap, `test`/`test:db` tidak berubah.
-- [ ] File di luar `src/core` -- impor dan `vi.mock` yang naik `../` ke area `src/` lain (`adapters`, `core`, `components`, `messages`, `content`, `lib`, `hooks`, `app`) jadi `@/…`; impor `./x` dan `../x` di dalam folder fitur yang sama tetap relatif -- satu gaya, menutup temuan review 2.6 #12 dan 2.10 #9. Rewrite mekanis lewat skrip, lalu diff ditinjau; `scripts/` dan `next.config.test.ts` tetap relatif (Node/akar repo).
-- [ ] `src/app/api/submissions/macro/route.test.ts` + `__fixtures__/files.ts` -- tes macro mengimpor builder bersama (template sebagai `Template` dari `loadTemplate()`); salinan lokal dihapus; `withAddedSheet` tetap lokal memakai `editZip`/`emptyDocumentModule` bersama; `asPackage` bersama melempar bila override `/xl/workbook.xml` tidak ditemukan (menggantikan `expect(types).toContain(XLSM_MAIN)` lokal).
-- [ ] `src/components/shell/page-title.tsx` + tiga halaman -- `PlaceholderPage` selalu `page-enter`, prop `enter` dihapus, JSDoc tanpa Settings.
-- [ ] `src/messages/id.ts` -- hapus `UploadMessage`; komentar `[ASSUMPTION]` keempat pesan macro menunjuk baris Message set baru.
-- [ ] `src/adapters/workbook/read.test.ts` -- tes: versi `jszip` terpasang = `3.10.2` dan `ZipObject.prototype.internalStream` berupa fungsi, dengan pesan "periksa ulang bounded inflate sebelum menaikkan jszip" -- upgrade tidak bisa diam-diam mematikan guard zip bomb.
-- [ ] `assets/templates/README.md` -- paragraf di bagian uji laptop: di Preview, Vercel Authentication (Project Settings › Deployment Protection) mengalihkan POST macro ke halaman login Vercel; macro melapor "File belum terkirim… Detail: HTTP 200" dan tidak ada log function. Matikan selama uji laptop di Preview (macro tidak bisa mengirim header bypass), nyalakan lagi sesudahnya; Production tidak terdampak.
-- [ ] `EXPERIENCE.md` › System message set + `.memlog.md` -- baris illustrative (bukan *decided*) untuk Too large (upload + macro), Not an Excel file (macro), TLS gagal, TEMP gagal, Simpan gagal, teks verbatim dari `src/messages/id.ts`.
-- [ ] `deferred-work.md` -- baris `status:` per entri pada tabel disposisi (format seperti 2.2/2.3: `done — …` atau `moved — <epic/story> (alasan)`).
-- [ ] `epic-penilaian-hasil-tips.md`, `epic-progres-streak-dashboard.md`, `epic-percobaan-kiriman-file.md` -- Parked Notes untuk entri yang dipindah (epic 4: perluas catatan harness yang ada dengan permukaan epic 2); Decision 2.11 di epic ini.
+- [x] `src/adapters/workbook/read.ts` -- ganti dua parameter property dengan field eksplisit yang diisi di constructor -- Node type stripping menolak parameter property.
+- [x] `tsconfig.json` -- `"erasableSyntaxOnly": true` -- `npm run typecheck` menangkap sintaks yang mematahkan skrip.
+- [x] `scripts/spike-s1.ts` (header), `assets/templates/README.md`, `src/adapters/workbook/__fixtures__/README.md` -- perintah jadi `node scripts/spike-s1.ts …` -- sesuai skrip sekarang.
+- [x] `vitest.config.ts` (baru) -- hanya `resolve.alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) }` -- alias terbukti di Vitest 5 (probe di scratchpad); `include`/`exclude` bawaan tetap, `test`/`test:db` tidak berubah.
+- [x] File di luar `src/core` -- impor dan `vi.mock` yang naik `../` ke area `src/` lain (`adapters`, `core`, `components`, `messages`, `content`, `lib`, `hooks`, `app`) jadi `@/…`; impor `./x` dan `../x` di dalam folder fitur yang sama tetap relatif -- satu gaya, menutup temuan review 2.6 #12 dan 2.10 #9. Rewrite mekanis lewat skrip, lalu diff ditinjau; `scripts/` dan `next.config.test.ts` tetap relatif (Node/akar repo).
+- [x] `src/app/api/submissions/macro/route.test.ts` + `__fixtures__/files.ts` -- tes macro mengimpor builder bersama (template sebagai `Template` dari `loadTemplate()`); salinan lokal dihapus; `withAddedSheet` tetap lokal memakai `editZip`/`emptyDocumentModule` bersama; `asPackage` bersama melempar bila override `/xl/workbook.xml` tidak ditemukan (menggantikan `expect(types).toContain(XLSM_MAIN)` lokal).
+- [x] `src/components/shell/page-title.tsx` + tiga halaman -- `PlaceholderPage` selalu `page-enter`, prop `enter` dihapus, JSDoc tanpa Settings.
+- [x] `src/messages/id.ts` -- hapus `UploadMessage`; komentar `[ASSUMPTION]` keempat pesan macro menunjuk baris Message set baru.
+- [x] `src/adapters/workbook/read.test.ts` -- tes: versi `jszip` terpasang = `3.10.2` dan `ZipObject.prototype.internalStream` berupa fungsi, dengan pesan "periksa ulang bounded inflate sebelum menaikkan jszip" -- upgrade tidak bisa diam-diam mematikan guard zip bomb.
+- [x] `assets/templates/README.md` -- paragraf di bagian uji laptop: di Preview, Vercel Authentication (Project Settings › Deployment Protection) mengalihkan POST macro ke halaman login Vercel; macro melapor "File belum terkirim… Detail: HTTP 200" dan tidak ada log function. Matikan selama uji laptop di Preview (macro tidak bisa mengirim header bypass), nyalakan lagi sesudahnya; Production tidak terdampak.
+- [x] `EXPERIENCE.md` › System message set + `.memlog.md` -- baris illustrative (bukan *decided*) untuk Too large (upload + macro), Not an Excel file (macro), TLS gagal, TEMP gagal, Simpan gagal, teks verbatim dari `src/messages/id.ts`.
+- [x] `deferred-work.md` -- baris `status:` per entri pada tabel disposisi (format seperti 2.2/2.3: `done — …` atau `moved — <epic/story> (alasan)`).
+- [x] `epic-penilaian-hasil-tips.md`, `epic-progres-streak-dashboard.md`, `epic-percobaan-kiriman-file.md` -- Parked Notes untuk entri yang dipindah (epic 4: perluas catatan harness yang ada dengan permukaan epic 2); Decision 2.11 di epic ini.
 
 **Acceptance Criteria:**
 - Given repo sesudah sweep, when `node scripts/spike-s1.ts --out <tmp>` dijalankan tanpa flag di Node 24, then mencetak `registry check: match`.
@@ -86,6 +86,8 @@ context:
 - Paused 2026-11-06 at the user's request (usage limit) before any code edit was kept; the first, partial edit (read.ts parameter properties, tsconfig, script/README commands) was discarded. Resume from Tasks item 1 with the same baseline.
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+
+- Resumed 2026-11-09 from Tasks item 1 (baseline 48 files / 895 tests). Import rewrite by script: 171 specifiers in 61 files (imports, `vi.mock`, `import()` types) whose resolved target is in another top-level `src/` area became `@/…`; same-area relative imports and `src/core` untouched. The verification grep still prints three lines in `src/lint-rules.test.ts` (90–92): string fixtures that feed the AD-1 lint rule for `src/core` files, not imports, so they stay. Macro route test now uses `__fixtures__/files.ts` (`loadTemplate`, `patched`, `editZip`, `emptyDocumentModule`, `asPackage`, `streamOf`, `readS3Fixture`, `withEditedModFinish`); `withAddedSheet` stays local. jszip pin is one test (896 tests). Local Node is 22.22 (type stripping on by default), not 24; both spike scripts ran without flags. `npm run build` passed locally; CI and `db-contract` not run (no push).
 
 ## Plan Change Log
 

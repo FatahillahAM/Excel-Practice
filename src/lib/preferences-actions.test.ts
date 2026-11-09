@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ set: vi.fn(), getSessionUser: vi.fn() }));
 
 vi.mock("next/headers", () => ({ cookies: async () => ({ set: mocks.set }) }));
-vi.mock("../adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
+vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 
 import { saveReduceMotion, saveTheme } from "./preferences-actions";
 

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
-import { OrbitLoader } from "../../../../components/exam/orbit-loader";
-import { examMessages, shellMessages } from "../../../../messages/id";
+import type { AttemptStatus } from "@/adapters/supabase/attempts";
+import { OrbitLoader } from "@/components/exam/orbit-loader";
+import { examMessages, shellMessages } from "@/messages/id";
 import {
   SLOW_GRADING_S,
   elapsedAt,

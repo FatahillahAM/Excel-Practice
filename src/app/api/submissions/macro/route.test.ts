@@ -1,8 +1,4 @@
 import { randomBytes } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import JSZip from "jszip";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -11,39 +7,43 @@ const mocks = vi.hoisted(() => ({
   markReceived: vi.fn(),
   storeSubmissionFile: vi.fn(),
 }));
-vi.mock("../../../../adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
-vi.mock("../../../../adapters/supabase/attempts", () => ({
+vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("@/adapters/supabase/attempts", () => ({
   findAttemptByTokenHash: mocks.findAttemptByTokenHash,
   markReceived: mocks.markReceived,
   storeSubmissionFile: mocks.storeSubmissionFile,
 }));
 
-import { buildVbaProject, type ModuleSpec } from "../../../../adapters/workbook/__fixtures__/vba-project";
-import { readWorkbook } from "../../../../adapters/workbook/read";
-import { patchTemplate, vbaProjectSha256 } from "../../../../adapters/workbook/template-patch";
-import { CURRENT_TEMPLATE_VERSION, templates } from "../../../../adapters/workbook/templates";
-import { readVbaModuleSources } from "../../../../adapters/workbook/vba";
-import { MAX_SUBMISSION_BYTES, REJECTION_CODES, RejectionCode } from "../../../../core/submission";
-import { tokenSha256, tokenSha256Hex } from "../../../../adapters/workbook/token";
+import { buildVbaProject } from "@/adapters/workbook/__fixtures__/vba-project";
+import { readWorkbook } from "@/adapters/workbook/read";
+import { vbaProjectSha256 } from "@/adapters/workbook/template-patch";
+import { CURRENT_TEMPLATE_VERSION } from "@/adapters/workbook/templates";
+import { MAX_SUBMISSION_BYTES, REJECTION_CODES, RejectionCode } from "@/core/submission";
+import { tokenSha256, tokenSha256Hex } from "@/adapters/workbook/token";
+import {
+  asPackage,
+  editZip,
+  emptyDocumentModule,
+  loadTemplate,
+  newToken,
+  patched,
+  readS3Fixture,
+  streamOf,
+  type Template,
+  VBA_PROJECT_PART,
+  withEditedModFinish,
+} from "../__fixtures__/files";
 import { POST } from "./route";
 
 // Each server-side row of the S3 I/O matrix, posted to the route handler with
 // files made by `patchTemplate` from the committed current template.
 
-const repoRoot = fileURLToPath(new URL("../../../../..", import.meta.url));
-const VBA_PROJECT_PART = "xl/vbaProject.bin";
-/** Excel-saved v1 (spike S3): a sheet added and the VBA editor opened before Save As. */
-const S3_FIXTURE = "src/adapters/workbook/__fixtures__/s3-excel2021.xlsm";
 const ENDPOINT = "https://example.test/api/submissions/macro";
 
-let templateBytes: Uint8Array;
-let templateModFinish: Uint8Array;
+let template: Template;
 
 beforeAll(async () => {
-  templateBytes = await readFile(path.join(repoRoot, templates[CURRENT_TEMPLATE_VERSION].file));
-  const zip = await JSZip.loadAsync(templateBytes);
-  const sources = readVbaModuleSources(await zip.file(VBA_PROJECT_PART)!.async("uint8array"));
-  templateModFinish = sources!.get("modFinish")!;
+  template = await loadTemplate();
 });
 
 const SERVICE = { service: true };
@@ -69,31 +69,6 @@ afterEach(() => {
   mocks.storeSubmissionFile.mockReset();
 });
 
-const newToken = () => randomBytes(32).toString("base64url");
-
-function patched(token: string): Promise<Uint8Array> {
-  return patchTemplate(templateBytes, {
-    properties: {
-      WHE_AttemptToken: token,
-      WHE_ServerUrl: "https://example.test",
-      WHE_TemplateVersion: String(CURRENT_TEMPLATE_VERSION),
-    },
-    cells: { Instructions: { B2: "Judul" }, Data: { A1: "Lini", B1: "Unit", A2: "A", B2: 1200 } },
-  });
-}
-
-async function editZip(bytes: Uint8Array, edit: (zip: JSZip) => Promise<void> | void): Promise<Uint8Array> {
-  const zip = await JSZip.loadAsync(bytes);
-  await edit(zip);
-  return zip.generateAsync({ type: "uint8array", compression: "DEFLATE" });
-}
-
-const emptyDocumentModule = (name: string): ModuleSpec => ({
-  name,
-  source: `Attribute VB_Name = "${name}"\r\nAttribute VB_Base = "0{00020820-0000-0000-C000-000000000046}"\r\n`,
-  document: true,
-});
-
 /** What Excel does when the user adds a sheet and opens the VBA editor: a new sheet part and a rewritten VBA project. */
 async function withAddedSheet(bytes: Uint8Array): Promise<Uint8Array> {
   const bin = buildVbaProject({
@@ -102,7 +77,7 @@ async function withAddedSheet(bytes: Uint8Array): Promise<Uint8Array> {
       emptyDocumentModule("Sheet1"),
       emptyDocumentModule("Sheet2"),
       emptyDocumentModule("Sheet3"),
-      { name: "modFinish", source: templateModFinish, pcodeFill: 0x5a },
+      { name: "modFinish", source: template.modFinish, pcodeFill: 0x5a },
     ],
   });
   return editZip(bytes, async (zip) => {
@@ -200,7 +175,7 @@ const ACCEPTED = { ok: true, data: { status: "received", duplicate: false } };
 describe("POST /api/submissions/macro: Finish", () => {
   it("moves an open attempt found by the file's token hash to received, and logs attemptId and received: true", async () => {
     const token = newToken();
-    const file = await patched(token);
+    const file = await patched(template, token);
     const posted = await post(file, token);
 
     expect(posted.status).toBe(200);
@@ -225,7 +200,7 @@ describe("POST /api/submissions/macro: Finish", () => {
 
   it("overwrites submission-1 (upsert) while open, so a re-post after a failed compare-and-set stores its own bytes", async () => {
     const token = newToken();
-    const first = await patched(token);
+    const first = await patched(template, token);
     const second = await withAddedSheet(first);
     vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.markReceived.mockResolvedValueOnce({ ok: false });
@@ -244,7 +219,7 @@ describe("POST /api/submissions/macro: Finish", () => {
     async (status) => {
       attemptFound(status);
       const token = newToken();
-      const posted = await post(await patched(token), token);
+      const posted = await post(await patched(template, token), token);
 
       expect(posted.status).toBe(200);
       expectRawText(posted, { ok: true, data: { status, duplicate: true } });
@@ -260,7 +235,7 @@ describe("POST /api/submissions/macro: Finish", () => {
       .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
       .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "received", templateVersion: CURRENT_TEMPLATE_VERSION } });
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const posted = await post(await patched(template, token), token);
     expect(posted.status).toBe(200);
     expectRawText(posted, { ok: true, data: { status: "received", duplicate: true } });
   });
@@ -271,7 +246,7 @@ describe("POST /api/submissions/macro: Finish", () => {
       .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
       .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "abandoned", templateVersion: CURRENT_TEMPLATE_VERSION } });
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const posted = await post(await patched(template, token), token);
     expect(posted.status).toBe(400);
     expectRawText(posted, { ok: false, code: RejectionCode.ATTEMPT_CLOSED });
     expect(mocks.findAttemptByTokenHash).toHaveBeenCalledTimes(2);
@@ -285,14 +260,14 @@ describe("POST /api/submissions/macro: Finish", () => {
       .mockResolvedValueOnce({ ok: false });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const posted = await post(await patched(template, token), token);
     expect(posted.status).toBe(500);
     expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
   });
 
   it("still matches after a sheet is added and Excel rewrites the VBA project", async () => {
     const token = newToken();
-    const original = await patched(token);
+    const original = await patched(template, token);
     const file = await withAddedSheet(original);
     expect(await vbaProjectSha256(file)).not.toBe(await vbaProjectSha256(original));
 
@@ -303,7 +278,7 @@ describe("POST /api/submissions/macro: Finish", () => {
   });
 
   it("accepts the Excel-saved S3 file (sheet added, VBA editor opened) when an attempt has its token", async () => {
-    const file = Uint8Array.from(await readFile(path.join(repoRoot, S3_FIXTURE)));
+    const file = await readS3Fixture();
     const token = (await readWorkbook(file)).properties.WHE_AttemptToken;
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 
@@ -318,11 +293,11 @@ describe("POST /api/submissions/macro: refusals", () => {
   it.each([
     ["an empty body", async () => new Uint8Array(0)],
     ["bytes that are not a zip", async () => Uint8Array.from(randomBytes(2048))],
-    ["a zip without a workbook", async () => editZip(await patched(newToken()), (zip) => void zip.remove("xl/workbook.xml"))],
+    ["a zip without a workbook", async () => editZip(await patched(template, newToken()), (zip) => void zip.remove("xl/workbook.xml"))],
     [
       "a workbook the reader cannot read",
       async () =>
-        editZip(await patched(newToken()), async (zip) => {
+        editZip(await patched(template, newToken()), async (zip) => {
           const part = "xl/worksheets/sheet1.xml";
           zip.file(part, (await zip.file(part)!.async("string")).replace("<sheetData", "<sheetData><broken"));
         }),
@@ -352,7 +327,7 @@ describe("POST /api/submissions/macro: refusals", () => {
     ["a malformed file token, even when the header repeats it", () => ({ file: "TEMPLATE", header: "TEMPLATE" })],
   ])("refuses %s with IDENTITY_ALTERED, before any lookup", async (_, tokens) => {
     const { file: fileToken, header } = tokens(newToken());
-    const posted = await post(await patched(fileToken), header);
+    const posted = await post(await patched(template, fileToken), header);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.IDENTITY_ALTERED });
     expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
@@ -364,7 +339,7 @@ describe("POST /api/submissions/macro: refusals", () => {
 
   it("refuses a token no attempt has (an old file, spike S1/S3) with NOT_THIS_ATTEMPT", async () => {
     mocks.findAttemptByTokenHash.mockResolvedValue({ ok: true, value: null });
-    const file = Uint8Array.from(await readFile(path.join(repoRoot, S3_FIXTURE)));
+    const file = await readS3Fixture();
     const token = (await readWorkbook(file)).properties.WHE_AttemptToken;
     const posted = await post(file, token);
 
@@ -384,13 +359,7 @@ describe("POST /api/submissions/macro: refusals", () => {
 
   it("refuses an edited modFinish with IDENTITY_ALTERED and leaves the attempt open", async () => {
     const token = newToken();
-    const edited = new Uint8Array([...templateModFinish, ...Buffer.from("\r\n' edited\r\n", "latin1")]);
-    const file = await editZip(await patched(token), (zip) => {
-      zip.file(
-        VBA_PROJECT_PART,
-        buildVbaProject({ modules: [emptyDocumentModule("ThisWorkbook"), { name: "modFinish", source: edited }] }),
-      );
-    });
+    const file = await withEditedModFinish(template, token);
     const posted = await post(file, token);
     expect(posted.status).toBe(400);
     expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
@@ -400,7 +369,7 @@ describe("POST /api/submissions/macro: refusals", () => {
 
   it("refuses a workbook without a VBA project with IDENTITY_ALTERED", async () => {
     const token = newToken();
-    const file = await editZip(await patched(token), (zip) => void zip.remove(VBA_PROJECT_PART));
+    const file = await editZip(await patched(template, token), (zip) => void zip.remove(VBA_PROJECT_PART));
     const posted = await post(file, token);
     expect(posted.status).toBe(400);
     expect(posted.body).toEqual({ ok: false, code: RejectionCode.IDENTITY_ALTERED });
@@ -408,26 +377,6 @@ describe("POST /api/submissions/macro: refusals", () => {
     expect(logOf(posted, token)).toMatchObject({ attemptId: ATTEMPT_ID, code: "IDENTITY_ALTERED" });
   });
 });
-
-const XLSM_MAIN = "application/vnd.ms-excel.sheet.macroEnabled.main+xml";
-
-/** The patched file with its main part's content type (and, for `.xlsb`, its main part) changed. */
-async function asPackage(token: string, contentType: string, mainPart = "xl/workbook.xml"): Promise<Uint8Array> {
-  return editZip(await patched(token), async (zip) => {
-    const types = await zip.file("[Content_Types].xml")!.async("string");
-    expect(types).toContain(XLSM_MAIN);
-    zip.file(
-      "[Content_Types].xml",
-      types.replace(`<Override PartName="/xl/workbook.xml" ContentType="${XLSM_MAIN}"/>`, `<Override PartName="/${mainPart}" ContentType="${contentType}"/>`),
-    );
-    if (mainPart !== "xl/workbook.xml") {
-      zip.remove("xl/workbook.xml");
-      zip.file(mainPart, new Uint8Array([0x83, 0x01, 0x00]));
-      const rels = await zip.file("_rels/.rels")!.async("string");
-      zip.file("_rels/.rels", rels.replace('Target="xl/workbook.xml"', `Target="${mainPart}"`));
-    }
-  });
-}
 
 describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
   it.each([
@@ -437,7 +386,7 @@ describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
     [".xlam", "application/vnd.ms-excel.addin.macroEnabled.main+xml", undefined],
   ])("refuses a %s with IDENTITY_ALTERED (main part content type), before any lookup", async (_, contentType, mainPart) => {
     const token = newToken();
-    const posted = await post(await asPackage(token, contentType, mainPart), token);
+    const posted = await post(await asPackage(template, token, contentType, mainPart), token);
     expect(posted.status).toBe(400);
     expectRawText(posted, { ok: false, code: RejectionCode.IDENTITY_ALTERED });
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
@@ -447,6 +396,7 @@ describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
   it("refuses a Word document (docx) with NOT_EXCEL", async () => {
     const token = newToken();
     const file = await asPackage(
+      template,
       token,
       "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml",
       "word/document.xml",
@@ -458,7 +408,7 @@ describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
 
   it("refuses an extra standard module with code with IDENTITY_ALTERED and leaves the attempt open", async () => {
     const token = newToken();
-    const file = await editZip(await patched(token), (zip) => {
+    const file = await editZip(await patched(template, token), (zip) => {
       zip.file(
         VBA_PROJECT_PART,
         buildVbaProject({
@@ -466,7 +416,7 @@ describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
             emptyDocumentModule("ThisWorkbook"),
             emptyDocumentModule("Sheet1"),
             emptyDocumentModule("Sheet2"),
-            { name: "modFinish", source: templateModFinish },
+            { name: "modFinish", source: template.modFinish },
             { name: "Module1", source: "Sub Extra()\r\n  MsgBox 1\r\nEnd Sub\r\n" },
           ],
         }),
@@ -486,7 +436,7 @@ describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
   ])("refuses a file for a %s attempt with %s, without storing it", async (status, code) => {
     attemptFound(status);
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const posted = await post(await patched(template, token), token);
     expect(posted.status).toBe(400);
     expectRawText(posted, { ok: false, code });
     expect(mocks.storeSubmissionFile).not.toHaveBeenCalled();
@@ -498,28 +448,12 @@ describe("POST /api/submissions/macro: one fixture per AD-6 code", () => {
     mocks.storeSubmissionFile.mockResolvedValue("failed");
     vi.spyOn(console, "error").mockImplementation(() => {});
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const posted = await post(await patched(template, token), token);
     expect(posted.status).toBe(500);
     expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });
     expect(mocks.markReceived).not.toHaveBeenCalled();
   });
 });
-
-/** A body stream of `total` bytes in 64 KiB chunks; `pulled()` counts the chunks read. */
-function streamOf(total: number) {
-  let sent = 0;
-  let pulls = 0;
-  const stream = new ReadableStream<Uint8Array>({
-    pull(controller) {
-      pulls += 1;
-      if (sent >= total) return controller.close();
-      const size = Math.min(64 * 1024, total - sent);
-      sent += size;
-      controller.enqueue(new Uint8Array(size));
-    },
-  });
-  return { stream, pulled: () => pulls };
-}
 
 describe("POST /api/submissions/macro: size limit", () => {
   const TOO_LARGE = { ok: false, code: "FILE_TOO_LARGE" };
@@ -571,7 +505,7 @@ describe("POST /api/submissions/macro: size limit", () => {
 
   it("reads a streamed workbook within the limit like any other", async () => {
     const token = newToken();
-    const file = await patched(token);
+    const file = await patched(template, token);
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         controller.enqueue(file.slice(0, 1000));
@@ -588,7 +522,7 @@ describe("POST /api/submissions/macro: size limit", () => {
 describe("POST /api/submissions/macro: zip bombs", () => {
   it("refuses a zip with too many entries with NOT_EXCEL", async () => {
     const token = newToken();
-    const file = await editZip(await patched(token), (zip) => {
+    const file = await editZip(await patched(template, token), (zip) => {
       for (let i = 0; i < 1001; i++) zip.file(`xl/media/e${i}.bin`, "x");
     });
     expect(file.byteLength).toBeLessThan(MAX_SUBMISSION_BYTES);
@@ -600,7 +534,7 @@ describe("POST /api/submissions/macro: zip bombs", () => {
 
   it("refuses one large entry of zeros that inflates past the budget with NOT_EXCEL", async () => {
     const token = newToken();
-    const file = await editZip(await patched(token), (zip) => {
+    const file = await editZip(await patched(template, token), (zip) => {
       zip.file("xl/worksheets/sheet1.xml", new Uint8Array(64 * 1024 * 1024));
     });
     expect(file.byteLength).toBeLessThan(MAX_SUBMISSION_BYTES);
@@ -641,7 +575,7 @@ describe("POST /api/submissions/macro: server faults", () => {
     arrange();
     const errors = vi.spyOn(console, "error").mockImplementation(() => {});
     const token = newToken();
-    const posted = await post(await patched(token), token);
+    const posted = await post(await patched(template, token), token);
 
     expect(posted.status).toBe(500);
     expectRawText(posted, { ok: false, code: "INTERNAL_ERROR" });

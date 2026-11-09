@@ -2,8 +2,8 @@
 
 import { Play } from "lucide-react";
 import { useActionState, useEffect, useRef } from "react";
-import { cn } from "../../../lib/utils";
-import { startMessages } from "../../../messages/id";
+import { cn } from "@/lib/utils";
+import { startMessages } from "@/messages/id";
 import { startAttempt, type StartState } from "./start-actions";
 import { BLOCKED_MESSAGE, type StartLock } from "./start-lock";
 

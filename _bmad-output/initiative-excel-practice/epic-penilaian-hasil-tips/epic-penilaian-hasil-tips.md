@@ -46,3 +46,6 @@ Penilaian, hint, Results, Tips & Tricks, History. Bukan: progres, streak, gerban
 ## Notes
 
 - Waits on epic-percobaan-kiriman-file because: butuh kontrak LevelModule, snapshot percobaan, dan file berstatus received.
+- Parked (dari epic 2, refactor sweep 2.11, 2026-11-09), diputuskan bersama penilaian:
+  - File `attempt-files/<id>/` yatim saat baris percobaan dihapus (jalur kompensasi Start, cascade profil) dan `submission-1` yang yatim (review 2.3 #10): butuh kebijakan hapus Storage atau job pembersih; retensi `submission-<n>` diputuskan di sini karena penilaian pembaca pertamanya.
+  - Database tidak memagari tulisan status service role terhadap AD-5 (hanya mesin TS), dan Abandon pada percobaan `received` saat penilaian berjalan membuat compare-and-set grader kembali `lost`: putuskan trigger cek dan penanganan `lost` bersama grader, penulis status service role kedua.

@@ -1,4 +1,4 @@
-import type { LevelItem, LevelModule } from "../../core/content/level-module";
+import type { LevelItem, LevelModule } from "@/core/content/level-module";
 import { fondasi } from "./01-fondasi";
 
 /**

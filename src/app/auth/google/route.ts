@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { callbackPageHtml, normalizeTimeZone, safeNext } from "../../../adapters/supabase/auth-rules";
-import { startGoogleSignIn } from "../../../adapters/supabase/auth";
+import { callbackPageHtml, normalizeTimeZone, safeNext } from "@/adapters/supabase/auth-rules";
+import { startGoogleSignIn } from "@/adapters/supabase/auth";
 
 /**
  * `GET /auth/google?next=…&tz=…`: opened in the Login popup. Starts the

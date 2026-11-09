@@ -6,5 +6,5 @@ export const metadata: Metadata = { title: surfaceTitle("History") };
 
 /** History: content lands with its own epic; the shell and title are in place. */
 export default function Page() {
-  return <PlaceholderPage title="History" enter />;
+  return <PlaceholderPage title="History" />;
 }

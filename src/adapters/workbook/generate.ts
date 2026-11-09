@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ATTEMPT_TOKEN_RE } from "../../core/submission/submit.ts";
+import { ATTEMPT_TOKEN_RE } from "@/core/submission/submit.ts";
 import { patchTemplate, type TemplatePatch } from "./template-patch.ts";
 import { CURRENT_TEMPLATE_VERSION, templates } from "./templates.ts";
 

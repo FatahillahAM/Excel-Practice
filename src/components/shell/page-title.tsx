@@ -1,4 +1,4 @@
-import { cn } from "../../lib/utils";
+import { cn } from "@/lib/utils";
 
 /** Page title in `headline` (DESIGN.md › Typography); `id` + `tabIndex={-1}` let a page move focus to it. */
 export function PageTitle({
@@ -29,13 +29,12 @@ export function PageTitle({
 }
 
 /**
- * A surface whose content is not built yet: the shell and its title only.
- * `enter` plays the secondary page entrance (History, Records, Tips & Tricks,
- * Settings).
+ * A surface whose content is not built yet: the shell and its title only, with
+ * the secondary page entrance (History, Records, Tips & Tricks).
  */
-export function PlaceholderPage({ title, enter = false }: { title: string; enter?: boolean }) {
+export function PlaceholderPage({ title }: { title: string }) {
   return (
-    <div className={cn(enter && "page-enter")}>
+    <div className="page-enter">
       <PageTitle>{title}</PageTitle>
     </div>
   );

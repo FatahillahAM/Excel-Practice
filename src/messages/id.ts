@@ -64,21 +64,19 @@ export const uploadMessages = {
   ALREADY_GRADED: "File ini sudah dinilai. Hasilnya ada di History, ya.",
   /** "Rejected — attempt already closed" row. */
   ATTEMPT_CLOSED: "Percobaan ini sudah ditutup, jadi file-nya nggak bisa dinilai. Mulai percobaan baru, ya.",
-  /** Larger than 4 MiB, refused before sending or by the server's 413 (illustrative, like `startMessages`). */
+  /** "Too large" row (Upload + macro): larger than 4 MiB, refused before sending or by the server's 413. */
   FILE_TOO_LARGE: "File ini terlalu besar (maksimal 4 MB). Pakai file .xlsm asli dari Start, ya.",
   /** The request failed or the server faulted (the Login "network" row). */
   failed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
 } as const;
-
-export type UploadMessage = keyof typeof uploadMessages;
 
 /**
  * The Finish macro's message boxes (`assets/templates/vba/modFinish.bas`, CAP-3,
  * CAP-18): one per answer of the macro route, the local size check and the
  * failures before or during the send. Rejection rows reuse `uploadMessages`
  * verbatim (the Message set rows are "Upload + macro"), except `NOT_EXCEL`,
- * whose row is upload-only and has its own text here; `sent` and `sendFailed`
- * are the "Macro sent" / "Macro send failed" rows. The `.bas` holds each string
+ * which has its own "Not an Excel file" (Macro) row; `sent`, `sendFailed`,
+ * `tlsFailed`, `tempFailed` and `saveFailed` are the "Macro …" rows. The `.bas` holds each string
  * as a literal (the em dash as `ChrW$(8212)`, the file is ASCII), which
  * `modfinish-source.test.ts` checks, so this object is the one source.
  */
@@ -89,18 +87,18 @@ export const macroMessages = {
   ALREADY_GRADED: uploadMessages.ALREADY_GRADED,
   IDENTITY_ALTERED: uploadMessages.IDENTITY_ALTERED,
   ATTEMPT_CLOSED: uploadMessages.ATTEMPT_CLOSED,
-  /** [ASSUMPTION] The Message set row is upload-only and says to pick another file; via the macro the file is this one. */
+  /** "Not an Excel file" (Macro) row: unlike the Upload row it says to upload this same file. */
   NOT_EXCEL: "Server nggak bisa membaca file ini sebagai file Excel. Upload file ini lewat web, ya.",
-  /** Larger than `MAX_SUBMISSION_BYTES` locally, or HTTP 413: the same text as upload. */
+  /** "Too large" row: larger than `MAX_SUBMISSION_BYTES` locally, or HTTP 413; the same text as upload. */
   FILE_TOO_LARGE: uploadMessages.FILE_TOO_LARGE,
   /** "Macro send failed" row: network, timeout, 500, any other HTTP status or an unknown code. */
   sendFailed: "File belum terkirim. Filenya sudah tersimpan — upload lewat web, ya.",
-  /** [ASSUMPTION] WinHTTP certificate or secure-channel error: usually a wrong laptop clock. */
+  /** "Macro TLS failed" row: WinHTTP certificate or secure-channel error, usually a wrong laptop clock. */
   tlsFailed:
     "Koneksi aman ke server gagal. Biasanya karena tanggal dan jam laptop salah, bukan internet kamu. Cek jamnya lalu klik Finish lagi, atau upload lewat web, ya.",
-  /** [ASSUMPTION] `TEMP`/`TMP` empty, or the copy could not be written or read there. */
+  /** "Macro TEMP copy failed" row: `TEMP`/`TMP` empty, or the copy could not be written or read there. */
   tempFailed: "Salinan file nggak bisa dibuat di folder TEMP Windows. Filenya sudah tersimpan — upload lewat web, ya.",
-  /** [ASSUMPTION] `ThisWorkbook.Save` failed or the file is read-only: nothing is sent. Save As, because Ctrl+S on a read-only file opens Save As with a possibly wrong type. */
+  /** "Macro save failed" row: `ThisWorkbook.Save` failed or the file is read-only, so nothing is sent. Save As, because Ctrl+S on a read-only file opens Save As with a possibly wrong type. */
   saveFailed:
     "File belum bisa disimpan, jadi belum dikirim. Pakai File > Save As, simpan sebagai .xlsm di folder kerja kamu, lalu klik Finish lagi, ya.",
   /** Properties missing or still `TEMPLATE` (the raw template): wording kept, `assets/templates/README.md` relies on it. */

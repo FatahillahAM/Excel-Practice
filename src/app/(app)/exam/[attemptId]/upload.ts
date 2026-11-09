@@ -1,6 +1,6 @@
-import type { AttemptStatus } from "../../../../adapters/supabase/attempts";
-import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "../../../../core/submission";
-import { uploadMessages } from "../../../../messages/id";
+import type { AttemptStatus } from "@/adapters/supabase/attempts";
+import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "@/core/submission";
+import { uploadMessages } from "@/messages/id";
 
 /**
  * The Upload Dropzone's logic without the DOM (no DOM harness until epic 4):

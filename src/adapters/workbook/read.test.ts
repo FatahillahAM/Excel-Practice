@@ -573,3 +573,16 @@ describe("s2-excel2021.xlsm (saved by Excel 2021)", () => {
     expect(xml).toContain("_xlfn.");
   });
 });
+
+// The bounded inflate (`PartReader`) streams each part through JSZip's private
+// `ZipObject#internalStream`. Pin both, so a jszip upgrade fails here instead
+// of silently disabling the zip-bomb guard.
+describe("jszip pin (bounded inflate)", () => {
+  it("is the installed jszip 3.10.2 with ZipObject#internalStream", () => {
+    const recheck = "periksa ulang bounded inflate sebelum menaikkan jszip";
+    expect(JSZip.version, recheck).toBe("3.10.2");
+    const zipObject = new JSZip().file("a.txt", "a").file("a.txt")!;
+    const prototype = Object.getPrototypeOf(zipObject) as { internalStream?: unknown };
+    expect(typeof prototype.internalStream, recheck).toBe("function");
+  });
+});

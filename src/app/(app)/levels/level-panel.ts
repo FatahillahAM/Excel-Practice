@@ -1,4 +1,4 @@
-import { itemLabel, type LevelModule } from "../../../core/content/level-module";
+import { itemLabel, type LevelModule } from "@/core/content/level-module";
 
 /**
  * The view model of the Level Detail Panel, as a pure function of the level's

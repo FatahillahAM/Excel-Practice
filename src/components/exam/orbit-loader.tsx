@@ -2,7 +2,7 @@
 
 import { Pause, Play } from "lucide-react";
 import { useState } from "react";
-import { useMotionPreference } from "../../hooks/use-motion-preference";
+import { useMotionPreference } from "@/hooks/use-motion-preference";
 
 /**
  * Rings outer → inner (DESIGN.md › Orbit Loader, EXPERIENCE.md › Interaction

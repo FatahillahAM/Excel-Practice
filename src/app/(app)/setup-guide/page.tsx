@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { surfaceTitle } from "../../../components/shell/nav-items";
-import { PageTitle } from "../../../components/shell/page-title";
+import { surfaceTitle } from "@/components/shell/nav-items";
+import { PageTitle } from "@/components/shell/page-title";
 import { attemptCardView, loadOpenAttempt } from "../open-attempt";
 import { SetupStepsList } from "./setup-steps-list";
 import { SETUP_STEPS, STILL_BLOCKED } from "./setup-steps";

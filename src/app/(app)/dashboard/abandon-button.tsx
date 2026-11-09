@@ -12,8 +12,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
   alertDialogButton,
-} from "../../../components/ui/alert-dialog";
-import { attemptMessages } from "../../../messages/id";
+} from "@/components/ui/alert-dialog";
+import { attemptMessages } from "@/messages/id";
 import { abandonAttempt, type AbandonState } from "./abandon-actions";
 
 const INITIAL: AbandonState = { status: "idle" };
