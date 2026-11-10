@@ -66,11 +66,29 @@ export const typed = (cached: number | string): CellReading => ({
   type: typeof cached === "number" ? "number" : "string",
 });
 
-/** Every answer cell holds a formula whose cached value is the key. */
+/**
+ * The formula that passes every check of `SNAPSHOT` in an answer cell, by its
+ * column: the L01-P1 formulas, filled down (and right in O:P).
+ */
+export function correctFormula(ref: string): string {
+  const [, column, row] = /^([A-Z]+)(\d+)$/.exec(ref)!;
+  switch (column) {
+    case "H":
+      return `=E${row}*G${row}`;
+    case "I":
+      return `=E${row}*$L$2`;
+    case "J":
+      return `=E${row}/SUM($E$2:$E$3)`;
+    default:
+      return `=$N${row}*(1+${column}$1)`;
+  }
+}
+
+/** Every answer cell holds the formula that passes all five checks, its cached value the key. */
 export function correctCells(snapshot: ExamSnapshot = SNAPSHOT): Record<string, CellReading> {
   const cells: Record<string, CellReading> = {};
   for (const question of snapshot.questions) {
-    for (const [ref, key] of Object.entries(question.key)) cells[ref] = formula(`=X${ref}`, key);
+    for (const [ref, key] of Object.entries(question.key)) cells[ref] = formula(correctFormula(ref), key);
   }
   return cells;
 }

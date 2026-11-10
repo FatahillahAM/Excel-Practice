@@ -13,8 +13,15 @@ import { MAX_QUESTIONS, TOTAL_POINTS, scenarioSchema } from "../content/level-mo
 /** Points one revealed hint costs (AD-3). */
 export const HINT_PENALTY_POINTS = 5;
 
-/** The `Result` shape version: later entries (more checkers, Tips) bump it so old Results stay readable. */
-export const RESULT_VERSION = 1;
+/**
+ * The `Result` shape version: later entries (more checkers, Tips) bump it so
+ * old Results stay readable. 2: all five checkers and their reasons (entry 2);
+ * a version 1 Result (entry 1, some checks skipped) has the same shape.
+ */
+export const RESULT_VERSION = 2;
+
+/** Every version `resultSchema` reads: stored Results of older versions stay valid. */
+export const RESULT_VERSIONS = [1, RESULT_VERSION] as const;
 
 /** A Tip as Results shows it (CAP-8): content Tips (entry 4) reuse this schema. */
 export const tipSchema = z
@@ -63,7 +70,7 @@ export type QuestionResult = z.infer<typeof questionResultSchema>;
 
 export const resultSchema = z
   .object({
-    version: z.literal(RESULT_VERSION),
+    version: z.literal(RESULT_VERSIONS),
     contentVersion: z.number().int().positive(),
     scenarioId: scenarioSchema.shape.id,
     hintsUsed: z.number().int().min(0),

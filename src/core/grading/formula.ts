@@ -1,8 +1,11 @@
 /**
- * Formula text for WorkbookIO reading (AD-4): the normal form graders compare,
- * and the reference shift that expands Excel's shared formulas.
+ * Formula text (AD-3, AD-4): the normal form graders compare, the reference
+ * shift that expands Excel's shared formulas (WorkbookIO reading) and that
+ * `uses_reference` applies to a question's `ref`, and the tokenizer the
+ * checkers read formulas with. One tokenizer for reading and checking; it
+ * imports nothing, so the adapter and core share it from here.
  *
- * Both work on a small tokenizer that knows what must never change: string
+ * All of it works on a small tokenizer that knows what must never change: string
  * literals ("…"), quoted sheet names ('…'), bracketed parts (structured
  * references, external workbook indexes) and function or defined names that
  * look like cell references (`LOG10(`).
@@ -11,7 +14,7 @@
 const MAX_ROW = 1_048_576;
 const MAX_COLUMN = 16_384;
 
-type TokenKind =
+export type FormulaTokenKind =
   | "string"
   | "quoted"
   | "bracket"
@@ -24,14 +27,15 @@ type TokenKind =
   | "number"
   | "other";
 
-interface Token {
-  kind: TokenKind;
+/** One token of formula text; the texts of a formula's tokens concatenate to the formula. */
+export interface FormulaToken {
+  kind: FormulaTokenKind;
   text: string;
   /** For `cells` (one cell or `A1:B2`), `columns` (`A:C`) and `rows` (`1:3`). */
-  parts?: RefPart[];
+  parts?: FormulaRefPart[];
 }
 
-interface RefPart {
+export interface FormulaRefPart {
   absolute: boolean;
   /** 1-based column (`cells`, `columns`) or row (`rows`). */
   index: number;
@@ -85,7 +89,7 @@ export function shiftFormula(text: string, dRow: number, dCol: number): string {
 // ---------------------------------------------------------------------------
 // Shifting
 
-function shiftReference(token: Token, dRow: number, dCol: number): string {
+function shiftReference(token: FormulaToken, dRow: number, dCol: number): string {
   const parts = token.parts!;
   const texts: string[] = [];
   for (const part of parts) {
@@ -139,8 +143,14 @@ const ROWS_RE = /(\$?)([0-9]{1,7}):(\$?)([0-9]{1,7})/y;
 /** After a reference: anything that would make it part of a name, a function call or a sheet name. */
 const REF_FOLLOWER_RE = /[A-Za-z0-9_.\\?(!\u0080-￿]/;
 
-function tokenize(text: string): Token[] {
-  const tokens: Token[] = [];
+/**
+ * Splits formula text (with or without its leading `=`) into tokens: string
+ * literals, quoted sheet names, brackets, error literals, whitespace,
+ * references (`cells`, `columns`, `rows`), names (functions, sheets, defined
+ * names, `TRUE`), numbers and single other characters (`(`, `!`, `*`, `=`).
+ */
+export function tokenize(text: string): FormulaToken[] {
+  const tokens: FormulaToken[] = [];
   let i = 0;
   while (i < text.length) {
     const token = readToken(text, i);
@@ -150,7 +160,7 @@ function tokenize(text: string): Token[] {
   return tokens;
 }
 
-function readToken(text: string, i: number): Token {
+function readToken(text: string, i: number): FormulaToken {
   const char = text[i];
   if (char === '"') return { kind: "string", text: readQuoted(text, i, '"') };
   if (char === "'") return { kind: "quoted", text: readQuoted(text, i, "'") };
@@ -174,7 +184,7 @@ function readToken(text: string, i: number): Token {
   return { kind: "other", text: char };
 }
 
-function readReference(text: string, i: number): Token | null {
+function readReference(text: string, i: number): FormulaToken | null {
   const columns = matchAt(COLUMNS_RE, text, i);
   if (columns !== null && endsReference(text, i + columns[0].length)) {
     const parts = [columnPart(columns[1], columns[2]), columnPart(columns[3], columns[4])];
@@ -205,7 +215,7 @@ function readReference(text: string, i: number): Token | null {
   return { kind: "cells", text: text.slice(i, end), parts };
 }
 
-function readCell(text: string, i: number): { text: string; part: RefPart } | null {
+function readCell(text: string, i: number): { text: string; part: FormulaRefPart } | null {
   const cell = matchAt(CELL_RE, text, i);
   if (cell === null || !endsReference(text, i + cell[0].length)) return null;
   const part = columnPart(cell[1], cell[2]);
@@ -214,11 +224,11 @@ function readCell(text: string, i: number): { text: string; part: RefPart } | nu
   return { text: cell[0], part: { ...part, row: { absolute: cell[3] === "$", index: row } } };
 }
 
-function columnPart(dollar: string, letters: string): RefPart {
+function columnPart(dollar: string, letters: string): FormulaRefPart {
   return { absolute: dollar === "$", index: columnIndex(letters) };
 }
 
-function rowPart(dollar: string, digits: string): RefPart {
+function rowPart(dollar: string, digits: string): FormulaRefPart {
   return { absolute: dollar === "$", index: Number(digits) };
 }
 

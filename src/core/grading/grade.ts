@@ -43,7 +43,7 @@ function gradeQuestion(question: ExamQuestion, reading: WorkbookReading): Questi
   let reason: string | null = null;
   for (const check of question.checks) {
     const outcome = runCheck(check, question, cells);
-    if (outcome !== null && !outcome.ok) {
+    if (!outcome.ok) {
       reason = reasonText(outcome.reason);
       break;
     }

@@ -105,3 +105,15 @@
   summary: No test proves behaviour when migration `20261109000001_attempts_result` is only partly applied (column present without grants or trigger).
   evidence: 3.1 review (low); migrations are applied whole via Supabase MCP, dev then prod.
   status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-lima-pemeriksa-alasan-fixture-emas-dan-tes-paritas-plan.md`
+  summary: `normalizeFormula` removes every space outside strings, so Excel's intersection operator (`$E$2:$E$13 $E:$E`) merges two references and `uses_reference` fails a valid formula.
+  evidence: 3.2 review (low-medium); rare in V1 content.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-lima-pemeriksa-alasan-fixture-emas-dan-tes-paritas-plan.md`
+  summary: `_xludf.` (function unknown to the Excel that saved the file) is not stripped; `uses_functions` then reports a missing function instead of the real `#NAME?` problem.
+  evidence: 3.2 review (low); V1 targets Excel 2021, which knows every V1 function.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-lima-pemeriksa-alasan-fixture-emas-dan-tes-paritas-plan.md`
+  summary: A formula cell with `t="str"` and an empty cached `<v></v>` (written by some non-Excel tools) reads as `""` and gets `wrong_value` instead of `not_calculated`.
+  evidence: 3.2 review (low); Excel 2021 does not write this shape.
+  status: open

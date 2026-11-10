@@ -1,7 +1,7 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import path from "node:path";
 import JSZip from "jszip";
-import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula.ts";
+import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "../../core/grading/formula.ts";
 import { readSheetParts, resolvePartName } from "./template-patch.ts";
 import type { CellReading, WorkbookReading } from "@/core/grading/workbook-reading";
 import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
@@ -307,15 +307,53 @@ function readSheet(
     }
   }
 
+  const arrays = arrayRanges(cells);
   const out = new Map<string, CellReading>();
   for (const cell of cells) {
     const where = `${sheetName}!${cell.ref}`;
     const formula = cellFormula(cell, masters, where);
     const { value, type } = cellValue(cell.node, sharedStrings, where);
     if (formula === null && type === "empty") continue;
-    out.set(cell.ref, { formula, value, type });
+    const inArray = arrays.some(
+      (range) => cell.row >= range.top && cell.row <= range.bottom && cell.column >= range.left && cell.column <= range.right,
+    );
+    out.set(cell.ref, inArray ? { formula, value, type, array: true } : { formula, value, type });
   }
   return Object.fromEntries(out);
+}
+
+interface CellRange {
+  top: number;
+  left: number;
+  bottom: number;
+  right: number;
+}
+
+/**
+ * The ranges of array formulas over more than one cell (`<f t="array"
+ * ref="H2:H13">`, a legacy Ctrl+Shift+Enter array or a dynamic array that
+ * spilled): only the anchor holds the formula, the other cells only values.
+ * A one-cell `ref` is not one: Excel 2021 saves many ordinary formulas that
+ * way (`cm="1"`), so their cell reads like any other formula.
+ */
+function arrayRanges(cells: readonly RawCell[]): CellRange[] {
+  const ranges: CellRange[] = [];
+  for (const cell of cells) {
+    const f = child(cell.node, "f");
+    if (f === undefined || attr(f, "t") !== "array") continue;
+    const [first, last = first] = (attr(f, "ref") ?? "").split(":");
+    const start = REF_RE.exec(first);
+    const end = REF_RE.exec(last);
+    if (start === null || end === null) continue;
+    const range = {
+      top: Math.min(Number(start[2]), Number(end[2])),
+      bottom: Math.max(Number(start[2]), Number(end[2])),
+      left: Math.min(columnIndex(start[1]), columnIndex(end[1])),
+      right: Math.max(columnIndex(start[1]), columnIndex(end[1])),
+    };
+    if (range.top !== range.bottom || range.left !== range.right) ranges.push(range);
+  }
+  return ranges;
 }
 
 function cellFormula(cell: RawCell, masters: Map<string, SharedMaster>, where: string): string | null {

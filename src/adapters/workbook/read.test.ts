@@ -227,11 +227,18 @@ describe("readWorkbook", () => {
     expect(sheets.Data.P5).toEqual({ formula: null, value: "#DIV/0!", type: "error" });
   });
 
-  it("gives a spilled array its formula only at the anchor", async () => {
+  it("gives a spilled array its formula only at the anchor, and marks every cell of its range as array", async () => {
     const { sheets } = await readWorkbook(await makeWorkbook());
-    expect(sheets.Data.L6).toEqual({ formula: "UNIQUE(B2:B11)", value: "Lini A", type: "string" });
-    expect(sheets.Data.L7).toEqual({ formula: null, value: "Lini B", type: "string" });
-    expect(sheets.Data.L8).toEqual({ formula: null, value: "Lini C", type: "string" });
+    expect(sheets.Data.L6).toEqual({ formula: "UNIQUE(B2:B11)", value: "Lini A", type: "string", array: true });
+    expect(sheets.Data.L7).toEqual({ formula: null, value: "Lini B", type: "string", array: true });
+    expect(sheets.Data.L8).toEqual({ formula: null, value: "Lini C", type: "string", array: true });
+  });
+
+  it("does not mark a one-cell array formula (Excel 2021 saves ordinary formulas so) as array", async () => {
+    const { sheets } = await readWorkbook(await readFixture());
+    expect(sheets.Data.L4).toEqual({ formula: 'IFS(L2>30,"besar",TRUE,"kecil")', value: "besar", type: "string" });
+    expect(sheets.Instructions.C9.array).toBeUndefined();
+    expect(sheets.Data.L7.array).toBe(true);
   });
 
   it("ignores stale <dimension> and spans, and skips cells with only a style", async () => {
