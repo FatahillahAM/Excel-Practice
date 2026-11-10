@@ -79,4 +79,5 @@ Penilaian, hint, Results, Tips & Tricks, History. Bukan: progres, streak, gerban
 - Decision (U8): harness tes DOM (jsdom + testing-library) dibangun di epic ini di entry 3; epic 4 memakainya untuk entri tertunda yang menunggu harness (user, 2026-11-09).
 - Decision (U9): varian Results Test lulus (judul "Test passed — N/100" + Fire Effect) dibangun di epic ini dan dibuktikan dengan Result fixture; item Test asli di epic 5, "Level N unlocked!" di epic 4 (user, 2026-11-09).
 - Decision: epic 4 menunggu entry 3.1 (Result tersimpan) dan epic 5 menunggu entry 3.2 (pemeriksa) dan 3.4 (kontrak hint/Tips), dipasang di `after` envelope masing-masing (2026-11-09).
+- Decision: 3.1 done — Production 2026-11-10: attempt `7ee570ef` (L01-P1) dinilai otomatis 0,4 s setelah diterima lewat macro, Results muncul sendiri dengan 45/100 dan 2 of 4 correct (user, 2026-11-10).
 - Touch point: harness tes DOM (dari epic 4 ke entry 3), `src/core/progress` (dibuat di entry 9, dipakai epic 4), perubahan spine AD-3 (snapshot) dan AD-9 (jalur hint).
