@@ -3,7 +3,23 @@ import { readWorkbook, type WorkbookReading } from "@/adapters/workbook/read";
 import { expandRange } from "@/core/content/a1";
 import type { CheckName } from "@/core/content/checks";
 import { REASON_TEMPLATES, grade, runCheck, shiftedReference, type AnswerCell } from "@/core/grading";
-import { EXPECTED, VARIANTS, buildFixture, expectedResult, fillOffset, fixtureSnapshot, type Variant } from "./__fixtures__/l01-p1";
+import { CURRENT_TEMPLATE_VERSION, matchesTemplate } from "@/adapters/workbook/templates";
+import {
+  EXCEL_FIXTURES,
+  EXPECTED,
+  EXPECTED_EXCEL,
+  FIXTURE_TOKEN,
+  VARIANTS,
+  buildFixture,
+  driftGuardCells,
+  expectedResult,
+  fillOffset,
+  fixtureSnapshot,
+  readExcelFixture,
+  resultOf,
+  type ExcelFixture,
+  type Variant,
+} from "./__fixtures__/l01-p1";
 
 // Golden fixtures of L01-P1 (spine › fixtures): every code-built variant is
 // written into template v1 as Excel saves it, read back with readWorkbook and
@@ -11,9 +27,11 @@ import { EXPECTED, VARIANTS, buildFixture, expectedResult, fillOffset, fixtureSn
 
 const snapshot = fixtureSnapshot();
 const readings = new Map<Variant, WorkbookReading>();
+const excelReadings = new Map<ExcelFixture, WorkbookReading>();
 
 beforeAll(async () => {
   for (const variant of VARIANTS) readings.set(variant, await readWorkbook(await buildFixture(variant)));
+  for (const name of EXCEL_FIXTURES) excelReadings.set(name, await readWorkbook(await readExcelFixture(name)));
 });
 
 /** The name of the check that decided each wrong question (the first failing one), as grade() runs them. */
@@ -128,5 +146,42 @@ describe("L01-P1 golden fixtures (code-built)", () => {
     const data = readings.get("array")!.sheets.Data;
     expect(data.H2).toMatchObject({ formula: "E2:E13*G2:G13", array: true });
     expect(data.H13).toMatchObject({ formula: null, array: true });
+  });
+});
+
+// The three files Excel 2021 saved from `buildFixture("blank")` (README.md),
+// graded through the same reader and grade() as the code-built variants.
+describe("L01-P1 golden fixtures (saved by Excel 2021)", () => {
+  it.each(EXCEL_FIXTURES)("%s grades to its expected score and reasons", (name) => {
+    const result = grade(snapshot, excelReadings.get(name)!, 0);
+    expect({
+      score: result.score,
+      correctCount: result.correctCount,
+      questions: result.questions.map(({ correct, reasonText }) => ({ correct, reasonText })),
+    }).toEqual(EXPECTED_EXCEL[name]);
+    expect(result).toEqual(resultOf(EXPECTED_EXCEL[name], snapshot));
+  });
+
+  it("Excel saved the answers as the README asks: fill as shared formulas, typed values without formulas", () => {
+    const correct = excelReadings.get("l01-p1-correct")!.sheets.Data;
+    expect(correct.H13.formula).toBe("E13*G13");
+    expect(correct.I13.formula).toBe("E13*$L$2");
+    expect(correct.J13.formula).toBe("E13/SUM($E$2:$E$13)");
+    expect(correct.R5.formula).toBe("$N5*(1+R$1)");
+    expect(excelReadings.get("l01-p1-typed-values")!.sheets.Data.H2.formula).toBeNull();
+    expect(excelReadings.get("l01-p1-wrong-function")!.sheets.Data.J13.formula).toBe("E13/(AVERAGE($E$2:$E$13)*COUNT($E$2:$E$13))");
+  });
+
+  // Drift guard: content or the template changing under the committed files
+  // would make them grade a different exam. Fix fixtureSnapshot(), never the files.
+  it.each(EXCEL_FIXTURES)("%s still holds the generated Data cells and template v1's fingerprint", (name) => {
+    const reading = excelReadings.get(name)!;
+    const data = reading.sheets.Data;
+    for (const [ref, value] of Object.entries(driftGuardCells())) {
+      expect(data[ref], `${name} Data!${ref}`).toEqual({ formula: null, value, type: typeof value === "number" ? "number" : "string" });
+    }
+    expect(reading.properties.WHE_AttemptToken).toBe(FIXTURE_TOKEN);
+    expect(reading.properties.WHE_TemplateVersion).toBe(String(CURRENT_TEMPLATE_VERSION));
+    expect(matchesTemplate(reading.vbaModuleHashes, 1)).toBe(true);
   });
 });

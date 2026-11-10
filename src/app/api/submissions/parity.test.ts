@@ -27,11 +27,16 @@ import { CURRENT_TEMPLATE_VERSION } from "@/adapters/workbook/templates";
 import { tokenSha256Hex } from "@/adapters/workbook/token";
 import { resultSchema, type Result } from "@/core/grading";
 import {
+  EXCEL_FIXTURES,
+  EXPECTED_EXCEL,
   FIXTURE_TOKEN,
   VARIANTS,
   buildFixture,
   expectedResult,
   fixtureSnapshot,
+  readExcelFixture,
+  resultOf,
+  type ExcelFixture,
   type Variant,
 } from "@/content/levels/01-fondasi/__fixtures__/l01-p1";
 import { POST as macroPOST } from "./macro/route";
@@ -54,8 +59,10 @@ let status: "open" | "received" | "graded";
 let written: { event: string; result: Result | undefined }[];
 
 const files = new Map<Variant, Uint8Array>();
+const excelFiles = new Map<ExcelFixture, Uint8Array>();
 beforeAll(async () => {
   for (const variant of VARIANTS) files.set(variant, await buildFixture(variant));
+  for (const name of EXCEL_FIXTURES) excelFiles.set(name, await readExcelFixture(name));
 });
 
 beforeEach(() => {
@@ -129,5 +136,15 @@ describe("macro and upload grade the same file to the same Result", () => {
     const upload = await gradeThrough("upload", bytes);
     expect(upload).toEqual(macro);
     expect(macro).toEqual(expectedResult(variant, snapshot));
+  });
+});
+
+describe("macro and upload grade the same Excel 2021-saved file to the same Result", () => {
+  it.each(EXCEL_FIXTURES)("%s", async (name) => {
+    const bytes = excelFiles.get(name)!;
+    const macro = await gradeThrough("macro", bytes);
+    const upload = await gradeThrough("upload", bytes);
+    expect(upload).toEqual(macro);
+    expect(macro).toEqual(resultOf(EXPECTED_EXCEL[name], snapshot));
   });
 });

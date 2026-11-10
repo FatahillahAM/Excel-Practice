@@ -3,7 +3,7 @@ title: 'Lima pemeriksa, alasan, fixture emas, dan tes paritas'
 type: 'feature'
 ticket: '2'
 created: '2026-11-10'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -88,8 +88,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - [x] `src/content/levels/01-fondasi/__fixtures__/l01-p1.ts` -- test-only: `FIXTURE_SEED = 7`, `FIXTURE_SCENARIO_ID = 'baut-sinar-presisi'`, fixed token, `serverUrl 'https://example.invalid'`; `fixtureSnapshot()` (start-actions shape, schema-validated); `buildFixture(variant)` from `generateExamWorkbook` + `formula-cells`; variants `blank`, `correct` (shared formulas), `valid-variants`, `typed-values`, `hard-coded`, `wrong-function`, `wrong-reference`, `error`, `not-calculated`, `tolerance`; `EXPECTED[variant]` = score, correctCount, per-question `correct` + exact `reasonText`.
 - [x] `src/content/levels/01-fondasi/golden.test.ts` -- each code-built variant: `readWorkbook` → `grade(fixtureSnapshot(), reading, 0)` equals `EXPECTED`; five checkers each decide at least one variant.
 - [x] `src/app/api/submissions/parity.test.ts` -- per variant, POST the same bytes to macro (header = file's `WHE_AttemptToken`) and upload (session user owns the attempt); in-memory mocks: `storeSubmissionFile` keeps bytes, `downloadSubmissionFile` returns them, `loadForGrading` → `{status:'received', snapshot}`, `changeStatus` captures `{event, result}`; run each `after()` callback; assert both `Result`s deep-equal each other and `EXPECTED`.
-- [ ] HITL (after the tasks above are green) -- run `buildFixture('blank')` once to a file outside the repo and send it with SendUserFile; write the procedure below into `src/content/levels/01-fondasi/__fixtures__/README.md`; halt until the three `.xlsm` files are on the branch (`git pull`).
-- [ ] Excel fixtures -- add `l01-p1-correct`, `l01-p1-typed-values`, `l01-p1-wrong-function` cases to `golden.test.ts` and `parity.test.ts` with `EXPECTED_EXCEL`, plus a drift guard: Data A1:G13, L2, M2:N5, O1:R1 of each file equal `fixtureSnapshot()`'s generated cells, and each file matches template v1's fingerprint.
+- [x] HITL (after the tasks above are green) -- run `buildFixture('blank')` once to a file outside the repo and send it with SendUserFile; write the procedure below into `src/content/levels/01-fondasi/__fixtures__/README.md`; halt until the three `.xlsm` files are on the branch (`git pull`).
+- [x] Excel fixtures -- add `l01-p1-correct`, `l01-p1-typed-values`, `l01-p1-wrong-function` cases to `golden.test.ts` and `parity.test.ts` with `EXPECTED_EXCEL`, plus a drift guard: Data A1:G13, L2, M2:N5, O1:R1 of each file equal `fixtureSnapshot()`'s generated cells, and each file matches template v1's fingerprint.
 
 **Acceptance Criteria:**
 - Given CI (`npm run test`), when the golden and parity suites run, then every code-built variant and all three Excel-saved files grade to their expected score and reasons, identical through macro and upload.
@@ -129,6 +129,8 @@ Agent mengirim `l01-p1-blank.xlsm` lewat chat. Waktu sekitar 15 menit.
 - Extra exports beyond the plan: `calledFunctions`, `hasReference`, `shiftedReference` (checkers), `FormulaRefPart`/`FormulaTokenKind` types, and `RESULT_VERSIONS` (`[1, 2]`, read by `resultSchema`).
 - Fixture variants as built: `valid-variants` mixes shared and per-cell formulas (`G2*E2`, `Data!E2*Data!$L$2`, `e2 / sum( $e$2:$e$13 )`, `'Data'!$N2 * (1 + O$1)`); `hard-coded` has H2 `1159*1123.51`; `error` has H5 `#REF!`, J2:J13 `#DIV/0!`, R5 `#N/A` (score 25); `not-calculated` leaves O2:R5 without `<v>` (70); `tolerance` scales H by `1 + 5e-10` (correct) and I3 by `1 + 2e-9` (wrong, 75). `l01-p1.ts` also exports `expectedResult(variant)`, the full `Result` built from `EXPECTED`, which golden and parity compare against.
 
+- Excel fixtures: the user's three Excel 2021 files (`l01-p1-correct`, `l01-p1-typed-values`, `l01-p1-wrong-function`.xlsm, commit afe4c95) are graded in `golden.test.ts` and posted through both routes in `parity.test.ts` against `EXPECTED_EXCEL` (100 / 80 Q1 typed_value / 75 Q3 missing SUM), unchanged. The drift guard is in `golden.test.ts`: per file, Data A1:G13, L2, M2:N5 and O1:R1 equal `fixtureCells()` (`driftGuardCells()`, values without formulas), `WHE_AttemptToken` is `FIXTURE_TOKEN` (the macro header the parity suite sends), `WHE_TemplateVersion` is 1, and `matchesTemplate(vbaModuleHashes, 1)` holds. `l01-p1.ts` gains `EXCEL_FIXTURES`, `EXPECTED_EXCEL`, `readExcelFixture`, `driftGuardCells` and `resultOf(expected)` (`expectedResult(variant)` now delegates to it).
+
 ## Plan Change Log
 
 - 2026-11-10 (review of the build): a check over zero answer cells throws instead of passing (fail closed). Cells inside a multi-cell array formula's `ref` (`<f t="array" ref="H2:H13">`, anchor and members) are read with `array: true` (`CellReading`); where a checker would say `typed_value` it says the new `array_formula` ("Sel {ref} berisi hasil rumus array; tulis satu rumus biasa lalu salin ke sel lainnya.", U2: cell only), and `uses_reference` says it at the anchor. A one-cell `t="array"` is not marked: Excel 2021 saves ordinary formulas that way (`cm="1"`, S2's `L4`). New golden variant `array` (80, Q1 at H3). `not_hard_coded` does not count an external-workbook index (`[1]`) as a reference and gives `error_value` for a formula whose only references are `#REF!`. `uses_reference` refuses a reference after `#REF!` (deleted sheet) or followed by `#` (spill reference). `uses_functions` compares declared names without `_xlfn.`/`_xlws.`/`_xlpm.` (the content schema already refuses such names).
@@ -148,7 +150,7 @@ Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment)
 | 7 | Reason leak test regex could miss a relative ref | patched — asserts no declared/shifted ref, key value (several formats) or function outside its slot |
 | 8 | `checks.ts` comment claimed a `Data!` prefix is allowed in `ref` | patched — comment states the real rule |
 | 9 | `perCell` fixture helper single-letter columns only | patched — `fillOffset` |
-| 10 | Excel-2021-saved `correct` / `typed-values` / `wrong-function` not yet tested | open — HITL step, lands before PR |
+| 10 | Excel-2021-saved `correct` / `typed-values` / `wrong-function` not yet tested | patched — user saved the files (2026-11-10); golden, parity and drift-guard cases added: 100 / 80 / 75 as expected |
 | 11 | Text keys compared exactly (case, trailing space, NFC/NFD) | rejected — intent says text must match exactly |
 | 12 | Split range, whole column, defined name for `$E$2:$E$13` → `wrong_reference` | rejected — `$` / exact-token policy is the intent; content may declare alternatives later |
 | 13 | `value_equals_key` now fails typed values | rejected — required by Boundaries ("tiap pemeriksa berdiri sendiri") |

@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import {
   arrayFill,
   formulaCell,
@@ -280,9 +282,13 @@ export const EXPECTED: Readonly<Record<Variant, ExpectedGrade>> = {
   },
 };
 
-/** The full `Result` a variant grades to with no hints (what the grading path writes). */
+/** The full `Result` a code-built variant grades to with no hints (what the grading path writes). */
 export function expectedResult(variant: Variant, snapshot: ExamSnapshot = fixtureSnapshot()): Result {
-  const expected = EXPECTED[variant];
+  return resultOf(EXPECTED[variant], snapshot);
+}
+
+/** The full `Result` an `ExpectedGrade` stands for, with no hints. */
+export function resultOf(expected: ExpectedGrade, snapshot: ExamSnapshot = fixtureSnapshot()): Result {
   const pointsEarned = snapshot.questions.reduce((sum, q, i) => sum + (expected.questions[i].correct ? q.points : 0), 0);
   return {
     version: RESULT_VERSION,
@@ -303,4 +309,48 @@ export function expectedResult(variant: Variant, snapshot: ExamSnapshot = fixtur
       tip: null,
     })),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Excel 2021 files (README.md): `buildFixture("blank")` opened, answered and
+// saved by Excel 2021, committed as they are. Never written by code.
+
+export const EXCEL_FIXTURES = ["l01-p1-correct", "l01-p1-typed-values", "l01-p1-wrong-function"] as const;
+
+export type ExcelFixture = (typeof EXCEL_FIXTURES)[number];
+
+export const EXPECTED_EXCEL: Readonly<Record<ExcelFixture, ExpectedGrade>> = {
+  "l01-p1-correct": { score: 100, correctCount: 4, questions: [RIGHT, RIGHT, RIGHT, RIGHT] },
+  "l01-p1-typed-values": {
+    score: 80,
+    correctCount: 3,
+    questions: [wrong("Sel H2 berisi nilai yang diketik, bukan rumus."), RIGHT, RIGHT, RIGHT],
+  },
+  "l01-p1-wrong-function": {
+    score: 75,
+    correctCount: 3,
+    questions: [RIGHT, RIGHT, wrong("Rumus di J2 tidak memakai fungsi SUM."), RIGHT],
+  },
+};
+
+/** The committed bytes of an Excel-saved fixture. */
+export async function readExcelFixture(name: ExcelFixture): Promise<Uint8Array> {
+  return Uint8Array.from(await readFile(fileURLToPath(new URL(`./${name}.xlsm`, import.meta.url))));
+}
+
+/**
+ * The Data cells the drift guard compares (plan: A1:G13, L2, M2:N5, O1:R1):
+ * the generated batches, the overhead rate, the product grid and the cost
+ * increases, as `fixtureCells()` generates them now.
+ */
+export function driftGuardCells(): Record<string, number | string> {
+  const data = fixtureCells()[DATA_SHEET];
+  const refs = [...expandRange("A1:G13")!, "L2", ...expandRange("M2:N5")!, ...expandRange("O1:R1")!];
+  return Object.fromEntries(
+    refs.map((ref) => {
+      const value = data[ref];
+      if (value === undefined) throw new Error(`driftGuardCells: generated Data has no ${ref}`);
+      return [ref, value];
+    }),
+  );
 }
