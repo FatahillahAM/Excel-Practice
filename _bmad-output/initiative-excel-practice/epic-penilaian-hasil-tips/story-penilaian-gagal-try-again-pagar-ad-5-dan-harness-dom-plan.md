@@ -3,13 +3,14 @@ title: 'Penilaian gagal, Try again, pagar AD-5, dan harness DOM'
 type: 'feature'
 ticket: '3'
 created: '2026-11-10'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'bb796dc0d189ce42618c2947b9079df4b60ca45c'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md']
 ---
 
@@ -100,6 +101,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given `npm test`, then DOM tests run under jsdom while every other file still runs under `node`, with no skipped tests.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
