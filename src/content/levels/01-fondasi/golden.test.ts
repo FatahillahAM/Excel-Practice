@@ -2,8 +2,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { readWorkbook, type WorkbookReading } from "@/adapters/workbook/read";
 import { expandRange } from "@/core/content/a1";
 import type { CheckName } from "@/core/content/checks";
-import { grade, runCheck, type AnswerCell } from "@/core/grading";
-import { EXPECTED, VARIANTS, buildFixture, expectedResult, fixtureSnapshot, type Variant } from "./__fixtures__/l01-p1";
+import { REASON_TEMPLATES, grade, runCheck, shiftedReference, type AnswerCell } from "@/core/grading";
+import { EXPECTED, VARIANTS, buildFixture, expectedResult, fillOffset, fixtureSnapshot, type Variant } from "./__fixtures__/l01-p1";
 
 // Golden fixtures of L01-P1 (spine › fixtures): every code-built variant is
 // written into template v1 as Excel saves it, read back with readWorkbook and
@@ -62,12 +62,71 @@ describe("L01-P1 golden fixtures (code-built)", () => {
     expect([...decided].sort()).toEqual(["formula_present", "not_hard_coded", "uses_functions", "uses_reference", "value_equals_key"]);
   });
 
-  it("no reason names a key, an expected value or an expected reference", () => {
+  it("no reason names a declared reference, a key value or a declared function beyond its {function} slot", () => {
+    const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // A reference as a whole token: not inside a longer cell name (`O1` is not in `O12`).
+    const containsRef = (text: string, ref: string) => new RegExp(`(?<![A-Z0-9$])${escape(ref)}(?![0-9])`, "i").test(text);
+    const keyForms = (value: number | string): string[] => {
+      if (typeof value === "string") return [value];
+      const forms = [String(value), value.toLocaleString("id-ID"), value.toLocaleString("en-US")];
+      for (const digits of [2, 4, 6]) forms.push(value.toFixed(digits), value.toFixed(digits).replace(".", ","));
+      return forms;
+    };
+    let checked = 0;
     for (const variant of VARIANTS) {
-      for (const { reasonText } of grade(snapshot, readings.get(variant)!, 0).questions) {
-        if (reasonText === null) continue;
-        expect(reasonText).not.toMatch(/\$|\d{3,}|[=:]/);
-      }
+      const result = grade(snapshot, readings.get(variant)!, 0);
+      result.questions.forEach(({ reasonText }, i) => {
+        if (reasonText === null) return;
+        checked += 1;
+        const question = snapshot.questions[i];
+        const refs = expandRange(question.range)!;
+        // Declared references: as declared, without `$`, and shifted to every cell of the range.
+        for (const check of question.checks) {
+          if (check.name !== "uses_reference") continue;
+          const forms = new Set([check.ref, check.ref.replace(/\$/g, "")]);
+          for (const ref of refs) {
+            const shifted = shiftedReference(check.ref, question.range, ref);
+            if (shifted !== null) forms.add(shifted).add(shifted.replace(/\$/g, ""));
+          }
+          for (const form of forms) expect(containsRef(reasonText, form), `${variant} Q${i + 1}: ${form}`).toBe(false);
+        }
+        // Key values, as the reader, Excel or an Indonesian display would write them.
+        for (const value of Object.values(question.key)) {
+          for (const form of keyForms(value)) expect(reasonText, `${variant} Q${i + 1}: key`).not.toContain(form);
+        }
+        // Declared functions: only the one named in the {function} slot.
+        const slot = /tidak memakai fungsi ([A-Z0-9.]+)\.$/.exec(reasonText);
+        const rest = slot === null ? reasonText : reasonText.slice(0, slot.index);
+        for (const check of question.checks) {
+          if (check.name !== "uses_functions") continue;
+          for (const name of check.functions) expect(rest, `${variant} Q${i + 1}: ${name}`).not.toMatch(new RegExp(`\\b${name}\\b`, "i"));
+        }
+      });
     }
+    expect(checked).toBeGreaterThan(10);
+  });
+
+  it("the reason templates name only the cell and the function", () => {
+    for (const template of Object.values(REASON_TEMPLATES)) {
+      expect(template.replace("{ref}", "").replace("{function}", "")).not.toMatch(/[{}$]|\d/);
+    }
+  });
+
+  it("fillOffset counts columns by their full letters", () => {
+    expect(fillOffset("O2", "R5")).toEqual({ dRow: 3, dCol: 3 });
+    expect(fillOffset("Z2", "AA3")).toEqual({ dRow: 1, dCol: 1 });
+    expect(fillOffset("AZ2", "BA2")).toEqual({ dRow: 0, dCol: 1 });
+  });
+
+  it("valid-variants writes Q2 with reversed operands and with the sheet prefix", () => {
+    const data = readings.get("valid-variants")!.sheets.Data;
+    expect(data.I2.formula).toBe("$L$2*E2");
+    expect(data.I13.formula).toBe("DATA!E13*DATA!$L$2");
+  });
+
+  it("the array variant reads H2:H13 as one array formula", () => {
+    const data = readings.get("array")!.sheets.Data;
+    expect(data.H2).toMatchObject({ formula: "E2:E13*G2:G13", array: true });
+    expect(data.H13).toMatchObject({ formula: null, array: true });
   });
 });

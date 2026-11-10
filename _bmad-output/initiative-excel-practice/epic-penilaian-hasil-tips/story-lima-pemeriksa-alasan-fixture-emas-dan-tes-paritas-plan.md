@@ -131,7 +131,35 @@ Agent mengirim `l01-p1-blank.xlsm` lewat chat. Waktu sekitar 15 menit.
 
 ## Plan Change Log
 
+- 2026-11-10 (review of the build): a check over zero answer cells throws instead of passing (fail closed). Cells inside a multi-cell array formula's `ref` (`<f t="array" ref="H2:H13">`, anchor and members) are read with `array: true` (`CellReading`); where a checker would say `typed_value` it says the new `array_formula` ("Sel {ref} berisi hasil rumus array; tulis satu rumus biasa lalu salin ke sel lainnya.", U2: cell only), and `uses_reference` says it at the anchor. A one-cell `t="array"` is not marked: Excel 2021 saves ordinary formulas that way (`cm="1"`, S2's `L4`). New golden variant `array` (80, Q1 at H3). `not_hard_coded` does not count an external-workbook index (`[1]`) as a reference and gives `error_value` for a formula whose only references are `#REF!`. `uses_reference` refuses a reference after `#REF!` (deleted sheet) or followed by `#` (spill reference). `uses_functions` compares declared names without `_xlfn.`/`_xlws.`/`_xlpm.` (the content schema already refuses such names).
+
 ## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), 2026-11-10.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | A check over zero answer cells passed (full points on a blank workbook for a bad range) | patched — fails closed (throws → `grade_threw`) |
+| 2 | Spilled / legacy array formula members read as typed values ("berisi nilai yang diketik") | patched — reader marks multi-cell `t="array"` ranges; new reason `array_formula`; golden variant `array` |
+| 3 | `#REF!$L$2` (deleted sheet) and spill ref `$L$2#` matched `$L$2` | patched |
+| 4 | `[1]` external index counted as a reference; `=#REF!*#REF!` reported as hard-coded | patched — not a reference; `error_value` |
+| 5 | Declared `_xlfn.` function names never matched; `_xlws.`/`_xlpm.` untested | patched — declared names normalised via `functionName`; tests |
+| 6 | No test fails a Q3 range written `E$2:E$13`; reversed `$L$2*E2` only unit-tested | patched — tests and `valid-variants` cells |
+| 7 | Reason leak test regex could miss a relative ref | patched — asserts no declared/shifted ref, key value (several formats) or function outside its slot |
+| 8 | `checks.ts` comment claimed a `Data!` prefix is allowed in `ref` | patched — comment states the real rule |
+| 9 | `perCell` fixture helper single-letter columns only | patched — `fillOffset` |
+| 10 | Excel-2021-saved `correct` / `typed-values` / `wrong-function` not yet tested | open — HITL step, lands before PR |
+| 11 | Text keys compared exactly (case, trailing space, NFC/NFD) | rejected — intent says text must match exactly |
+| 12 | Split range, whole column, defined name for `$E$2:$E$13` → `wrong_reference` | rejected — `$` / exact-token policy is the intent; content may declare alternatives later |
+| 13 | `value_equals_key` now fails typed values | rejected — required by Boundaries ("tiap pemeriksa berdiri sendiri") |
+| 14 | Space intersection operator removed by `normalizeFormula` | deferred |
+| 15 | `_xludf.` prefix (function unknown to the saving Excel) | deferred |
+| 16 | `t="str"` with empty cached `<v>` from non-Excel writers reads as wrong value, not "not calculated" | deferred |
+| 17 | `hard_coded` text says "hanya berisi angka" also for `="E2"` / defined names | rejected — matches matrix text, leaks nothing |
+| 18 | zod `z.literal([1,2])` needs v4 | rejected — project is on zod 4.6.7; `result.test.ts` covers |
+| 19 | `insertCells` test helper misorders `<row>` without `r` | rejected — fixtures are generated from template v1, which always writes `r` |
+
+Checks after patches: lint, typecheck, test (57 files, 1072 tests), build pass.
 
 ## Design Notes
 

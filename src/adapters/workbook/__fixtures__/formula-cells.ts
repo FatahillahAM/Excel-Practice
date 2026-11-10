@@ -1,4 +1,5 @@
 import JSZip from "jszip";
+import { expandRange } from "@/core/content/a1";
 import { columnIndex, columnLetters } from "@/core/grading/formula";
 import { readSheetParts } from "../template-patch";
 
@@ -12,6 +13,9 @@ import { readSheetParts } from "../template-patch";
  * - `<f>` with a cached `<v>` (a number, or text as `t="str"`);
  * - Excel's shared formula: the master `<f t="shared" ref="H2:H13" si="0">`
  *   with the text, the other cells `<f t="shared" si="0"/>` (text empty);
+ * - an array formula over several cells (Ctrl+Shift+Enter, or a dynamic array
+ *   that spilled): `<f t="array" ref="H2:H13">` only in the anchor, the other
+ *   cells only their values;
  * - an error value: `t="e"` with the code in `<v>`;
  * - `<f>` without `<v>`: a formula Excel has not calculated;
  * - no `<f>`: a value typed in.
@@ -24,6 +28,8 @@ export interface FixtureCell {
   formula?: string;
   /** Shared formula: `ref` (the master's range) only on the master. */
   shared?: { si: number; ref?: string };
+  /** Array formula anchor: `ref` is the range its values fill (members are plain values). */
+  array?: { ref: string };
   /** Cached value; `null` writes no `<v>` (uncalculated formula). */
   value: FixtureValue;
 }
@@ -51,6 +57,21 @@ export function sharedFill(range: string, si: number, formula: string, valueOf: 
         ? { formula, shared: { si, ref: range }, value: valueOf(ref) }
         : { shared: { si }, value: valueOf(ref) };
     }
+  }
+  return cells;
+}
+
+/**
+ * One array formula over `range` as Excel saves it: the anchor (top-left)
+ * holds the text and `ref`, every other cell only its cached value.
+ */
+export function arrayFill(range: string, formula: string, valueOf: (ref: string) => number | string): Record<string, FixtureCell> {
+  const cells: Record<string, FixtureCell> = {};
+  const refs = expandRange(range);
+  if (refs === null) throw new Error(`arrayFill: bad range ${range}`);
+  const [anchor] = refs;
+  for (const ref of refs) {
+    cells[ref] = ref === anchor ? { formula, array: { ref: range }, value: valueOf(ref) } : { value: valueOf(ref) };
   }
   return cells;
 }
@@ -126,12 +147,14 @@ function mergeRow(body: string, added: { column: number; xml: string }[], row: n
 
 function cellXml(ref: string, cell: FixtureCell): string {
   const { value } = cell;
-  const hasFormula = cell.formula !== undefined || cell.shared !== undefined;
+  const hasFormula = cell.formula !== undefined || cell.shared !== undefined || cell.array !== undefined;
   let type = "";
   if (typeof value === "object" && value !== null) type = ' t="e"';
   else if (typeof value === "string") type = hasFormula ? ' t="str"' : ' t="inlineStr"';
   let f = "";
-  if (hasFormula) {
+  if (cell.array !== undefined) {
+    f = `<f t="array" ref="${cell.array.ref}">${escapeXml(cell.formula ?? "")}</f>`;
+  } else if (hasFormula) {
     const shared = cell.shared === undefined ? "" : ` t="shared"${cell.shared.ref === undefined ? "" : ` ref="${cell.shared.ref}"`} si="${cell.shared.si}"`;
     f = cell.formula === undefined ? `<f${shared}/>` : `<f${shared}>${escapeXml(cell.formula)}</f>`;
   }

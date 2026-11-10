@@ -1,4 +1,5 @@
 import {
+  arrayFill,
   formulaCell,
   sharedFill,
   typedValue,
@@ -6,7 +7,7 @@ import {
   type FixtureCell,
 } from "@/adapters/workbook/__fixtures__/formula-cells";
 import { generateExamWorkbook } from "@/adapters/workbook/generate";
-import { expandRange } from "@/core/content/a1";
+import { expandRange, parseCell } from "@/core/content/a1";
 import {
   DATA_SHEET,
   examSnapshotSchema,
@@ -49,6 +50,7 @@ export const VARIANTS = [
   "wrong-reference",
   "error",
   "not-calculated",
+  "array",
   "tolerance",
 ] as const;
 
@@ -89,19 +91,36 @@ function filled(snapshot: ExamSnapshot, number: number, si: number, formula: str
   return sharedFill(snapshot.questions[number - 1].range, si, formula, (ref) => values[ref]);
 }
 
-/** `formula` typed into every cell (shifted as a copy would), each cell its own `<f>` (no shared form). */
-function perCell(snapshot: ExamSnapshot, number: number, formula: string, values = keyOf(snapshot, number)): Cells {
-  const { range } = snapshot.questions[number - 1];
-  const refs = expandRange(range)!;
-  const [top] = refs;
+/** Rows and columns from `top` to `ref` (`Z2` to `AA3` is 1, 1): what a copy shifts a formula by. */
+export function fillOffset(top: string, ref: string): { dRow: number; dCol: number } {
+  const from = parseCell(top);
+  const to = parseCell(ref);
+  if (from === null || to === null) throw new Error(`fillOffset: bad cell ${top} or ${ref}`);
+  return { dRow: to.row - from.row, dCol: to.column - from.column };
+}
+
+/**
+ * `formula` (for the range's top-left cell) typed into every cell of question
+ * `number` for which `where` holds, shifted as a copy would; each cell its own
+ * `<f>` (no shared form).
+ */
+function perCell(
+  snapshot: ExamSnapshot,
+  number: number,
+  formula: string,
+  where: (ref: string) => boolean = () => true,
+  values = keyOf(snapshot, number),
+): Cells {
+  const refs = expandRange(snapshot.questions[number - 1].range)!;
   const cells: Cells = {};
-  for (const ref of refs) {
-    const dRow = Number(/\d+/.exec(ref)![0]) - Number(/\d+/.exec(top)![0]);
-    const dCol = ref.charCodeAt(0) - top.charCodeAt(0);
+  for (const ref of refs.filter(where)) {
+    const { dRow, dCol } = fillOffset(refs[0], ref);
     cells[ref] = formulaCell(shiftFormula(formula, dRow, dCol), values[ref]);
   }
   return cells;
 }
+
+const rowOf = (ref: string) => parseCell(ref)!.row;
 
 /** Answers that pass every check, as Excel saves them: one formula per question, filled (shared formulas). */
 function correct(snapshot: ExamSnapshot): Cells {
@@ -125,7 +144,9 @@ function answers(variant: Variant, snapshot: ExamSnapshot): Cells {
     case "valid-variants":
       return {
         ...filled(snapshot, 1, 0, "G2*E2"),
-        ...perCell(snapshot, 2, "Data!E2*Data!$L$2"),
+        // Reversed operands in I2:I7, the sheet's own prefix in I8:I13.
+        ...perCell(snapshot, 2, "$L$2*E2", (ref) => rowOf(ref) <= 7),
+        ...perCell(snapshot, 2, "Data!E2*Data!$L$2", (ref) => rowOf(ref) >= 8),
         ...perCell(snapshot, 3, "e2 / sum( $e$2:$e$13 )"),
         ...filled(snapshot, 4, 3, "'Data'!$N2 * (1 + O$1)"),
       };
@@ -156,6 +177,12 @@ function answers(variant: Variant, snapshot: ExamSnapshot): Cells {
         R5: formulaCell("$N5*(1+R$1)*NA()", { error: "#N/A" }),
       };
     }
+    case "array":
+      // H2:H13 as one array formula (Ctrl+Shift+Enter, or a dynamic array that spilled): not copied.
+      return {
+        ...correct(snapshot),
+        ...arrayFill(snapshot.questions[0].range, "E2:E13*G2:G13", (ref) => keyOf(snapshot, 1)[ref]),
+      };
     case "not-calculated":
       // Saved without calculating after the grid was entered: no cached values in O2:R5.
       return { ...correct(snapshot), ...sharedFill(snapshot.questions[3].range, 3, "$N2*(1+O$1)", () => null) };
@@ -235,6 +262,11 @@ export const EXPECTED: Readonly<Record<Variant, ExpectedGrade>> = {
       wrong("Rumus di J2 menghasilkan error."),
       wrong("Rumus di R5 menghasilkan error."),
     ],
+  },
+  array: {
+    score: 80,
+    correctCount: 3,
+    questions: [wrong("Sel H3 berisi hasil rumus array; tulis satu rumus biasa lalu salin ke sel lainnya."), RIGHT, RIGHT, RIGHT],
   },
   "not-calculated": {
     score: 70,

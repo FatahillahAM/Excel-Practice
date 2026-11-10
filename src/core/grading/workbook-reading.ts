@@ -12,6 +12,12 @@ export interface CellReading {
   /** Cached value; an error is its code (`#N/A`); `null` when the cell holds a formula Excel has not calculated. */
   value: number | string | boolean | null;
   type: CellType;
+  /**
+   * `true` when the cell lies in the range of an array formula over more than
+   * one cell (a Ctrl+Shift+Enter array or a spilled dynamic array): the anchor
+   * holds the formula, the other cells only its values. Absent otherwise.
+   */
+  array?: true;
 }
 
 export interface WorkbookReading {

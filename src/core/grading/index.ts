@@ -1,6 +1,7 @@
 export {
   CHECKER_REGISTRY,
   calledFunctions,
+  functionName,
   formulaPresent,
   hasReference,
   isEmptyCell,

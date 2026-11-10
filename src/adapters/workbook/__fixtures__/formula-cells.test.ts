@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generateExamWorkbook } from "../generate";
 import { readWorkbook } from "../read";
-import { formulaCell, sharedFill, typedValue, writeFormulaCells } from "./formula-cells";
+import { arrayFill, formulaCell, sharedFill, typedValue, writeFormulaCells } from "./formula-cells";
 
 const TOKEN = "A".repeat(43);
 
@@ -42,6 +42,14 @@ describe("writeFormulaCells (test fixture)", () => {
     expect(data.E2).toEqual({ formula: null, value: 10, type: "number" });
     expect(data.K2).toEqual({ formula: null, value: "Tarif", type: "string" });
     expect(data.M2).toEqual({ formula: null, value: "Baut", type: "string" });
+  });
+
+  it("writes an array formula as Excel does: the formula in the anchor only, every cell of its ref marked array", async () => {
+    const bytes = await writeFormulaCells(await base(), "Data", arrayFill("H2:H3", "E2:E3*G2:G3", (ref) => (ref === "H2" ? 20 : 60)));
+    const data = (await readWorkbook(bytes)).sheets.Data;
+    expect(data.H2).toEqual({ formula: "E2:E3*G2:G3", value: 20, type: "number", array: true });
+    expect(data.H3).toEqual({ formula: null, value: 60, type: "number", array: true });
+    expect(data.G2).toEqual({ formula: null, value: 2, type: "number" });
   });
 
   it("refuses a cell that already exists, and an unknown sheet", async () => {

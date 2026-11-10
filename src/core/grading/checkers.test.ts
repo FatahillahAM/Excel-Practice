@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CHECK_NAMES, type Check } from "../content/checks";
+import { CHECK_NAMES, checkSchema, type Check } from "../content/checks";
 import type { ExamQuestion } from "../content/level-module";
 import { SNAPSHOT, formula, typed } from "./__fixtures__/exam";
 import {
   CHECKER_REGISTRY,
   calledFunctions,
   formulaPresent,
+  functionName,
   hasReference,
   notHardCoded,
   runCheck,
@@ -53,7 +54,10 @@ describe("checker registry", () => {
       ok: false,
       reason: { kind: "hard_coded", ref: "H2" },
     });
-    expect(runCheck({ name: "uses_functions", functions: ["SUM"] }, q1, [])).toEqual({ ok: true });
+  });
+
+  it.each(CHECKS.map((check) => [check.name, check] as const))("%s fails closed on no answer cells (never passes vacuously)", (_, check) => {
+    expect(() => runCheck(check, question("H2:H3", { H2: 1 }), [])).toThrow(/at least one answer cell/);
   });
 });
 
@@ -67,6 +71,12 @@ describe("every checker stands on its own", () => {
     });
     expect(runCheck(check, q, [at("H2", typed(1))])).toEqual({ ok: false, reason: { kind: "typed_value", ref: "H2" } });
     expect(runCheck(check, q, [at("H2", typed("teks"))])).toEqual({ ok: false, reason: { kind: "typed_value", ref: "H2" } });
+  });
+
+  it.each(CHECKS.map((check) => [check.name, check] as const))("%s: a value of an array formula is array_formula, not typed_value", (_, check) => {
+    const q = question("H2:H3", { H2: 1, H3: 1 });
+    const member: CellReading = { formula: null, value: 1, type: "number", array: true };
+    expect(runCheck(check, q, [at("H2", member)])).toEqual({ ok: false, reason: { kind: "array_formula", ref: "H2" } });
   });
 });
 
@@ -97,9 +107,17 @@ describe("not_hard_coded", () => {
     }
   });
 
-  it("fails a formula of numbers only, a defined name, text or a function without references", () => {
-    for (const text of ["=1159*1123.51", "1159*1123.51", "=Tarif*2", '="E2"', "=PI()*2", "=#REF!*2"]) {
+  it("fails a formula of numbers only, a defined name, an external workbook name, text or a function without references", () => {
+    for (const text of ["=1159*1123.51", "1159*1123.51", "=Tarif*2", "=[1]!Rate*2", '="E2"', "=PI()*2", "=#N/A*2"]) {
       expect(run(text), text).toEqual({ ok: false, reason: { kind: "hard_coded", ref: "H2" } });
+    }
+    // An external workbook's cells still are cells.
+    expect(run("=[1]Data!A1*2")).toEqual({ ok: true });
+  });
+
+  it("a formula whose only references were deleted (#REF!) is error_value, not hard_coded", () => {
+    for (const text of ["=#REF!*#REF!", "=#REF!*2", "=SUM(#REF!)"]) {
+      expect(run(text), text).toEqual({ ok: false, reason: { kind: "error_value", ref: "H2" } });
     }
   });
 
@@ -118,6 +136,9 @@ describe("uses_functions", () => {
     expect([...calledFunctions("=E2/SUM($E$2:$E$13)")]).toEqual(["SUM"]);
     expect([...calledFunctions("=e2/sum ( $e$2:$e$13 )")]).toEqual(["SUM"]);
     expect([...calledFunctions("_xlfn.XLOOKUP(A1,B:B,C:C)+LOG10(2)")].sort()).toEqual(["LOG10", "XLOOKUP"]);
+    expect([...calledFunctions("_xlfn._xlws.SORT(_xlfn.UNIQUE(B2:B11))")].sort()).toEqual(["SORT", "UNIQUE"]);
+    expect([...calledFunctions("_xlws.FILTER(A1:A9,A1:A9>0)")]).toEqual(["FILTER"]);
+    expect([...calledFunctions("_xlfn.LET(_xlpm.x,A1,_xlpm.f(x))")].sort()).toEqual(["F", "LET"]);
     // A name not followed by ( (defined name, sheet), and text, are not calls.
     expect([...calledFunctions('=SUM+Sum!A1+"SUM(1)"')]).toEqual([]);
   });
@@ -133,6 +154,19 @@ describe("uses_functions", () => {
     ]);
     expect(outcome).toEqual({ ok: false, reason: { kind: "missing_function", ref: "J2", function: "SUM" } });
     expect(reasonText((outcome as { reason: Parameters<typeof reasonText>[0] }).reason)).toBe("Rumus di J2 tidak memakai fungsi SUM.");
+  });
+
+  it("compares declared names like called ones: prefixes dropped, any case (the content schema refuses both)", () => {
+    for (const name of ["_xlfn.SUM", "_xlws.SUM", "_XLPM.sum", "sum"]) {
+      const declared = { name: "uses_functions" as const, functions: [name] };
+      expect(usesFunctions(declared, q1, [at("J2", f("=E2/SUM($E$2:$E$13)"))]), name).toEqual({ ok: true });
+      expect(usesFunctions(declared, q1, [at("J2", f("=E2/9"))]), name).toEqual({
+        ok: false,
+        reason: { kind: "missing_function", ref: "J2", function: "SUM" },
+      });
+      expect(checkSchema.safeParse(declared).success, name).toBe(false);
+    }
+    expect(functionName("_xlfn._xlws.sort")).toBe("SORT");
   });
 
   it("checks every declared function in order", () => {
@@ -161,9 +195,44 @@ describe("uses_reference", () => {
     for (const text of ["E2*$L$2", "=$L$2*E2", "=Data!E2*Data!$L$2", "=data!e2*DATA!$l$2", "='Data'!$L$2*E2", "= E2 * $L$2"]) {
       expect(hasReference(text, "$L$2", "Data"), text).toBe(true);
     }
-    for (const text of ["=E2*L$2", "=E2*$L2", "=E2*L2", "=E2*$L$2:$L$3", "=Sheet2!$L$2*E2", "=[1]Data!$L$2*E2", "=Data:Data2!$L$2*E2", '="$L$2"&E2']) {
+    for (const text of [
+      "=E2*L$2",
+      "=E2*$L2",
+      "=E2*L2",
+      "=E2*$L$2:$L$3",
+      "=Sheet2!$L$2*E2",
+      "=[1]Data!$L$2*E2",
+      "=Data:Data2!$L$2*E2",
+      '="$L$2"&E2',
+      // A deleted sheet: Excel writes #REF! where the sheet name was.
+      "=E2*#REF!$L$2",
+      // A spill reference is the whole spilled range, not the cell.
+      "=E2*$L$2#",
+    ]) {
       expect(hasReference(text, "$L$2", "Data"), text).toBe(false);
     }
+  });
+
+  it("Q3: a range with only its rows locked is not the declared $E$2:$E$13", () => {
+    expect(hasReference("=E2/SUM(E$2:E$13)", "$E$2:$E$13", "Data")).toBe(false);
+    expect(hasReference("=E2/SUM($E$2:$E$13)", "$E$2:$E$13", "Data")).toBe(true);
+    const q = question("J2:J13");
+    const check = { name: "uses_reference", ref: "$E$2:$E$13" } as const;
+    expect(usesReference(check, q, [at("J2", f("=E2/SUM(E$2:E$13)", 0.092461))])).toEqual({
+      ok: false,
+      reason: { kind: "wrong_reference", ref: "J2" },
+    });
+  });
+
+  it("the anchor of an array formula is array_formula: one formula over ranges was not copied", () => {
+    const q = question("I2:I13");
+    const anchor: CellReading = { formula: "E2:E13*$L$2", value: 149511, type: "number", array: true };
+    expect(usesReference({ name: "uses_reference", ref: "$L$2" }, q, [at("I2", anchor)])).toEqual({
+      ok: false,
+      reason: { kind: "array_formula", ref: "I2" },
+    });
+    // The other checks read the anchor as the formula it is.
+    expect(formulaPresent({ name: "formula_present" }, q, [at("I2", anchor)])).toEqual({ ok: true });
   });
 
   it("unlocked reference, right value: wrong_reference without naming the reference", () => {
@@ -260,6 +329,9 @@ describe("reasons", () => {
     expect(reasonText({ kind: "wrong_value", ref: "J13" })).toBe("Hasil di J13 belum sesuai.");
     expect(reasonText({ kind: "hard_coded", ref: "H2" })).toBe("Rumus di H2 hanya berisi angka, tidak merujuk sel.");
     expect(reasonText({ kind: "missing_function", ref: "J2", function: "SUM" })).toBe("Rumus di J2 tidak memakai fungsi SUM.");
+    expect(reasonText({ kind: "array_formula", ref: "H3" })).toBe(
+      "Sel H3 berisi hasil rumus array; tulis satu rumus biasa lalu salin ke sel lainnya.",
+    );
     for (const template of Object.values(REASON_TEMPLATES)) {
       expect(template).toContain("{ref}");
       expect(template.replace("{ref}", "").replace("{function}", "")).not.toMatch(/[{}$]/);

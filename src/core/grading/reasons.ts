@@ -9,6 +9,7 @@
 
 export type ReasonKind =
   | "typed_value"
+  | "array_formula"
   | "empty"
   | "hard_coded"
   | "missing_function"
@@ -28,6 +29,12 @@ export interface Reason {
 export const REASON_TEMPLATES: Readonly<Record<ReasonKind, string>> = {
   /** `formula_present`: a value (number or text) typed into the cell instead of a formula. */
   typed_value: "Sel {ref} berisi nilai yang diketik, bukan rumus.",
+  /**
+   * Any check where the cell would be `typed_value`, and `uses_reference` at the
+   * anchor: the cell lies in an array formula over several cells (its values
+   * were not typed, so `typed_value` would be a false accusation).
+   */
+  array_formula: "Sel {ref} berisi hasil rumus array; tulis satu rumus biasa lalu salin ke sel lainnya.",
   /** Any check: the cell has neither a formula nor a value. */
   empty: "Sel {ref} masih kosong.",
   /** `not_hard_coded`: the formula refers to no cell, range or structured reference (`=1159*1123.51`). */

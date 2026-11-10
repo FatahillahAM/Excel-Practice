@@ -22,7 +22,9 @@ export const FUNCTION_NAME_RE = /^[A-Z][A-Z0-9]*(\.[A-Z0-9]+)*$/;
  * - `uses_functions`: the formula of every answer cell calls each of `functions`.
  * - `uses_reference`: the formula refers to `ref` as it must appear in the
  *   range's top-left cell; for the other cells the checker shifts it as Excel's
- *   fill does (`$` parts stay fixed). A sheet prefix (`Data!`) is allowed.
+ *   fill does (`$` parts stay fixed). `ref` itself has no sheet; in the
+ *   student's formula the reference may carry the question's own sheet prefix
+ *   (`Data!$L$2`, `'Data'!$L$2`), never another sheet's.
  */
 export const CHECKERS = {
   formula_present: z.object({ name: z.literal("formula_present") }).strict(),
