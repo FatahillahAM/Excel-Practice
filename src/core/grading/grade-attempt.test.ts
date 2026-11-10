@@ -59,12 +59,18 @@ describe("gradeAttempt", () => {
   it.each([
     ["a null snapshot (tracer attempt)", { attempt: { status: "received" as const, snapshot: null } }, "snapshot_invalid"],
     ["a snapshot failing examSnapshotSchema", { attempt: { status: "received" as const, snapshot: { ...SNAPSHOT, seed: -1 } } }, "snapshot_invalid"],
-    ["a missing submission-1", { file: null }, "file_unreadable"],
     ["an unreadable workbook", { reading: "throw" as const }, "file_unreadable"],
   ])("%s: writes grade_error with no Result", async (_, overrides, reason) => {
     const p = ports(overrides);
     expect(await run(p)).toEqual({ outcome: "grading_failed", log: { attemptId: ID, outcome: "grading_failed", score: null, reason } });
     expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null);
+  });
+
+  it("a missing submission-1: a retryable fault (file_missing), nothing written, the attempt stays received", async () => {
+    const p = ports({ file: null });
+    expect(await run(p)).toEqual({ outcome: "failed", log: { attemptId: ID, outcome: "failed", score: null, reason: "file_missing" } });
+    expect(p.readWorkbook).not.toHaveBeenCalled();
+    expect(p.complete).not.toHaveBeenCalled();
   });
 
   it("grade() throwing (a bug): grade_error, grade_threw", async () => {
@@ -100,12 +106,12 @@ describe("gradeAttempt", () => {
     expect(p.complete).not.toHaveBeenCalled();
     p = ports({ complete: "failed" });
     expect((await run(p)).log).toMatchObject({ outcome: "failed", reason: "write_failed", score: null });
-    p = ports({ file: null, complete: "failed" });
+    p = ports({ reading: "throw", complete: "failed" });
     expect((await run(p)).log).toMatchObject({ outcome: "failed", reason: "write_failed" });
   });
 
   it("a lost compare-and-set (Abandon came first): the Result is discarded", async () => {
     expect((await run(ports({ complete: "lost" }))).log).toEqual({ attemptId: ID, outcome: "lost", score: null, reason: "lost" });
-    expect((await run(ports({ file: null, complete: "lost" }))).log).toMatchObject({ outcome: "lost" });
+    expect((await run(ports({ reading: "throw", complete: "lost" }))).log).toMatchObject({ outcome: "lost" });
   });
 });

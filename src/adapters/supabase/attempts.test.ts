@@ -12,6 +12,7 @@ import {
   findOpenAttempt,
   findOpenAttemptId,
   generatedFilePath,
+  hasValidResult,
   loadForGrading,
   markReceived,
   readAttempt,
@@ -500,6 +501,18 @@ describe("changeStatus with a Result (grading)", () => {
     expect(await changeStatus(refused.client, ID, "abandoned", "grade_ok", undefined, { result: RESULT })).toEqual({ outcome: "refused" });
     expect(refused.from).not.toHaveBeenCalled();
   });
+
+  it("refuses a Result on any transition whose next status is not graded, before any query", async () => {
+    for (const [from, event] of [
+      ["received", "grade_error"],
+      ["received", "abandon"],
+      ["open", "submit_accepted"],
+    ] as const) {
+      const { client, from: fromSpy } = fakeClient({ data: [{ id: ID }], error: null });
+      expect(await changeStatus(client, ID, from, event, undefined, { result: RESULT })).toEqual({ outcome: "refused" });
+      expect(fromSpy).not.toHaveBeenCalled();
+    }
+  });
 });
 
 describe("loadForGrading (service role)", () => {
@@ -561,6 +574,12 @@ describe("downloadSubmissionFile (service role)", () => {
     });
     expect(await downloadSubmissionFile(threw.client, ID)).toEqual({ ok: false });
   });
+
+  it("is null for a malformed attempt id, without asking Storage", async () => {
+    const { client, from } = storage({ data: null, error: null });
+    expect(await downloadSubmissionFile(client, "../other/submission")).toEqual({ ok: true, value: null });
+    expect(from).not.toHaveBeenCalled();
+  });
 });
 
 describe("readResult (session)", () => {
@@ -585,5 +604,42 @@ describe("readResult (session)", () => {
     expect(await readResult(unused.client, "x")).toEqual({ ok: true, value: null });
     expect(unused.from).not.toHaveBeenCalled();
     expect(await readResult(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client, ID)).toEqual({ ok: false });
+  });
+});
+
+describe("hasValidResult (session)", () => {
+  const VALID = {
+    version: 1,
+    contentVersion: 1,
+    scenarioId: "baut-sinar-presisi",
+    hintsUsed: 0,
+    hintPenalty: 0,
+    pointsEarned: 20,
+    score: 20,
+    correctCount: 1,
+    questionCount: 2,
+    questions: [
+      { number: 1, points: 20, pointsAwarded: 20, correct: true, reasonText: null, tip: null },
+      { number: 2, points: 80, pointsAwarded: 0, correct: false, reasonText: "Sel B2 masih kosong.", tip: null },
+    ],
+  };
+  const row = (result: unknown) => fakeClient({ data: { item_id: "L01-P1", result }, error: null }).client;
+
+  it("is true only for a stored Result that passes resultSchema", async () => {
+    expect(await hasValidResult(row(VALID), ID)).toEqual({ ok: true, value: true });
+  });
+
+  it("is false for no Result, and for one failing resultSchema (logged without its content)", async () => {
+    expect(await hasValidResult(row(null), ID)).toEqual({ ok: true, value: false });
+    expect(await hasValidResult(fakeClient({ data: null, error: null }).client, ID)).toEqual({ ok: true, value: false });
+    expect(await hasValidResult(row({ ...VALID, score: 99 }), ID)).toEqual({ ok: true, value: false });
+    expect(await hasValidResult(row({ version: 1 }), ID)).toEqual({ ok: true, value: false });
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.result_invalid", code: "schema" }));
+  });
+
+  it("is not ok when the read fails", async () => {
+    expect(await hasValidResult(fakeClient({ data: null, error: { code: "08006", message: "x" } }).client, ID)).toEqual({
+      ok: false,
+    });
   });
 });

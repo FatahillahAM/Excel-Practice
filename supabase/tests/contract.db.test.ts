@@ -368,7 +368,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect((await db.query("select result from public.attempts where id = $1", [id])).rows[0].result).toEqual(RESULT);
     });
 
-    it("exists only on a graded attempt, and every new graded attempt has one", async () => {
+    it("exists only on a graded (or later closed) attempt, and every new graded attempt has one", async () => {
       const { id } = await attemptIn("received");
       await expectSqlError(
         asService((q) => q.query("update public.attempts set result = $2 where id = $1", [id, JSON.stringify(RESULT)])),
@@ -386,6 +386,14 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
             .rowCount,
       );
       expect(failed).toBe(1);
+    });
+
+    it("stays when a graded attempt later moves to closed", async () => {
+      const { id } = await attemptIn("received");
+      expect(await writeResult(id)).toBe(1);
+      await db.query("update public.attempts set status = 'closed' where id = $1", [id]);
+      const { rows } = await db.query("select status, result from public.attempts where id = $1", [id]);
+      expect(rows[0]).toEqual({ status: "closed", result: RESULT });
     });
 
     it("refuses a Result that is not a JSON object", async () => {

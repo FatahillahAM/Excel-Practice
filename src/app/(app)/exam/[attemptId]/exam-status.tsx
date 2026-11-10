@@ -36,8 +36,10 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
       return `Excel is open — ${itemLabel}`;
     case "received":
     case "grading_failed":
-    case "graded":
       return "File received — grading…";
+    case "graded":
+      // Reached only without a valid Result (graded by SQL before results existed): with one, the screen moves to Results.
+      return "This attempt was graded without detailed results.";
     case "abandoned":
       return "This attempt was abandoned.";
     default:
@@ -45,9 +47,9 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
   }
 }
 
-/** Statuses after which the exam screen only offers the way back to Dashboard. */
+/** Statuses after which the exam screen only offers the way back to Dashboard (`graded` here has no Result to show). */
 export function isEnded(status: AttemptStatus): boolean {
-  return status === "abandoned" || status === "closed";
+  return status === "abandoned" || status === "closed" || status === "graded";
 }
 
 type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number; resultId?: string | null } };
@@ -76,7 +78,9 @@ export function resultPath(body: unknown): string | null {
  *
  * While `open`, the Upload Dropzone sits under the status line (CAP-4). An
  * accepted upload moves the screen at once, as when a poll sees the change.
- * A poll that sees `graded` with a `resultId` replaces this page with Results.
+ * A poll that sees `graded` with a `resultId` replaces this page with Results
+ * (polling stops and the screen stays as it was while Results loads); `graded`
+ * without one says so and offers Dashboard.
  */
 export function ExamStatus({
   attemptId,
@@ -99,6 +103,8 @@ export function ExamStatus({
   const [receivedSeconds, setReceivedSeconds] = useState(initialReceivedSeconds ?? 0);
   const [tick, setTick] = useState(0);
   const [lost, setLost] = useState(false);
+  /** Moving to Results: no more polls, and the screen keeps its last state meanwhile. */
+  const [leaving, setLeaving] = useState(false);
   const elapsedAnchor = useRef<Anchor>({ base: initialElapsed, at: null });
   const receivedAnchor = useRef<Anchor>({ base: initialReceivedSeconds ?? 0, at: null });
   const downloadStarted = useRef(false);
@@ -157,7 +163,7 @@ export function ExamStatus({
   }, [status, receivedSeconds, lost]);
 
   useEffect(() => {
-    if (lost || !POLLED.includes(status)) return;
+    if (lost || leaving || !POLLED.includes(status)) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
@@ -171,8 +177,7 @@ export function ExamStatus({
         if (cancelled || !body.ok) return;
         const results = resultPath(body);
         if (results !== null) {
-          // `graded` is not polled: no more polls while Results loads.
-          applyStatus("graded");
+          setLeaving(true);
           router.replace(results);
           return;
         }
@@ -199,7 +204,7 @@ export function ExamStatus({
       window.clearTimeout(timer);
     };
     // `tick` re-arms the timer after every poll, also when the status did not change.
-  }, [attemptId, status, tick, lost, applyStatus, router]);
+  }, [attemptId, status, tick, lost, leaving, applyStatus, router]);
 
   if (lost) {
     return (

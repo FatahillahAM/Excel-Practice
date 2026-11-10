@@ -15,7 +15,8 @@ import { errorName, type ChannelKind } from "./http";
  * `status = 'received'`).
  *
  * Logs: one `grading.done` line (`attemptId`, `channel`, `outcome`, `score`),
- * plus a `grading.<reason>` error line when the attempt was not graded; never
+ * plus a `grading.<reason>` error line when the attempt was not graded
+ * (`grading.lost`, a benign race with Abandon, is an info line); never
  * file bytes, the key or a token. Nothing escapes: any throw is logged as
  * `grading.threw`.
  */
@@ -52,7 +53,10 @@ export async function runGrading(channel: ChannelKind, attemptId: string): Promi
     }
     const run = await gradeAttempt(attemptId, gradingPorts(service), { hintsUsed: 0 });
     const { reason, score } = run.log;
-    if (reason !== null && run.outcome !== "skipped") {
+    if (run.outcome === "lost") {
+      // A benign race (Abandon came first), like `skipped`: info, not an error.
+      console.log(JSON.stringify({ event: "grading.lost", attemptId, channel }));
+    } else if (reason !== null && run.outcome !== "skipped") {
       console.error(JSON.stringify({ event: `grading.${reason}`, attemptId, channel }));
     }
     logDone(attemptId, channel, run.outcome, score);

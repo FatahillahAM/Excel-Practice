@@ -40,7 +40,7 @@ const RESULT = {
   questionCount: 4,
   questions: [
     { number: 1, points: 20, pointsAwarded: 20, correct: true, reasonText: null, tip: null },
-    { number: 2, points: 25, pointsAwarded: 0, correct: false, reasonText: "Sel I3 berisi angka yang diketik, bukan rumus.", tip: null },
+    { number: 2, points: 25, pointsAwarded: 0, correct: false, reasonText: "Sel I3 berisi nilai yang diketik, bukan rumus.", tip: null },
     { number: 3, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: null },
     { number: 4, points: 30, pointsAwarded: 30, correct: true, reasonText: null, tip: null },
   ],

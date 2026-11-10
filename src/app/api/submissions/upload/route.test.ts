@@ -7,8 +7,9 @@ const mocks = vi.hoisted(() => ({
   markReceived: vi.fn(),
   storeSubmissionFile: vi.fn(),
   after: vi.fn(),
+  loadForGrading: vi.fn(),
 }));
-// Grading runs in `after()` (../grading.ts): captured here, never run.
+// Grading runs in `after()` (../grading.ts): captured here, run only where a test says so.
 vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
@@ -18,7 +19,7 @@ vi.mock("@/adapters/supabase/attempts", () => ({
   storeSubmissionFile: mocks.storeSubmissionFile,
   changeStatus: vi.fn(),
   downloadSubmissionFile: vi.fn(),
-  loadForGrading: vi.fn(),
+  loadForGrading: mocks.loadForGrading,
 }));
 
 import { readWorkbook } from "@/adapters/workbook/read";
@@ -392,11 +393,37 @@ describe("POST /api/submissions/upload: grading", () => {
     expect(posted.body).toEqual(ACCEPTED);
     expect(mocks.after).toHaveBeenCalledTimes(1);
     expect(mocks.after.mock.calls[0][0]).toBeTypeOf("function");
+
+    // The captured task grades this attempt on the service role, logged for the upload channel.
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: null });
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(mocks.loadForGrading).not.toHaveBeenCalled();
+    await (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
+    expect(mocks.loadForGrading).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    const done = logs.mock.calls.map(([line]) => JSON.parse(String(line))).find((line) => line.event === "grading.done");
+    expect(done).toMatchObject({ attemptId: ATTEMPT_ID, channel: "upload" });
   });
 
   it.each(["received", "grading_failed"])("does not schedule grading for a duplicate (%s)", async (status) => {
     attemptFound(status);
     await post(await patched(template, newToken()));
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("does not schedule grading after a compare-and-set lost to another post (a duplicate)", async () => {
+    mocks.markReceived.mockResolvedValue({ ok: true, value: false });
+    mocks.findAttemptByTokenHash
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { id: ATTEMPT_ID, userId: USER_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        value: { id: ATTEMPT_ID, userId: USER_ID, status: "received", templateVersion: CURRENT_TEMPLATE_VERSION },
+      });
+    const posted = await post(await patched(template, newToken()));
+    expect(mocks.markReceived).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    expect(posted.body).toEqual({ ok: true, data: { status: "received", duplicate: true } });
     expect(mocks.after).not.toHaveBeenCalled();
   });
 

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExamSnapshot } from "@/core/content/level-module";
-import type { Result } from "@/core/grading";
+import { resultSchema, type Result } from "@/core/grading";
 import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "@/core/services/attempts";
 
 /**
@@ -13,7 +13,7 @@ import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus
  * the session and that the attempt is the session user's;
  * `storeSubmissionFile` takes either. `loadForGrading` and
  * `downloadSubmissionFile` take the service-role client and exist only for the
- * grading path; `readResult` takes the session. Every status change asks the core state machine
+ * grading path; `readResult` and `hasValidResult` take the session. Every status change asks the core state machine
  * (`core/services/attempts`, AD-5) for the next status, then writes it with a
  * compare-and-set on the current status (`changeStatus`).
  *
@@ -338,6 +338,8 @@ export async function changeStatus(
 ): Promise<ChangeStatusResult> {
   const next = transition(from, event);
   if (!next.ok) return { outcome: "refused" };
+  // Only `graded` carries a Result (migration 20261109000001): refused before any query.
+  if (options.result !== undefined && next.to !== "graded") return { outcome: "refused" };
   const values = options.result === undefined ? { status: next.to } : { status: next.to, result: options.result };
   try {
     const { data, error } = await client
@@ -405,6 +407,7 @@ export async function downloadSubmissionFile(
   attemptId: string,
   n = 1,
 ): Promise<Read<Uint8Array | null>> {
+  if (!isAttemptId(attemptId)) return { ok: true, value: null };
   try {
     const { data, error } = await service.storage.from(ATTEMPT_FILES_BUCKET).download(submissionFilePath(attemptId, n));
     if (error) {
@@ -447,6 +450,22 @@ export async function readResult(supabase: SupabaseClient, attemptId: string): P
     logError("attempt.read_result_failed", errorName(error));
     return { ok: false };
   }
+}
+
+/**
+ * Whether the attempt has a stored Result that passes `resultSchema` (read
+ * validated, not trusted): what the status endpoint and the exam page ask
+ * before sending the user to Results. `false` for no Result (not graded, or
+ * graded by SQL before results existed) and for one that fails the schema
+ * (logged as `attempt.result_invalid`, without its content).
+ */
+export async function hasValidResult(supabase: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
+  const stored = await readResult(supabase, attemptId);
+  if (!stored.ok) return { ok: false };
+  if (stored.value === null) return { ok: true, value: false };
+  if (resultSchema.safeParse(stored.value.result).success) return { ok: true, value: true };
+  logError("attempt.result_invalid", "schema");
+  return { ok: true, value: false };
 }
 
 /**

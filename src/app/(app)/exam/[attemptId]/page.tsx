@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect, unstable_rethrow } from "next/navigation";
 import { Suspense } from "react";
-import { readAttempt, readResult, type Attempt } from "@/adapters/supabase/attempts";
+import { hasValidResult, readAttempt, type Attempt } from "@/adapters/supabase/attempts";
 import { getSessionUser } from "@/adapters/supabase/auth";
 import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
 import { createClient } from "@/adapters/supabase/server";
@@ -24,7 +24,8 @@ const CARD = "flex flex-col gap-4 rounded-lg border border-border bg-card p-4";
  * Status Line (time since Start, from the server: AD-8), Upload Dropzone
  * while open, Setup Guide link.
  * The status is polled (AD-11). A reload renders the server's state first;
- * a graded attempt with a stored Result redirects to Results.
+ * a graded attempt with a valid stored Result redirects to Results; one
+ * without (graded by SQL before results existed) says so, with Dashboard.
  */
 export default function ExamPage({ params }: { params: Promise<{ attemptId: string }> }) {
   return (
@@ -86,9 +87,9 @@ async function loadAttempt(attemptId: string, path: string): Promise<LoadedAttem
     if (!read.ok) return "failed";
     if (read.value === null) return null;
     if (read.value.status === "graded") {
-      const stored = await readResult(supabase, read.value.id);
-      if (!stored.ok) return "failed";
-      if (stored.value !== null) redirect(`/results/${encodeURIComponent(read.value.id)}`);
+      const valid = await hasValidResult(supabase, read.value.id);
+      if (!valid.ok) return "failed";
+      if (valid.value) redirect(`/results/${encodeURIComponent(read.value.id)}`);
     }
     // After the session read: request time, so the page is dynamic.
     const now = Date.now();

@@ -94,13 +94,27 @@ describe("runGrading", () => {
     expect(lines(errors)[0].event).toBe("grading.snapshot_invalid");
   });
 
-  it("maps a lost compare-and-set to lost (grading.lost) and a failed one to failed", async () => {
+  it("maps a lost compare-and-set to lost, logged as grading.lost at info level (a benign race), not an error", async () => {
     mocks.changeStatus.mockResolvedValue({ outcome: "lost" });
     expect(await runGrading("macro", ID)).toBe("lost");
-    expect(lines(errors)[0].event).toBe("grading.lost");
+    expect(errors).not.toHaveBeenCalled();
+    expect(lines(logs)).toEqual([
+      { event: "grading.lost", attemptId: ID, channel: "macro" },
+      { event: "grading.done", attemptId: ID, channel: "macro", outcome: "lost", score: null },
+    ]);
+  });
+
+  it("maps a failed compare-and-set to failed (grading.write_failed, an error)", async () => {
     mocks.changeStatus.mockResolvedValue({ outcome: "failed" });
     expect(await runGrading("macro", ID)).toBe("failed");
-    expect(lines(errors)[1].event).toBe("grading.write_failed");
+    expect(lines(errors)[0].event).toBe("grading.write_failed");
+  });
+
+  it("a missing submission-1 is a retryable fault: no write, grading.file_missing, outcome failed", async () => {
+    mocks.downloadSubmissionFile.mockResolvedValue({ ok: true, value: null });
+    expect(await runGrading("upload", ID)).toBe("failed");
+    expect(mocks.changeStatus).not.toHaveBeenCalled();
+    expect(lines(errors)).toEqual([{ event: "grading.file_missing", attemptId: ID, channel: "upload" }]);
   });
 
   it("does not log an error for a skipped attempt (a duplicate or Abandon)", async () => {
@@ -121,10 +135,36 @@ describe("runGrading", () => {
     expect(lines(errors)[1]).toEqual({ event: "grading.threw", attemptId: ID, channel: "upload", code: "TypeError" });
   });
 
-  it("logs no file bytes, key values or tokens", async () => {
+  it("logs no file bytes, key values or tokens, on success and on every failing path", async () => {
+    const TOKEN = "tok_Zq81secretAttemptToken";
+    const SECRET_BYTES = new TextEncoder().encode("PK-SECRET-WORKBOOK-BYTES");
+    mocks.downloadSubmissionFile.mockResolvedValue({ ok: true, value: SECRET_BYTES });
+    const leaky = (name: string) => Object.assign(new Error(`${TOKEN} key 12665.2656 bytes PK-SECRET-WORKBOOK-BYTES`), { name });
+
+    // Graded, all correct.
     await runGrading("macro", ID);
+    // Wrong values: graded with reasons (which never carry the key).
+    const cells = correctCells();
+    cells.H2 = { formula: "=1", value: 1, type: "number" };
+    cells.O3 = { formula: "=2", value: "Lini B", type: "string" };
+    mocks.readWorkbook.mockResolvedValueOnce(readingOf(cells));
+    expect(await runGrading("macro", ID)).toBe("graded");
+    // Unreadable: the reader's error message carries secrets.
+    mocks.readWorkbook.mockRejectedValueOnce(leaky("Error"));
+    expect(await runGrading("upload", ID)).toBe("grading_failed");
+    // grade() throwing: a snapshot range grade() cannot expand.
+    const broken = { ...SNAPSHOT, questions: SNAPSHOT.questions.map((q, i) => (i === 0 ? { ...q, range: "H3:H2" } : q)) };
+    mocks.loadForGrading.mockResolvedValueOnce({ ok: true, value: { status: "received", snapshot: broken } });
+    expect(await runGrading("macro", ID)).toBe("grading_failed");
+    // Anything else throwing.
+    mocks.loadForGrading.mockRejectedValueOnce(leaky("TypeError"));
+    expect(await runGrading("upload", ID)).toBe("failed");
+
+    const events = [...lines(logs), ...lines(errors)].map((line) => line.event);
+    expect(events).toEqual(expect.arrayContaining(["grading.file_unreadable", "grading.grade_threw", "grading.threw"]));
     const all = [...logs.mock.calls, ...errors.mock.calls].map(([line]) => String(line)).join("\n");
-    expect(all).not.toContain("12665");
-    expect(all).not.toContain("1200");
+    for (const secret of ["12665", "1200", "Lini A", TOKEN, "PK-SECRET", Array.from(SECRET_BYTES).join(",")]) {
+      expect(all).not.toContain(secret);
+    }
   });
 });

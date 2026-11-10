@@ -7,8 +7,9 @@ const mocks = vi.hoisted(() => ({
   markReceived: vi.fn(),
   storeSubmissionFile: vi.fn(),
   after: vi.fn(),
+  loadForGrading: vi.fn(),
 }));
-// Grading runs in `after()` (../grading.ts): captured here, never run.
+// Grading runs in `after()` (../grading.ts): captured here, run only where a test says so.
 vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
 vi.mock("@/adapters/supabase/attempts", () => ({
@@ -17,7 +18,7 @@ vi.mock("@/adapters/supabase/attempts", () => ({
   storeSubmissionFile: mocks.storeSubmissionFile,
   changeStatus: vi.fn(),
   downloadSubmissionFile: vi.fn(),
-  loadForGrading: vi.fn(),
+  loadForGrading: mocks.loadForGrading,
 }));
 
 import { buildVbaProject } from "@/adapters/workbook/__fixtures__/vba-project";
@@ -74,6 +75,7 @@ afterEach(() => {
   mocks.markReceived.mockReset();
   mocks.storeSubmissionFile.mockReset();
   mocks.after.mockReset();
+  mocks.loadForGrading.mockReset();
 });
 
 /** What Excel does when the user adds a sheet and opens the VBA editor: a new sheet part and a rewritten VBA project. */
@@ -302,6 +304,15 @@ describe("POST /api/submissions/macro: grading", () => {
     await post(await patched(template, token), token);
     expect(mocks.after).toHaveBeenCalledTimes(1);
     expect(mocks.after.mock.calls[0][0]).toBeTypeOf("function");
+
+    // The captured task grades this attempt on the service role, logged for the macro channel.
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: null });
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(mocks.loadForGrading).not.toHaveBeenCalled();
+    await (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
+    expect(mocks.loadForGrading).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    const done = logs.mock.calls.map(([line]) => JSON.parse(String(line))).find((line) => line.event === "grading.done");
+    expect(done).toMatchObject({ attemptId: ATTEMPT_ID, channel: "macro" });
   });
 
   it.each(["received", "grading_failed"])("does not schedule grading for a duplicate (%s)", async (status) => {

@@ -35,7 +35,7 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
       points: 25,
       pointsAwarded: 0,
       correct: false,
-      reasonText: "Sel I3 berisi angka yang diketik, bukan rumus.",
+      reasonText: "Sel I3 berisi nilai yang diketik, bukan rumus.",
       tip: null,
     });
     expect(result).toMatchObject({ score: 75, pointsEarned: 75, correctCount: 3 });
@@ -72,7 +72,7 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     cells.H3 = typed(12665.27); // typed, second cell
     // formula_present runs first and fails on H3; value_equals_key would fail on H2.
     expect(grade(SNAPSHOT, readingOf(cells), 0).questions[0].reasonText).toBe(
-      "Sel H3 berisi angka yang diketik, bukan rumus.",
+      "Sel H3 berisi nilai yang diketik, bukan rumus.",
     );
   });
 

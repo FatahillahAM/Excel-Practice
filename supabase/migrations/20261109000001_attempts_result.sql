@@ -7,9 +7,15 @@
 -- `received` to `graded` (AD-5). No separate `results` table: the Result id is
 -- the attempt id.
 --
--- `result` exists only on a `graded` attempt. Every new `graded` row must
--- carry one; the check is `not valid` so the rows graded by SQL during the
--- 2.12 tracer (no result) stay legal (Results answers 404 for them).
+-- `result` exists only on a `graded` attempt, and stays when a graded attempt
+-- later moves to `closed`. Every new `graded` row must carry one; the check is
+-- `not valid` so the rows graded by SQL during the 2.12 tracer (no result)
+-- stay legal (Results answers 404 for them).
+--
+-- `not valid` skips only the existing rows at creation: Postgres re-checks the
+-- constraint on any UPDATE of such a legacy row, so a legacy `graded` row
+-- without a result can no longer be updated while it stays `graded`. Those
+-- rows are terminal (nothing moves them on), so that is acceptable.
 
 alter table public.attempts
   add column result jsonb
@@ -17,7 +23,7 @@ alter table public.attempts
 
 alter table public.attempts
   add constraint attempts_result_only_when_graded
-    check (result is null or status = 'graded');
+    check (result is null or status in ('graded', 'closed'));
 
 alter table public.attempts
   add constraint attempts_graded_has_result

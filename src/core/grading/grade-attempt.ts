@@ -17,12 +17,16 @@ import type { WorkbookReading } from "./workbook-reading";
  * | Case                                                  | Write          | Outcome          |
  * |-------------------------------------------------------|----------------|------------------|
  * | graded                                                | `grade_ok`     | `graded`         |
- * | snapshot null or invalid; file missing or unreadable; `grade()` throws | `grade_error` | `grading_failed` |
+ * | snapshot null or invalid; file unreadable; `grade()` throws | `grade_error` | `grading_failed` |
  * | attempt missing or no longer `received`               | none           | `skipped`        |
  * | compare-and-set matched no row (Abandon came first)   | (discarded)    | `lost`           |
  * | the store could not answer (read or write)            | none           | `failed`         |
+ * | `submission-1` missing (`file_missing`)               | none           | `failed`         |
  *
- * A store fault leaves the attempt `received` (entry 3 restarts it). The log
+ * A store fault leaves the attempt `received` (entry 3 restarts it). So does
+ * a missing `submission-1`: the attempt is `received` only after its file was
+ * stored, so a missing object is a storage fault worth retrying, not a bad
+ * file. `file_unreadable` is a file that exists but is no workbook. The log
  * carries no file bytes, key or token.
  */
 
@@ -55,6 +59,7 @@ export type GradingOutcome = "graded" | "grading_failed" | "skipped" | "lost" | 
 /** Why the attempt was not graded, as the `grading.<reason>` log event. */
 export type GradingReason =
   | "snapshot_invalid"
+  | "file_missing"
   | "file_unreadable"
   | "grade_threw"
   | "not_received"
@@ -105,7 +110,8 @@ export async function gradeAttempt(
 
   const file = await ports.readSubmission(attemptId);
   if (!file.ok) return done("failed", "file_read_failed");
-  if (file.value === null) return fail("file_unreadable");
+  // The file was stored before `received`: its absence is a fault to retry, not a terminal failure.
+  if (file.value === null) return done("failed", "file_missing");
 
   let reading: WorkbookReading;
   try {

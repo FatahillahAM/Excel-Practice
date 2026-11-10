@@ -3,7 +3,7 @@ title: 'Tracer: L01-P1 dinilai, Results muncul sendiri di Production'
 type: 'feature'
 ticket: '1'
 created: '2026-11-09'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -91,6 +91,26 @@ context:
 ## Plan Change Log
 
 ## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), 2026-11-10.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | Status route and exam page trust any stored `result` | patched — shared `hasValidResult` validates against `resultSchema`, logs `attempt.result_invalid` without content |
+| 2 | Missing `submission-1` was reported as `file_unreadable` and written | patched — reason `file_missing`, retryable `failed`, attempt stays `received` |
+| 3 | Lost CAS logged as an error | patched — `grading.lost` at info level |
+| 4 | `typed_value` reason text assumed a number | patched — "Sel {ref} berisi nilai yang diketik, bukan rumus." |
+| 5 | Graded attempt without a valid Result spins "grading…" forever | patched — calm line plus Dashboard link; `leaving` state while navigating to Results |
+| 6 | `changeStatus` accepted `result` for non-graded targets; `downloadSubmissionFile` unguarded id | patched — refused before query; `isAttemptId` guard |
+| 7 | Result check blocked moving a graded attempt to `closed`; legacy `not valid` re-check undocumented | patched — `status in ('graded','closed')` plus migration comment and contract test |
+| 8 | Route tests never ran the `after()` callback; upload lost-CAS untested | patched — callback runs and asserts id and channel; lost-CAS case added |
+| 9 | No-sensitive-logs test covered only the happy path | patched — failing paths included |
+| 10 | Attempt stuck in `received` after a store fault, `after()` kill, or commit-then-error | rejected for 3.1 — owned by entry 3 (U4 restart after 15 s) |
+| 11 | Exam-screen poll effect (redirect on `resultId`) has no DOM test | deferred — DOM harness, entry 3.3 |
+| 12 | No test for a partially applied migration | deferred |
+| 13 | Two Supabase clients / heavier query in grading | folded into #1 |
+
+Checks after patches: lint, typecheck, test (54 files, 998 tests), build, `test:db` (44 tests) pass.
 
 ## Design Notes
 

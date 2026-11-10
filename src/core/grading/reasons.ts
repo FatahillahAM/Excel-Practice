@@ -15,8 +15,8 @@ export interface Reason {
 }
 
 export const REASON_TEMPLATES: Readonly<Record<ReasonKind, string>> = {
-  /** `formula_present`: a value typed into the cell instead of a formula. */
-  typed_value: "Sel {ref} berisi angka yang diketik, bukan rumus.",
+  /** `formula_present`: a value (number or text) typed into the cell instead of a formula. */
+  typed_value: "Sel {ref} berisi nilai yang diketik, bukan rumus.",
   /** Any check: the cell has neither a formula nor a value. */
   empty: "Sel {ref} masih kosong.",
   /** `value_equals_key`: the cell's value is not the expected one (or not calculated yet). */

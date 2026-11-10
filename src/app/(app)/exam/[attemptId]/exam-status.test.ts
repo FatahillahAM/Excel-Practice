@@ -28,15 +28,18 @@ describe("Exam Status Line", () => {
     for (const code of [200, 500, 502, 503]) expect(isFinalPollFailure(code)).toBe(false);
   });
 
+  it("says a graded attempt without a valid Result (graded by SQL) was graded without detailed results", () => {
+    expect(statusLine("graded", "Practice 1")).toBe("This attempt was graded without detailed results.");
+  });
+
   it("says an abandoned attempt was abandoned, and any other end is closed", () => {
     expect(statusLine("abandoned", "Practice 1")).toBe("This attempt was abandoned.");
     expect(statusLine("closed", "Practice 1")).toBe("This attempt is closed.");
   });
 
-  it("offers the way back to Dashboard only once the attempt ended (abandoned or closed)", () => {
-    expect(isEnded("abandoned")).toBe(true);
-    expect(isEnded("closed")).toBe(true);
-    for (const status of ["open", "received", "grading_failed", "graded"] as const) expect(isEnded(status)).toBe(false);
+  it("offers the way back to Dashboard only once the attempt ended (abandoned, closed, or graded without a Result)", () => {
+    for (const status of ["abandoned", "closed", "graded"] as const) expect(isEnded(status)).toBe(true);
+    for (const status of ["open", "received", "grading_failed"] as const) expect(isEnded(status)).toBe(false);
   });
 
   it("moves to Results only on a graded answer with a resultId (AD-11)", () => {
