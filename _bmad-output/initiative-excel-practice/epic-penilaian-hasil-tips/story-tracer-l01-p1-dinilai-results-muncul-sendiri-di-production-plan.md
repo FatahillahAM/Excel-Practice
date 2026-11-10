@@ -128,3 +128,15 @@ Checks after patches: lint, typecheck, test (54 files, 998 tests), build, `test:
 
 **Manual checks (if no CLI):**
 - Preview (`dev`), then Production: Start L01-P1, type the expected formulas, Finish → exam screen moves to Results with 100/100 and "4 of 4 correct"; a second attempt with typed numbers in one range → lower score; reload of `/exam/<id>` after grading redirects to Results; migration applied `dev` then `prod` (AD-13).
+
+### Production evidence (2026-11-10, deployment `dpl_8Q9iif6MUHQbRApZ88U7mmkJiMyi`, PR #15)
+
+Migration `20261109000001_attempts_result` applied to dev and prod before the merge.
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 01:11:25 | `attempt.started` | attempt `7ee570ef`, L01-P1, scenario `roti-mentari`, content v1, template v1 |
+| 01:12:52.546 | macro submission | `received: true`, `duplicate: false` |
+| 01:12:52.984 | `grading.done` | channel macro, outcome graded, score 45 (about 0.4 s after receipt) |
+
+Stored Result: status `graded`, score 45, 2 of 4 correct, hintsUsed 0, points [20, 25, 0, 0], reasons for Q3/Q4 "Sel J2 masih kosong." / "Sel O2 masih kosong.". No error lines in the window.
