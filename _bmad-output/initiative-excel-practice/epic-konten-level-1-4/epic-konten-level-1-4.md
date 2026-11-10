@@ -3,7 +3,7 @@ type: epic
 title: "Konten Level 1–4"
 parent: initiative-excel-practice
 covers: [CAP-6]
-after: []
+after: ["3.2", "3.4"]
 assignee: ""
 risk: medium
 ---

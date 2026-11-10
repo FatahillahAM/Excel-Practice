@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ExamSnapshot } from "@/core/content/level-module";
+import { resultSchema, type Result } from "@/core/grading";
 import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus } from "@/core/services/attempts";
 
 /**
@@ -10,7 +11,9 @@ import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus
  * `markReceived` take the service-role client (`service.ts`) and exist only for
  * the submission paths (AD-9): macro, and upload after its route has checked
  * the session and that the attempt is the session user's;
- * `storeSubmissionFile` takes either. Every status change asks the core state machine
+ * `storeSubmissionFile` takes either. `loadForGrading` and
+ * `downloadSubmissionFile` take the service-role client and exist only for the
+ * grading path; `readResult` and `hasValidResult` take the session. Every status change asks the core state machine
  * (`core/services/attempts`, AD-5) for the next status, then writes it with a
  * compare-and-set on the current status (`changeStatus`).
  *
@@ -330,13 +333,18 @@ export async function changeStatus(
   event: AttemptEvent,
   /** Log event on failure; defaults to `attempt.<event>_failed`. */
   logEvent = `attempt.${event}_failed`,
+  /** Grading (service role): the `Result` written in the same UPDATE as `graded` (migration 20261109000001). */
+  options: { result?: Result } = {},
 ): Promise<ChangeStatusResult> {
   const next = transition(from, event);
   if (!next.ok) return { outcome: "refused" };
+  // Only `graded` carries a Result (migration 20261109000001): refused before any query.
+  if (options.result !== undefined && next.to !== "graded") return { outcome: "refused" };
+  const values = options.result === undefined ? { status: next.to } : { status: next.to, result: options.result };
   try {
     const { data, error } = await client
       .from(TABLE)
-      .update({ status: next.to })
+      .update(values)
       .eq("id", attemptId)
       .eq("status", from)
       .select("id");
@@ -360,6 +368,104 @@ export async function markReceived(service: SupabaseClient, attemptId: string): 
   const result = await changeStatus(service, attemptId, "open", "submit_accepted", "attempt.mark_received_failed");
   if (result.outcome === "failed") return { ok: false };
   return { ok: true, value: result.outcome === "changed" };
+}
+
+/** What grading needs of an attempt: its status and the stored snapshot, unvalidated (core validates it). */
+export interface GradingRow {
+  status: AttemptStatus;
+  snapshot: unknown;
+}
+
+/**
+ * Grading (service role, AD-9): the attempt's status and snapshot (the session
+ * cannot read `snapshot`); `null` when there is no such attempt.
+ */
+export async function loadForGrading(service: SupabaseClient, attemptId: string): Promise<Read<GradingRow | null>> {
+  if (!isAttemptId(attemptId)) return { ok: true, value: null };
+  try {
+    const { data, error } = await service.from(TABLE).select("status, snapshot").eq("id", attemptId).maybeSingle();
+    if (error) {
+      logError("attempt.load_for_grading_failed", error.code);
+      return { ok: false };
+    }
+    if (!data) return { ok: true, value: null };
+    const row = data as { status: AttemptStatus; snapshot: unknown };
+    return { ok: true, value: { status: row.status, snapshot: row.snapshot ?? null } };
+  } catch (error) {
+    logError("attempt.load_for_grading_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
+/**
+ * Grading (service role): the bytes of `submission-<n>` (the first accepted
+ * file is graded); `value: null` when Storage has no such object, `ok: false`
+ * when Storage could not answer.
+ */
+export async function downloadSubmissionFile(
+  service: SupabaseClient,
+  attemptId: string,
+  n = 1,
+): Promise<Read<Uint8Array | null>> {
+  if (!isAttemptId(attemptId)) return { ok: true, value: null };
+  try {
+    const { data, error } = await service.storage.from(ATTEMPT_FILES_BUCKET).download(submissionFilePath(attemptId, n));
+    if (error) {
+      if (isNotFound(error)) return { ok: true, value: null };
+      logError("attempt.submission_download_failed", storageErrorCode(error));
+      return { ok: false };
+    }
+    if (!data) return { ok: true, value: null };
+    return { ok: true, value: new Uint8Array(await data.arrayBuffer()) };
+  } catch (error) {
+    logError("attempt.submission_download_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
+/** A graded attempt's stored Result as read through the session, unvalidated (callers parse it with `resultSchema`). */
+export interface StoredResult {
+  itemId: string;
+  result: unknown;
+}
+
+/**
+ * The attempt's `result` through the user's session (RLS: owner only;
+ * migration 20261109000001 grants the session `select (result)`); `null` when
+ * the attempt does not exist, is not theirs, or has no Result (not graded, or
+ * graded by SQL before results existed).
+ */
+export async function readResult(supabase: SupabaseClient, attemptId: string): Promise<Read<StoredResult | null>> {
+  if (!isAttemptId(attemptId)) return { ok: true, value: null };
+  try {
+    const { data, error } = await supabase.from(TABLE).select("item_id, result").eq("id", attemptId).maybeSingle();
+    if (error) {
+      logError("attempt.read_result_failed", error.code);
+      return { ok: false };
+    }
+    const row = data as { item_id: string; result: unknown } | null;
+    if (!row || row.result === null || row.result === undefined) return { ok: true, value: null };
+    return { ok: true, value: { itemId: row.item_id, result: row.result } };
+  } catch (error) {
+    logError("attempt.read_result_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
+/**
+ * Whether the attempt has a stored Result that passes `resultSchema` (read
+ * validated, not trusted): what the status endpoint and the exam page ask
+ * before sending the user to Results. `false` for no Result (not graded, or
+ * graded by SQL before results existed) and for one that fails the schema
+ * (logged as `attempt.result_invalid`, without its content).
+ */
+export async function hasValidResult(supabase: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
+  const stored = await readResult(supabase, attemptId);
+  if (!stored.ok) return { ok: false };
+  if (stored.value === null) return { ok: true, value: false };
+  if (resultSchema.safeParse(stored.value.result).success) return { ok: true, value: true };
+  logError("attempt.result_invalid", "schema");
+  return { ok: true, value: false };
 }
 
 /**
@@ -408,6 +514,19 @@ function isAlreadyExists(error: unknown): boolean {
     String(e?.status) === "409" ||
     e?.code === "ResourceAlreadyExists" ||
     e?.error === "Duplicate"
+  );
+}
+
+/** Storage answers a download of a missing object with 404, or 400 with `statusCode: "404"` / `not_found` / `NoSuchKey`. */
+function isNotFound(error: unknown): boolean {
+  const e = error as { statusCode?: unknown; status?: unknown; code?: unknown; error?: unknown; message?: unknown } | null;
+  return (
+    String(e?.statusCode) === "404" ||
+    String(e?.status) === "404" ||
+    e?.code === "NoSuchKey" ||
+    e?.code === "not_found" ||
+    e?.error === "not_found" ||
+    (typeof e?.message === "string" && /object not found/i.test(e.message))
   );
 }
 

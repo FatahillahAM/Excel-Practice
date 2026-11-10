@@ -3,6 +3,7 @@ import path from "node:path";
 import JSZip from "jszip";
 import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula.ts";
 import { readSheetParts, resolvePartName } from "./template-patch.ts";
+import type { CellReading, WorkbookReading } from "@/core/grading/workbook-reading";
 import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
 
 /**
@@ -20,31 +21,11 @@ import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
  * are not trusted, each part is inflated as a stream and reading stops once the
  * budget is spent (zip bomb → `NotAWorkbookError`).
  *
- * `WorkbookReading` lives here during the spike; it moves to `src/core` with
- * grading (epic 3).
+ * `WorkbookReading` and its cell types live in `src/core/grading/workbook-reading.ts`.
  */
 
-export type CellType = "number" | "string" | "boolean" | "error" | "empty";
-
-export interface CellReading {
-  /** Normalized formula text (see `normalizeFormula`), or `null` for a value typed in or spilled into the cell. */
-  formula: string | null;
-  /** Cached value; an error is its code (`#N/A`); `null` when the cell holds a formula Excel has not calculated. */
-  value: number | string | boolean | null;
-  type: CellType;
-}
-
-export interface WorkbookReading {
-  /** Per sheet name, per A1 reference (`H3`): only cells with a formula or a value. */
-  sheets: Record<string, Record<string, CellReading>>;
-  /** Custom document properties as text. */
-  properties: Record<string, string>;
-  /**
-   * Per VBA module (MODULENAMEUNICODE), lowercase hex SHA-256 of its normalized source (AD-4);
-   * `null` when `xl/vbaProject.bin` is missing or is not a readable VBA project. Compare with `matchesTemplate`.
-   */
-  vbaModuleHashes: VbaModuleHashes | null;
-}
+// The reading's types live in core (grading reads them, AD-3); re-exported for existing callers.
+export type { CellReading, CellType, WorkbookReading } from "@/core/grading/workbook-reading";
 
 /** The bytes are not an OOXML workbook (AD-6 `NOT_EXCEL`); the message says why. */
 export class NotAWorkbookError extends Error {

@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), readAttempt: vi.fn() }));
+const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), readAttempt: vi.fn(), hasValidResult: vi.fn() }));
 const SUPABASE = { session: true };
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
+vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt, hasValidResult: mocks.hasValidResult }));
 
 import { GET } from "./route";
 
@@ -32,6 +32,7 @@ afterEach(() => {
   vi.useRealTimers();
   mocks.getSessionUser.mockReset();
   mocks.readAttempt.mockReset();
+  mocks.hasValidResult.mockReset();
 });
 
 describe("GET /api/attempts/<attemptId>/status", () => {
@@ -42,6 +43,32 @@ describe("GET /api/attempts/<attemptId>/status", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     expect(await res.json()).toEqual({ ok: true, data: { status, elapsedSeconds: 125, resultId: null } });
     expect(mocks.readAttempt).toHaveBeenCalledWith(SUPABASE, ID);
+  });
+
+  it.each(["open", "received", "grading_failed", "abandoned"])("does not look for a Result while %s", async (status) => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt(status) });
+    await get();
+    expect(mocks.hasValidResult).not.toHaveBeenCalled();
+  });
+
+  it("answers graded with resultId = the attempt id when the stored Result is valid", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("graded") });
+    mocks.hasValidResult.mockResolvedValue({ ok: true, value: true });
+    const res = await get();
+    expect(await res.json()).toEqual({ ok: true, data: { status: "graded", elapsedSeconds: 125, resultId: ID } });
+    expect(mocks.hasValidResult).toHaveBeenCalledWith(SUPABASE, ID);
+  });
+
+  it("answers graded without a valid stored Result (graded by SQL, or failing resultSchema) with resultId null", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("graded") });
+    mocks.hasValidResult.mockResolvedValue({ ok: true, value: false });
+    expect(await (await get()).json()).toEqual({ ok: true, data: { status: "graded", elapsedSeconds: 125, resultId: null } });
+  });
+
+  it("answers 500 when the Result cannot be read", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("graded") });
+    mocks.hasValidResult.mockResolvedValue({ ok: false });
+    expect((await get()).status).toBe(500);
   });
 
   it("answers 401 without a session", async () => {

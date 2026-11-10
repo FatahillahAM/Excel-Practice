@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "@/adapters/supabase/attempts";
 import { OrbitLoader } from "@/components/exam/orbit-loader";
@@ -35,8 +36,10 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
       return `Excel is open — ${itemLabel}`;
     case "received":
     case "grading_failed":
-    case "graded":
       return "File received — grading…";
+    case "graded":
+      // Reached only without a valid Result (graded by SQL before results existed): with one, the screen moves to Results.
+      return "This attempt was graded without detailed results.";
     case "abandoned":
       return "This attempt was abandoned.";
     default:
@@ -44,12 +47,20 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
   }
 }
 
-/** Statuses after which the exam screen only offers the way back to Dashboard. */
+/** Statuses after which the exam screen only offers the way back to Dashboard (`graded` here has no Result to show). */
 export function isEnded(status: AttemptStatus): boolean {
-  return status === "abandoned" || status === "closed";
+  return status === "abandoned" || status === "closed" || status === "graded";
 }
 
-type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number } };
+type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSeconds?: number; resultId?: string | null } };
+
+/** Where a status answer sends the exam screen: `/results/<resultId>` once `graded` with a Result (AD-11), else `null`. */
+export function resultPath(body: unknown): string | null {
+  const data = (body as StatusBody | null)?.data;
+  if ((body as StatusBody | null)?.ok !== true || data?.status !== "graded") return null;
+  const id = data.resultId;
+  return typeof id === "string" && id !== "" ? `/results/${encodeURIComponent(id)}` : null;
+}
 
 /**
  * Orbit Loader + Exam Status Line. After Start (`?download=1`) navigates once
@@ -67,6 +78,9 @@ type StatusBody = { ok?: boolean; data?: { status?: AttemptStatus; elapsedSecond
  *
  * While `open`, the Upload Dropzone sits under the status line (CAP-4). An
  * accepted upload moves the screen at once, as when a poll sees the change.
+ * A poll that sees `graded` with a `resultId` replaces this page with Results
+ * (polling stops and the screen stays as it was while Results loads); `graded`
+ * without one says so and offers Dashboard.
  */
 export function ExamStatus({
   attemptId,
@@ -83,11 +97,14 @@ export function ExamStatus({
   /** Seconds since `received_at` at server render; `null` when not received yet. */
   initialReceivedSeconds: number | null;
 }) {
+  const router = useRouter();
   const [status, setStatus] = useState<AttemptStatus>(initialStatus);
   const [elapsed, setElapsed] = useState(initialElapsed);
   const [receivedSeconds, setReceivedSeconds] = useState(initialReceivedSeconds ?? 0);
   const [tick, setTick] = useState(0);
   const [lost, setLost] = useState(false);
+  /** Moving to Results: no more polls, and the screen keeps its last state meanwhile. */
+  const [leaving, setLeaving] = useState(false);
   const elapsedAnchor = useRef<Anchor>({ base: initialElapsed, at: null });
   const receivedAnchor = useRef<Anchor>({ base: initialReceivedSeconds ?? 0, at: null });
   const downloadStarted = useRef(false);
@@ -146,7 +163,7 @@ export function ExamStatus({
   }, [status, receivedSeconds, lost]);
 
   useEffect(() => {
-    if (lost || !POLLED.includes(status)) return;
+    if (lost || leaving || !POLLED.includes(status)) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
@@ -158,6 +175,12 @@ export function ExamStatus({
         if (!res.ok) return;
         const body = (await res.json()) as StatusBody;
         if (cancelled || !body.ok) return;
+        const results = resultPath(body);
+        if (results !== null) {
+          setLeaving(true);
+          router.replace(results);
+          return;
+        }
         const seconds = body.data?.elapsedSeconds;
         if (typeof seconds === "number" && Number.isFinite(seconds)) {
           // What is on screen now, so a 0–1 s lag from flooring never steps the time back.
@@ -181,7 +204,7 @@ export function ExamStatus({
       window.clearTimeout(timer);
     };
     // `tick` re-arms the timer after every poll, also when the status did not change.
-  }, [attemptId, status, tick, lost, applyStatus]);
+  }, [attemptId, status, tick, lost, leaving, applyStatus, router]);
 
   if (lost) {
     return (

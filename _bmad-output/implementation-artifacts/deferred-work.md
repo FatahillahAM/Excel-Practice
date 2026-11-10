@@ -97,3 +97,11 @@
   summary: Storage and status writes of `submit()` are checked only through mocks (2.3 Review Triage Log #16, deferred to a manual `dev` check; recorded here by sweep 2.11).
   evidence: 2.3 review (low); the route tests mock `storeSubmissionFile` and `markReceived`.
   status: done — laptop check 2.9 in Preview (dev): submissions were accepted and the exam screen moved to received; each rejection code answered per attempt status (sweep 2.11, 2026-11-09).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-tracer-l01-p1-dinilai-results-muncul-sendiri-di-production-plan.md`
+  summary: The exam screen's poll effect (redirect to Results when the status route returns `resultId`, `leaving` state) has no DOM test; only the server render is tested.
+  evidence: 3.1 review (medium if wrong); add with the DOM test harness in entry 3.3.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-tracer-l01-p1-dinilai-results-muncul-sendiri-di-production-plan.md`
+  summary: No test proves behaviour when migration `20261109000001_attempts_result` is only partly applied (column present without grants or trigger).
+  evidence: 3.1 review (low); migrations are applied whole via Supabase MCP, dev then prod.
+  status: open

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   getSessionUser: vi.fn(),
   readAttempt: vi.fn(),
+  hasValidResult: vi.fn(),
   notFound: vi.fn(() => {
     throw Object.assign(new Error("NEXT_HTTP_ERROR_FALLBACK;404"), { notFound: true });
   }),
@@ -16,13 +17,14 @@ const SUPABASE = { session: true };
 vi.mock("next/navigation", () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
   unstable_rethrow: (error: unknown) => {
     if ((error as { url?: string; notFound?: boolean })?.url || (error as { notFound?: boolean })?.notFound) throw error;
   },
 }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt }));
+vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt, hasValidResult: mocks.hasValidResult }));
 
 import { examMessages, shellMessages } from "@/messages/id";
 import ExamPage from "./page";
@@ -62,6 +64,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   mocks.getSessionUser.mockReset();
   mocks.readAttempt.mockReset();
+  mocks.hasValidResult.mockReset();
   mocks.notFound.mockClear();
   mocks.redirect.mockClear();
 });
@@ -168,6 +171,34 @@ describe("Exam page", () => {
   it("an open attempt has no link back to Dashboard", async () => {
     mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
     expect(await render()).not.toContain("Back to Dashboard");
+  });
+
+  it("redirects a graded attempt with a valid stored Result to Results", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, status: "graded", receivedAt: "2026-11-02T01:10:00+00:00" } });
+    mocks.hasValidResult.mockResolvedValue({ ok: true, value: true });
+    await expect(render()).rejects.toMatchObject({ url: `/results/${ID}` });
+    expect(mocks.hasValidResult).toHaveBeenCalledWith(SUPABASE, ID);
+  });
+
+  it("does not look for a Result before the attempt is graded", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, status: "received", receivedAt: "2026-11-02T01:10:00+00:00" } });
+    await render();
+    expect(mocks.hasValidResult).not.toHaveBeenCalled();
+  });
+
+  it("a graded attempt without a valid Result (graded by SQL): a calm line, no Orbit, Dashboard; fails when the read fails", async () => {
+    const graded = { ...ATTEMPT, status: "graded", receivedAt: "2026-11-02T01:10:00+00:00" };
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: graded });
+    mocks.hasValidResult.mockResolvedValue({ ok: true, value: false });
+    const html = await render();
+    expect(liveRegionText(html)).toContain("This attempt was graded without detailed results.");
+    expect(html).not.toContain("File received — grading…");
+    expect(html).not.toMatch(/<svg[^>]*viewBox="0 0 100 100"/);
+    expect(html).not.toContain('type="file"');
+    expect(html).toMatch(/<a [^>]*href="\/dashboard"[^>]*>Back to Dashboard<\/a>/);
+    expect(mocks.redirect).not.toHaveBeenCalled();
+    mocks.hasValidResult.mockResolvedValue({ ok: false });
+    expect(await render()).toContain(shellMessages.firstLoadFailed);
   });
 
   it("is notFound for an attempt that is missing or not the user's", async () => {

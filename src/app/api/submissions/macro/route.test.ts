@@ -6,12 +6,19 @@ const mocks = vi.hoisted(() => ({
   findAttemptByTokenHash: vi.fn(),
   markReceived: vi.fn(),
   storeSubmissionFile: vi.fn(),
+  after: vi.fn(),
+  loadForGrading: vi.fn(),
 }));
+// Grading runs in `after()` (../grading.ts): captured here, run only where a test says so.
+vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
 vi.mock("@/adapters/supabase/attempts", () => ({
   findAttemptByTokenHash: mocks.findAttemptByTokenHash,
   markReceived: mocks.markReceived,
   storeSubmissionFile: mocks.storeSubmissionFile,
+  changeStatus: vi.fn(),
+  downloadSubmissionFile: vi.fn(),
+  loadForGrading: mocks.loadForGrading,
 }));
 
 import { buildVbaProject } from "@/adapters/workbook/__fixtures__/vba-project";
@@ -67,6 +74,8 @@ afterEach(() => {
   mocks.findAttemptByTokenHash.mockReset();
   mocks.markReceived.mockReset();
   mocks.storeSubmissionFile.mockReset();
+  mocks.after.mockReset();
+  mocks.loadForGrading.mockReset();
 });
 
 /** What Excel does when the user adds a sheet and opens the VBA editor: a new sheet part and a rewritten VBA project. */
@@ -286,6 +295,45 @@ describe("POST /api/submissions/macro: Finish", () => {
     expect(posted.status).toBe(200);
     expect(posted.body).toEqual(ACCEPTED);
     expect(logOf(posted, token)).toMatchObject({ code: null, tokenSha256: tokenSha256(token), received: true });
+  });
+});
+
+describe("POST /api/submissions/macro: grading", () => {
+  it("schedules grading once in after() when the file moves the attempt to received", async () => {
+    const token = newToken();
+    await post(await patched(template, token), token);
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    expect(mocks.after.mock.calls[0][0]).toBeTypeOf("function");
+
+    // The captured task grades this attempt on the service role, logged for the macro channel.
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: null });
+    const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(mocks.loadForGrading).not.toHaveBeenCalled();
+    await (mocks.after.mock.calls[0][0] as () => Promise<unknown>)();
+    expect(mocks.loadForGrading).toHaveBeenCalledWith(SERVICE, ATTEMPT_ID);
+    const done = logs.mock.calls.map(([line]) => JSON.parse(String(line))).find((line) => line.event === "grading.done");
+    expect(done).toMatchObject({ attemptId: ATTEMPT_ID, channel: "macro" });
+  });
+
+  it.each(["received", "grading_failed"])("does not schedule grading for a duplicate (%s)", async (status) => {
+    attemptFound(status);
+    const token = newToken();
+    await post(await patched(template, token), token);
+    expect(mocks.after).not.toHaveBeenCalled();
+  });
+
+  it("does not schedule grading for a refusal or after a compare-and-set lost to another post", async () => {
+    const token = newToken();
+    await post(await patched(template, token), newToken());
+    attemptFound("abandoned");
+    await post(await patched(template, token), token);
+    attemptFound();
+    mocks.markReceived.mockResolvedValue({ ok: true, value: false });
+    mocks.findAttemptByTokenHash
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "open", templateVersion: CURRENT_TEMPLATE_VERSION } })
+      .mockResolvedValueOnce({ ok: true, value: { id: ATTEMPT_ID, status: "received", templateVersion: CURRENT_TEMPLATE_VERSION } });
+    await post(await patched(template, token), token);
+    expect(mocks.after).not.toHaveBeenCalled();
   });
 });
 

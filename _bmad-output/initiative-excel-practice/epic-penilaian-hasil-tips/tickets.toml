@@ -1,0 +1,121 @@
+# Breakdown epic-penilaian-hasil-tips, urutan build. id tidak pernah dipakai ulang.
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer: L01-P1 dinilai → Results muncul sendiri di Production"
+description = "Menetapkan kontrak `Result` lengkap di core (per soal benar, poin, `reasonText`, Tip; plus `hintsUsed` dan skor), tipe port `WorkbookReading` di core, `grade()` dengan `formula_present` dan `value_equals_key`, kolom `attempts.result` yang ditulis dalam compare-and-set `graded`/`grading_failed` oleh service role, penilaian di `after()` pada route macro dan upload, `resultId` di endpoint status, dan halaman `/results/<attemptId>` minimal yang dituju layar exam secara otomatis."
+verify = "Di Production laptop, Finish pada L01-P1 membuat layar exam berpindah sendiri ke Results yang menampilkan skor /100 dan \"x of y correct\"."
+covers = ["CAP-5", "B1"]
+after = ["2.3", "2.5", "2.8"]
+hitl = true
+risk = "high"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Lima pemeriksa, alasan, fixture emas, dan tes paritas"
+description = "Melengkapi `src/core/grading` dengan `not_hard_coded`, `uses_functions`, `uses_reference` (geser seperti fill Excel), toleransi angka dan teks persis, sel error dan sel belum dihitung, tokenizer rumus yang dipindah ke core (adapter mengimpornya), templat `reasonText` Indonesia per pemeriksa, serta fixture L01-P1 `correct`, `typed-values`, dan `wrong-function` yang disimpan user di Excel 2021."
+verify = "CI menilai tiap fixture ke skor dan alasan yang diharapkan, identik lewat route macro dan upload."
+covers = ["CAP-5", "B6"]
+after = [1]
+hitl = true
+risk = "high"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Penilaian gagal, Try again, pagar AD-5, dan harness DOM"
+description = "Menambah migrasi trigger yang menolak setiap transisi `attempts.status` di luar diagram AD-5 untuk semua role, penanganan `lost` (log, hasil dibuang), Server Action Try again (grading_failed → received → nilai ulang di `after()`) dengan pesan destruktif dan tombol di layar exam, penilaian ulang oleh endpoint status setelah 15 s di `received`, dan harness tes DOM (jsdom + testing-library)."
+verify = "Tes kontrak DB menolak update service role di luar diagram, dan penilaian yang dipaksa gagal menampilkan \"Try again\" yang berakhir `graded`."
+covers = ["B2", "B3", "B1"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Kontrak hint dan Tips, snapshot v2, konten L01-P1"
+description = "Memperluas `LevelModule` dengan hint berurutan dan satu Tip per soal (`id`, judul, isi, shortcut) yang divalidasi zod tanpa fungsi khusus Microsoft 365, menyimpan hint, Tip, dan `hintQuota` di snapshot v2, mengisi hint dan Tips untuk 4 soal L01-P1 dengan `contentVersion` 2, dan memperbarui daftar snapshot AD-3 di spine; `grade()` dari entry 1 sudah menyalin Tip ke `Result`, dan epic 5 memakai bentuk ini."
+verify = "Hint atau Tip yang salah bentuk gagal saat modul dimuat, dan snapshot Start baru memuat hint dan Tip tiap soal."
+covers = ["CAP-7", "CAP-8", "B4"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Hint dari awal sampai akhir"
+description = "Menambah migrasi `hint_reveals` dan RPC `reveal_hint` (hanya saat `open`, jatah dari snapshot, indeks berikutnya, satu transaksi) yang dipanggil service role setelah sesi dan kepemilikan dicek (AD-9 diubah), Hint Select dan Hint Button di layar exam dengan penjaga fokus dan aria, rehidrasi hint saat muat ulang atau Resume, dan jumlah hint yang diteruskan ke `grade()`."
+verify = "Tiga hint menghabiskan jatah, hint keempat ditolak, dan skor yang dinilai = poin soal benar − 15, minimal 0."
+covers = ["CAP-7", "CAP-5", "B5"]
+after = [3, 4]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Layar Results: isi dan varian"
+description = "Membangun Results dari `Result` tersimpan sesuai DESIGN dan mockup key-results: Outcome panel dengan Score Badge statis, baris potongan, waktu, \"x of y correct\", Wrong Answer Rows dengan \"See tip\", \"Semua benar!\", Tips Carousel yang aksesibel, varian tenang di bawah 80, judul Test lulus, mode `static` untuk History, serta judul dokumen dan fokus `<h1>` saat navigasi otomatis."
+verify = "Tes DOM merender tiap varian dari Result fixture, dan carousel berpindah satu kartu dengan tombol panah."
+covers = ["CAP-5", "CAP-8"]
+after = [3, 4]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 7
+type = "story"
+title = "Gerak Results"
+description = "Menambah putaran Score Badge dan hitung naik, Fire Effect hanya untuk Test lulus, dan scroll scene Results dengan CSS saja, bingkai statis, dan fallback `useMotionPreference` di komponen entry 6."
+verify = "Dengan reduced motion skor tampil di nilai akhir tanpa animasi, dan skor di bawah 80 tanpa glow dan tanpa api."
+covers = ["CAP-5", "B7"]
+after = [6]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 8
+type = "story"
+title = "History"
+description = "Menambah adapter daftar percobaan `graded` yang punya `Result` dan halaman History (item, tanggal, skor, waktu) yang barisnya membuka Results mode `static` dari entry 6, dengan keadaan kosong dan Skeleton."
+verify = "Membuka percobaan lama dari History menampilkan skor, alasan, dan Tips yang sama dengan tampilan pertamanya."
+covers = ["CAP-21"]
+after = [6]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 9
+type = "story"
+title = "Koleksi Tips & Tricks"
+description = "Menambah `tipsCollection()` di `src/core/progress` (diturunkan dari `Result` tersimpan per AD-7, unik per id Tip) dan halaman Tips & Tricks dengan filter level, pencarian, dan pesan tanpa hasil, memakai adapter daftar dari entry 8 dan Tips Card dari entry 6."
+verify = "Setiap kartu dari percobaan yang dinilai tampil sekali, dan filter level serta pencarian mempersempitnya."
+covers = ["CAP-8"]
+after = [8]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 10
+type = "story"
+title = "Refactor sweep"
+description = "Membersihkan kode epic ini berdasarkan catatan build dan temuan review yang ditunda; cakupannya ditetapkan saat mulai dan hanya berisi pembersihan."
+verify = "CI hijau, dan setiap temuan yang ditunda di epic ini ditutup atau dipindah ke story baru dengan alasan."
+covers = []
+after = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 11
+type = "story"
+title = "Uji end-to-end di Production"
+description = "Menjalankan Done when 1–6 di Production: satu percobaan dinilai lewat macro di laptop dan satu lewat upload, angka diketik dan fungsi salah, hint dan potongannya, Try again, Results, History, dan Tips & Tricks."
+verify = "Setiap Done when epic tercatat lulus dengan bukti log Production di Notes."
+covers = ["CAP-5", "CAP-7", "CAP-8", "CAP-21"]
+after = [10]
+hitl = true
+risk = "medium"
