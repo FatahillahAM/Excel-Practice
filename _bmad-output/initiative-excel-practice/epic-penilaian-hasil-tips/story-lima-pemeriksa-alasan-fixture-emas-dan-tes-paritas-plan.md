@@ -3,13 +3,14 @@ title: 'Lima pemeriksa, alasan, fixture emas, dan tes paritas'
 type: 'feature'
 ticket: '2'
 created: '2026-11-10'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '19a3f73fda02af4fcf2f0fea6ef4912a1f339d74'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md']
 ---
 
@@ -119,6 +120,8 @@ Agent mengirim `l01-p1-blank.xlsm` lewat chat. Waktu sekitar 15 menit.
 | `l01-p1-wrong-function.xlsm` | 75 | 3 of 4 | Q3 "Rumus di J2 tidak memakai fungsi SUM." |
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
