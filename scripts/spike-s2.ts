@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { cellMismatch, NUMBER_TOLERANCE, S2_FIXTURE, S2_MODFINISH_SHA256, s2Expected } from "../src/adapters/workbook/__fixtures__/s2-expected.ts";
-import { normalizeFormula } from "../src/adapters/workbook/formula.ts";
+import { normalizeFormula } from "../src/core/grading/formula.ts";
 import { readWorkbook, type CellReading, type WorkbookReading } from "../src/adapters/workbook/read.ts";
 import { vbaProjectSha256 } from "../src/adapters/workbook/template-patch.ts";
 import { CURRENT_TEMPLATE_VERSION, templates } from "../src/adapters/workbook/templates.ts";

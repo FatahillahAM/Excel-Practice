@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { questionResultSchema, resultSchema, scoreOf, tipSchema, type Result } from "./result";
 
 const RESULT: Result = {
-  version: 1,
+  version: 2,
   contentVersion: 1,
   scenarioId: "baut-sinar-presisi",
   hintsUsed: 1,
@@ -50,8 +50,32 @@ describe("resultSchema", () => {
     expect(resultSchema.safeParse(with_({ questions: short, pointsEarned: 65, score: 60 })).success).toBe(false);
   });
 
-  it("refuses another version", () => {
-    expect(resultSchema.safeParse(with_({ version: 2 as 1 })).success).toBe(false);
+  it("reads version 1 (entry 1 Results, stored in Production) and 2 with the same shape; refuses any other", () => {
+    expect(resultSchema.parse(with_({ version: 1 }))).toEqual({ ...RESULT, version: 1 });
+    for (const version of [0, 3, "2"]) {
+      expect(resultSchema.safeParse(with_({ version: version as 2 })).success).toBe(false);
+    }
+  });
+
+  it("parses a stored entry-1 Result as written in Production (attempt 7ee570ef shape)", () => {
+    const stored = {
+      version: 1,
+      contentVersion: 1,
+      scenarioId: "baut-sinar-presisi",
+      hintsUsed: 0,
+      hintPenalty: 0,
+      pointsEarned: 80,
+      score: 80,
+      correctCount: 3,
+      questionCount: 4,
+      questions: [
+        { number: 1, points: 20, pointsAwarded: 0, correct: false, reasonText: "Sel H2 berisi nilai yang diketik, bukan rumus.", tip: null },
+        { number: 2, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: null },
+        { number: 3, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: null },
+        { number: 4, points: 30, pointsAwarded: 30, correct: true, reasonText: null, tip: null },
+      ],
+    };
+    expect(resultSchema.safeParse(JSON.parse(JSON.stringify(stored))).success).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula";
+import { columnIndex, columnLetters, normalizeFormula, shiftFormula, tokenize } from "./formula";
 
 describe("normalizeFormula", () => {
   it("drops the leading =, upper-cases and removes whitespace outside strings", () => {
@@ -104,5 +104,56 @@ describe("column letters", () => {
       expect(columnIndex(letters)).toBe(index);
       expect(columnLetters(index)).toBe(letters);
     }
+  });
+});
+
+describe("tokenize", () => {
+  const kinds = (text: string) => tokenize(text).map((token) => [token.kind, token.text]);
+
+  it("splits a formula into tokens whose texts concatenate to it", () => {
+    const text = "=Data!E2/SUM($E$2:$E$13)*'My Sheet'!A:A+[1]Sheet1!1:3&\"E2\"+#N/A";
+    expect(tokenize(text).map((token) => token.text).join("")).toBe(text);
+    expect(kinds("=E2/SUM($E$2:$E$13)")).toEqual([
+      ["other", "="],
+      ["cells", "E2"],
+      ["other", "/"],
+      ["name", "SUM"],
+      ["other", "("],
+      ["cells", "$E$2:$E$13"],
+      ["other", ")"],
+    ]);
+  });
+
+  it("tells references from names, strings, numbers and errors", () => {
+    expect(kinds('LOG10(A:C,2:3,"B2",1.5e3,#REF!, x)')).toEqual([
+      ["name", "LOG10"],
+      ["other", "("],
+      ["columns", "A:C"],
+      ["other", ","],
+      ["rows", "2:3"],
+      ["other", ","],
+      ["string", '"B2"'],
+      ["other", ","],
+      ["number", "1.5e3"],
+      ["other", ","],
+      ["error", "#REF!"],
+      ["other", ","],
+      ["space", " "],
+      ["name", "x"],
+      ["other", ")"],
+    ]);
+    expect(kinds("'Data'!$L$2")).toEqual([
+      ["quoted", "'Data'"],
+      ["other", "!"],
+      ["cells", "$L$2"],
+    ]);
+  });
+
+  it("gives reference tokens their parts", () => {
+    expect(tokenize("$N2")[0].parts).toEqual([{ absolute: true, index: 14, row: { absolute: false, index: 2 } }]);
+    expect(tokenize("O$1:P2")[0].parts).toEqual([
+      { absolute: false, index: 15, row: { absolute: true, index: 1 } },
+      { absolute: false, index: 16, row: { absolute: false, index: 2 } },
+    ]);
   });
 });

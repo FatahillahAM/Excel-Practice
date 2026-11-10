@@ -1,7 +1,7 @@
 import { XMLParser, XMLValidator } from "fast-xml-parser";
 import path from "node:path";
 import JSZip from "jszip";
-import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "./formula.ts";
+import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "../../core/grading/formula.ts";
 import { readSheetParts, resolvePartName } from "./template-patch.ts";
 import type { CellReading, WorkbookReading } from "@/core/grading/workbook-reading";
 import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";

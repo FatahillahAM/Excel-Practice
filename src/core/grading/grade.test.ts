@@ -2,12 +2,13 @@ import { describe, expect, it } from "vitest";
 import { SNAPSHOT, correctCells, formula, readingOf, typed } from "./__fixtures__/exam";
 import { grade } from "./grade";
 import { resultSchema } from "./result";
+import type { CellReading } from "./workbook-reading";
 
 describe("grade(snapshot, reading, hintsUsed)", () => {
   it("all correct: 100, 4 of 4, no reasons, no Tips yet", () => {
     const result = grade(SNAPSHOT, readingOf(correctCells()), 0);
     expect(result).toEqual({
-      version: 1,
+      version: 2,
       contentVersion: 1,
       scenarioId: "baut-sinar-presisi",
       hintsUsed: 0,
@@ -59,11 +60,18 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     expect(grade(SNAPSHOT, readingOf(blank), 0).questions[2].reasonText).toBe("Sel J3 masih kosong.");
   });
 
-  it("a formula Excel has not calculated (null) is wrong", () => {
+  it("a formula Excel has not calculated (null) is wrong: not_calculated", () => {
     const cells = correctCells();
     cells.O2 = formula("=$N2*(1+O$1)", null);
     const result = grade(SNAPSHOT, readingOf(cells), 0);
-    expect(result.questions[3]).toMatchObject({ correct: false, reasonText: "Hasil di O2 belum sesuai." });
+    expect(result.questions[3]).toMatchObject({ correct: false, reasonText: "Rumus di O2 belum dihitung oleh Excel." });
+  });
+
+  it("an error value is wrong: error_value, without the error code", () => {
+    const cells = correctCells();
+    cells.J3 = { formula: "E3/SUM($E$2:$E$3)", value: "#DIV/0!", type: "error" };
+    const reason = grade(SNAPSHOT, readingOf(cells), 0).questions[2].reasonText;
+    expect(reason).toBe("Rumus di J3 menghasilkan error.");
   });
 
   it("the first failing check, at its first failing cell, gives the reason", () => {
@@ -85,7 +93,7 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     expect(grade(SNAPSHOT, readingOf(far), 0).questions[0].correct).toBe(false);
     // A key of 0 compares within the tolerance of 1.
     const zero = correctCells();
-    zero.P3 = formula("=0", 1e-12);
+    zero.P3 = formula("=$N3*(1+P$1)", 1e-12);
     expect(grade(SNAPSHOT, readingOf(zero), 0).questions[3].correct).toBe(true);
     for (const wrong of [formula('="lini a"', "lini a"), formula("=1", 1), formula("=TRUE", true), { formula: "=1/0", value: "#DIV/0!", type: "error" as const }]) {
       const cells = correctCells();
@@ -97,10 +105,28 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     expect(grade(SNAPSHOT, readingOf(text), 0).questions[1].correct).toBe(false);
   });
 
-  it("skips checks without a checker (not_hard_coded, uses_functions, uses_reference)", () => {
+  it("runs all five checks in declared order: the first failing one gives the reason", () => {
+    // Q3 declares formula_present, not_hard_coded, value_equals_key, uses_functions.
+    const reasonOfJ = (j2: CellReading, j3: CellReading = correctCells().J3) => {
+      const cells = correctCells();
+      cells.J2 = j2;
+      cells.J3 = j3;
+      return grade(SNAPSHOT, readingOf(cells), 0).questions[2].reasonText;
+    };
+    // Hard-coded with the right value: not_hard_coded (second) before uses_functions (fourth).
+    expect(reasonOfJ(formula("=0.4", 0.4))).toBe("Rumus di J2 hanya berisi angka, tidak merujuk sel.");
+    // Hard-coded J3, wrong value at J2: not_hard_coded runs before value_equals_key.
+    expect(reasonOfJ(formula("=E2/SUM($E$2:$E$3)", 1), formula("=0.6", 0.6))).toBe("Rumus di J3 hanya berisi angka, tidak merujuk sel.");
+    // Wrong value and no SUM: value_equals_key runs before uses_functions.
+    expect(reasonOfJ(formula("=E2/E9", 1))).toBe("Hasil di J2 belum sesuai.");
+    // Right value without SUM: uses_functions.
+    expect(reasonOfJ(formula("=E2/(E2+E3)", 0.4))).toBe("Rumus di J2 tidak memakai fungsi SUM.");
+    // Q2: right value, unlocked rate: uses_reference.
     const cells = correctCells();
-    cells.J2 = formula("=0.4", 0.4); // a hard-coded formula that would fail not_hard_coded / uses_functions later
-    expect(grade(SNAPSHOT, readingOf(cells), 0).questions[2].correct).toBe(true);
+    cells.I3 = formula("=E3*L3", 750);
+    expect(grade(SNAPSHOT, readingOf(cells), 0).questions[1].reasonText).toBe(
+      "Rumus di I3 belum memakai referensi sel yang diminta, jadi hasilnya bisa salah saat disalin.",
+    );
   });
 
   it("answers on another sheet do not count; a missing answer sheet is all empty", () => {
