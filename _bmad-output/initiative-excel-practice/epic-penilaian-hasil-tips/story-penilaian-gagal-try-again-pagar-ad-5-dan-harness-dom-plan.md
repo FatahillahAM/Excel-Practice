@@ -112,6 +112,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 ## Review Triage Log
 
+Paused 2026-11-11 at the user's request during review. Done: blind-hunter and intent-alignment (findings not yet triaged or patched). Stopped before finishing, to re-run: edge-case-hunter and verification-gap. Open user decisions: spine AD-9/AD-11 amendment for Try again and the U4 restart; Dropzone hidden in grading_failed vs EXPERIENCE.md:178. Migration 20261110000001 is not applied anywhere.
+
 ## Design Notes
 
 - [ASSUMPTION] New column instead of `received_at`: Try again keeps `received_at` (AD-8 duration, contract test `:428`), so `received_at` cannot tell how long the current grading has run. One column serves the stamp, the 15 s claim and the slow-message anchor on reload.
