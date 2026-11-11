@@ -1,7 +1,15 @@
-import { hasValidResult, readAttempt, type AttemptStatus } from "@/adapters/supabase/attempts";
+import {
+  claimGradingRestart,
+  hasValidResult,
+  readAttempt,
+  type Attempt,
+  type AttemptStatus,
+} from "@/adapters/supabase/attempts";
 import { getSessionUser } from "@/adapters/supabase/auth";
 import { UNAUTHENTICATED } from "@/adapters/supabase/auth-rules";
 import { createClient } from "@/adapters/supabase/server";
+import { createServiceClient } from "@/adapters/supabase/service";
+import { GRADING_RESTART_AFTER_S, scheduleGrading } from "@/app/api/submissions/grading";
 import { elapsedSeconds } from "@/core/services/attempts";
 
 export interface AttemptStatusData {
@@ -20,6 +28,14 @@ export type AttemptStatusBody = { ok: true; data: AttemptStatusData } | { ok: fa
  * `NOT_FOUND`. Once `graded`, the Result's id is the attempt's id, given only
  * when the stored Result is there and passes `resultSchema` (a row graded by
  * SQL before results existed has none). Never cached.
+ *
+ * U4: an attempt still `received` 15 s after its grading was requested
+ * (`grading_requested_at`, else `received_at`) has its grading restarted:
+ * after the session read proved ownership, the service role claims the
+ * restart (`claim_grading_restart`, one atomic UPDATE, at most once per 15 s
+ * per attempt) and only the winner schedules a run (`channel: restart`).
+ * A missing service env, a lost or failed claim schedules nothing and never
+ * changes the answer.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ attemptId: string }> }): Promise<Response> {
   const { attemptId } = await params;
@@ -38,12 +54,38 @@ export async function GET(_request: Request, { params }: { params: Promise<{ att
     resultId = valid.value ? attempt.value.id : null;
   }
 
+  if (attempt.value.status === "received") await restartIfStuck(attempt.value);
+
   const data: AttemptStatusData = {
     status: attempt.value.status,
     elapsedSeconds: elapsedSeconds(attempt.value.startedAt, Date.now()),
     resultId,
   };
   return json({ ok: true, data }, 200);
+}
+
+async function restartIfStuck(attempt: Attempt): Promise<void> {
+  const requestedAt = attempt.gradingRequestedAt ?? attempt.receivedAt;
+  if (requestedAt === null || elapsedSeconds(requestedAt, Date.now()) < GRADING_RESTART_AFTER_S) return;
+  try {
+    const service = createServiceClient();
+    if (service === null) {
+      console.error(JSON.stringify({ event: "grading.service_env_missing", attemptId: attempt.id, channel: "restart" }));
+      return;
+    }
+    const claim = await claimGradingRestart(service, attempt.id);
+    if (!claim.ok || !claim.value) return;
+    scheduleGrading("restart", attempt.id);
+    console.log(JSON.stringify({ event: "grading.restart_scheduled", attemptId: attempt.id }));
+  } catch (error) {
+    console.error(
+      JSON.stringify({
+        event: "grading.restart_failed",
+        attemptId: attempt.id,
+        code: error instanceof Error ? error.name : typeof error,
+      }),
+    );
+  }
 }
 
 function json(body: AttemptStatusBody, status: number): Response {

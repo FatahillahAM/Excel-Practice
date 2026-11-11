@@ -388,12 +388,16 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect(failed).toBe(1);
     });
 
-    it("stays when a graded attempt later moves to closed", async () => {
+    it("stays on its graded attempt, which can no longer move to closed (outside AD-5, migration 20261110000001)", async () => {
       const { id } = await attemptIn("received");
       expect(await writeResult(id)).toBe(1);
-      await db.query("update public.attempts set status = 'closed' where id = $1", [id]);
+      await expectSqlError(
+        db.query("update public.attempts set status = 'closed' where id = $1", [id]),
+        "23514",
+        "attempts_status_ad5",
+      );
       const { rows } = await db.query("select status, result from public.attempts where id = $1", [id]);
-      expect(rows[0]).toEqual({ status: "closed", result: RESULT });
+      expect(rows[0]).toEqual({ status: "graded", result: RESULT });
     });
 
     it("refuses a Result that is not a JSON object", async () => {
@@ -457,6 +461,192 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     });
   });
 
+  describe("status fence (AD-5, every role)", () => {
+    const STATUSES = ["open", "received", "grading_failed", "graded", "abandoned", "closed"] as const;
+    /** The 8 edges of the AD-5 diagram (= `transition()` in `src/core/services/attempts/lifecycle.ts`). */
+    const EDGES = new Set([
+      "open>received",
+      "open>abandoned",
+      "open>closed",
+      "received>graded",
+      "received>grading_failed",
+      "received>abandoned",
+      "grading_failed>abandoned",
+      "grading_failed>received",
+    ]);
+    const PAIRS = STATUSES.flatMap((from) => STATUSES.filter((to) => to !== from).map((to) => [from, to] as const));
+
+    it("covers all 30 from → to pairs, 8 of them edges", () => {
+      expect(PAIRS).toHaveLength(30);
+      expect(PAIRS.filter(([from, to]) => EDGES.has(`${from}>${to}`))).toHaveLength(8);
+    });
+
+    it.each(PAIRS)("service role: %s → %s follows the diagram", async (from, to) => {
+      const { id } = await attemptIn(from);
+      // A new `graded` row carries its Result; no other target sends one.
+      const update =
+        to === "graded"
+          ? asService((q) =>
+              q.query("update public.attempts set status = $2, result = $3 where id = $1", [id, to, JSON.stringify(RESULT)]),
+            )
+          : asService((q) => q.query("update public.attempts set status = $2 where id = $1", [id, to]));
+      if (EDGES.has(`${from}>${to}`)) {
+        await update;
+        expect((await row(id)).status).toBe(to);
+      } else {
+        await expectSqlError(update, "23514", "attempts_status_ad5");
+        expect((await row(id)).status).toBe(from);
+      }
+    });
+
+    it.each([
+      ["graded", "open"],
+      ["abandoned", "received"],
+    ] as const)("superuser: refuses %s → %s", async (from, to) => {
+      const { id } = await attemptIn(from);
+      await expectSqlError(
+        db.query("update public.attempts set status = $2 where id = $1", [id, to]),
+        "23514",
+        "attempts_status_ad5",
+      );
+      expect((await row(id)).status).toBe(from);
+    });
+
+    it("superuser: refuses an insert in any status but open", async () => {
+      const uid = await newUser();
+      await expectSqlError(
+        db.query(
+          "insert into public.attempts (user_id, item_id, token_sha256, template_version, status, received_at, result) values ($1, 'L01-P1', $2, 1, 'graded', now(), $3)",
+          [uid, hash(), JSON.stringify(RESULT)],
+        ),
+        "23514",
+        "attempts_status_ad5",
+      );
+      const { rows } = await db.query("select count(*)::int as n from public.attempts where user_id = $1", [uid]);
+      expect(rows[0].n).toBe(0);
+    });
+
+    it("allows an update that leaves the status as it is", async () => {
+      const { id } = await attemptIn("graded");
+      const count = await asService(
+        async (q) => (await q.query("update public.attempts set status = 'graded' where id = $1 returning id", [id])).rowCount,
+      );
+      expect(count).toBe(1);
+      await db.query("update public.attempts set status = 'graded' where id = $1", [id]);
+      expect((await row(id)).status).toBe("graded");
+    });
+  });
+
+  describe("grading_requested_at (U4: the database's time of the current grading request)", () => {
+    async function stamps(id: string) {
+      const { rows } = await db.query("select received_at, grading_requested_at from public.attempts where id = $1", [id]);
+      return rows[0] as { received_at: Date | null; grading_requested_at: Date | null };
+    }
+
+    it("is stamped when the service role moves open to received", async () => {
+      const uid = await newUser();
+      const id = await start(uid);
+      expect((await stamps(id)).grading_requested_at).toBeNull();
+      await asService((q) => q.query("update public.attempts set status = 'received' where id = $1 and status = 'open'", [id]));
+      const s = await stamps(id);
+      expect(s.grading_requested_at).toBeInstanceOf(Date);
+      expect(s.grading_requested_at!.getTime()).toBe(s.received_at!.getTime());
+    });
+
+    it("is stamped again on grading_failed → received, while received_at keeps the first file's time", async () => {
+      const { id } = await attemptIn("grading_failed");
+      await db.query(
+        "update public.attempts set received_at = '2001-01-01T00:00:00Z', grading_requested_at = '2001-01-01T00:00:00Z' where id = $1",
+        [id],
+      );
+      await asService((q) =>
+        q.query("update public.attempts set status = 'received' where id = $1 and status = 'grading_failed'", [id]),
+      );
+      const s = await stamps(id);
+      expect(s.received_at!.toISOString()).toBe("2001-01-01T00:00:00.000Z");
+      expect(Math.abs(s.grading_requested_at!.getTime() - Date.now())).toBeLessThan(60_000);
+    });
+
+    it("keeps its value on other status changes and ignores a value sent with one", async () => {
+      const { id } = await attemptIn("received");
+      await db.query("update public.attempts set grading_requested_at = '2002-01-01T00:00:00Z' where id = $1", [id]);
+      await db.query(
+        "update public.attempts set status = 'grading_failed', grading_requested_at = '2003-01-01T00:00:00Z' where id = $1",
+        [id],
+      );
+      expect((await stamps(id)).grading_requested_at!.toISOString()).toBe("2002-01-01T00:00:00.000Z");
+    });
+
+    it("is read by the owner, and written by neither the session nor the service role (42501)", async () => {
+      const { uid, id } = await attemptIn("received");
+      const own = await asUser(uid, (q) => q.query("select grading_requested_at from public.attempts where id = $1", [id]));
+      expect(own.rows[0].grading_requested_at).toBeInstanceOf(Date);
+      await expectSqlError(
+        asUser(uid, (q) => q.query("update public.attempts set grading_requested_at = now() where id = $1", [id])),
+        "42501",
+      );
+      await expectSqlError(
+        asService((q) => q.query("update public.attempts set grading_requested_at = now() where id = $1", [id])),
+        "42501",
+      );
+    });
+  });
+
+  describe("claim_grading_restart (U4: at most one restart per attempt per 15 s)", () => {
+    const claim = (id: string) =>
+      asService(async (q) => (await q.query("select public.claim_grading_restart($1) as won", [id])).rows[0].won as boolean);
+    const backdate = (id: string) =>
+      db.query("update public.attempts set grading_requested_at = now() - interval '20 seconds' where id = $1", [id]);
+
+    it("is false under 15 s, true once after 15 s, then false on the immediate second call", async () => {
+      const { id } = await attemptIn("received");
+      expect(await claim(id)).toBe(false);
+      await backdate(id);
+      expect(await claim(id)).toBe(true);
+      const { rows } = await db.query("select grading_requested_at from public.attempts where id = $1", [id]);
+      expect(Math.abs((rows[0].grading_requested_at as Date).getTime() - Date.now())).toBeLessThan(60_000);
+      expect(await claim(id)).toBe(false);
+      expect((await row(id)).status).toBe("received");
+    });
+
+    it.each(["open", "grading_failed", "graded", "abandoned", "closed"] as const)("is false for a %s attempt", async (status) => {
+      const { id } = await attemptIn(status);
+      await backdate(id);
+      expect(await claim(id)).toBe(false);
+    });
+
+    it("is false for an attempt that does not exist", async () => {
+      expect(await claim(randomUUID())).toBe(false);
+    });
+
+    it("is not executable by the session or anon", async () => {
+      const { uid, id } = await attemptIn("received");
+      await backdate(id);
+      await expectSqlError(asUser(uid, (q) => q.query("select public.claim_grading_restart($1)", [id])), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select public.claim_grading_restart($1)", [id])), "42501");
+      expect(await claim(id)).toBe(true);
+    });
+  });
+
+  describe("lost (Abandon wins the race with grading)", () => {
+    it("leaves the grader's compare-and-set with no row and the Result unwritten", async () => {
+      const { uid, id } = await attemptIn("received");
+      expect(await abandonAs(uid, id, "received")).toBe(1);
+      const graded = await asService(
+        async (q) =>
+          (
+            await q.query(
+              "update public.attempts set status = 'graded', result = $2 where id = $1 and status = 'received' returning id",
+              [id, JSON.stringify(RESULT)],
+            )
+          ).rowCount,
+      );
+      expect(graded).toBe(0);
+      const { rows } = await db.query("select status, result from public.attempts where id = $1", [id]);
+      expect(rows[0]).toEqual({ status: "abandoned", result: null });
+    });
+  });
+
   describe("owner-only access", () => {
     it("hides other users' attempts and profiles", async () => {
       const { id } = await attemptIn("open");
@@ -505,13 +695,27 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect((await row(id)).status).toBe(status);
     });
 
-    it.each(["received", "graded", "grading_failed", "closed", "open"])(
-      "refuses the owner moving an open attempt to %s",
+    it.each(["received", "closed", "open"])(
+      "refuses the owner moving an open attempt to %s (RLS, 42501)",
       async (to) => {
         const { uid, id } = await attemptIn("open");
         await expectSqlError(
           asUser(uid, (q) => q.query("update public.attempts set status = $2 where id = $1", [id, to])),
           "42501",
+        );
+        expect((await row(id)).status).toBe("open");
+      },
+    );
+
+    // Outside AD-5: the fence (a BEFORE trigger) refuses before RLS `with check`.
+    it.each(["graded", "grading_failed"])(
+      "refuses the owner moving an open attempt to %s (fence, 23514)",
+      async (to) => {
+        const { uid, id } = await attemptIn("open");
+        await expectSqlError(
+          asUser(uid, (q) => q.query("update public.attempts set status = $2 where id = $1", [id, to])),
+          "23514",
+          "attempts_status_ad5",
         );
         expect((await row(id)).status).toBe("open");
       },

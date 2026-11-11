@@ -1,39 +1,68 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ getSessionUser: vi.fn(), readAttempt: vi.fn(), hasValidResult: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  getSessionUser: vi.fn(),
+  readAttempt: vi.fn(),
+  hasValidResult: vi.fn(),
+  claimGradingRestart: vi.fn(),
+  createServiceClient: vi.fn(),
+  loadForGrading: vi.fn(),
+  after: vi.fn(),
+}));
 const SUPABASE = { session: true };
+const SERVICE = { service: true };
+vi.mock("next/server", () => ({ after: mocks.after }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt, hasValidResult: mocks.hasValidResult }));
+vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("@/adapters/supabase/attempts", () => ({
+  readAttempt: mocks.readAttempt,
+  hasValidResult: mocks.hasValidResult,
+  claimGradingRestart: mocks.claimGradingRestart,
+  // The grading run the restart schedules (`runGrading`), as far as this test lets it go.
+  loadForGrading: mocks.loadForGrading,
+  changeStatus: vi.fn(),
+  downloadSubmissionFile: vi.fn(),
+}));
 
 import { GET } from "./route";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const NOW = Date.parse("2026-11-02T01:02:05.900Z");
 
-const attempt = (status: string) => ({
+/** Received 65 s before NOW; grading requested 10 s before NOW unless given. */
+const attempt = (status: string, gradingRequestedAt: string | null = "2026-11-02T01:01:55+00:00") => ({
   id: ID,
   itemId: "L01-P1",
   status,
   templateVersion: 1,
   startedAt: "2026-11-02T01:00:00+00:00",
   receivedAt: status === "open" ? null : "2026-11-02T01:01:00+00:00",
+  gradingRequestedAt: status === "open" ? null : gradingRequestedAt,
 });
 
 const get = () =>
   GET(new Request(`https://example.test/api/attempts/${ID}/status`), { params: Promise.resolve({ attemptId: ID }) });
 
+let logs: ReturnType<typeof vi.spyOn>;
+let errors: ReturnType<typeof vi.spyOn>;
+
 beforeEach(() => {
   vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
+  logs = vi.spyOn(console, "log").mockImplementation(() => {});
+  errors = vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
+  mocks.createServiceClient.mockReturnValue(SERVICE);
+  mocks.claimGradingRestart.mockResolvedValue({ ok: true, value: false });
 });
 
 afterEach(() => {
   vi.useRealTimers();
-  mocks.getSessionUser.mockReset();
-  mocks.readAttempt.mockReset();
-  mocks.hasValidResult.mockReset();
+  vi.restoreAllMocks();
+  for (const mock of Object.values(mocks)) mock.mockReset();
 });
+
+const lines = (spy: ReturnType<typeof vi.spyOn>) => spy.mock.calls.map((call: unknown[]) => JSON.parse(String(call[0])));
 
 describe("GET /api/attempts/<attemptId>/status", () => {
   it.each(["open", "received"])("answers %s with whole seconds since Start and no result, uncached", async (status) => {
@@ -91,5 +120,83 @@ describe("GET /api/attempts/<attemptId>/status", () => {
     const res = await get();
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ ok: false, code: "INTERNAL_ERROR" });
+  });
+
+  describe("U4: restarting a grading stuck in received", () => {
+    // 15 s and 16 s before NOW (01:02:05.900): elapsed 15 and 16 whole seconds.
+    const STUCK = "2026-11-02T01:01:50+00:00";
+
+    it("does not claim under 15 s since the grading was requested", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", "2026-11-02T01:01:51+00:00") });
+      expect((await get()).status).toBe(200);
+      expect(mocks.createServiceClient).not.toHaveBeenCalled();
+      expect(mocks.claimGradingRestart).not.toHaveBeenCalled();
+      expect(mocks.after).not.toHaveBeenCalled();
+    });
+
+    it("schedules exactly one restart run when the claim wins, answering as before", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK) });
+      mocks.claimGradingRestart.mockResolvedValue({ ok: true, value: true });
+      mocks.loadForGrading.mockResolvedValue({ ok: true, value: null });
+      const res = await get();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, data: { status: "received", elapsedSeconds: 125, resultId: null } });
+      expect(mocks.claimGradingRestart).toHaveBeenCalledWith(SERVICE, ID);
+      expect(mocks.after).toHaveBeenCalledTimes(1);
+      expect(lines(logs)).toEqual([{ event: "grading.restart_scheduled", attemptId: ID }]);
+
+      // The scheduled task grades this attempt on the service role, logged as `restart`.
+      const task = mocks.after.mock.calls[0][0] as () => Promise<unknown>;
+      await expect(task()).resolves.toBe("skipped");
+      expect(mocks.loadForGrading).toHaveBeenCalledWith(SERVICE, ID);
+      expect(lines(logs).at(-1)).toEqual({
+        event: "grading.done",
+        attemptId: ID,
+        channel: "restart",
+        outcome: "skipped",
+        score: null,
+      });
+    });
+
+    it("falls back to received_at for a row without grading_requested_at", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", null) });
+      await get();
+      expect(mocks.claimGradingRestart).toHaveBeenCalledWith(SERVICE, ID);
+    });
+
+    it("schedules nothing when the claim is lost (another poll within 15 s)", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK) });
+      mocks.claimGradingRestart.mockResolvedValue({ ok: true, value: false });
+      expect((await get()).status).toBe(200);
+      expect(mocks.after).not.toHaveBeenCalled();
+    });
+
+    it("schedules nothing and still answers 200 when the claim fails or throws", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK) });
+      mocks.claimGradingRestart.mockResolvedValue({ ok: false });
+      const res = await get();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, data: { status: "received", elapsedSeconds: 125, resultId: null } });
+      mocks.claimGradingRestart.mockRejectedValue(new TypeError("fetch failed"));
+      expect((await get()).status).toBe(200);
+      expect(mocks.after).not.toHaveBeenCalled();
+      expect(lines(errors)).toEqual([{ event: "grading.restart_failed", attemptId: ID, code: "TypeError" }]);
+    });
+
+    it("schedules nothing and answers 200 without the service env", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK) });
+      mocks.createServiceClient.mockReturnValue(null);
+      expect((await get()).status).toBe(200);
+      expect(mocks.claimGradingRestart).not.toHaveBeenCalled();
+      expect(mocks.after).not.toHaveBeenCalled();
+    });
+
+    it.each(["open", "grading_failed", "graded"])("does not claim while %s", async (status) => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt(status, STUCK) });
+      mocks.hasValidResult.mockResolvedValue({ ok: true, value: true });
+      expect((await get()).status).toBe(200);
+      expect(mocks.claimGradingRestart).not.toHaveBeenCalled();
+      expect(mocks.after).not.toHaveBeenCalled();
+    });
   });
 });

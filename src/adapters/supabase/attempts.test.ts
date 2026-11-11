@@ -4,6 +4,7 @@ import {
   abandon,
   ATTEMPT_COLUMNS,
   changeStatus,
+  claimGradingRestart,
   createAttempt,
   deleteOpenAttempt,
   downloadGeneratedFile,
@@ -184,6 +185,7 @@ describe("findOpenAttempt", () => {
     template_version: 1,
     started_at: "2026-11-02T01:00:00+00:00",
     received_at: "2026-11-02T01:10:00+00:00",
+    grading_requested_at: "2026-11-02T01:12:00+00:00",
   };
 
   it("reads the user's attempt in open, received or grading_failed, with the attempt columns", async () => {
@@ -197,6 +199,7 @@ describe("findOpenAttempt", () => {
         templateVersion: 1,
         startedAt: row.started_at,
         receivedAt: row.received_at,
+        gradingRequestedAt: row.grading_requested_at,
       },
     });
     expect(calls).toEqual([
@@ -242,13 +245,22 @@ describe("readAttempt", () => {
     template_version: 1,
     started_at: "2026-11-02T01:00:00+00:00",
     received_at: null,
+    grading_requested_at: null,
   };
 
   it("maps the row", async () => {
     const { client, calls } = fakeClient({ data: row, error: null });
     expect(await readAttempt(client, ID)).toEqual({
       ok: true,
-      value: { id: ID, itemId: "L01-P1", status: "open", templateVersion: 1, startedAt: row.started_at, receivedAt: null },
+      value: {
+        id: ID,
+        itemId: "L01-P1",
+        status: "open",
+        templateVersion: 1,
+        startedAt: row.started_at,
+        receivedAt: null,
+        gradingRequestedAt: null,
+      },
     });
     expect(calls[1]).toEqual(["eq", ["id", ID]]);
   });
@@ -428,6 +440,43 @@ describe("changeStatus (AD-5)", () => {
     });
     expect(await changeStatus(threw.client, ID, "open", "abandon")).toEqual({ outcome: "failed" });
     expect(errors).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("claimGradingRestart (service role, U4)", () => {
+  function fakeRpc(answer: () => Promise<Result>) {
+    const rpc = vi.fn(answer);
+    return { client: { rpc } as unknown as SupabaseClient, rpc };
+  }
+
+  it("calls claim_grading_restart with the attempt id and is true for the winner", async () => {
+    const { client, rpc } = fakeRpc(async () => ({ data: true, error: null }));
+    expect(await claimGradingRestart(client, ID)).toEqual({ ok: true, value: true });
+    expect(rpc).toHaveBeenCalledWith("claim_grading_restart", { p_attempt_id: ID });
+  });
+
+  it("is false when the claim matched no row (within 15 s, or not received)", async () => {
+    expect(await claimGradingRestart(fakeRpc(async () => ({ data: false, error: null })).client, ID)).toEqual({
+      ok: true,
+      value: false,
+    });
+  });
+
+  it("is false for a segment that is not a uuid, without asking the database", async () => {
+    const { client, rpc } = fakeRpc(async () => ({ data: true, error: null }));
+    expect(await claimGradingRestart(client, "not-a-uuid")).toEqual({ ok: true, value: false });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("is not ok on an error or a throw, logged as attempt.claim_restart_failed with the code", async () => {
+    const failed = fakeRpc(async () => ({ data: null, error: { code: "42501", message: "denied" } }));
+    expect(await claimGradingRestart(failed.client, ID)).toEqual({ ok: false });
+    const threw = fakeRpc(() => Promise.reject(new TypeError("fetch failed")));
+    expect(await claimGradingRestart(threw.client, ID)).toEqual({ ok: false });
+    expect(errors.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual([
+      { event: "attempt.claim_restart_failed", code: "42501" },
+      { event: "attempt.claim_restart_failed", code: "TypeError" },
+    ]);
   });
 });
 

@@ -13,7 +13,8 @@ import { IN_PROGRESS_STATUSES, transition, type AttemptEvent, type AttemptStatus
  * the session and that the attempt is the session user's;
  * `storeSubmissionFile` takes either. `loadForGrading` and
  * `downloadSubmissionFile` take the service-role client and exist only for the
- * grading path; `readResult` and `hasValidResult` take the session. Every status change asks the core state machine
+ * grading path, as does `claimGradingRestart` (the status endpoint's U4
+ * restart, after its session read); `readResult` and `hasValidResult` take the session. Every status change asks the core state machine
  * (`core/services/attempts`, AD-5) for the next status, then writes it with a
  * compare-and-set on the current status (`changeStatus`).
  *
@@ -32,6 +33,12 @@ export interface Attempt {
   /** ISO 8601, set by the database. */
   startedAt: string;
   receivedAt: string | null;
+  /**
+   * ISO 8601, set by the database each time the attempt moves to `received`
+   * (the first file, and every Try again; migration 20261110000001): how long
+   * the current grading has run. `null` before the first file.
+   */
+  gradingRequestedAt: string | null;
 }
 
 /** What a submission path needs of an attempt found by its token hash. */
@@ -70,7 +77,7 @@ const TABLE = "attempts";
 const UNIQUE_VIOLATION = "23505";
 /** The partial unique index on attempts in progress (migration 20261102000001). */
 const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
-export const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at";
+export const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at, grading_requested_at";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** `attempt-files/<attemptId>/generated.xlsm` (Consistency Conventions › Storage paths). */
@@ -370,6 +377,30 @@ export async function markReceived(service: SupabaseClient, attemptId: string): 
   return { ok: true, value: result.outcome === "changed" };
 }
 
+/**
+ * U4 (service role, after the caller's session read proved ownership): claims
+ * the restart of a grading stuck in `received` through the database's
+ * `claim_grading_restart` (migration 20261110000001), one atomic UPDATE that
+ * moves `grading_requested_at` to `now()` only when it is at least 15 s old.
+ * `value: true` for the one caller that won (it schedules the grading);
+ * `false` within 15 s of the last request, or when the attempt is not
+ * `received`; `ok: false` when the database could not answer (logged).
+ */
+export async function claimGradingRestart(service: SupabaseClient, attemptId: string): Promise<Read<boolean>> {
+  if (!isAttemptId(attemptId)) return { ok: true, value: false };
+  try {
+    const { data, error } = await service.rpc("claim_grading_restart", { p_attempt_id: attemptId });
+    if (error) {
+      logError("attempt.claim_restart_failed", error.code);
+      return { ok: false };
+    }
+    return { ok: true, value: data === true };
+  } catch (error) {
+    logError("attempt.claim_restart_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
 /** What grading needs of an attempt: its status and the stored snapshot, unvalidated (core validates it). */
 export interface GradingRow {
   status: AttemptStatus;
@@ -489,6 +520,7 @@ interface AttemptRow {
   template_version: number;
   started_at: string;
   received_at: string | null;
+  grading_requested_at: string | null;
 }
 
 function toAttempt(row: AttemptRow): Attempt {
@@ -499,6 +531,7 @@ function toAttempt(row: AttemptRow): Attempt {
     templateVersion: row.template_version,
     startedAt: row.started_at,
     receivedAt: row.received_at,
+    gradingRequestedAt: row.grading_requested_at ?? null,
   };
 }
 

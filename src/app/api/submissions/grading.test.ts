@@ -59,6 +59,22 @@ describe("scheduleGrading", () => {
   });
 });
 
+describe("scheduleGrading for Try again and the U4 restart", () => {
+  it.each(["retry", "restart"] as const)("logs %s as the channel", async (source) => {
+    scheduleGrading(source, ID);
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    const task = mocks.after.mock.calls[0][0] as () => Promise<unknown>;
+    await expect(task()).resolves.toBe("graded");
+    expect(lines(logs)).toEqual([{ event: "grading.done", attemptId: ID, channel: source, outcome: "graded", score: 100 }]);
+  });
+
+  it("logs the source on a failure line too", async () => {
+    mocks.readWorkbook.mockRejectedValue(new Error("Not an Excel workbook"));
+    expect(await runGrading("retry", ID)).toBe("grading_failed");
+    expect(lines(errors)).toEqual([{ event: "grading.file_unreadable", attemptId: ID, channel: "retry" }]);
+  });
+});
+
 describe("runGrading", () => {
   it("grades on the service role: loads, downloads submission-1, reads it, writes graded + Result in one compare-and-set", async () => {
     expect(await runGrading("upload", ID)).toBe("graded");

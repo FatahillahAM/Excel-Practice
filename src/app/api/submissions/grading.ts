@@ -14,12 +14,27 @@ import { errorName, type ChannelKind } from "./http";
  * through `changeStatus` (AD-5: `transition()` + one compare-and-set on
  * `status = 'received'`).
  *
+ * The exam screen's Try again (`retry`, `grading_failed` → `received`) and
+ * the status endpoint's restart of a grading stuck in `received` (`restart`,
+ * U4) schedule the same run; the source is logged as `channel`.
+ *
  * Logs: one `grading.done` line (`attemptId`, `channel`, `outcome`, `score`),
  * plus a `grading.<reason>` error line when the attempt was not graded
  * (`grading.lost`, a benign race with Abandon, is an info line); never
  * file bytes, the key or a token. Nothing escapes: any throw is logged as
  * `grading.threw`.
  */
+
+/**
+ * U4: a grading still `received` this long after it was requested
+ * (`grading_requested_at`) is restarted by the status endpoint, at most once
+ * per attempt per this many seconds (`claim_grading_restart`, the database's
+ * clock). The same 15 s as the slow-grading message (AD-11).
+ */
+export const GRADING_RESTART_AFTER_S = 15;
+
+/** What asked for a grading run: a submission channel, Try again, or the U4 restart. */
+export type GradingSource = ChannelKind | "retry" | "restart";
 
 /** `gradeAttempt`'s ports on one service-role client. */
 export function gradingPorts(service: SupabaseClient): GradingPorts {
@@ -43,7 +58,7 @@ export function gradingPorts(service: SupabaseClient): GradingPorts {
 }
 
 /** Grades the attempt and logs the outcome; never throws. */
-export async function runGrading(channel: ChannelKind, attemptId: string): Promise<GradingOutcome> {
+export async function runGrading(channel: GradingSource, attemptId: string): Promise<GradingOutcome> {
   try {
     const service = createServiceClient();
     if (service === null) {
@@ -69,10 +84,10 @@ export async function runGrading(channel: ChannelKind, attemptId: string): Promi
 }
 
 /** Schedules `runGrading` after the response (`after()` from `next/server`). */
-export function scheduleGrading(channel: ChannelKind, attemptId: string): void {
+export function scheduleGrading(channel: GradingSource, attemptId: string): void {
   after(() => runGrading(channel, attemptId));
 }
 
-function logDone(attemptId: string, channel: ChannelKind, outcome: GradingOutcome, score: number | null): void {
+function logDone(attemptId: string, channel: GradingSource, outcome: GradingOutcome, score: number | null): void {
   console.log(JSON.stringify({ event: "grading.done", attemptId, channel, outcome, score }));
 }
