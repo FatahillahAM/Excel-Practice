@@ -3,13 +3,14 @@ title: 'Hint dari awal sampai akhir'
 type: 'feature'
 ticket: '5'
 created: '2026-11-13'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'e18ed14031a54acf0cae0e0cd1c5ba9e2a008291'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/DESIGN.md']
 ---
 
@@ -113,6 +114,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given `npm test` and `npm run test:db`, then all pass with no skipped tests.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
