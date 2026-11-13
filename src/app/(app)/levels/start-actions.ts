@@ -18,6 +18,7 @@ import { createServiceClient } from "@/adapters/supabase/service";
 import { generateExamWorkbook, type GeneratedWorkbook } from "@/adapters/workbook/generate";
 import { newAttemptToken, tokenSha256, tokenSha256Hex } from "@/adapters/workbook/token";
 import {
+  SNAPSHOT_VERSION,
   examSnapshotSchema,
   generatedExamSchema,
   type ExamSnapshot,
@@ -103,9 +104,11 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     return { status: "error", error: "startFailed" };
   }
   const checkedSnapshot = examSnapshotSchema.safeParse({
+    version: SNAPSHOT_VERSION,
     contentVersion: level.contentVersion,
     scenarioId: scenario.id,
     seed,
+    hintQuota: level.hintQuota,
     questions: exam.questions,
   } satisfies ExamSnapshot);
   if (!checkedSnapshot.success) {

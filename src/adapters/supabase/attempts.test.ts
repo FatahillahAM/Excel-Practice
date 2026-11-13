@@ -109,9 +109,11 @@ describe("createAttempt", () => {
 
 describe("writeSnapshot", () => {
   const snapshot = {
+    version: 2 as const,
     contentVersion: 1,
     scenarioId: "baut-sinar-presisi",
     seed: 42,
+    hintQuota: 3,
     questions: [
       {
         number: 1,
@@ -121,6 +123,8 @@ describe("writeSnapshot", () => {
         range: "H2:H3",
         checks: [{ name: "value_equals_key" as const, tolerance: 1e-9 }],
         key: { H2: 10, H3: 20 },
+        hints: ["Kalikan dua kolom."],
+        tip: { id: "tip-total", title: "Tip", body: "Isi Tip.", shortcuts: ["Ctrl+D"] },
       },
     ],
   };

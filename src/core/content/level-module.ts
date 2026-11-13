@@ -6,10 +6,10 @@ import { isSeed } from "./random";
 /**
  * The `LevelModule` contract (AD-2): a level, its scenario bank, its items,
  * and per item `generate(seed, scenario)` → the exam's Instructions and Data
- * cells plus its questions (points, answer range, declared checks, key).
- * Everything is validated when the module loads (`defineLevelModule`), so a
- * malformed module fails at import and in the tests, never at Start.
- * Hints and Tips arrive with epic 3.
+ * cells plus its questions (points, answer range, declared checks, key,
+ * ordered hints and one Tip). Everything is validated when the module loads
+ * (`defineLevelModule`), so a malformed module fails at import and in the
+ * tests, never at Start. Hints and Tips live only in the snapshot (AD-9).
  *
  * Engine code reads levels only through `src/content/levels/index.ts`.
  */
@@ -46,6 +46,10 @@ export interface ExamQuestion {
   checks: z.infer<typeof checkSchema>[];
   /** The expected value of every cell of `range`, and of no other cell. */
   key: Readonly<Record<string, ExamCellValue>>;
+  /** 1–`MAX_HINTS_PER_QUESTION` hints in Indonesian, from nudge to method; never a key value or the full formula. */
+  hints: string[];
+  /** The question's Tip (CAP-8); one id means one Tip content across the level. */
+  tip: Tip;
 }
 
 export interface GeneratedExam {
@@ -55,9 +59,13 @@ export interface GeneratedExam {
 
 /** What Start stores with the attempt (AD-3): enough to grade it later without re-generating. */
 export interface ExamSnapshot {
+  /** `SNAPSHOT_VERSION`; a snapshot of another version is not graded. */
+  version: typeof SNAPSHOT_VERSION;
   contentVersion: number;
   scenarioId: string;
   seed: number;
+  /** The level's `hintQuota` at Start (CAP-7). */
+  hintQuota: number;
   questions: ExamQuestion[];
 }
 
@@ -120,6 +128,10 @@ export const TOTAL_POINTS = 100;
 export const MIN_SCENARIOS_V1 = 10;
 /** The seed `defineLevelModule` generates every (item, scenario) with. */
 export const LOAD_CHECK_SEED = 1;
+/** Hints per question, at most (and at least 1). */
+export const MAX_HINTS_PER_QUESTION = 3;
+/** The `ExamSnapshot` shape version: 2 adds `version`, `hintQuota`, and hints and a Tip per question. */
+export const SNAPSHOT_VERSION = 2;
 
 const MAX_ANSWER_CELLS = 2000;
 const A1_REF_RE = /^[A-Z]{1,3}[1-9]\d{0,6}$/;
@@ -149,6 +161,23 @@ export const scenarioSchema = z.object({
   story: z.string().trim().min(1).max(1000),
 });
 
+/** A Tip (CAP-8): what Results shows under a question and the Tips collection keeps, by `id`. */
+export const tipSchema = z
+  .object({
+    /** Kebab-case: one id is one Tip content across the level (the Tips collection dedupes by id). */
+    id: z.string().regex(KEBAB_RE).max(64),
+    title: z.string().trim().min(1).max(200),
+    body: z.string().trim().min(1).max(2000),
+    /** Keyboard shortcuts, in Excel's own key names joined with `+` (`Ctrl+Shift+%`, `F4`). */
+    shortcuts: z.array(z.string().trim().min(1).max(40)).max(10),
+  })
+  .strict();
+
+export type Tip = z.infer<typeof tipSchema>;
+
+/** One hint: Indonesian text, not blank. */
+export const hintSchema = z.string().trim().min(1).max(500);
+
 export const examQuestionSchema = z
   .object({
     number: z.number().int().min(1).max(MAX_QUESTIONS),
@@ -158,6 +187,8 @@ export const examQuestionSchema = z
     range: z.string().min(2),
     checks: z.array(checkSchema).min(1),
     key: z.record(z.string().regex(A1_REF_RE), cellValueSchema),
+    hints: z.array(hintSchema).min(1).max(MAX_HINTS_PER_QUESTION),
+    tip: tipSchema,
   })
   .strict();
 
@@ -186,9 +217,10 @@ function addM365Issue(text: string, path: (string | number)[], ctx: z.Refinement
  * `INSTRUCTIONS_CELLS`, with the title and scenario, prompt `n` on line `n`
  * as "n. …"; Data from A1; questions 1…n (n ≤ `MAX_QUESTIONS`) whose integer points sum
  * to 100, each with `value_equals_key` and a key covering exactly its answer
- * cells, which stay empty and belong to one question only; no Microsoft
- * 365-only function name anywhere (Instructions and Data text, prompts,
- * `uses_functions`).
+ * cells, which stay empty and belong to one question only; 1–3 hints and one
+ * Tip per question, Tip ids unique in the exam; no Microsoft 365-only function
+ * name anywhere (Instructions and Data text, prompts, `uses_functions`, hints,
+ * Tip title, body and shortcuts).
  */
 export const generatedExamSchema = z
   .object({ cells: examCellsSchema, questions: z.array(examQuestionSchema).min(1).max(MAX_QUESTIONS) })
@@ -234,9 +266,18 @@ export const generatedExamSchema = z
     addPointsIssues(exam.questions, ctx);
 
     const answerCells = new Set<string>();
+    const tipIds = new Set<string>();
     exam.questions.forEach((question, index) => {
       const at = (...rest: (string | number)[]) => ["questions", index, ...rest];
       addM365Issue(question.prompt, at("prompt"), ctx);
+      question.hints.forEach((hint, h) => addM365Issue(hint, at("hints", h), ctx));
+      addM365Issue(question.tip.title, at("tip", "title"), ctx);
+      addM365Issue(question.tip.body, at("tip", "body"), ctx);
+      question.tip.shortcuts.forEach((shortcut, k) => addM365Issue(shortcut, at("tip", "shortcuts", k), ctx));
+      if (tipIds.has(question.tip.id)) {
+        ctx.addIssue({ code: "custom", path: at("tip", "id"), message: `Tip ${question.tip.id} is used by two questions` });
+      }
+      tipIds.add(question.tip.id);
       const line = INSTRUCTIONS_CELLS.lines[question.number - 1];
       if (instructions && line && instructions[line] !== `${question.number}. ${question.prompt}`) {
         ctx.addIssue({ code: "custom", path: at("prompt"), message: `Instructions!${line} must be "${question.number}. " + the prompt` });
@@ -280,12 +321,18 @@ export const generatedExamSchema = z
     });
   });
 
-/** `attempts.snapshot` (AD-3): the content version, scenario, seed and questions with their keys. */
+/**
+ * `attempts.snapshot` (AD-3): snapshot version, content version, scenario,
+ * seed, the level's hint quota and the questions with their keys, hints and
+ * Tips. A snapshot without them (v1) fails here and is not graded (U5).
+ */
 export const examSnapshotSchema = z
   .object({
+    version: z.literal(SNAPSHOT_VERSION),
     contentVersion: z.number().int().positive(),
     scenarioId: scenarioSchema.shape.id,
     seed: z.number().refine(isSeed, "Seed is a uint32"),
+    hintQuota: z.number().int().min(0),
     questions: z.array(examQuestionSchema).min(1).max(MAX_QUESTIONS),
   })
   .strict()
@@ -358,7 +405,8 @@ export const levelModuleSchema = z
  * Validates a level module at load time and returns it unchanged; throws on a
  * malformed module: the static shape (`levelModuleSchema`), every scenario
  * against the level's `scenarioSchema`, and every item's `generate` once per
- * scenario (seed `LOAD_CHECK_SEED`) against `generatedExamSchema`.
+ * scenario (seed `LOAD_CHECK_SEED`) against `generatedExamSchema`, and that
+ * one Tip id has one content across every generated item × scenario.
  */
 export function defineLevelModule<S extends Scenario>(level: LevelModule<S>): LevelModule<S> {
   levelModuleSchema.parse(level);
@@ -368,6 +416,7 @@ export function defineLevelModule<S extends Scenario>(level: LevelModule<S>): Le
     if (!parsed.success) problems.push(`scenario ${scenario.id}: ${z.prettifyError(parsed.error)}`);
   }
   if (problems.length === 0) {
+    const tips = new Map<string, { tip: Tip; where: string }>();
     for (const item of level.items) {
       for (const scenario of level.scenarios) {
         const where = `${item.id} × ${scenario.id}`;
@@ -379,12 +428,32 @@ export function defineLevelModule<S extends Scenario>(level: LevelModule<S>): Le
           continue;
         }
         const parsed = generatedExamSchema.safeParse(exam);
-        if (!parsed.success) problems.push(`${where}: ${z.prettifyError(parsed.error)}`);
+        if (!parsed.success) {
+          problems.push(`${where}: ${z.prettifyError(parsed.error)}`);
+          continue;
+        }
+        for (const question of parsed.data.questions) {
+          const seen = tips.get(question.tip.id);
+          if (seen === undefined) tips.set(question.tip.id, { tip: question.tip, where });
+          else if (!sameTip(seen.tip, question.tip)) {
+            problems.push(`${where}: Tip ${question.tip.id} differs from the one in ${seen.where} (one id, one Tip)`);
+          }
+        }
       }
     }
   }
   if (problems.length > 0) throw new Error(`Level ${level.id} is malformed:\n${problems.join("\n")}`);
   return level;
+}
+
+function sameTip(a: Tip, b: Tip): boolean {
+  return (
+    a.id === b.id &&
+    a.title === b.title &&
+    a.body === b.body &&
+    a.shortcuts.length === b.shortcuts.length &&
+    a.shortcuts.every((shortcut, i) => shortcut === b.shortcuts[i])
+  );
 }
 
 /** UI label of an item: "Practice 1", "Test". */

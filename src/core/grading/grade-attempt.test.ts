@@ -30,6 +30,14 @@ function ports(overrides: {
   return p;
 }
 
+/** A snapshot as Start wrote it before 3.4 (v1): not graded (U5). */
+const V1_SNAPSHOT = {
+  contentVersion: SNAPSHOT.contentVersion,
+  scenarioId: SNAPSHOT.scenarioId,
+  seed: SNAPSHOT.seed,
+  questions: SNAPSHOT.questions.map((question) => Object.fromEntries(Object.entries(question).filter(([key]) => key !== "hints" && key !== "tip"))),
+};
+
 const run = (p: GradingPorts) => gradeAttempt(ID, p, { hintsUsed: 0 });
 
 describe("gradeAttempt", () => {
@@ -47,6 +55,14 @@ describe("gradeAttempt", () => {
     expect(resultSchema.parse(result)).toMatchObject({ score: 100, correctCount: 4, questionCount: 4 });
   });
 
+  it("copies each question's Tip from the snapshot into the Result", async () => {
+    const p = ports();
+    await run(p);
+    const [, , result] = p.complete.mock.calls[0] as unknown as [string, string, unknown];
+    const parsed = resultSchema.parse(result);
+    expect(parsed.questions.map((q) => q.tip)).toEqual(SNAPSHOT.questions.map((q) => q.tip));
+  });
+
   it("typed numbers in one range: graded with a lower score", async () => {
     const cells = correctCells();
     cells.H2 = typed(1200);
@@ -61,6 +77,7 @@ describe("gradeAttempt", () => {
 
   it.each([
     ["a null snapshot (tracer attempt)", { attempt: { status: "received" as const, snapshot: null, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
+    ["a stored v1 snapshot (no version, hintQuota, hints or Tips)", { attempt: { status: "received" as const, snapshot: V1_SNAPSHOT, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
     ["a snapshot failing examSnapshotSchema", { attempt: { status: "received" as const, snapshot: { ...SNAPSHOT, seed: -1 }, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
     ["an unreadable workbook", { reading: "throw" as const }, "file_unreadable"],
   ])("%s: writes grade_error with no Result", async (_, overrides, reason) => {

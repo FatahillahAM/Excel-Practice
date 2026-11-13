@@ -48,7 +48,7 @@ function decidingChecks(reading: WorkbookReading): CheckName[] {
 
 describe("L01-P1 golden fixtures (code-built)", () => {
   it("the snapshot is seed 7, baut-sinar-presisi, with the plan's keys", () => {
-    expect(snapshot).toMatchObject({ contentVersion: 1, scenarioId: "baut-sinar-presisi", seed: 7 });
+    expect(snapshot).toMatchObject({ version: 2, contentVersion: 2, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
     expect(snapshot.questions.map((q) => q.range)).toEqual(["H2:H13", "I2:I13", "J2:J13", "O2:R5"]);
     const [q1, q2, q3, q4] = snapshot.questions;
     expect(q1.key.H2).toBeCloseTo(1302148.09, 6);

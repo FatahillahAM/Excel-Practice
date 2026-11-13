@@ -8,6 +8,7 @@ import {
   ITEM_ID_RE,
   itemLabel,
   levelModuleSchema,
+  SNAPSHOT_VERSION,
   type ExamCellValue,
   type GeneratedExam,
   type LevelItem,
@@ -18,13 +19,16 @@ import { fondasi } from "./01-fondasi";
 import { DATA_HEADERS, practice1 } from "./01-fondasi/practice-1";
 import { fondasiScenarioSchema, scenarios, type FondasiScenario } from "./01-fondasi/scenarios";
 
+/** `object` without `keys`: a stored shape from before a field existed. */
+const without = (object: object, ...keys: string[]) => Object.fromEntries(Object.entries(object).filter(([key]) => !keys.includes(key)));
+
 const SEEDS = Array.from({ length: 50 }, (_, i) => i + 1);
 
 describe("level registry", () => {
-  it("lists Level 1 Fondasi (V1, 3 hints, content version 1) with Practice 1", () => {
+  it("lists Level 1 Fondasi (V1, 3 hints, content version 2) with Practice 1", () => {
     expect(levels.map((level) => level.id)).toEqual(["01-fondasi"]);
     const [level] = levels;
-    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 1 });
+    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 2 });
     expect(level.items.map((item) => item.id)).toEqual(["L01-P1"]);
     expect(level.functions).toEqual(["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"]);
     for (const candidate of levels) expect(levelModuleSchema.safeParse(candidate).success).toBe(true);
@@ -145,25 +149,69 @@ describe("L01-P1 generate", () => {
 
   it("builds a snapshot the snapshot schema accepts", () => {
     const exam = practice1.generate(99, scenarios[0]);
-    const snapshot = { contentVersion: fondasi.contentVersion, scenarioId: scenarios[0].id, seed: 99, questions: exam.questions };
+    const snapshot = {
+      version: SNAPSHOT_VERSION,
+      contentVersion: fondasi.contentVersion,
+      scenarioId: scenarios[0].id,
+      seed: 99,
+      hintQuota: fondasi.hintQuota,
+      questions: exam.questions,
+    };
     expect(examSnapshotSchema.safeParse(snapshot).success).toBe(true);
     expect(examSnapshotSchema.safeParse({ ...snapshot, seed: -1 }).success).toBe(false);
     expect(examSnapshotSchema.safeParse({ ...snapshot, questions: exam.questions.slice(1) }).success).toBe(false);
+  });
+
+  it("rejects a snapshot without version, hintQuota, or a question's hints or Tip (the v1 shape)", () => {
+    const exam = practice1.generate(99, scenarios[0]);
+    const snapshot = {
+      version: SNAPSHOT_VERSION,
+      contentVersion: fondasi.contentVersion,
+      scenarioId: scenarios[0].id,
+      seed: 99,
+      hintQuota: fondasi.hintQuota,
+      questions: exam.questions,
+    };
+    const v1 = {
+      contentVersion: 1,
+      scenarioId: scenarios[0].id,
+      seed: 99,
+      questions: exam.questions.map((q) => without(q, "hints", "tip")),
+    };
+    for (const candidate of [
+      without(snapshot, "version"),
+      { ...snapshot, version: 1 },
+      without(snapshot, "hintQuota"),
+      { ...snapshot, hintQuota: -1 },
+      { ...snapshot, questions: exam.questions.map((q) => without(q, "hints")) },
+      { ...snapshot, questions: exam.questions.map((q) => without(q, "tip")) },
+      v1,
+    ]) {
+      expect(examSnapshotSchema.safeParse(candidate).success, JSON.stringify(Object.keys(candidate))).toBe(false);
+    }
   });
 });
 
 type MutableExam = {
   cells: Record<string, Record<string, ExamCellValue>>;
-  questions: { number: number; prompt: string; points: number; checks: unknown[]; key: Record<string, ExamCellValue> }[];
+  questions: {
+    number: number;
+    prompt: string;
+    points: number;
+    checks: unknown[];
+    key: Record<string, ExamCellValue>;
+    hints: unknown[];
+    tip: Record<string, unknown>;
+  }[];
 };
 
 /** Practice 1 with its output changed by `mutate`. */
-function brokenItem(mutate: (exam: MutableExam) => void): LevelItem<FondasiScenario> {
+function brokenItem(mutate: (exam: MutableExam, scenario: FondasiScenario) => void): LevelItem<FondasiScenario> {
   return {
     ...practice1,
     generate(seed, scenario) {
       const exam = structuredClone(practice1.generate(seed, scenario)) as unknown as MutableExam;
-      mutate(exam);
+      mutate(exam, scenario);
       return exam as unknown as GeneratedExam;
     },
   };
@@ -226,6 +274,29 @@ describe("defineLevelModule (load-time checks)", () => {
     ["a question without value_equals_key", { items: [brokenItem((e) => (e.questions[0].checks = [{ name: "formula_present" }]))] }, /value_equals_key/],
     ["an Instructions cell outside layout v1", { items: [brokenItem((e) => (e.cells.Instructions.B12 = "x"))] }, /no Instructions!B12/],
     ["a sheet the template does not have", { items: [brokenItem((e) => (e.cells.Hasil = { A1: "x" }))] }, /no sheet Hasil/],
+    ["a question without hints", { items: [brokenItem((e) => (e.questions[0].hints = []))] }, /questions\[0\]\.hints/],
+    ["a question with 4 hints", { items: [brokenItem((e) => e.questions[1].hints.push("Satu lagi."))] }, /questions\[1\]\.hints/],
+    ["an empty hint", { items: [brokenItem((e) => (e.questions[2].hints[0] = ""))] }, /questions\[2\]\.hints\[0\]/],
+    ["a blank hint", { items: [brokenItem((e) => (e.questions[2].hints[1] = "   "))] }, /questions\[2\]\.hints\[1\]/],
+    ["a hint that is not text", { items: [brokenItem((e) => (e.questions[3].hints[2] = 42))] }, /questions\[3\]\.hints\[2\]/],
+    ["a question without a Tip", { items: [brokenItem((e) => delete (e.questions[0] as Partial<MutableExam["questions"][number]>).tip)] }, /questions\[0\]\.tip/],
+    ["a Tip id that is not kebab-case", { items: [brokenItem((e) => (e.questions[0].tip.id = "Kunci Sel"))] }, /questions\[0\]\.tip\.id/],
+    ["a Tip with an empty body", { items: [brokenItem((e) => (e.questions[1].tip.body = " "))] }, /questions\[1\]\.tip\.body/],
+    ["Tip shortcuts that are not a list", { items: [brokenItem((e) => (e.questions[1].tip.shortcuts = "F4"))] }, /questions\[1\]\.tip\.shortcuts/],
+    ["a Tip with a field of its own", { items: [brokenItem((e) => (e.questions[2].tip.level = 1))] }, /Unrecognized key/],
+    ["TAKE in a hint", { items: [brokenItem((e) => (e.questions[0].hints[1] = "Pakai TAKE untuk baris pertama."))] }, /Microsoft 365-only function TAKE/],
+    ["VSTACK in a Tip body", { items: [brokenItem((e) => (e.questions[1].tip.body += " Gabungkan dengan VSTACK."))] }, /Microsoft 365-only function VSTACK/],
+    ["LAMBDA in a Tip shortcut", { items: [brokenItem((e) => (e.questions[2].tip.shortcuts = ["LAMBDA"]))] }, /Microsoft 365-only function LAMBDA/],
+    [
+      "one Tip id on two questions of an exam",
+      { items: [brokenItem((e) => (e.questions[1].tip = { ...e.questions[0].tip, shortcuts: [] }))] },
+      /Tip l01-isi-rumus-sekaligus is used by two questions/,
+    ],
+    [
+      "one Tip id with different content in two scenarios",
+      { items: [brokenItem((e, scenario) => scenario.id === scenarios[1].id && (e.questions[0].tip.title = "Judul lain"))] },
+      /Tip l01-isi-rumus-sekaligus differs/,
+    ],
     ["a scenario failing the level schema", { scenarios: [...scenarios.slice(1), { ...scenarios[0], lines: ["Lini A"] }] }, /scenario/],
     [
       "a generate that throws",

@@ -8,6 +8,7 @@ import {
   type ExamQuestion,
   type GeneratedExam,
   type LevelItem,
+  type Tip,
 } from "@/core/content/level-module";
 import { createRandom } from "@/core/content/random";
 import type { FondasiScenario } from "./scenarios";
@@ -26,7 +27,10 @@ import type { FondasiScenario } from "./scenarios";
  * | 4 | 30     | O2:R{p+1}     | `=$N2*(1+O$1)`               |
  *
  * Prompts say what to compute and that the formula must still work when
- * copied; they do not reveal `$` or F4 (that is a hint, epic 3).
+ * copied; they still do not reveal `$` or F4: that is what the hints are for.
+ * Each question has 3 hints (from nudge to method; the last names the `$`/F4
+ * technique but never the full formula or a key value) and one fixed Tip
+ * (`TIPS`). Hints and Tips are plain text: they draw nothing from `random`.
  */
 
 export const DATA_HEADERS = ["Kode Batch", "Lini", "Shift", "Produk", "Unit Diproduksi", "Unit Cacat", "Biaya per Unit"] as const;
@@ -45,6 +49,45 @@ const valueCheck: Check = { name: "value_equals_key", tolerance: KEY_TOLERANCE }
 const BASE_CHECKS: Check[] = [{ name: "formula_present" }, { name: "not_hard_coded" }, valueCheck];
 
 const col = (letter: string) => columnNumber(letter);
+
+/** The four Tips of L01-P1, constants so one id is always one card (Excel 2021 features only). */
+export const TIPS = {
+  fill: {
+    id: "l01-isi-rumus-sekaligus",
+    title: "Isi rumus ke bawah sekaligus",
+    body:
+      "Blok sel dari rumus paling atas sampai baris terakhir data, lalu tekan Ctrl+D: rumus di sel atas disalin ke semua sel yang diblok. " +
+      "Cara lain: blok dulu seluruh range, ketik rumusnya, lalu tekan Ctrl+Enter supaya semua sel terisi sekaligus.",
+    shortcuts: ["Ctrl+D", "Ctrl+Enter"],
+  },
+  lock: {
+    id: "l01-kunci-sel-f4",
+    title: "Kunci sel dengan F4",
+    body:
+      "Saat mengetik atau mengedit rumus, taruh kursor di referensi sel lalu tekan F4: A1 menjadi $A$1. " +
+      "Tekan lagi untuk berganti A$1, $A1, lalu kembali A1. Di laptop, mungkin perlu Fn+F4.",
+    shortcuts: ["F4"],
+  },
+  percent: {
+    id: "l01-format-persen",
+    title: "Tampilkan porsi sebagai persen",
+    body:
+      "Hasil pembagian seperti 0,25 lebih mudah dibaca sebagai 25%. Blok selnya lalu tekan Ctrl+Shift+%: hanya tampilannya yang berubah, nilainya tetap sama. " +
+      "Untuk cek cepat, blok semua porsi dan lihat Sum di status bar: totalnya harus 100%.",
+    shortcuts: ["Ctrl+Shift+%"],
+  },
+  mixed: {
+    id: "l01-referensi-campuran",
+    title: "Satu rumus untuk tabel dua arah",
+    body:
+      "Di tabel yang dibaca dari judul kiri dan judul atas, kunci kolom untuk judul kiri ($A2) dan baris untuk judul atas (B$1). " +
+      "Tulis rumus di sel pojok kiri atas, blok baris pertama lalu Ctrl+R, kemudian blok seluruh tabel lalu Ctrl+D.",
+    shortcuts: ["F4", "Ctrl+R", "Ctrl+D"],
+  },
+} as const satisfies Record<string, Tip>;
+
+/** A fresh copy (mutable `shortcuts`) of a constant Tip. */
+const tipOf = (tip: Tip): Tip => ({ ...tip, shortcuts: [...tip.shortcuts] });
 
 function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
   const random = createRandom(seed);
@@ -116,6 +159,12 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       range: `H2:H${last}`,
       checks: BASE_CHECKS,
       key: columnKey("H", (row) => row.units * row.cost),
+      hints: [
+        "Total Biaya cukup dihitung dari dua kolom di baris yang sama: Unit Diproduksi dan Biaya per Unit.",
+        "Di H2, ketik = lalu klik sel Unit Diproduksi baris 2, ketik *, lalu klik sel Biaya per Unit baris 2. Jangan ketik angkanya: rumus harus merujuk sel.",
+        `Kedua referensi memang harus ikut bergeser per baris, jadi tidak perlu tanda $. Setelah H2 benar, blok H2:H${last} lalu tekan Ctrl+D.`,
+      ],
+      tip: tipOf(TIPS.fill),
     },
     {
       number: 2,
@@ -127,6 +176,12 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       range: `I2:I${last}`,
       checks: [...BASE_CHECKS, { name: "uses_reference", ref: "$L$2" }],
       key: columnKey("I", (row) => row.units * rate),
+      hints: [
+        "Tarif overhead hanya ada di satu sel, L2. Kalau rumus disalin ke bawah, referensi biasa ikut bergeser jadi L3, L4, dan seterusnya, padahal tarifnya cuma ada di L2.",
+        "Tanda $ mengunci referensi: $ di depan huruf mengunci kolom, $ di depan angka mengunci baris. Referensi yang dikunci tidak bergeser saat disalin.",
+        "Di rumus I2, klik referensi tarif overhead lalu tekan F4 sampai kolom dan barisnya sama-sama terkunci. Unit Diproduksi dibiarkan tanpa $ karena harus ikut turun per baris.",
+      ],
+      tip: tipOf(TIPS.lock),
     },
     {
       number: 3,
@@ -138,6 +193,12 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       range: `J2:J${last}`,
       checks: [...BASE_CHECKS, { name: "uses_functions", functions: ["SUM"] }, { name: "uses_reference", ref: `$E$2:$E$${last}` }],
       key: columnKey("J", (row) => row.units / totalUnits),
+      hints: [
+        "Porsi = unit batch itu dibagi total unit semua batch. Pembilangnya berubah per baris, penyebutnya selalu total yang sama.",
+        "Saat rumus disalin ke bawah, range di dalam SUM ikut bergeser kalau tidak dikunci, jadi total di baris bawah tidak lagi mencakup semua batch.",
+        `Di dalam SUM, blok range E2:E${last} lalu tekan F4 sekali supaya awal dan akhir range sama-sama terkunci. Unit batch di pembilang tetap tanpa $.`,
+      ],
+      tip: tipOf(TIPS.percent),
     },
     {
       number: 4,
@@ -150,6 +211,12 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       range: `O2:R${gridLast}`,
       checks: [...BASE_CHECKS, { name: "uses_reference", ref: "$N2" }, { name: "uses_reference", ref: "O$1" }],
       key: gridKey,
+      hints: [
+        `Setiap sel di O2:R${gridLast} memakai dua angka: Biaya Dasar di kolom N pada baris yang sama, dan persentase kenaikan di baris 1 pada kolom yang sama.`,
+        "Saat disalin ke kanan, rujukan ke kolom N tidak boleh pindah kolom; saat disalin ke bawah, rujukan ke baris 1 tidak boleh pindah baris. Ini referensi campuran: hanya satu bagian yang dikunci.",
+        "Tekan F4 berulang untuk berganti bentuk: N2 → $N$2 → N$2 → $N2. Kunci kolomnya saja untuk Biaya Dasar dan barisnya saja untuk persentase, lalu isi O2 ke kanan (Ctrl+R) dan ke bawah (Ctrl+D).",
+      ],
+      tip: tipOf(TIPS.mixed),
     },
   ];
 

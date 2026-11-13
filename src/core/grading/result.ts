@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAX_QUESTIONS, TOTAL_POINTS, scenarioSchema } from "../content/level-module";
+import { MAX_QUESTIONS, TOTAL_POINTS, scenarioSchema, tipSchema, type Tip } from "../content/level-module";
 
 /**
  * The stored `Result` of a graded attempt (AD-3): `attempts.result`, written
@@ -23,18 +23,8 @@ export const RESULT_VERSION = 2;
 /** Every version `resultSchema` reads: stored Results of older versions stay valid. */
 export const RESULT_VERSIONS = [1, RESULT_VERSION] as const;
 
-/** A Tip as Results shows it (CAP-8): content Tips (entry 4) reuse this schema. */
-export const tipSchema = z
-  .object({
-    id: z.string().trim().min(1).max(64),
-    title: z.string().trim().min(1).max(200),
-    body: z.string().trim().min(1).max(2000),
-    /** Keyboard shortcuts, in Excel's own key names (`Ctrl`, `F4`). */
-    shortcuts: z.array(z.string().trim().min(1).max(40)).max(10),
-  })
-  .strict();
-
-export type Tip = z.infer<typeof tipSchema>;
+/** A Tip as Results shows it (CAP-8): the content contract's schema (`src/core/content/level-module.ts`), re-exported. */
+export { tipSchema, type Tip };
 
 export const questionResultSchema = z
   .object({
@@ -44,7 +34,7 @@ export const questionResultSchema = z
     correct: z.boolean(),
     /** Why the answer is wrong, in Indonesian (`src/core/grading/reasons.ts`); `null` when correct. */
     reasonText: z.string().trim().min(1).max(500).nullable(),
-    /** The question's Tip; `null` until content has Tips (entry 4). */
+    /** The question's Tip, from the snapshot; `null` only in Results before 3.4. */
     tip: tipSchema.nullable(),
   })
   .strict()

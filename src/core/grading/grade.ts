@@ -2,7 +2,7 @@ import { expandRange } from "../content/a1";
 import type { ExamQuestion, ExamSnapshot } from "../content/level-module";
 import { runCheck, type AnswerCell } from "./checkers";
 import { reasonText } from "./reasons";
-import { HINT_PENALTY_POINTS, RESULT_VERSION, resultSchema, scoreOf, type QuestionResult, type Result, type Tip } from "./result";
+import { HINT_PENALTY_POINTS, RESULT_VERSION, resultSchema, scoreOf, type QuestionResult, type Result } from "./result";
 import type { WorkbookReading } from "./workbook-reading";
 
 /**
@@ -55,11 +55,7 @@ function gradeQuestion(question: ExamQuestion, reading: WorkbookReading): Questi
     pointsAwarded: correct ? question.points : 0,
     correct,
     reasonText: reason,
-    tip: tipOf(question),
+    tip: question.tip,
   };
 }
 
-/** The question's Tip when its content has one (entry 4 adds `tip` to the question schema), else `null`. */
-function tipOf(question: ExamQuestion): Tip | null {
-  return (question as ExamQuestion & { tip?: Tip | null }).tip ?? null;
-}
