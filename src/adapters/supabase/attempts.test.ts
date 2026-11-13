@@ -25,7 +25,7 @@ import {
   XLSM_CONTENT_TYPE,
 } from "./attempts";
 
-type Result = { data: unknown; error: { code: string; message: string } | null };
+type Result = { data: unknown; error: { code: string; message: string } | null; count?: number | null };
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const HASH = "a".repeat(64);
@@ -246,6 +246,7 @@ describe("findOpenAttemptId", () => {
 describe("readAttempt", () => {
   const row = {
     id: ID,
+    user_id: "user-1",
     item_id: "L01-P1",
     status: "open",
     template_version: 1,
@@ -261,6 +262,7 @@ describe("readAttempt", () => {
       ok: true,
       value: {
         id: ID,
+        userId: "user-1",
         itemId: "L01-P1",
         status: "open",
         templateVersion: 1,
@@ -594,23 +596,44 @@ describe("changeStatus with a Result (grading)", () => {
 });
 
 describe("loadForGrading (service role)", () => {
-  it("reads status, snapshot and the grading request's stamp by id", async () => {
-    const snapshot = { contentVersion: 1 };
-    const stamp = "2026-11-10T01:05:00+00:00";
-    const { client, calls } = fakeClient({ data: { status: "received", snapshot, grading_requested_at: stamp }, error: null });
+  const snapshot = { contentVersion: 1 };
+  const stamp = "2026-11-10T01:05:00+00:00";
+  const row: Result = { data: { status: "received", snapshot, grading_requested_at: stamp }, error: null };
+
+  it("reads status, snapshot and the grading request's stamp by id, and counts the attempt's hint reveals", async () => {
+    const { client, calls, from } = fakeClient([row, { data: null, error: null, count: 3 }]);
     expect(await loadForGrading(client, ID)).toEqual({
       ok: true,
-      value: { status: "received", snapshot, gradingRequestedAt: stamp },
+      value: { status: "received", snapshot, gradingRequestedAt: stamp, hintsUsed: 3 },
     });
+    expect(from.mock.calls).toEqual([["attempts"], ["hint_reveals"]]);
     expect(calls).toEqual([
       ["select", ["status, snapshot, grading_requested_at"]],
       ["eq", ["id", ID]],
       ["maybeSingle", []],
+      ["select", ["*", { count: "exact", head: true }]],
+      ["eq", ["attempt_id", ID]],
     ]);
   });
 
+  it("hintsUsed is 0 without reveals", async () => {
+    const { client } = fakeClient([row, { data: null, error: null, count: 0 }]);
+    expect(await loadForGrading(client, ID)).toMatchObject({ ok: true, value: { hintsUsed: 0 } });
+  });
+
+  it("is not ok when the hint count fails or is missing (load_failed, U4 restarts)", async () => {
+    const failed = fakeClient([row, { data: null, error: { code: "42P01", message: "relation does not exist" }, count: null }]);
+    expect(await loadForGrading(failed.client, ID)).toEqual({ ok: false });
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.load_for_grading_failed", code: "42P01" }));
+    const missing = fakeClient([row, { data: null, error: null, count: null }]);
+    expect(await loadForGrading(missing.client, ID)).toEqual({ ok: false });
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "attempt.load_for_grading_failed", code: "no_hint_count" }));
+  });
+
   it("is null without a row (or for a malformed id), not ok on an error or a throw", async () => {
-    expect(await loadForGrading(fakeClient({ data: null, error: null }).client, ID)).toEqual({ ok: true, value: null });
+    const none = fakeClient({ data: null, error: null });
+    expect(await loadForGrading(none.client, ID)).toEqual({ ok: true, value: null });
+    expect(none.from).toHaveBeenCalledTimes(1);
     const unused = fakeClient({ data: null, error: null });
     expect(await loadForGrading(unused.client, "nope")).toEqual({ ok: true, value: null });
     expect(unused.from).not.toHaveBeenCalled();

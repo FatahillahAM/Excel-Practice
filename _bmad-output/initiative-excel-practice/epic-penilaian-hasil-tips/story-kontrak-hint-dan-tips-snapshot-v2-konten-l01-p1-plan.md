@@ -3,7 +3,7 @@ title: 'Kontrak hint dan Tips, snapshot v2, konten L01-P1'
 type: 'feature'
 ticket: '4'
 created: '2026-11-13'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -183,3 +183,15 @@ Checks after patches: lint, typecheck, test (61 files, 1169), build pass.
 - Before the deploy: no migration (`/health` stays `20261110000001`); in `prod` SQL, `select count(*) from public.attempts where status in ('open','received','grading_failed')` = 0 (else Abandon it first: a v1 snapshot will not be graded, U5).
 - After the deploy: Start L01-P1 in Production; read-only SQL on that attempt: `snapshot->>'version'` = 2, `snapshot->>'contentVersion'` = 2, `snapshot->>'hintQuota'` = 3, each `snapshot->'questions'->i` has 3 `hints` and `tip->>'id'` in the four ids above. Runtime log `attempt.started` shows `contentVersion` 2.
 - Finish → Results appears as in 3.1; `result->'questions'->i->'tip'->>'id'` matches the snapshot for all 4 questions; no `snapshot_invalid` or `attempt.start_invalid_exam` in the logs.
+
+### Production evidence (2026-11-13, deployment `dpl_5oPeEQYyQMokLi5hvS7byDkRTXfS`, PR #18)
+
+Prod held no `open` / `received` / `grading_failed` attempt before the merge.
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 01:53:29 | `attempt.started` | attempt `b55b185f`, L01-P1, scenario `sepatu-langkah-jaya`, `contentVersion` 2 |
+| 01:54:31.854 | macro submission | `received: true`, `duplicate: false` |
+| 01:54:32.326 | `grading.done` | channel macro, outcome graded, score 20 |
+
+Stored snapshot: `version` 2, `hintQuota` 3, 3 hints on question 1, Tip `l01-isi-rumus-sekaligus`. Stored Result: score 20, 1 correct, Tips on all four questions (`l01-isi-rumus-sekaligus`, `l01-kunci-sel-f4`, `l01-format-persen`, `l01-referensi-campuran`). No error lines.

@@ -142,6 +142,21 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     expect(grade(SNAPSHOT, readingOf({}), 3)).toMatchObject({ pointsEarned: 0, hintPenalty: 15, score: 0 });
   });
 
+  it("3 hints: all correct scores 85 (hintPenalty 15); 10 points earned floor at 0", () => {
+    expect(grade(SNAPSHOT, readingOf(correctCells()), 3)).toMatchObject({ hintsUsed: 3, hintPenalty: 15, pointsEarned: 100, score: 85 });
+    const tenFirst = { ...SNAPSHOT, questions: SNAPSHOT.questions.map((q, i) => ({ ...q, points: [10, 30, 30, 30][i] })) };
+    const cells = correctCells();
+    for (const ref of ["I2", "I3", "J2", "J3", "O2", "P2", "O3", "P3"]) delete cells[ref];
+    expect(grade(tenFirst, readingOf(cells), 3)).toMatchObject({ pointsEarned: 10, hintPenalty: 15, score: 0, correctCount: 1 });
+  });
+
+  it("refuses a hintsUsed above the snapshot's hintQuota, and accepts one equal to it", () => {
+    expect(SNAPSHOT.hintQuota).toBe(3);
+    expect(() => grade(SNAPSHOT, readingOf(correctCells()), 4)).toThrow(/hintQuota/);
+    expect(grade(SNAPSHOT, readingOf(correctCells()), 3).score).toBe(85);
+    expect(() => grade({ ...SNAPSHOT, hintQuota: 0 }, readingOf(correctCells()), 1)).toThrow(/hintQuota/);
+  });
+
   it("refuses a hintsUsed that is not a whole number ≥ 0", () => {
     for (const bad of [-1, 1.5, Number.NaN]) expect(() => grade(SNAPSHOT, readingOf(correctCells()), bad)).toThrow();
   });

@@ -18,6 +18,7 @@ vi.mock("@/adapters/supabase/attempts", () => ({
 vi.mock("@/adapters/workbook/read", () => ({ readWorkbook: mocks.readWorkbook }));
 
 import { SNAPSHOT, correctCells, readingOf, typed } from "@/core/grading/__fixtures__/exam";
+import { buildFixture, fixtureSnapshot } from "@/content/levels/01-fondasi/__fixtures__/l01-p1";
 import { resultSchema } from "@/core/grading";
 import { runGrading, scheduleGrading } from "./grading";
 
@@ -35,7 +36,7 @@ beforeEach(() => {
   mocks.createServiceClient.mockReturnValue(SERVICE);
   mocks.loadForGrading.mockResolvedValue({
     ok: true,
-    value: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: STAMP },
+    value: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 0 },
   });
   mocks.downloadSubmissionFile.mockResolvedValue({ ok: true, value: BYTES });
   mocks.readWorkbook.mockResolvedValue(readingOf(correctCells()));
@@ -95,6 +96,42 @@ describe("runGrading", () => {
     expect(errors).not.toHaveBeenCalled();
   });
 
+  describe("hints (hintsUsed from load: the attempt's hint_reveals count)", () => {
+    /** The real WorkbookIO on the L01-P1 `correct` golden fixture (all four questions right). */
+    async function gradeCorrectL01P1(hintsUsed: number) {
+      const actual = await vi.importActual<typeof import("@/adapters/workbook/read")>("@/adapters/workbook/read");
+      mocks.readWorkbook.mockImplementation((bytes: Uint8Array) => actual.readWorkbook(bytes));
+      mocks.downloadSubmissionFile.mockResolvedValue({ ok: true, value: await buildFixture("correct") });
+      mocks.loadForGrading.mockResolvedValue({
+        ok: true,
+        value: { status: "received", snapshot: fixtureSnapshot(), gradingRequestedAt: STAMP, hintsUsed },
+      });
+      return runGrading("upload", ID);
+    }
+
+    it("L01-P1 all correct with 3 hints: writes a Result with hintsUsed 3, hintPenalty 15, score 85", async () => {
+      expect(await gradeCorrectL01P1(3)).toBe("graded");
+      const [, , , event, , options] = mocks.changeStatus.mock.calls[0];
+      expect(event).toBe("grade_ok");
+      expect(resultSchema.parse(options.result)).toMatchObject({
+        hintsUsed: 3,
+        hintPenalty: 15,
+        pointsEarned: 100,
+        score: 85,
+        correctCount: 4,
+      });
+      expect(lines(logs)).toEqual([{ event: "grading.done", attemptId: ID, channel: "upload", outcome: "graded", score: 85 }]);
+    }, 20_000);
+
+    it("4 hints above the snapshot's quota of 3: grading_failed (grade_threw), no Result", async () => {
+      expect(await gradeCorrectL01P1(4)).toBe("grading_failed");
+      expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "attempt.grade_error_failed", {
+        gradingRequestedAt: STAMP,
+      });
+      expect(lines(errors)).toEqual([{ event: "grading.grade_threw", attemptId: ID, channel: "upload" }]);
+    }, 20_000);
+  });
+
   it("logs a lower score for typed numbers", async () => {
     const cells = correctCells();
     cells.O2 = typed(10.2);
@@ -114,7 +151,7 @@ describe("runGrading", () => {
   });
 
   it("logs grading.snapshot_invalid for a tracer attempt without a snapshot", async () => {
-    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: null } });
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: null, gradingRequestedAt: STAMP, hintsUsed: 0 } });
     expect(await runGrading("macro", ID)).toBe("grading_failed");
     expect(lines(errors)[0].event).toBe("grading.snapshot_invalid");
   });
@@ -122,7 +159,7 @@ describe("runGrading", () => {
   it("logs grading.snapshot_invalid for an attempt whose stored snapshot is v1 (no version, hintQuota, hints or Tips)", async () => {
     const omit = (object: object, ...keys: string[]) => Object.fromEntries(Object.entries(object).filter(([key]) => !keys.includes(key)));
     const v1 = { ...omit(SNAPSHOT, "version", "hintQuota"), questions: SNAPSHOT.questions.map((q) => omit(q, "hints", "tip")) };
-    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: v1, gradingRequestedAt: STAMP } });
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: v1, gradingRequestedAt: STAMP, hintsUsed: 0 } });
     expect(await runGrading("macro", ID)).toBe("grading_failed");
     expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "attempt.grade_error_failed", {
       gradingRequestedAt: STAMP,
@@ -156,7 +193,7 @@ describe("runGrading", () => {
   });
 
   it("does not log an error for a skipped attempt (a duplicate or Abandon)", async () => {
-    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "abandoned", snapshot: SNAPSHOT } });
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "abandoned", snapshot: SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 0 } });
     expect(await runGrading("macro", ID)).toBe("skipped");
     expect(errors).not.toHaveBeenCalled();
     expect(mocks.changeStatus).not.toHaveBeenCalled();
@@ -192,7 +229,7 @@ describe("runGrading", () => {
     expect(await runGrading("upload", ID)).toBe("grading_failed");
     // grade() throwing: a snapshot range grade() cannot expand.
     const broken = { ...SNAPSHOT, questions: SNAPSHOT.questions.map((q, i) => (i === 0 ? { ...q, range: "H3:H2" } : q)) };
-    mocks.loadForGrading.mockResolvedValueOnce({ ok: true, value: { status: "received", snapshot: broken } });
+    mocks.loadForGrading.mockResolvedValueOnce({ ok: true, value: { status: "received", snapshot: broken, gradingRequestedAt: STAMP, hintsUsed: 0 } });
     expect(await runGrading("macro", ID)).toBe("grading_failed");
     // Anything else throwing.
     mocks.loadForGrading.mockRejectedValueOnce(leaky("TypeError"));

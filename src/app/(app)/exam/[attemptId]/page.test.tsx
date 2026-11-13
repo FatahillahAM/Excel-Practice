@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   getSessionUser: vi.fn(),
   readAttempt: vi.fn(),
   hasValidResult: vi.fn(),
+  createServiceClient: vi.fn(),
+  readHintState: vi.fn(),
   notFound: vi.fn(() => {
     throw Object.assign(new Error("NEXT_HTTP_ERROR_FALLBACK;404"), { notFound: true });
   }),
@@ -14,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   }),
 }));
 const SUPABASE = { session: true };
+const SERVICE = { service: true };
 vi.mock("next/navigation", () => ({
   notFound: mocks.notFound,
   redirect: mocks.redirect,
@@ -25,6 +28,8 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
 vi.mock("@/adapters/supabase/attempts", () => ({ readAttempt: mocks.readAttempt, hasValidResult: mocks.hasValidResult }));
+vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: mocks.createServiceClient }));
+vi.mock("@/adapters/supabase/hints", () => ({ readHintState: mocks.readHintState }));
 
 import { examMessages, shellMessages } from "@/messages/id";
 import ExamPage from "./page";
@@ -55,9 +60,13 @@ async function render(): Promise<string> {
   return renderToStaticMarkup(await Component(exam.props));
 }
 
+let errors: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.createServiceClient.mockReturnValue(SERVICE);
+  mocks.readHintState.mockResolvedValue({ ok: true, value: null });
+  errors = vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
 afterEach(() => {
@@ -66,6 +75,8 @@ afterEach(() => {
   mocks.getSessionUser.mockReset();
   mocks.readAttempt.mockReset();
   mocks.hasValidResult.mockReset();
+  mocks.createServiceClient.mockReset();
+  mocks.readHintState.mockReset();
   mocks.notFound.mockClear();
   mocks.redirect.mockClear();
 });
@@ -243,5 +254,88 @@ describe("Exam page", () => {
     mocks.getSessionUser.mockResolvedValue(null);
     await expect(render()).rejects.toMatchObject({ url: `/login?next=${encodeURIComponent(`/exam/${ID}`)}` });
     expect(mocks.readAttempt).not.toHaveBeenCalled();
+  });
+
+  describe("hint state (read on the service role, only while open)", () => {
+    const HINTS = {
+      quota: 3,
+      used: 2,
+      questions: [1, 2, 3, 4].map((number) => ({ number, hintCount: 3 })),
+      revealed: [
+        { question: 2, index: 0, text: "Kalikan kolom harga dengan kolom jumlah." },
+        { question: 2, index: 1, text: "Pakai tanda bintang untuk mengali." },
+      ],
+    };
+    const lines = () => errors.mock.calls.map((call: unknown[]) => JSON.parse(String(call[0])));
+
+    it("rehydrates an open attempt's revealed hints and quota from the server", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+      mocks.readHintState.mockResolvedValue({ ok: true, value: HINTS });
+      const html = await render();
+      expect(mocks.readHintState).toHaveBeenCalledWith(SERVICE, ID);
+      expect(html).toContain(">Hint for</span>");
+      expect(html).toContain('aria-label="Hint for Soal 1, minus 5 points, 1 left"');
+      expect(html).toContain("1 left");
+      expect(html).toContain("Hint 1 · ");
+      expect(html).toContain("Hint 2 · ");
+      expect(html).toContain(HINTS.revealed[0].text);
+      expect(html).toContain(HINTS.revealed[1].text);
+      expect(html).toContain("Upload file (.xlsm)");
+      // Nothing of a hint not revealed reaches the page: only what the server state carries.
+      expect(html).not.toContain("Hint 3 · ");
+    });
+
+    it.each(["received", "grading_failed"])("keeps a %s attempt's revealed hints on screen read-only", async (status) => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, status, receivedAt: "2026-11-02T01:10:00+00:00" } });
+      mocks.readHintState.mockResolvedValue({ ok: true, value: HINTS });
+      const html = await render();
+      expect(mocks.readHintState).toHaveBeenCalledWith(SERVICE, ID);
+      expect(html).toContain(HINTS.revealed[0].text);
+      expect(html).toContain(HINTS.revealed[1].text);
+      expect(html).not.toContain("Hint (");
+      expect(html).not.toContain("Hint for");
+      expect(html).not.toContain('type="file"');
+    });
+
+    it.each(["abandoned", "closed"])("does not read hints for a %s attempt", async (status) => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, status } });
+      const html = await render();
+      expect(mocks.createServiceClient).not.toHaveBeenCalled();
+      expect(mocks.readHintState).not.toHaveBeenCalled();
+      expect(html).not.toContain("Hint (");
+    });
+
+    it.each([
+      ["the read fails", () => mocks.readHintState.mockResolvedValue({ ok: false }), "read_failed"],
+      ["the service env is missing", () => mocks.createServiceClient.mockReturnValue(null), "service_env_missing"],
+      ["the read throws", () => mocks.readHintState.mockRejectedValue(new TypeError("fetch failed")), "threw"],
+    ])("renders without the hint group, upload kept, when %s (exam.hint_state_failed)", async (_, arrange, code) => {
+      arrange();
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+      const html = await render();
+      expect(html).not.toContain("Hint (");
+      expect(html).not.toContain("Hint for");
+      expect(html).toContain("Upload file (.xlsm)");
+      expect(lines()).toContainEqual(expect.objectContaining({ event: "exam.hint_state_failed", attemptId: ID, code }));
+    });
+
+    it("a legacy or tracer snapshot: no hint group, logged at info (exam.hint_state_unavailable), not as an error", async () => {
+      const logs = vi.spyOn(console, "log").mockImplementation(() => {});
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+      mocks.readHintState.mockResolvedValue({ ok: true, value: null });
+      const html = await render();
+      expect(html).not.toContain("Hint (");
+      expect(html).toContain("Upload file (.xlsm)");
+      expect(logs.mock.calls.map((call) => JSON.parse(String(call[0])))).toContainEqual({ event: "exam.hint_state_unavailable", attemptId: ID });
+      expect(lines()).not.toContainEqual(expect.objectContaining({ event: "exam.hint_state_failed" }));
+    });
+
+    it("renders no hint group for a quota of 0", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
+      mocks.readHintState.mockResolvedValue({ ok: true, value: { ...HINTS, quota: 0, used: 0, revealed: [] } });
+      const html = await render();
+      expect(html).not.toContain("Hint (");
+      expect(html).toContain("Upload file (.xlsm)");
+    });
   });
 });

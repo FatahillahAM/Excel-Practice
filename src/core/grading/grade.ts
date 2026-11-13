@@ -12,10 +12,13 @@ import type { WorkbookReading } from "./workbook-reading";
  * on the answer cells; the first failing check, at its first failing cell,
  * gives the reason. A correct question earns its points; score = Σ points of
  * correct questions − 5 × `hintsUsed`, floor 0. Throws on a malformed
- * snapshot or `hintsUsed`; the output always passes `resultSchema`.
+ * snapshot or `hintsUsed`, and on `hintsUsed` above `snapshot.hintQuota`;
+ * the output always passes `resultSchema`.
  */
 export function grade(snapshot: ExamSnapshot, reading: WorkbookReading, hintsUsed: number): Result {
   if (!Number.isInteger(hintsUsed) || hintsUsed < 0) throw new Error(`hintsUsed must be a whole number ≥ 0, not ${hintsUsed}`);
+  // `reveal_hint` and the `hint_reveals` fence never store more: above the quota is corrupt data, not a score to clamp.
+  if (hintsUsed > snapshot.hintQuota) throw new Error(`hintsUsed ${hintsUsed} is above the snapshot's hintQuota ${snapshot.hintQuota}`);
 
   const questions = snapshot.questions.map((question) => gradeQuestion(question, reading));
   const pointsEarned = questions.reduce((sum, question) => sum + question.pointsAwarded, 0);

@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { fixtureSnapshot } from "../../src/content/levels/01-fondasi/__fixtures__/l01-p1";
 import { ATTEMPT_EVENTS, ATTEMPT_STATUSES, transition } from "../../src/core/services/attempts/lifecycle";
 
 /**
@@ -47,6 +48,8 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
   let adminConnected = false;
   let dbConnected = false;
   let db: pg.Client;
+  /** The scratch database's URL, for the second and third clients of the concurrency cases. */
+  let scratchUrl: string;
 
   beforeAll(async () => {
     admin = new pg.Client({ connectionString: DATABASE_URL });
@@ -55,7 +58,8 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     await admin.query(`create database ${dbName}`);
     const url = new URL(DATABASE_URL!);
     url.pathname = `/${dbName}`;
-    db = new pg.Client({ connectionString: url.toString() });
+    scratchUrl = url.toString();
+    db = new pg.Client({ connectionString: scratchUrl });
     await db.connect();
     dbConnected = true;
     await db.query(await readFile(path.join(here, "supabase-stub.sql"), "utf8"));
@@ -120,10 +124,25 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     return rows[0];
   }
 
-  /** An attempt of a fresh user in `status`, moved there by the superuser along AD-5. */
-  async function attemptIn(status: "open" | "received" | "grading_failed" | "graded" | "abandoned" | "closed") {
+  /**
+   * An attempt of a fresh user in `status`, moved there by the superuser along
+   * AD-5; with `snapshot`, Start's service-role snapshot write first (once, while `open`).
+   */
+  async function attemptIn(
+    status: "open" | "received" | "grading_failed" | "graded" | "abandoned" | "closed",
+    snapshot?: unknown,
+  ) {
     const uid = await newUser();
     const id = await start(uid);
+    if (snapshot !== undefined) {
+      await asService((q) =>
+        q.query("update public.attempts set snapshot = $3 where id = $1 and user_id = $2 and snapshot is null", [
+          id,
+          uid,
+          JSON.stringify(snapshot),
+        ]),
+      );
+    }
     const steps: Record<typeof status, string[]> = {
       open: [],
       received: ["received"],
@@ -870,6 +889,308 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
           .rowCount,
       );
       expect(updated).toBe(0);
+    });
+  });
+
+  describe("hint_reveals + reveal_hint (B5, AD-5, AD-9)", () => {
+    /** The real L01-P1 snapshot as Start writes it: quota 3, questions 1–4 with 3 hints each. */
+    const HINT_SNAPSHOT = fixtureSnapshot();
+    const hintText = (question: number, index: number) => HINT_SNAPSHOT.questions[question - 1].hints[index];
+    type Answer = { code: string; question: number; hintIndex: number; hint: string | null; used: number; quota: number };
+
+    const reveal = (id: string, question: number, index: number) =>
+      asService(
+        async (q) =>
+          (await q.query("select public.reveal_hint($1, $2, $3) as a", [id, question, index])).rows[0].a as Answer,
+      );
+    const count = async (id: string) =>
+      (await db.query("select count(*)::int as n from public.hint_reveals where attempt_id = $1", [id])).rows[0].n as number;
+    /** The service role's reads, as grading (`count`) and `readHintState` (columns, reveal order) run them. */
+    const serviceCount = (id: string) =>
+      asService(
+        async (q) =>
+          (await q.query("select count(*)::int as n from public.hint_reveals where attempt_id = $1", [id])).rows[0].n as number,
+      );
+    const serviceRows = (id: string) =>
+      asService(
+        async (q) =>
+          (
+            await q.query(
+              "select question_number, hint_index from public.hint_reveals where attempt_id = $1 order by revealed_at, hint_index",
+              [id],
+            )
+          ).rows,
+      );
+    const insertAsSuper = (id: string, question: number, index: number) =>
+      db.query("insert into public.hint_reveals (attempt_id, question_number, hint_index) values ($1, $2, $3)", [
+        id,
+        question,
+        index,
+      ]);
+
+    it("uses the L01-P1 snapshot: quota 3, 4 questions with 3 hints", () => {
+      expect(HINT_SNAPSHOT.hintQuota).toBe(3);
+      expect(HINT_SNAPSHOT.questions.map((q) => q.hints.length)).toEqual([3, 3, 3, 3]);
+    });
+
+    it("reveals up to the quota with the snapshot's text, then answers quota_used with no new row", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await reveal(id, 2, 0)).toEqual({
+        code: "revealed",
+        question: 2,
+        hintIndex: 0,
+        hint: hintText(2, 0),
+        used: 1,
+        quota: 3,
+      });
+      expect(await reveal(id, 2, 1)).toMatchObject({ code: "revealed", hint: hintText(2, 1), used: 2 });
+      expect(await reveal(id, 1, 0)).toMatchObject({ code: "revealed", hint: hintText(1, 0), used: 3 });
+      expect(await reveal(id, 3, 0)).toMatchObject({ code: "quota_used", hint: null, used: 3, quota: 3 });
+      expect(await count(id)).toBe(3);
+    });
+
+    it("chain: 3 reveals through reveal_hint → the service role counts 3 → the 4th is quota_used", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      for (const [question, index] of [
+        [1, 0],
+        [2, 0],
+        [2, 1],
+      ]) {
+        expect(await reveal(id, question, index)).toMatchObject({ code: "revealed" });
+      }
+      expect(await serviceCount(id)).toBe(3);
+      expect(await serviceRows(id)).toEqual([
+        { question_number: 1, hint_index: 0 },
+        { question_number: 2, hint_index: 0 },
+        { question_number: 2, hint_index: 1 },
+      ]);
+      expect(await reveal(id, 4, 0)).toMatchObject({ code: "quota_used", used: 3 });
+      expect(await serviceCount(id)).toBe(3);
+    });
+
+    it("the service role reads the count and the columns readHintState reads (0 rows for a fresh attempt)", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await serviceCount(id)).toBe(0);
+      expect(await serviceRows(id)).toEqual([]);
+      await reveal(id, 3, 0);
+      expect(await serviceCount(id)).toBe(1);
+      expect(await serviceRows(id)).toEqual([{ question_number: 3, hint_index: 0 }]);
+    });
+
+    it("answers the same index twice with already and the same text, writing one row", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await reveal(id, 3, 0)).toMatchObject({ code: "revealed", used: 1 });
+      expect(await reveal(id, 3, 0)).toMatchObject({ code: "already", hint: hintText(3, 0), used: 1 });
+      expect(await count(id)).toBe(1);
+    });
+
+    it("refuses an index past the next one (out_of_order) and a negative one", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await reveal(id, 1, 1)).toMatchObject({ code: "out_of_order", hint: null, used: 0 });
+      expect(await reveal(id, 1, -1)).toMatchObject({ code: "out_of_order" });
+      expect(await count(id)).toBe(0);
+    });
+
+    it("answers no_more_hints once the question's hints are all shown", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      for (const index of [0, 1, 2]) expect(await reveal(id, 4, index)).toMatchObject({ code: "revealed" });
+      expect(await reveal(id, 4, 3)).toMatchObject({ code: "no_more_hints", hint: null, used: 3, quota: 3 });
+      expect(await count(id)).toBe(3);
+    });
+
+    it("answers no_question, not_found and snapshot_invalid without a row", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await reveal(id, 9, 0)).toMatchObject({ code: "no_question" });
+      expect(await reveal(randomUUID(), 1, 0)).toMatchObject({ code: "not_found" });
+      const bare = await attemptIn("open");
+      expect(await reveal(bare.id, 1, 0)).toMatchObject({ code: "snapshot_invalid" });
+      const noQuota = await attemptIn("open", { ...HINT_SNAPSHOT, hintQuota: "3" });
+      expect(await reveal(noQuota.id, 1, 0)).toMatchObject({ code: "snapshot_invalid" });
+      expect(await count(id)).toBe(0);
+      expect(await count(bare.id)).toBe(0);
+    });
+
+    it.each(["received", "grading_failed", "graded", "abandoned", "closed"] as const)(
+      "answers not_open for a %s attempt",
+      async (status) => {
+        const { id } = await attemptIn(status, HINT_SNAPSHOT);
+        expect(await reveal(id, 1, 0)).toMatchObject({ code: "not_open", hint: null });
+        expect(await count(id)).toBe(0);
+      },
+    );
+
+    it("is not executable by the session or anon (42501)", async () => {
+      const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
+      await expectSqlError(asUser(uid, (q) => q.query("select public.reveal_hint($1, 1, 0)", [id])), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select public.reveal_hint($1, 1, 0)", [id])), "42501");
+      expect(await count(id)).toBe(0);
+    });
+
+    it("refuses direct insert, update and delete by the session, the service role and anon (42501)", async () => {
+      const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await reveal(id, 1, 0)).toMatchObject({ code: "revealed" });
+      const statements = [
+        ["insert into public.hint_reveals (attempt_id, question_number, hint_index) values ($1, 2, 0)", [id]],
+        ["update public.hint_reveals set hint_index = 1 where attempt_id = $1", [id]],
+        ["delete from public.hint_reveals where attempt_id = $1", [id]],
+      ] as const;
+      for (const [sql, params] of statements) {
+        await expectSqlError(asUser(uid, (q) => q.query(sql, [...params])), "42501");
+        await expectSqlError(asService((q) => q.query(sql, [...params])), "42501");
+        await expectSqlError(as("anon", null, (q) => q.query(sql, [...params])), "42501");
+      }
+      expect(await count(id)).toBe(1);
+    });
+
+    it("cannot be read by the session (not even its own attempt's rows) or anon (42501)", async () => {
+      const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
+      await reveal(id, 4, 0);
+      await expectSqlError(
+        asUser(uid, (q) => q.query("select question_number, hint_index from public.hint_reveals where attempt_id = $1", [id])),
+        "42501",
+      );
+      await expectSqlError(asUser(uid, (q) => q.query("select count(*) from public.hint_reveals")), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select * from public.hint_reveals")), "42501");
+    });
+
+    it("superuser: refuses an insert for an attempt that is not open (hint_reveals_open_only)", async () => {
+      const { id } = await attemptIn("received", HINT_SNAPSHOT);
+      await expectSqlError(insertAsSuper(id, 1, 0), "23514", "hint_reveals_open_only");
+      expect(await count(id)).toBe(0);
+    });
+
+    it("superuser: refuses the row past the quota (hint_reveals_quota), and a duplicate (23505)", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      await insertAsSuper(id, 1, 0);
+      // The duplicate is also not the next index: the fence refuses it before the primary key does.
+      await expectSqlError(insertAsSuper(id, 1, 0), "23514", "hint_reveals_order");
+      await insertAsSuper(id, 1, 1);
+      await insertAsSuper(id, 2, 0);
+      await expectSqlError(insertAsSuper(id, 3, 0), "23514", "hint_reveals_quota");
+      expect(await count(id)).toBe(3);
+    });
+
+    it("superuser: the primary key still refuses a duplicate once the fence is out of the way (23505)", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      await insertAsSuper(id, 1, 0);
+      await db.query("alter table public.hint_reveals disable trigger hint_reveals_fence");
+      try {
+        await expectSqlError(insertAsSuper(id, 1, 0), "23505");
+      } finally {
+        await db.query("alter table public.hint_reveals enable trigger hint_reveals_fence");
+      }
+    });
+
+    it.each([
+      ["a gap (index 1 before index 0)", [] as [number, number][], [1, 1]],
+      ["a gap after one hint (index 2 after index 0)", [[1, 0]] as [number, number][], [1, 2]],
+      ["a question the snapshot does not have", [] as [number, number][], [9, 0]],
+      ["an index past the question's hints", [[4, 0], [4, 1], [4, 2]] as [number, number][], [4, 3]],
+    ])("superuser: refuses %s (hint_reveals_order)", async (_, before, [question, index]) => {
+      // Quota 10 so only the order rule can refuse.
+      const { id } = await attemptIn("open", { ...HINT_SNAPSHOT, hintQuota: 10 });
+      for (const [q, i] of before) await insertAsSuper(id, q, i);
+      await expectSqlError(insertAsSuper(id, question, index), "23514", "hint_reveals_order");
+      expect(await count(id)).toBe(before.length);
+    });
+
+    it("superuser: refuses any row for an attempt without a snapshot", async () => {
+      const bare = await attemptIn("open");
+      await expectSqlError(insertAsSuper(bare.id, 1, 0), "23514", "hint_reveals_order");
+    });
+
+    it("stamps revealed_at with the statement's clock, so reveals in one transaction keep their order", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      await db.query("begin");
+      try {
+        await insertAsSuper(id, 1, 0);
+        await insertAsSuper(id, 1, 1);
+        await db.query("commit");
+      } catch (error) {
+        await db.query("rollback");
+        throw error;
+      }
+      const { rows } = await db.query(
+        "select hint_index, revealed_at from public.hint_reveals where attempt_id = $1 order by hint_index",
+        [id],
+      );
+      expect((rows[1].revealed_at as Date).getTime()).toBeGreaterThanOrEqual((rows[0].revealed_at as Date).getTime());
+      const { rows: distinct } = await db.query(
+        "select count(distinct revealed_at)::int as n from public.hint_reveals where attempt_id = $1",
+        [id],
+      );
+      expect(distinct[0].n).toBe(2);
+    });
+
+    it("goes with its attempt when the attempt is deleted (the owner's Start compensation)", async () => {
+      const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
+      await reveal(id, 1, 0);
+      const deleted = await asUser(uid, async (q) =>
+        (await q.query("delete from public.attempts where id = $1 returning id", [id])).rowCount,
+      );
+      expect(deleted).toBe(1);
+      expect(await count(id)).toBe(0);
+    });
+
+    describe("concurrency (the attempt row lock)", () => {
+      const clients: pg.Client[] = [];
+      async function client(): Promise<pg.Client> {
+        const c = new pg.Client({ connectionString: scratchUrl });
+        await c.connect();
+        clients.push(c);
+        return c;
+      }
+      afterAll(async () => {
+        await Promise.all(clients.map((c) => c.end()));
+      });
+
+      /** Waits until some backend of the scratch database waits on a lock. */
+      async function lockWaiter(): Promise<void> {
+        for (let i = 0; i < 200; i++) {
+          const { rows } = await db.query(
+            "select count(*)::int as n from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'",
+          );
+          if (rows[0].n > 0) return;
+          await new Promise((resolve) => setTimeout(resolve, 25));
+        }
+        throw new Error("no backend waited on the lock");
+      }
+      const revealIn = async (c: pg.Client, id: string, question: number, index: number) =>
+        (await c.query("select public.reveal_hint($1, $2, $3) as a", [id, question, index])).rows[0].a as Answer;
+
+      it("two reveals for different questions at used = 2: one revealed, the other quota_used", async () => {
+        const { id } = await attemptIn("open", HINT_SNAPSHOT);
+        await reveal(id, 1, 0);
+        await reveal(id, 1, 1);
+        const [a, b] = [await client(), await client()];
+        await a.query("begin");
+        await a.query("set local role service_role");
+        await b.query("begin");
+        await b.query("set local role service_role");
+        expect(await revealIn(a, id, 2, 0)).toMatchObject({ code: "revealed", used: 3 });
+        const blocked = revealIn(b, id, 3, 0);
+        await lockWaiter();
+        await a.query("commit");
+        expect(await blocked).toMatchObject({ code: "quota_used", used: 3 });
+        await b.query("commit");
+        expect(await count(id)).toBe(3);
+      });
+
+      it("a reveal blocked behind an uncommitted open → received answers not_open", async () => {
+        const { id } = await attemptIn("open", HINT_SNAPSHOT);
+        const [a, b] = [await client(), await client()];
+        await a.query("begin");
+        await a.query("set local role service_role");
+        await a.query("update public.attempts set status = 'received' where id = $1 and status = 'open'", [id]);
+        await b.query("begin");
+        await b.query("set local role service_role");
+        const blocked = revealIn(b, id, 1, 0);
+        await lockWaiter();
+        await a.query("commit");
+        expect(await blocked).toMatchObject({ code: "not_open" });
+        await b.query("commit");
+        expect(await count(id)).toBe(0);
+      });
     });
   });
 

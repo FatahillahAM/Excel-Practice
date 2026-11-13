@@ -5,6 +5,7 @@ import { unstable_rethrow, useRouter } from "next/navigation";
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "@/adapters/supabase/attempts";
 import { OrbitLoader } from "@/components/exam/orbit-loader";
+import type { HintState } from "@/core/services/attempts";
 import { examMessages, shellMessages } from "@/messages/id";
 import {
   SLOW_GRADING_S,
@@ -16,6 +17,7 @@ import {
   slowGradingWaitMs,
   type Anchor,
 } from "./exam-time";
+import { HintPanel, RevealedHintList } from "./hint-panel";
 import { retryGrading, type RetryState } from "./retry-actions";
 import { UploadDropzone } from "./upload-dropzone";
 
@@ -86,7 +88,16 @@ export function resultPath(body: unknown): string | null {
  * Live regions carry line 1, the instruction and the slow message; the time
  * sits on line 1 but outside them, so it is never announced per tick.
  *
- * While `open`, the Upload Dropzone sits under the status line (CAP-4). An
+ * While `open`, the Upload Dropzone sits under the status line (CAP-4); with
+ * a hint state whose quota is above 0 (`hints`, read by the page on the
+ * service role), the Hint Select + Hint Button sit beside it and the revealed
+ * hints below (`HintPanel`, CAP-7). No hint state (quota 0, Ujian Akhir, or
+ * the read failed): the Dropzone alone. The hint state lives here, so once
+ * the attempt leaves `open` the revealed hints stay on screen read-only (no
+ * Select, no button), a reveal that resolves after that still joins them, and
+ * a new server state (refresh) replaces it only when the server has at least
+ * as many reveals (or after `out_of_order` asked for it). A hint press that
+ * answers `not_open` polls the status at once. An
  * accepted upload moves the screen at once, as when a poll sees the change.
  * A poll that sees `graded` with a `resultId` replaces this page with Results
  * (polling stops and the screen stays as it was while Results loads); `graded`
@@ -105,6 +116,7 @@ export function ExamStatus({
   initialStatus,
   initialElapsed,
   initialReceivedSeconds,
+  hints = null,
 }: {
   attemptId: string;
   itemLabel: string;
@@ -113,12 +125,17 @@ export function ExamStatus({
   initialElapsed: number;
   /** Seconds since the current grading was requested (`grading_requested_at`, else `received_at`) at server render; `null` when not received yet. */
   initialReceivedSeconds: number | null;
+  /** The attempt's hint state at server render (only while `open`); `null` hides the hint group. */
+  hints?: HintState | null;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<AttemptStatus>(initialStatus);
   const [elapsed, setElapsed] = useState(initialElapsed);
   const [receivedSeconds, setReceivedSeconds] = useState(initialReceivedSeconds ?? 0);
   const [tick, setTick] = useState(0);
+  /** The next poll goes now instead of after `POLL_MS` (a hint press found the attempt no longer open). */
+  const pollNow = useRef(false);
+
   const [lost, setLost] = useState(false);
   /** Moving to Results: no more polls, and the screen keeps its last state meanwhile. */
   const [leaving, setLeaving] = useState(false);
@@ -126,6 +143,23 @@ export function ExamStatus({
   const receivedAnchor = useRef<Anchor>({ base: initialReceivedSeconds ?? 0, at: null });
   const downloadStarted = useRef(false);
   const downloadUrl = `/exam/${attemptId}/download`;
+
+  /** The attempt's hint state: the server's at render, then each reveal. */
+  const [hintState, setHintState] = useState<HintState | null>(hints);
+  const [shownHints, setShownHints] = useState<HintState | null>(hints);
+  /** `out_of_order` asked for the server's state: take the next one even with fewer reveals. */
+  const [resync, setResync] = useState(false);
+  if (hints !== shownHints) {
+    setShownHints(hints);
+    // Never wipe a reveal this screen already has with an older server state.
+    if (hints !== null && (resync || hintState === null || hints.used >= hintState.used)) {
+      setHintState(hints);
+      setResync(false);
+    }
+  }
+  const changeHints = useCallback((update: (current: HintState) => HintState) => {
+    setHintState((current) => (current === null ? current : update(current)));
+  }, []);
 
   /** A Try again that failed, shown only while the attempt is still in the `grading_failed` that produced it. */
   const [retryError, setRetryError] = useState(false);
@@ -204,7 +238,9 @@ export function ExamStatus({
   useEffect(() => {
     if (lost || leaving || !POLLED.includes(status)) return;
     let cancelled = false;
+    const delay = pollNow.current ? 0 : POLL_MS;
     const timer = window.setTimeout(async () => {
+      pollNow.current = false;
       try {
         const res = await fetch(`/api/attempts/${attemptId}/status`, { cache: "no-store" });
         if (isFinalPollFailure(res.status)) {
@@ -237,7 +273,7 @@ export function ExamStatus({
       } finally {
         if (!cancelled) setTick((n) => n + 1);
       }
-    }, POLL_MS);
+    }, delay);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
@@ -309,9 +345,32 @@ export function ExamStatus({
           Back to Dashboard
         </Link>
       )}
-      {open && (
-        <div className="mt-[26px] w-full max-w-[400px]">
-          <UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />
+      {open &&
+        (hintState !== null && hintState.quota > 0 ? (
+          <div className="mt-[26px] w-full">
+            <HintPanel
+              attemptId={attemptId}
+              state={hintState}
+              onChange={changeHints}
+              onResync={() => {
+                setResync(true);
+                router.refresh();
+              }}
+              onNotOpen={() => {
+                pollNow.current = true;
+                setTick((n) => n + 1);
+              }}
+              beside={<UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />}
+            />
+          </div>
+        ) : (
+          <div className="mt-[26px] w-full max-w-[400px]">
+            <UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />
+          </div>
+        ))}
+      {!open && hintState !== null && (
+        <div className="mt-[26px] w-full">
+          <RevealedHintList revealed={hintState.revealed} />
         </div>
       )}
     </div>

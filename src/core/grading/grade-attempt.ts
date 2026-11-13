@@ -6,7 +6,7 @@ import type { Result } from "./result";
 import type { WorkbookReading } from "./workbook-reading";
 
 /**
- * `gradeAttempt(attemptId, ports, { hintsUsed })`: the grading use case the
+ * `gradeAttempt(attemptId, ports)`: the grading use case the
  * submission routes schedule after a file is accepted (AD-11). It loads the
  * attempt, and only while it is `received`: validates the stored snapshot,
  * reads `submission-1`, grades it, and asks `complete` to write `graded` +
@@ -39,13 +39,15 @@ export interface GradingAttempt {
   snapshot: unknown;
   /** The database's stamp of the grading request this run serves (ISO 8601); `complete` matches it. */
   gradingRequestedAt: string | null;
+  /** How many hints the attempt revealed (`hint_reveals` rows, counted by `load`): `grade()`'s `hintsUsed`. */
+  hintsUsed: number;
 }
 
 /** What `complete` did: `changed` (written), `lost` (the status moved first), `failed` (store fault). */
 export type CompleteOutcome = "changed" | "lost" | "failed";
 
 export interface GradingPorts {
-  /** The attempt's status and snapshot (service role); `null` when there is no such attempt. */
+  /** The attempt's status, snapshot and hint count (service role); `null` when there is no such attempt. */
   load(attemptId: string): Promise<PortRead<GradingAttempt | null>>;
   /** The bytes of `submission-1`; `null` when the file does not exist. */
   readSubmission(attemptId: string): Promise<PortRead<Uint8Array | null>>;
@@ -92,11 +94,7 @@ export interface GradingRun {
   log: GradingLog;
 }
 
-export async function gradeAttempt(
-  attemptId: string,
-  ports: GradingPorts,
-  options: { hintsUsed: number },
-): Promise<GradingRun> {
+export async function gradeAttempt(attemptId: string, ports: GradingPorts): Promise<GradingRun> {
   const done = (outcome: GradingOutcome, reason: GradingReason | null, score: number | null = null): GradingRun => ({
     outcome,
     log: { attemptId, outcome, score, reason },
@@ -108,6 +106,7 @@ export async function gradeAttempt(
   // A duplicate Finish, Abandon, or an attempt already graded: nothing to do.
   if (loaded.value.status !== "received") return done("skipped", "not_received");
   const requestedAt = loaded.value.gradingRequestedAt;
+  const hintsUsed = loaded.value.hintsUsed;
 
   const fail = async (reason: GradingReason): Promise<GradingRun> => {
     const written = await ports.complete(attemptId, AttemptEvent.GRADE_ERROR, null, requestedAt);
@@ -133,7 +132,7 @@ export async function gradeAttempt(
 
   let result: Result;
   try {
-    result = grade(snapshot, reading, options.hintsUsed);
+    result = grade(snapshot, reading, hintsUsed);
   } catch {
     return fail("grade_threw");
   }
