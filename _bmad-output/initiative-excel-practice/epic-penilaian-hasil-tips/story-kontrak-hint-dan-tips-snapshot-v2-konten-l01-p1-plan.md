@@ -3,13 +3,14 @@ title: 'Kontrak hint dan Tips, snapshot v2, konten L01-P1'
 type: 'feature'
 ticket: '4'
 created: '2026-11-13'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '6ab5e751d8a9e867c18129d039cd43b55e6096c5'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/specs/spec-excel-practice/level-curriculum.md']
 ---
 
@@ -93,6 +94,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given the 3.2 golden suite, then every variant and Excel file grades to the same score, correct count and reasons as before, with `contentVersion` 2.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
