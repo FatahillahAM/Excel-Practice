@@ -89,6 +89,7 @@ describe("runGrading", () => {
     const [client, id, from, event, , options] = mocks.changeStatus.mock.calls[0];
     expect([client, id, from, event]).toEqual([SERVICE, ID, "received", "grade_ok"]);
     expect(resultSchema.parse(options.result)).toMatchObject({ score: 100, correctCount: 4 });
+    expect(resultSchema.parse(options.result).questions.map((q) => q.tip)).toEqual(SNAPSHOT.questions.map((q) => q.tip));
     // The compare-and-set also matches the stamp loaded at run start (a stale run is lost).
     expect(options.gradingRequestedAt).toBe(STAMP);
     expect(errors).not.toHaveBeenCalled();
@@ -115,6 +116,17 @@ describe("runGrading", () => {
   it("logs grading.snapshot_invalid for a tracer attempt without a snapshot", async () => {
     mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: null } });
     expect(await runGrading("macro", ID)).toBe("grading_failed");
+    expect(lines(errors)[0].event).toBe("grading.snapshot_invalid");
+  });
+
+  it("logs grading.snapshot_invalid for an attempt whose stored snapshot is v1 (no version, hintQuota, hints or Tips)", async () => {
+    const omit = (object: object, ...keys: string[]) => Object.fromEntries(Object.entries(object).filter(([key]) => !keys.includes(key)));
+    const v1 = { ...omit(SNAPSHOT, "version", "hintQuota"), questions: SNAPSHOT.questions.map((q) => omit(q, "hints", "tip")) };
+    mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: v1, gradingRequestedAt: STAMP } });
+    expect(await runGrading("macro", ID)).toBe("grading_failed");
+    expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "attempt.grade_error_failed", {
+      gradingRequestedAt: STAMP,
+    });
     expect(lines(errors)[0].event).toBe("grading.snapshot_invalid");
   });
 

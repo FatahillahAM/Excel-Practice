@@ -41,13 +41,34 @@ describe("checkSchema", () => {
 
 describe("findM365Functions", () => {
   it("finds every Microsoft 365-only name as an uppercase whole word", () => {
-    expect(M365_ONLY_FUNCTIONS).toEqual(["LAMBDA", "TEXTSPLIT", "VSTACK", "HSTACK", "TAKE", "DROP", "GROUPBY", "PIVOTBY"]);
+    for (const name of ["LAMBDA", "TEXTSPLIT", "VSTACK", "HSTACK", "TAKE", "DROP", "GROUPBY", "PIVOTBY"]) expect(M365_ONLY_FUNCTIONS).toContain(name);
     for (const name of M365_ONLY_FUNCTIONS) expect(findM365Functions(`Pakai ${name} di sini`)).toEqual([name]);
     expect(findM365Functions("=TAKE(A1:A9,3)+LAMBDA(x,x)+TAKE(B1:B2,1)")).toEqual(["TAKE", "LAMBDA"]);
     expect(findM365Functions("Jangan pakai DROP. Pakai VSTACK, ya")).toEqual(["DROP", "VSTACK"]);
   });
 
+  it("knows the other Microsoft 365-only functions, and only those", () => {
+    const added = [
+      "TEXTBEFORE", "TEXTAFTER", "TOCOL", "TOROW", "WRAPROWS", "WRAPCOLS", "CHOOSEROWS", "CHOOSECOLS", "EXPAND", "BYROW", "BYCOL",
+      "MAP", "REDUCE", "SCAN", "MAKEARRAY", "ISOMITTED", "IMAGE", "REGEXTEST", "REGEXEXTRACT", "REGEXREPLACE", "PERCENTOF", "TRIMRANGE",
+    ];
+    for (const name of added) {
+      expect(M365_ONLY_FUNCTIONS).toContain(name);
+      expect(findM365Functions(`Pakai ${name} di sini`)).toEqual([name]);
+    }
+    expect(M365_ONLY_FUNCTIONS).toHaveLength(30);
+    expect(findM365Functions("=SUM($E$2:$E$13)+XLOOKUP(A1,B:B,C:C)+FILTER(A:A,B:B>0)+UNIQUE(A:A)+LET(x,1,x)")).toEqual([]);
+  });
+
+  it("finds a call in any case", () => {
+    expect(findM365Functions("=take(A1:A9,3)")).toEqual(["TAKE"]);
+    expect(findM365Functions("Pakai Vstack(A1:A2,B1:B2) lalu textbefore(A1,\" \")")).toEqual(["VSTACK", "TEXTBEFORE"]);
+    expect(findM365Functions("=SUM(Lambda(x,x))")).toEqual(["LAMBDA"]);
+  });
+
   it("ignores lowercase prose and longer names", () => {
+    expect(findM365Functions("Take a break, Map the data, scan dokumen, image (gambar), expand it")).toEqual([]);
+    expect(findM365Functions("xtake(1) T.take(1) maps(1)")).toEqual([]);
     expect(findM365Functions("take a break, drop it, lambda")).toEqual([]);
     expect(findM365Functions("TAKEN DROPS XLAMBDA SUM VSTACK2 _TAKE T.TAKE TAKE.X")).toEqual([]);
     expect(findM365Functions("")).toEqual([]);

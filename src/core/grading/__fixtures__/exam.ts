@@ -1,22 +1,26 @@
 import { KEY_TOLERANCE, type Check } from "../../content/checks";
-import type { ExamSnapshot } from "../../content/level-module";
+import { SNAPSHOT_VERSION, type ExamSnapshot, type Tip } from "../../content/level-module";
 import type { CellReading, WorkbookReading } from "../workbook-reading";
 
 /**
  * A synthetic exam shaped like L01-P1 (4 questions, 20/25/25/30 points, the
  * same checks), small enough to write readings by hand: Data!H2:H3, I2:I3,
- * J2:J3 and O2:P3.
+ * J2:J3 and O2:P3. Snapshot v2: hint quota 3, one hint and a Tip per question.
  */
+
+const tip = (id: string, shortcut: string): Tip => ({ id, title: `Tip ${id}`, body: `Isi Tip ${id}.`, shortcuts: [shortcut] });
 
 const value: Check = { name: "value_equals_key", tolerance: KEY_TOLERANCE };
 const base: Check[] = [{ name: "formula_present" }, { name: "not_hard_coded" }, value];
 
 export const SNAPSHOT: ExamSnapshot = {
+  version: SNAPSHOT_VERSION,
   contentVersion: 1,
   scenarioId: "baut-sinar-presisi",
   seed: 42,
+  hintQuota: 3,
   questions: [
-    { number: 1, prompt: "Total", points: 20, sheet: "Data", range: "H2:H3", checks: base, key: { H2: 1200, H3: 12178.14 * 1.04 } },
+    { number: 1, prompt: "Total", points: 20, sheet: "Data", range: "H2:H3", checks: base, key: { H2: 1200, H3: 12178.14 * 1.04 }, hints: ["Kalikan dua kolom."], tip: tip("tip-total", "Ctrl+D") },
     {
       number: 2,
       prompt: "Overhead",
@@ -25,6 +29,8 @@ export const SNAPSHOT: ExamSnapshot = {
       range: "I2:I3",
       checks: [...base, { name: "uses_reference", ref: "$L$2" }],
       key: { I2: 500, I3: 750 },
+      hints: ["Kunci tarifnya."],
+      tip: tip("tip-overhead", "F4"),
     },
     {
       number: 3,
@@ -34,6 +40,8 @@ export const SNAPSHOT: ExamSnapshot = {
       range: "J2:J3",
       checks: [...base, { name: "uses_functions", functions: ["SUM"] }],
       key: { J2: 0.4, J3: 0.6 },
+      hints: ["Kunci range SUM."],
+      tip: tip("tip-porsi", "Ctrl+Shift+%"),
     },
     {
       number: 4,
@@ -43,6 +51,8 @@ export const SNAPSHOT: ExamSnapshot = {
       range: "O2:P3",
       checks: [...base, { name: "uses_reference", ref: "$N2" }],
       key: { O2: 10.2, P2: 10.5, O3: "Lini A", P3: 0 },
+      hints: ["Pakai referensi campuran."],
+      tip: tip("tip-simulasi", "Ctrl+R"),
     },
   ],
 };

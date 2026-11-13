@@ -31,6 +31,8 @@ const question = (range: string, key: ExamQuestion["key"] = {}): ExamQuestion =>
   range,
   checks: [{ name: "formula_present" }],
   key,
+  hints: ["Petunjuk."],
+  tip: { id: "tip-soal", title: "Tip", body: "Isi Tip.", shortcuts: [] },
 });
 
 const at = (ref: string, reading: CellReading | undefined): AnswerCell => ({ ref, reading });

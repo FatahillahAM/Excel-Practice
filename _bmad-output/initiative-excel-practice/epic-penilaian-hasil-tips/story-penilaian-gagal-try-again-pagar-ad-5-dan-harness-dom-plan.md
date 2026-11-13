@@ -3,7 +3,7 @@ title: 'Penilaian gagal, Try again, pagar AD-5, dan harness DOM'
 type: 'feature'
 ticket: '3'
 created: '2026-11-10'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -177,3 +177,15 @@ end if;
 - Before the code deploys: migration `20261110000001_attempts_status_fence` applied to `dev`, then `prod`; `/health` shows `20261110000001` in both.
 - In `dev` SQL, inside `begin … rollback`: `update public.attempts set status = 'open' where id = '<a graded attempt>'` fails with `attempts_status_ad5`; `select claim_grading_restart('<that id>')` as service role returns false.
 - Production: one L01-P1 attempt Finish → Results as in 3.1 (the fence and stamp let the real path through); runtime logs show no `attempt.*_failed` with code 23514. A live Try again run belongs to entry 11.
+
+### Production evidence (2026-11-13, deployment `dpl_Gm6GEP5fSjBw8H9QirYr3pLFwGfp`, PR #17)
+
+Migration `20261110000001_attempts_status_fence` applied to dev and prod before the merge (dev: illegal `abandoned → open` refused inside a rolled-back block).
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 01:08:09 | `attempt.started` | attempt `fc496faf`, L01-P1, scenario `kardus-karya-kemas` |
+| 01:08:48.276 | macro submission | `received: true`, `duplicate: false` |
+| 01:08:49.092 | `grading.done` | channel macro, outcome graded, score 20 (about 0.8 s after receipt) |
+
+Row after grading: status `graded`, `grading_requested_at` = `received_at` (stamped by the trigger), `grading_restarts` 0, score 20, 1 correct. No error lines in the window. Try again was not exercised live (entry 11).

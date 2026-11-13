@@ -137,7 +137,7 @@ describe("startAttempt", () => {
       SERVICE,
       ID,
       "user-1",
-      expect.objectContaining({ contentVersion: 1, seed: expect.any(Number) }),
+      expect.objectContaining({ version: 2, contentVersion: 2, hintQuota: 3, seed: expect.any(Number) }),
     );
     // The snapshot is written before the file is stored.
     expect(mocks.writeSnapshot.mock.invocationCallOrder[0]).toBeLessThan(mocks.uploadGeneratedFile.mock.invocationCallOrder[0]);
@@ -258,7 +258,7 @@ describe("startAttempt", () => {
     expect(mocks.createAttempt).not.toHaveBeenCalled();
     const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
     expect(lines).toEqual([
-      expect.objectContaining({ event: "attempt.start_invalid_exam", itemId: "L01-P1", contentVersion: 1, scenarioId: expect.any(String) }),
+      expect.objectContaining({ event: "attempt.start_invalid_exam", itemId: "L01-P1", contentVersion: 2, scenarioId: expect.any(String) }),
     ]);
   });
 
@@ -277,6 +277,13 @@ describe("startAttempt", () => {
     const exam = generate.mock.results[0].value as GeneratedExam;
     expect(snapshot.questions).toEqual(exam.questions);
     expect(snapshot.questions.map((q) => q.points)).toEqual([20, 25, 25, 30]);
+    expect(snapshot).toMatchObject({ version: 2, contentVersion: 2, hintQuota: level.hintQuota });
+    expect(snapshot.hintQuota).toBe(3);
+    expect(snapshot.questions).toHaveLength(4);
+    for (const question of snapshot.questions) {
+      expect(question.hints).toHaveLength(3);
+      expect(question.tip).toMatchObject({ id: expect.stringMatching(/^l01-/), title: expect.any(String), body: expect.any(String) });
+    }
 
     const [, , bytes] = mocks.uploadGeneratedFile.mock.calls[0] as [unknown, string, Uint8Array];
     const reading = await readWorkbook(bytes);
@@ -287,7 +294,7 @@ describe("startAttempt", () => {
     }
 
     const [line] = logs.mock.calls.map((args) => JSON.parse(String(args[0])) as Record<string, unknown>);
-    expect(line).toMatchObject({ event: "attempt.started", scenarioId: scenario.id, contentVersion: 1 });
+    expect(line).toMatchObject({ event: "attempt.started", scenarioId: scenario.id, contentVersion: 2 });
     expect(Object.keys(line).sort()).toEqual(
       ["attemptId", "contentVersion", "event", "itemId", "scenarioId", "templateVersion", "tokenSha256"].sort(),
     );
@@ -312,7 +319,7 @@ describe("startAttempt", () => {
   });
 
   /** Runs `fn` with a level field replaced, then puts it back. */
-  async function withLevel<K extends "scenarios" | "contentVersion">(key: K, value: unknown, fn: () => Promise<void>) {
+  async function withLevel<K extends "scenarios" | "contentVersion" | "hintQuota">(key: K, value: unknown, fn: () => Promise<void>) {
     const level = findItem("L01-P1")!.level as unknown as Record<K, unknown>;
     const saved = level[key];
     level[key] = value;
@@ -333,6 +340,22 @@ describe("startAttempt", () => {
     expect(mocks.createAttempt).not.toHaveBeenCalled();
     const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
     expect(lines).toEqual([expect.objectContaining({ event: "attempt.start_no_scenarios", itemId: "L01-P1" })]);
+  });
+
+  it("writes the level's hintQuota into the snapshot", async () => {
+    await withLevel("hintQuota", 2, async () => {
+      expect(await start()).toEqual({ redirected: `/exam/${ID}?download=1` });
+    });
+    expect((mocks.writeSnapshot.mock.calls[0][3] as ExamSnapshot).hintQuota).toBe(2);
+  });
+
+  it("refuses a hintQuota above 20 in the snapshot before generating the workbook", async () => {
+    await withLevel("hintQuota", 21, async () => {
+      expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([expect.objectContaining({ event: "attempt.start_invalid_exam", part: "snapshot" })]);
   });
 
   it("refuses a snapshot outside its schema before generating the workbook", async () => {

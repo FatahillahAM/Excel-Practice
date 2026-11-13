@@ -5,7 +5,7 @@ import { resultSchema } from "./result";
 import type { CellReading } from "./workbook-reading";
 
 describe("grade(snapshot, reading, hintsUsed)", () => {
-  it("all correct: 100, 4 of 4, no reasons, no Tips yet", () => {
+  it("all correct: 100, 4 of 4, no reasons, each question's Tip from the snapshot", () => {
     const result = grade(SNAPSHOT, readingOf(correctCells()), 0);
     expect(result).toEqual({
       version: 2,
@@ -18,10 +18,10 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
       correctCount: 4,
       questionCount: 4,
       questions: [
-        { number: 1, points: 20, pointsAwarded: 20, correct: true, reasonText: null, tip: null },
-        { number: 2, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: null },
-        { number: 3, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: null },
-        { number: 4, points: 30, pointsAwarded: 30, correct: true, reasonText: null, tip: null },
+        { number: 1, points: 20, pointsAwarded: 20, correct: true, reasonText: null, tip: SNAPSHOT.questions[0].tip },
+        { number: 2, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: SNAPSHOT.questions[1].tip },
+        { number: 3, points: 25, pointsAwarded: 25, correct: true, reasonText: null, tip: SNAPSHOT.questions[2].tip },
+        { number: 4, points: 30, pointsAwarded: 30, correct: true, reasonText: null, tip: SNAPSHOT.questions[3].tip },
       ],
     });
     expect(resultSchema.safeParse(result).success).toBe(true);
@@ -37,7 +37,7 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
       pointsAwarded: 0,
       correct: false,
       reasonText: "Sel I3 berisi nilai yang diketik, bukan rumus.",
-      tip: null,
+      tip: SNAPSHOT.questions[1].tip,
     });
     expect(result).toMatchObject({ score: 75, pointsEarned: 75, correctCount: 3 });
   });
@@ -146,10 +146,17 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     for (const bad of [-1, 1.5, Number.NaN]) expect(() => grade(SNAPSHOT, readingOf(correctCells()), bad)).toThrow();
   });
 
-  it("copies a question's Tip when its content has one", () => {
+  it("copies every question's Tip from the snapshot unchanged, correct and wrong alike", () => {
     const tip = { id: "f4", title: "Kunci sel dengan F4", body: "Tekan F4.", shortcuts: ["F4"] };
     const withTip = { ...SNAPSHOT, questions: SNAPSHOT.questions.map((q, i) => (i === 0 ? { ...q, tip } : q)) };
     expect(grade(withTip, readingOf(correctCells()), 0).questions[0].tip).toEqual(tip);
+
+    const cells = correctCells();
+    cells.H3 = formula("=E3*G3", 12000);
+    cells.J2 = typed(0.4);
+    const result = grade(SNAPSHOT, readingOf(cells), 0);
+    expect(result.questions.map((q) => q.correct)).toEqual([false, true, false, true]);
+    result.questions.forEach((question, i) => expect(question.tip).toEqual(SNAPSHOT.questions[i].tip));
   });
 
   it("is deterministic: the same inputs give the same Result", () => {

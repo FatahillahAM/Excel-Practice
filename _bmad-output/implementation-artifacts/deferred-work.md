@@ -117,3 +117,19 @@
   summary: A formula cell with `t="str"` and an empty cached `<v></v>` (written by some non-Excel tools) reads as `""` and gets `wrong_value` instead of `not_calculated`.
   evidence: 3.2 review (low); Excel 2021 does not write this shape.
   status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
+  summary: Tip ids are unique only within a level (one id, one content across its items × scenarios × seeds); nothing checks that two levels do not reuse an id with different content.
+  evidence: 3.4 review; the Tips collection (3.9) keys by id, so add a cross-level check in the registry with it.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
+  summary: `grade()` does not compare `hintsUsed` with the snapshot's `hintQuota`; a count above the quota would still be graded (5 points each).
+  evidence: 3.4 review; `hintsUsed` comes from `hint_reveals` in 3.5, whose `reveal_hint` RPC enforces the quota — add the check (or a clamp) there.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
+  summary: An attempt whose stored snapshot is v1 (written before 3.4) ends `grading_failed` (`snapshot_invalid`), and Try again only repeats that failure.
+  evidence: 3.4 review; only attempts open before the deploy have v1 snapshots — the orchestrator checks Production for `open`/`received`/`grading_failed` attempts before the merge and abandons any first.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
+  summary: Every question needs 1–3 hints even when the level's `hintQuota` is 0 (the Ujian Akhir allows none).
+  evidence: 3.4 review; revisit when the Ujian Akhir content is written (hints optional, or not stored, when the quota is 0).
+  status: open
