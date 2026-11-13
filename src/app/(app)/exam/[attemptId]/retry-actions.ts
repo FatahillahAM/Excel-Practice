@@ -29,7 +29,9 @@ const FAILED = "attempt.retry_grading_failed";
  * retry`). The database stamps `grading_requested_at`; `received_at` stays
  * the first file's time (AD-8). Without a session: Login, then back to this
  * exam. A malformed id, someone else's attempt or a failure: `error`, with
- * nothing about the attempt.
+ * nothing about the attempt. If scheduling throws after the move succeeded,
+ * the answer is still `retried` (logged `grading.schedule_failed`): the
+ * attempt is `received`, and the U4 restart grades it.
  */
 export async function retryGrading(_previous: RetryState, formData: FormData): Promise<RetryState> {
   let outcome: RetryState | { redirectTo: string };
@@ -74,8 +76,20 @@ async function run(formData: FormData): Promise<RetryState | { redirectTo: strin
   const changed = await changeStatus(service, validId, "grading_failed", "retry_grading", FAILED);
   switch (changed.outcome) {
     case "changed":
-      scheduleGrading("retry", validId);
       console.log(JSON.stringify({ event: "attempt.grading_retried", attemptId: validId }));
+      try {
+        scheduleGrading("retry", validId);
+      } catch (error) {
+        // The attempt is `received` already: the status endpoint's U4 restart picks it up after 15 s.
+        console.error(
+          JSON.stringify({
+            event: "grading.schedule_failed",
+            attemptId: validId,
+            channel: "retry",
+            code: error instanceof Error ? error.name : typeof error,
+          }),
+        );
+      }
       return { status: "retried" };
     case "lost":
     case "refused":

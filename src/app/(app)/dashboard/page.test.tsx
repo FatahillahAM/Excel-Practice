@@ -57,10 +57,13 @@ describe("Dashboard", () => {
     expect(html).toContain(`<section aria-labelledby="${headingId}"`);
   });
 
-  it.each(["received", "grading_failed"])("%s: 'File received — grading…' instead of the time", async (status) => {
+  it.each([
+    ["received", "File received — grading…"],
+    ["grading_failed", "File received — grading failed."],
+  ])("%s: '%s' instead of the time", async (status, caption) => {
     mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt(status), elapsed: 754 });
     const html = await render();
-    expect(html).toContain("File received — grading…");
+    expect(html).toContain(caption);
     expect(html).not.toContain("since Start");
     expect(html).toContain(`href="/exam/${ID}"`);
     expect(html).toContain(">Abandon</button>");

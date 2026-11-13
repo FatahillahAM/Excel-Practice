@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import "@/test/dom";
 import { act, render, screen } from "@testing-library/react";
+import { Component, type ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -9,7 +10,13 @@ const mocks = vi.hoisted(() => ({
   router: { replace: vi.fn(), push: vi.fn(), refresh: vi.fn() },
   retryGrading: vi.fn(),
 }));
-vi.mock("next/navigation", () => ({ useRouter: () => mocks.router, unstable_rethrow: () => {} }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => mocks.router,
+  // As Next's: rethrows its own control-flow errors (redirect), lets anything else through.
+  unstable_rethrow: (error: unknown) => {
+    if (String((error as { digest?: unknown } | null)?.digest ?? "").startsWith("NEXT_REDIRECT")) throw error;
+  },
+}));
 vi.mock("./retry-actions", () => ({ retryGrading: mocks.retryGrading }));
 
 import { examMessages, shellMessages } from "@/messages/id";
@@ -58,6 +65,17 @@ function show(initialStatus: "open" | "received" | "grading_failed", initialRece
       initialReceivedSeconds={initialReceivedSeconds}
     />,
   );
+}
+
+/** Catches what a render or a form action throws, to show it propagated past the component. */
+class Boundary extends Component<{ children: ReactNode }, { error: unknown }> {
+  state: { error: unknown } = { error: null };
+  static getDerivedStateFromError(error: unknown) {
+    return { error };
+  }
+  render() {
+    return this.state.error === null ? this.props.children : <p data-testid="caught">{String((this.state.error as Error).message)}</p>;
+  }
 }
 
 /**
@@ -188,12 +206,84 @@ describe("ExamStatus in the DOM", () => {
     expect(button.disabled).toBe(false);
     expect(statusLineText()).toBe("File received — grading failed.");
 
-    // A second click tries again.
-    mocks.retryGrading.mockResolvedValue({ status: "retried" });
+    // A second click tries again; while it is pending the alert is back to the failure message.
+    let settle: (state: { status: "retried" }) => void = () => {};
+    mocks.retryGrading.mockReturnValue(new Promise((resolve) => (settle = resolve)));
     await user().click(button);
-    await pass(0);
+    expect(screen.getByRole("button", { name: "Trying again…" })).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toBe(examMessages.gradingFailed);
+    await act(async () => {
+      settle({ status: "retried" });
+    });
     expect(mocks.retryGrading).toHaveBeenCalledTimes(2);
     expect(statusLineText()).toBe("File received — grading…");
+  });
+
+  it("(d) a Try again error is dropped once the polled status leaves grading_failed", async () => {
+    fallback = answer("grading_failed");
+    mocks.retryGrading.mockResolvedValue({ status: "error" });
+    show("grading_failed", 600);
+    await user().click(screen.getByRole("button", { name: "Try again" }));
+    await pass(0);
+    expect(screen.getByRole("alert").textContent).toBe(examMessages.retryFailed);
+
+    // Another device retried and that grading failed again: a fresh failure, not the old error.
+    queue = [answer("received"), answer("grading_failed")];
+    await pass(POLL_MS);
+    expect(statusLineText()).toBe("File received — grading…");
+    await pass(POLL_MS);
+    expect(statusLineText()).toBe("File received — grading failed.");
+    expect(screen.getByRole("alert").textContent).toBe(examMessages.gradingFailed);
+  });
+
+  it("(d) a Try again that throws a plain error: the network message, the button back", async () => {
+    fallback = answer("grading_failed");
+    mocks.retryGrading.mockRejectedValue(new TypeError("Failed to fetch"));
+    show("grading_failed", 600);
+    await user().click(screen.getByRole("button", { name: "Try again" }));
+    await pass(0);
+    expect(screen.getByRole("alert").textContent).toBe(examMessages.retryFailed);
+    expect((screen.getByRole("button", { name: "Try again" }) as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("(d) a redirect thrown by Try again (no session → Login) is rethrown, not turned into a message", async () => {
+    fallback = answer("grading_failed");
+    mocks.retryGrading.mockRejectedValue(
+      Object.assign(new Error("NEXT_REDIRECT"), { digest: "NEXT_REDIRECT;replace;/login;307;" }),
+    );
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <Boundary>
+        <ExamStatus
+          attemptId={ID}
+          itemLabel="Practice 1"
+          initialStatus="grading_failed"
+          initialElapsed={60}
+          initialReceivedSeconds={600}
+        />
+      </Boundary>,
+    );
+    await user().click(screen.getByRole("button", { name: "Try again" }));
+    await pass(0);
+    expect(screen.getByTestId("caught").textContent).toBe("NEXT_REDIRECT");
+    expect(screen.queryByText(examMessages.retryFailed)).toBeNull();
+    quiet.mockRestore();
+  });
+
+  it("(c) Try again unchanged (moved elsewhere): line, alert and button stay until the next poll says otherwise", async () => {
+    fallback = answer("grading_failed");
+    mocks.retryGrading.mockResolvedValue({ status: "unchanged" });
+    show("grading_failed", 600);
+    await user().click(screen.getByRole("button", { name: "Try again" }));
+    await pass(0);
+    expect(statusLineText()).toBe("File received — grading failed.");
+    expect(screen.getByRole("alert").textContent).toBe(examMessages.gradingFailed);
+    expect((screen.getByRole("button", { name: "Try again" }) as HTMLButtonElement).disabled).toBe(false);
+
+    queue = [answer("received")];
+    await pass(POLL_MS);
+    expect(statusLineText()).toBe("File received — grading…");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("(e) a poll answered 401: the first-load message, and no more polls", async () => {

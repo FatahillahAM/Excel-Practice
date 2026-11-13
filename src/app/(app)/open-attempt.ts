@@ -19,7 +19,11 @@ export interface AttemptCardView {
   title: string;
   /** The time since Start in `stat-value` while open ("12:34"); `null` once received. */
   time: string | null;
-  /** After `time`: "since Start" while open; "File received — grading…" once received (as on the exam screen). */
+  /**
+   * After `time`: "since Start" while open; once received, the exam screen's
+   * status line: "File received — grading…", or "File received — grading
+   * failed." while `grading_failed`.
+   */
   caption: string;
   /** The exam screen of this attempt; no `?download=1`, so returning on the laptop downloads nothing. */
   resumeHref: string;
@@ -63,7 +67,12 @@ export function attemptCardView(attempt: Pick<Attempt, "id" | "itemId" | "status
   const time = attempt.status === "open" ? formatElapsed(elapsed) : null;
   return {
     title: attemptTitle(attempt.itemId),
-    caption: time === null ? "File received — grading…" : "since Start",
+    caption:
+      time !== null
+        ? "since Start"
+        : attempt.status === "grading_failed"
+          ? "File received — grading failed."
+          : "File received — grading…",
     time,
     resumeHref: `/exam/${attempt.id}`,
   };

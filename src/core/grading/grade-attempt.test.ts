@@ -6,6 +6,7 @@ import type { WorkbookReading } from "./workbook-reading";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const BYTES = new Uint8Array([1, 2, 3]);
+const STAMP = "2026-11-10T01:05:00+00:00";
 
 function ports(overrides: {
   attempt?: GradingAttempt | null | "fail";
@@ -13,7 +14,8 @@ function ports(overrides: {
   reading?: WorkbookReading | "throw";
   complete?: CompleteOutcome;
 } = {}) {
-  const attempt = overrides.attempt === undefined ? { status: "received" as const, snapshot: SNAPSHOT } : overrides.attempt;
+  const attempt =
+    overrides.attempt === undefined ? { status: "received" as const, snapshot: SNAPSHOT, gradingRequestedAt: STAMP } : overrides.attempt;
   const file = overrides.file === undefined ? BYTES : overrides.file;
   const reading = overrides.reading ?? readingOf(correctCells());
   const p = {
@@ -39,8 +41,9 @@ describe("gradeAttempt", () => {
     expect(p.readSubmission).toHaveBeenCalledWith(ID);
     expect(p.readWorkbook).toHaveBeenCalledWith(BYTES);
     expect(p.complete).toHaveBeenCalledTimes(1);
-    const [id, event, result] = p.complete.mock.calls[0] as unknown as [string, string, unknown];
-    expect([id, event]).toEqual([ID, "grade_ok"]);
+    const [id, event, result, stamp] = p.complete.mock.calls[0] as unknown as [string, string, unknown, unknown];
+    // The write matches the stamp this run loaded: a run superseded by Try again or a restart is lost.
+    expect([id, event, stamp]).toEqual([ID, "grade_ok", STAMP]);
     expect(resultSchema.parse(result)).toMatchObject({ score: 100, correctCount: 4, questionCount: 4 });
   });
 
@@ -57,35 +60,44 @@ describe("gradeAttempt", () => {
   });
 
   it.each([
-    ["a null snapshot (tracer attempt)", { attempt: { status: "received" as const, snapshot: null } }, "snapshot_invalid"],
-    ["a snapshot failing examSnapshotSchema", { attempt: { status: "received" as const, snapshot: { ...SNAPSHOT, seed: -1 } } }, "snapshot_invalid"],
+    ["a null snapshot (tracer attempt)", { attempt: { status: "received" as const, snapshot: null, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
+    ["a snapshot failing examSnapshotSchema", { attempt: { status: "received" as const, snapshot: { ...SNAPSHOT, seed: -1 }, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
     ["an unreadable workbook", { reading: "throw" as const }, "file_unreadable"],
   ])("%s: writes grade_error with no Result", async (_, overrides, reason) => {
     const p = ports(overrides);
     expect(await run(p)).toEqual({ outcome: "grading_failed", log: { attemptId: ID, outcome: "grading_failed", score: null, reason } });
-    expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null);
+    expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null, STAMP);
   });
 
-  it("a missing submission-1: a retryable fault (file_missing), nothing written, the attempt stays received", async () => {
+  it("a missing submission-1: grading_failed at once (file_missing), nothing a restart could fix", async () => {
     const p = ports({ file: null });
-    expect(await run(p)).toEqual({ outcome: "failed", log: { attemptId: ID, outcome: "failed", score: null, reason: "file_missing" } });
+    expect(await run(p)).toEqual({
+      outcome: "grading_failed",
+      log: { attemptId: ID, outcome: "grading_failed", score: null, reason: "file_missing" },
+    });
     expect(p.readWorkbook).not.toHaveBeenCalled();
-    expect(p.complete).not.toHaveBeenCalled();
+    expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null, STAMP);
+  });
+
+  it("passes a null stamp through for a row received before the stamp existed", async () => {
+    const p = ports({ attempt: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: null } });
+    expect((await run(p)).outcome).toBe("graded");
+    expect((p.complete.mock.calls[0] as unknown[])[3]).toBeNull();
   });
 
   it("grade() throwing (a bug): grade_error, grade_threw", async () => {
     const broken = { ...SNAPSHOT };
     // Passes examSnapshotSchema (the range is only a string ≥ 2 there) but grade() cannot expand it.
     broken.questions = SNAPSHOT.questions.map((q, i) => (i === 0 ? { ...q, range: "H3:H2" } : q));
-    const p = ports({ attempt: { status: "received", snapshot: broken } });
+    const p = ports({ attempt: { status: "received", snapshot: broken, gradingRequestedAt: STAMP } });
     expect((await run(p)).log).toMatchObject({ outcome: "grading_failed", reason: "grade_threw" });
-    expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null);
+    expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null, STAMP);
   });
 
   it.each(["open", "graded", "grading_failed", "abandoned", "closed"] as const)(
     "skips an attempt in %s without reading or writing",
     async (status) => {
-      const p = ports({ attempt: { status, snapshot: SNAPSHOT } });
+      const p = ports({ attempt: { status, snapshot: SNAPSHOT, gradingRequestedAt: STAMP } });
       expect(await run(p)).toMatchObject({ outcome: "skipped", log: { reason: "not_received" } });
       expect(p.readSubmission).not.toHaveBeenCalled();
       expect(p.complete).not.toHaveBeenCalled();

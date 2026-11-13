@@ -110,16 +110,47 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 ## Plan Change Log
 
+- 2026-11-12, review patches (four lenses; coordinator, with user decisions of 2026-11-12):
+  - Grading-run identity: `loadForGrading` returns `grading_requested_at`; the grader's final compare-and-set also matches it (`changeStatus` option `gradingRequestedAt`, `is null` for legacy rows). A run started before a Try again or a U4 restart (both move the stamp) is `lost`; `grading.lost` now means "the attempt moved on first" (Abandon or a superseded run).
+  - Restart cap 3 (reverses the Design Notes assumption "No restart cap" and the frozen Never "Batas jumlah penilaian ulang", by user decision 2026-11-12; frozen text left as written): column `grading_restarts int not null default 0` added to the same migration 20261110000001 (not applied anywhere yet); `claim_grading_restart` increments it and refuses at 3; the trigger resets it to 0 on `grading_failed → received` (Try again, same UPDATE); not writable by session or service. At the cap, still `received` 15 s after the last restart, the status route moves the attempt `received → grading_failed` (service role, `changeStatus` with the stamp), logs `grading.restart_cap_reached` and answers `grading_failed`.
+  - `file_missing` now writes `grading_failed` at once (a restart cannot restore the object; Try again can); the other store faults still leave `received`.
+  - Status route: the claim/escalation runs only after the app-clock 15 s pre-check on a `received` attempt; `grading.service_env_missing` is logged once per process.
+  - Try again: a throw from `scheduleGrading` after the compare-and-set still answers `retried` (U4 picks the attempt up) and logs `grading.schedule_failed`.
+  - Exam screen: a Try again error is shown only while the attempt stays in the `grading_failed` that produced it (cleared when a poll leaves that status, and when a new Try again starts).
+  - Dashboard Attempt Card: `grading_failed` caption "File received — grading failed." (as the exam screen's line 1).
+  - Contract test derives the fence's edges from `transition()`; spine AD-9/AD-11 and EXPERIENCE.md (Dropzone hidden in `grading_failed`) amended.
+
 ## Review Triage Log
 
-Paused 2026-11-11 at the user's request during review. Done: blind-hunter and intent-alignment (findings not yet triaged or patched). Stopped before finishing, to re-run: edge-case-hunter and verification-gap. Open user decisions: spine AD-9/AD-11 amendment for Try again and the U4 restart; Dropzone hidden in grading_failed vs EXPERIENCE.md:178. Migration 20261110000001 is not applied anywhere.
+Four lenses (blind-hunter, intent-alignment 2026-11-11; edge-case-hunter, verification-gap 2026-11-12).
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | Stale grading run (started before Try again / U4 restart) can overwrite the newer run | patched — final CAS also matches `grading_requested_at` |
+| 2 | U4 restart unbounded; store faults (`file_missing` etc.) loop every 15 s forever, user never gets Try again | patched — `grading_restarts` cap 3 then `grading_failed`; `file_missing` → `grading_failed` at once (**reverses frozen Never "batas jumlah penilaian ulang" — pending user confirmation**) |
+| 3 | Claim RPC and service-env error log on every 2 s poll | patched — only after the 15 s pre-check; env log once per process |
+| 4 | Try again: `after()` throws after CAS → error shown though status moved | patched — returns `retried`, logs `grading.schedule_failed` |
+| 5 | Stale Try again error mislabels a later grading failure | patched — error state cleared when status leaves `grading_failed` |
+| 6 | `unstable_rethrow`, `unchanged`, pending alert untested | patched — DOM tests |
+| 7 | Fence edges hand-copied from `transition()` | patched — contract test derives edges from `transition()` |
+| 8 | Dashboard card says "grading…" for `grading_failed` | patched |
+| 9 | Spine AD-9/AD-11 no longer describe service-role use | patched — amended (user decision 2026-11-12) |
+| 10 | Dropzone hidden in `grading_failed` vs EXPERIENCE.md | patched — EXPERIENCE.md corrected (user decision 2026-11-12) |
+| 11 | `graded → closed` refused while 20261109 allowance remains | accepted — AD-5 has no such edge; new migration header notes the dead allowance |
+| 12 | Code reads `grading_requested_at` → hard deploy order | accepted — migration applied dev → prod before deploy (AD-13) |
+| 13 | Slow-message anchor resets on reload after a restart claim | deferred — cosmetic |
+| 14 | Insert fence blocks data-only restores of non-open rows | accepted — restores disable triggers |
+| 15 | Pre-hydration Try again form submit does nothing | rejected — button renders after hydration |
+
+Checks after patches: lint, typecheck, test (60 files, 1134), build, test:db (98) pass.
+
 
 ## Design Notes
 
 - [ASSUMPTION] New column instead of `received_at`: Try again keeps `received_at` (AD-8 duration, contract test `:428`), so `received_at` cannot tell how long the current grading has run. One column serves the stamp, the 15 s claim and the slow-message anchor on reload.
-- [ASSUMPTION] No restart cap: restarts happen only while someone polls, at most one per 15 s per attempt, and each `after()` is bounded by the function timeout; persistent `failed` (store fault) keeps retrying until Abandon. Entry 10 may revisit.
+- ~~[ASSUMPTION] No restart cap~~ (superseded 2026-11-12, see Plan Change Log). Restart cap: at most 3 U4 restarts per grading request, counted by the database (`attempts.grading_restarts`, incremented by `claim_grading_restart`, reset by Try again); at the cap, a poll 15 s after the last restart moves the attempt `received → grading_failed`, so a persistent store fault ends at Try again instead of retrying until Abandon.
 - [ASSUMPTION] AD-9 needs no edit: Try again's write and the restart claim are the grading path's service-role writes, each after the session read proved ownership.
-- [ASSUMPTION] No Upload Dropzone in `grading_failed` despite EXPERIENCE "Dropzone stays": AD-6 accepts a file there only as a duplicate that is not stored, so it would mislead. Line 1 text "File received — grading failed." is UI chrome, not in the message set.
+- No Upload Dropzone in `grading_failed` (user decision 2026-11-12; EXPERIENCE.md amended): AD-6 accepts a file there only as a duplicate that is not stored, so it would mislead. Line 1 text "File received — grading failed." is UI chrome, not in the message set.
 - [ASSUMPTION] Fence SQLSTATE 23514 (like `attempts_result_set_once`); `changeStatus` maps it to `failed` with the code in the log. In practice the CAS on `from` plus `transition()` never reaches it.
 - jsdom `29.1.1` (2026-04-30), not 30.x: 30.x needs Node ≥ 22.22.2 / 24.15, the dev container runs 22.22.0; 29.1.1 accepts both it and CI's 24.x. `@testing-library/user-event` 14.6.9 is from today, so 14.6.8.
 - Fence sketch (edges must equal `lifecycle.ts`):

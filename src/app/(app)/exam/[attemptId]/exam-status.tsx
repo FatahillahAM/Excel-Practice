@@ -127,9 +127,13 @@ export function ExamStatus({
   const downloadStarted = useRef(false);
   const downloadUrl = `/exam/${attemptId}/download`;
 
+  /** A Try again that failed, shown only while the attempt is still in the `grading_failed` that produced it. */
+  const [retryError, setRetryError] = useState(false);
+
   /** A status the screen learned (poll or accepted upload); a move to `received` counts from now. */
   const applyStatus = useCallback(
     (next: AttemptStatus) => {
+      if (next !== "grading_failed") setRetryError(false);
       const anchor = receivedAnchorOnChange(status, next, performance.now());
       if (anchor !== null) {
         receivedAnchor.current = anchor;
@@ -140,17 +144,19 @@ export function ExamStatus({
     [status],
   );
 
-  const [retry, retryAction, retryPending] = useActionState(
+  const [, retryAction, retryPending] = useActionState(
     async (previous: RetryState, formData: FormData): Promise<RetryState> => {
+      setRetryError(false);
       let next: RetryState;
       try {
         next = await retryGrading(previous, formData);
       } catch (error) {
         // Next's redirect (no session → Login) and interrupts go on; a transport failure is a message.
         unstable_rethrow(error);
-        return { status: "error" };
+        next = { status: "error" };
       }
       if (next.status === "retried") applyStatus("received");
+      if (next.status === "error") setRetryError(true);
       return next;
     },
     RETRY_IDLE,
@@ -257,7 +263,7 @@ export function ExamStatus({
   const ended = isEnded(status);
   const slow = isGradingSlow(status, receivedSeconds);
   const failed = status === "grading_failed";
-  const retryFailed = retry.status === "error" && !retryPending;
+  const retryFailed = retryError && !retryPending;
 
   return (
     <div className="flex w-full flex-col items-center">

@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   claimGradingRestart: vi.fn(),
   createServiceClient: vi.fn(),
   loadForGrading: vi.fn(),
+  changeStatus: vi.fn(),
   after: vi.fn(),
 }));
 const SUPABASE = { session: true };
@@ -21,7 +22,7 @@ vi.mock("@/adapters/supabase/attempts", () => ({
   claimGradingRestart: mocks.claimGradingRestart,
   // The grading run the restart schedules (`runGrading`), as far as this test lets it go.
   loadForGrading: mocks.loadForGrading,
-  changeStatus: vi.fn(),
+  changeStatus: mocks.changeStatus,
   downloadSubmissionFile: vi.fn(),
 }));
 
@@ -31,7 +32,7 @@ const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const NOW = Date.parse("2026-11-02T01:02:05.900Z");
 
 /** Received 65 s before NOW; grading requested 10 s before NOW unless given. */
-const attempt = (status: string, gradingRequestedAt: string | null = "2026-11-02T01:01:55+00:00") => ({
+const attempt = (status: string, gradingRequestedAt: string | null = "2026-11-02T01:01:55+00:00", gradingRestarts = 0) => ({
   id: ID,
   itemId: "L01-P1",
   status,
@@ -39,6 +40,7 @@ const attempt = (status: string, gradingRequestedAt: string | null = "2026-11-02
   startedAt: "2026-11-02T01:00:00+00:00",
   receivedAt: status === "open" ? null : "2026-11-02T01:01:00+00:00",
   gradingRequestedAt: status === "open" ? null : gradingRequestedAt,
+  gradingRestarts,
 });
 
 const get = () =>
@@ -183,12 +185,51 @@ describe("GET /api/attempts/<attemptId>/status", () => {
       expect(lines(errors)).toEqual([{ event: "grading.restart_failed", attemptId: ID, code: "TypeError" }]);
     });
 
-    it("schedules nothing and answers 200 without the service env", async () => {
+    it("schedules nothing and answers 200 without the service env, logging that once per process", async () => {
       mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK) });
       mocks.createServiceClient.mockReturnValue(null);
       expect((await get()).status).toBe(200);
+      expect((await get()).status).toBe(200);
       expect(mocks.claimGradingRestart).not.toHaveBeenCalled();
       expect(mocks.after).not.toHaveBeenCalled();
+      expect(lines(errors)).toEqual([{ event: "grading.service_env_missing", attemptId: ID, channel: "restart" }]);
+    });
+
+    it("does not touch the service role under 15 s, even with the cap reached", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", "2026-11-02T01:01:51+00:00", 3) });
+      expect((await get()).status).toBe(200);
+      expect(mocks.createServiceClient).not.toHaveBeenCalled();
+      expect(mocks.changeStatus).not.toHaveBeenCalled();
+    });
+
+    it("at the cap (3 restarts), moves the attempt to grading_failed instead of claiming, and answers grading_failed", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK, 3) });
+      mocks.changeStatus.mockResolvedValue({ outcome: "changed", status: "grading_failed" });
+      const res = await get();
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ ok: true, data: { status: "grading_failed", elapsedSeconds: 125, resultId: null } });
+      expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "grading.restart_cap_failed", {
+        gradingRequestedAt: STUCK,
+      });
+      expect(mocks.claimGradingRestart).not.toHaveBeenCalled();
+      expect(mocks.after).not.toHaveBeenCalled();
+      expect(lines(errors)).toEqual([{ event: "grading.restart_cap_reached", attemptId: ID, restarts: 3 }]);
+    });
+
+    it("at the cap, a lost or failed escalation answers received as before", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK, 3) });
+      for (const outcome of ["lost", "failed"]) {
+        mocks.changeStatus.mockResolvedValue({ outcome });
+        expect(await (await get()).json()).toEqual({ ok: true, data: { status: "received", elapsedSeconds: 125, resultId: null } });
+      }
+      expect(mocks.claimGradingRestart).not.toHaveBeenCalled();
+    });
+
+    it("under the cap (2 restarts), claims as usual", async () => {
+      mocks.readAttempt.mockResolvedValue({ ok: true, value: attempt("received", STUCK, 2) });
+      await get();
+      expect(mocks.claimGradingRestart).toHaveBeenCalledTimes(1);
+      expect(mocks.changeStatus).not.toHaveBeenCalled();
     });
 
     it.each(["open", "grading_failed", "graded"])("does not claim while %s", async (status) => {

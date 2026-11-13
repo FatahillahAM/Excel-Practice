@@ -39,6 +39,12 @@ export interface Attempt {
    * the current grading has run. `null` before the first file.
    */
   gradingRequestedAt: string | null;
+  /**
+   * How many times U4 restarted the current grading request (counted by
+   * `claim_grading_restart`, reset by Try again; migration 20261110000001).
+   * The status endpoint escalates to `grading_failed` at `GRADING_RESTART_CAP`.
+   */
+  gradingRestarts: number;
 }
 
 /** What a submission path needs of an attempt found by its token hash. */
@@ -77,7 +83,8 @@ const TABLE = "attempts";
 const UNIQUE_VIOLATION = "23505";
 /** The partial unique index on attempts in progress (migration 20261102000001). */
 const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
-export const ATTEMPT_COLUMNS = "id, item_id, status, template_version, started_at, received_at, grading_requested_at";
+export const ATTEMPT_COLUMNS =
+  "id, item_id, status, template_version, started_at, received_at, grading_requested_at, grading_restarts";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** `attempt-files/<attemptId>/generated.xlsm` (Consistency Conventions › Storage paths). */
@@ -329,9 +336,11 @@ export async function findAttemptByTokenHash(
 
 /**
  * The one writer of `attempts.status` (AD-5): asks `transition(from, event)`
- * for the next status, then updates `where id = ? and status = <from>`. A
- * refused transition sends no query. `received_at` is the trigger's, never
- * sent here.
+ * for the next status, then updates `where id = ? and status = <from>`, and,
+ * for a grading run, `and grading_requested_at = <the stamp it loaded>`, so a
+ * run that a Try again or a U4 restart superseded is `lost`. A refused
+ * transition sends no query. `received_at`, `grading_requested_at` and
+ * `grading_restarts` are the trigger's, never sent here.
  */
 export async function changeStatus(
   client: SupabaseClient,
@@ -340,8 +349,12 @@ export async function changeStatus(
   event: AttemptEvent,
   /** Log event on failure; defaults to `attempt.<event>_failed`. */
   logEvent = `attempt.${event}_failed`,
-  /** Grading (service role): the `Result` written in the same UPDATE as `graded` (migration 20261109000001). */
-  options: { result?: Result } = {},
+  options: {
+    /** Grading (service role): the `Result` written in the same UPDATE as `graded` (migration 20261109000001). */
+    result?: Result;
+    /** Grading: the `grading_requested_at` the run loaded; the UPDATE also matches it (`null` matches `is null`). */
+    gradingRequestedAt?: string | null;
+  } = {},
 ): Promise<ChangeStatusResult> {
   const next = transition(from, event);
   if (!next.ok) return { outcome: "refused" };
@@ -349,12 +362,14 @@ export async function changeStatus(
   if (options.result !== undefined && next.to !== "graded") return { outcome: "refused" };
   const values = options.result === undefined ? { status: next.to } : { status: next.to, result: options.result };
   try {
-    const { data, error } = await client
-      .from(TABLE)
-      .update(values)
-      .eq("id", attemptId)
-      .eq("status", from)
-      .select("id");
+    let query = client.from(TABLE).update(values).eq("id", attemptId).eq("status", from);
+    if (options.gradingRequestedAt !== undefined) {
+      query =
+        options.gradingRequestedAt === null
+          ? query.is("grading_requested_at", null)
+          : query.eq("grading_requested_at", options.gradingRequestedAt);
+    }
+    const { data, error } = await query.select("id");
     if (error) {
       logError(logEvent, error.code);
       return { outcome: "failed" };
@@ -401,27 +416,40 @@ export async function claimGradingRestart(service: SupabaseClient, attemptId: st
   }
 }
 
-/** What grading needs of an attempt: its status and the stored snapshot, unvalidated (core validates it). */
+/**
+ * What grading needs of an attempt: its status, the stored snapshot,
+ * unvalidated (core validates it), and the stamp of the request this run
+ * serves (its compare-and-set matches it).
+ */
 export interface GradingRow {
   status: AttemptStatus;
   snapshot: unknown;
+  gradingRequestedAt: string | null;
 }
 
 /**
- * Grading (service role, AD-9): the attempt's status and snapshot (the session
- * cannot read `snapshot`); `null` when there is no such attempt.
+ * Grading (service role, AD-9): the attempt's status, snapshot (the session
+ * cannot read `snapshot`) and `grading_requested_at`; `null` when there is no
+ * such attempt.
  */
 export async function loadForGrading(service: SupabaseClient, attemptId: string): Promise<Read<GradingRow | null>> {
   if (!isAttemptId(attemptId)) return { ok: true, value: null };
   try {
-    const { data, error } = await service.from(TABLE).select("status, snapshot").eq("id", attemptId).maybeSingle();
+    const { data, error } = await service
+      .from(TABLE)
+      .select("status, snapshot, grading_requested_at")
+      .eq("id", attemptId)
+      .maybeSingle();
     if (error) {
       logError("attempt.load_for_grading_failed", error.code);
       return { ok: false };
     }
     if (!data) return { ok: true, value: null };
-    const row = data as { status: AttemptStatus; snapshot: unknown };
-    return { ok: true, value: { status: row.status, snapshot: row.snapshot ?? null } };
+    const row = data as { status: AttemptStatus; snapshot: unknown; grading_requested_at?: string | null };
+    return {
+      ok: true,
+      value: { status: row.status, snapshot: row.snapshot ?? null, gradingRequestedAt: row.grading_requested_at ?? null },
+    };
   } catch (error) {
     logError("attempt.load_for_grading_failed", errorName(error));
     return { ok: false };
@@ -521,6 +549,7 @@ interface AttemptRow {
   started_at: string;
   received_at: string | null;
   grading_requested_at: string | null;
+  grading_restarts: number;
 }
 
 function toAttempt(row: AttemptRow): Attempt {
@@ -532,6 +561,7 @@ function toAttempt(row: AttemptRow): Attempt {
     startedAt: row.started_at,
     receivedAt: row.received_at,
     gradingRequestedAt: row.grading_requested_at ?? null,
+    gradingRestarts: row.grading_restarts ?? 0,
   };
 }
 

@@ -15,7 +15,7 @@ export const DASHBOARD_TITLE_ID = "dashboard-title";
  * Attempt Card (DESIGN.md › Attempt Card, `key-dashboard.html`): `card` on a
  * `glow` border, `rounded.lg`; "Attempt in progress" key in `label`, the
  * attempt's name, the time since Start from the server at render (AD-8; the
- * live clock is on the exam screen) or "File received — grading…", then
+ * live clock is on the exam screen) or the exam screen's status line once received, then
  * Primary "Resume" (a link to the exam screen) and outline "Abandon" (a
  * confirm dialog). Rendered on the server from the request's read.
  */

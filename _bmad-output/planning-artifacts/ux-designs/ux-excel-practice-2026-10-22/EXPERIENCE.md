@@ -175,7 +175,7 @@ Behavioral. Visual specs: `DESIGN.md` → Components (same names).
 | Exam in progress | File rejected (upload or macro) | Inline reason message in the Dropzone (`role="alert"`); attempt stays open (except "attempt closed"); Dropzone ready again (CAP-18). |
 | Exam in progress | Grading | Status line "File received — grading…"; Orbit keeps running. |
 | Exam in progress | Grading slow | Slow-grading message under the status line (threshold set in architecture). |
-| Exam in progress | Grading failed | Destructive message + "Try again" Primary Button (re-requests grading of the received file); attempt stays open; Dropzone stays. |
+| Exam in progress | Grading failed | Destructive message + "Try again" Primary Button (re-requests grading of the received file); attempt stays open; Dropzone hidden (a file sent now is only an AD-6 duplicate and is not stored). |
 | Exam in progress | Session expired | Next action redirects to Login; after "Sign in with Google" El Zavier returns to this exam screen (or to Results if graded meanwhile). |
 | Exam in progress | Network error | Toast; state reloaded from server on reconnect. |
 | Exam Workbook | Sent / send failed / rejected | See Exam Workbook component and message set. |

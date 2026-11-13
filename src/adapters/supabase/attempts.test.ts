@@ -186,6 +186,7 @@ describe("findOpenAttempt", () => {
     started_at: "2026-11-02T01:00:00+00:00",
     received_at: "2026-11-02T01:10:00+00:00",
     grading_requested_at: "2026-11-02T01:12:00+00:00",
+    grading_restarts: 1,
   };
 
   it("reads the user's attempt in open, received or grading_failed, with the attempt columns", async () => {
@@ -200,6 +201,7 @@ describe("findOpenAttempt", () => {
         startedAt: row.started_at,
         receivedAt: row.received_at,
         gradingRequestedAt: row.grading_requested_at,
+        gradingRestarts: 1,
       },
     });
     expect(calls).toEqual([
@@ -246,6 +248,7 @@ describe("readAttempt", () => {
     started_at: "2026-11-02T01:00:00+00:00",
     received_at: null,
     grading_requested_at: null,
+    grading_restarts: 0,
   };
 
   it("maps the row", async () => {
@@ -260,6 +263,7 @@ describe("readAttempt", () => {
         startedAt: row.started_at,
         receivedAt: null,
         gradingRequestedAt: null,
+        gradingRestarts: 0,
       },
     });
     expect(calls[1]).toEqual(["eq", ["id", ID]]);
@@ -542,6 +546,27 @@ describe("changeStatus with a Result (grading)", () => {
     ]);
   });
 
+  it("also matches the grading request's stamp the run loaded, so a superseded run is lost", async () => {
+    const stamp = "2026-11-10T01:05:00+00:00";
+    const { client, calls } = fakeClient({ data: [], error: null });
+    expect(
+      await changeStatus(client, ID, "received", "grade_ok", "grading.x", { result: RESULT, gradingRequestedAt: stamp }),
+    ).toEqual({ outcome: "lost" });
+    expect(calls).toEqual([
+      ["update", [{ status: "graded", result: RESULT }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "received"]],
+      ["eq", ["grading_requested_at", stamp]],
+      ["select", ["id"]],
+    ]);
+    const legacy = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(legacy.client, ID, "received", "grade_error", "grading.x", { gradingRequestedAt: null })).toEqual({
+      outcome: "changed",
+      status: "grading_failed",
+    });
+    expect(legacy.calls[3]).toEqual(["is", ["grading_requested_at", null]]);
+  });
+
   it("writes grading_failed without a Result, and nothing for a refused edge", async () => {
     const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
     expect(await changeStatus(client, ID, "received", "grade_error")).toEqual({ outcome: "changed", status: "grading_failed" });
@@ -565,12 +590,16 @@ describe("changeStatus with a Result (grading)", () => {
 });
 
 describe("loadForGrading (service role)", () => {
-  it("reads status and snapshot by id", async () => {
+  it("reads status, snapshot and the grading request's stamp by id", async () => {
     const snapshot = { contentVersion: 1 };
-    const { client, calls } = fakeClient({ data: { status: "received", snapshot }, error: null });
-    expect(await loadForGrading(client, ID)).toEqual({ ok: true, value: { status: "received", snapshot } });
+    const stamp = "2026-11-10T01:05:00+00:00";
+    const { client, calls } = fakeClient({ data: { status: "received", snapshot, grading_requested_at: stamp }, error: null });
+    expect(await loadForGrading(client, ID)).toEqual({
+      ok: true,
+      value: { status: "received", snapshot, gradingRequestedAt: stamp },
+    });
     expect(calls).toEqual([
-      ["select", ["status, snapshot"]],
+      ["select", ["status, snapshot, grading_requested_at"]],
       ["eq", ["id", ID]],
       ["maybeSingle", []],
     ]);

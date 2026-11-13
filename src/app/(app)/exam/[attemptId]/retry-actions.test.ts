@@ -117,6 +117,16 @@ describe("retryGrading", () => {
     expect(mocks.scheduleGrading).not.toHaveBeenCalled();
   });
 
+  it("is still retried when scheduling throws after the move (the U4 restart picks it up), logging both lines", async () => {
+    mocks.scheduleGrading.mockImplementation(() => {
+      throw new Error("after() outside a request scope");
+    });
+    expect(await retryGrading(IDLE, form())).toEqual({ status: "retried" });
+    expect(lines(logs)).toEqual([{ event: "attempt.grading_retried", attemptId: ID }]);
+    expect(lines(errors)).toEqual([{ event: "grading.schedule_failed", attemptId: ID, channel: "retry", code: "Error" }]);
+    mocks.scheduleGrading.mockReset();
+  });
+
   it("is error when the write fails (logged by the adapter)", async () => {
     mocks.changeStatus.mockResolvedValue({ outcome: "failed" });
     expect(await retryGrading(IDLE, form())).toEqual({ status: "error" });

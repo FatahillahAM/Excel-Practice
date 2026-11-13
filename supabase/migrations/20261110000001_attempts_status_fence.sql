@@ -19,7 +19,7 @@
 -- `graded → closed` is outside AD-5, so the allowance of migration
 -- 20261109000001 ("`result` stays when a graded attempt later moves to
 -- closed", `attempts_result_only_when_graded` accepting `closed`) is now
--- unreachable. The constraint is left as it is.
+-- unreachable: dead, kept as it is (old migrations are never edited).
 
 -- (1) When the current grading was requested: stamped by the database
 -- (`now()`) each time the attempt moves to `received` (the first file, and
@@ -43,9 +43,18 @@ update public.attempts
 -- `claim_grading_restart` (security definer) write it.
 grant select (grading_requested_at) on public.attempts to authenticated;
 
+-- How many times U4 restarted the current grading (the cap below is 3); the
+-- status endpoint reads it to escalate a capped attempt to `grading_failed`
+-- (Try again). Counted by `claim_grading_restart`, reset to 0 by the trigger
+-- on every `grading_failed → received` (Try again); never written by the app.
+alter table public.attempts
+  add column grading_restarts integer not null default 0;
+
+grant select (grading_restarts) on public.attempts to authenticated;
+
 -- (2) The same trigger as before (`attempts_stamp_received_at`, before update
--- of status), now also stamping `grading_requested_at`. `received_at`
--- behaves as before.
+-- of status), now also stamping `grading_requested_at` and resetting
+-- `grading_restarts`. `received_at` behaves as before.
 create or replace function public.attempts_stamp_received_at()
 returns trigger
 language plpgsql
@@ -62,6 +71,13 @@ begin
     new.grading_requested_at := now();
   else
     new.grading_requested_at := old.grading_requested_at;
+  end if;
+
+  -- Try again starts the restart count over, in the same UPDATE; nothing else moves it.
+  if old.status = 'grading_failed' and new.status = 'received' then
+    new.grading_restarts := 0;
+  else
+    new.grading_restarts := old.grading_restarts;
   end if;
   return new;
 end;
@@ -111,11 +127,15 @@ create trigger attempts_status_fence_update
 
 -- (4) U4: a grading stuck in `received` (`after()` stopped, Storage or the
 -- database faulted) is restarted by the status endpoint, at most once per
--- 15 s per attempt. The claim is one atomic UPDATE (the database's clock,
--- not the app server's): the caller that moves `grading_requested_at` to
--- `now()` wins and schedules the grading; a concurrent or later caller within
--- 15 s matches no row. The result is still written once, by the grader's
--- compare-and-set on `status = 'received'`.
+-- 15 s per attempt and at most 3 times per grading request (then the status
+-- endpoint moves the attempt to `grading_failed`, so the user gets Try
+-- again, which resets the count). The claim is one atomic UPDATE (the
+-- database's clock, not the app server's): the caller that moves
+-- `grading_requested_at` to `now()` wins and schedules the grading; a
+-- concurrent or later caller within 15 s, or one past the cap, matches no
+-- row. The result is still written once, by the grader's compare-and-set on
+-- `status = 'received'` and the `grading_requested_at` it loaded: a run that
+-- a restart or a Try again superseded finds no row.
 create or replace function public.claim_grading_restart(p_attempt_id uuid)
 returns boolean
 language plpgsql
@@ -124,9 +144,11 @@ set search_path = ''
 as $$
 begin
   update public.attempts
-    set grading_requested_at = now()
+    set grading_requested_at = now(),
+        grading_restarts = grading_restarts + 1
     where id = p_attempt_id
       and status = 'received'
+      and grading_restarts < 3
       and coalesce(grading_requested_at, received_at) <= now() - interval '15 seconds';
   return found;
 end;

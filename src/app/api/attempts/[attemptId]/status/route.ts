@@ -1,4 +1,5 @@
 import {
+  changeStatus,
   claimGradingRestart,
   hasValidResult,
   readAttempt,
@@ -9,7 +10,7 @@ import { getSessionUser } from "@/adapters/supabase/auth";
 import { UNAUTHENTICATED } from "@/adapters/supabase/auth-rules";
 import { createClient } from "@/adapters/supabase/server";
 import { createServiceClient } from "@/adapters/supabase/service";
-import { GRADING_RESTART_AFTER_S, scheduleGrading } from "@/app/api/submissions/grading";
+import { GRADING_RESTART_AFTER_S, GRADING_RESTART_CAP, scheduleGrading } from "@/app/api/submissions/grading";
 import { elapsedSeconds } from "@/core/services/attempts";
 
 export interface AttemptStatusData {
@@ -30,12 +31,20 @@ export type AttemptStatusBody = { ok: true; data: AttemptStatusData } | { ok: fa
  * SQL before results existed has none). Never cached.
  *
  * U4: an attempt still `received` 15 s after its grading was requested
- * (`grading_requested_at`, else `received_at`) has its grading restarted:
+ * (`grading_requested_at`, else `received_at`; checked on the app clock
+ * first, so the database is asked only then) has its grading restarted:
  * after the session read proved ownership, the service role claims the
  * restart (`claim_grading_restart`, one atomic UPDATE, at most once per 15 s
  * per attempt) and only the winner schedules a run (`channel: restart`).
- * A missing service env, a lost or failed claim schedules nothing and never
- * changes the answer.
+ * Restart cap: at most `GRADING_RESTART_CAP` (3) restarts per grading
+ * request (the database counts them in `grading_restarts`; Try again resets
+ * the count). An attempt already restarted 3 times and still `received` 15 s
+ * after the last one is moved `received` → `grading_failed` by the service
+ * role (the grading path's compare-and-set, also on the stamp read), logged
+ * `grading.restart_cap_reached`, and answered as `grading_failed`, so the
+ * screen offers Try again. A missing service env (logged once per process),
+ * a lost or failed claim or escalation schedules nothing and never changes
+ * the answer.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ attemptId: string }> }): Promise<Response> {
   const { attemptId } = await params;
@@ -54,29 +63,48 @@ export async function GET(_request: Request, { params }: { params: Promise<{ att
     resultId = valid.value ? attempt.value.id : null;
   }
 
-  if (attempt.value.status === "received") await restartIfStuck(attempt.value);
+  let status = attempt.value.status;
+  if (status === "received") status = await restartIfStuck(attempt.value);
 
   const data: AttemptStatusData = {
-    status: attempt.value.status,
+    status,
     elapsedSeconds: elapsedSeconds(attempt.value.startedAt, Date.now()),
     resultId,
   };
   return json({ ok: true, data }, 200);
 }
 
-async function restartIfStuck(attempt: Attempt): Promise<void> {
+/** `grading.service_env_missing` is logged once per process, not on every poll. */
+let serviceEnvMissingLogged = false;
+
+/** U4 for a `received` attempt; the status to answer (`grading_failed` once escalated at the cap). */
+async function restartIfStuck(attempt: Attempt): Promise<AttemptStatus> {
   const requestedAt = attempt.gradingRequestedAt ?? attempt.receivedAt;
-  if (requestedAt === null || elapsedSeconds(requestedAt, Date.now()) < GRADING_RESTART_AFTER_S) return;
+  if (requestedAt === null || elapsedSeconds(requestedAt, Date.now()) < GRADING_RESTART_AFTER_S) return "received";
   try {
     const service = createServiceClient();
     if (service === null) {
-      console.error(JSON.stringify({ event: "grading.service_env_missing", attemptId: attempt.id, channel: "restart" }));
-      return;
+      if (!serviceEnvMissingLogged) {
+        serviceEnvMissingLogged = true;
+        console.error(JSON.stringify({ event: "grading.service_env_missing", attemptId: attempt.id, channel: "restart" }));
+      }
+      return "received";
+    }
+    if (attempt.gradingRestarts >= GRADING_RESTART_CAP) {
+      const failed = await changeStatus(service, attempt.id, "received", "grade_error", "grading.restart_cap_failed", {
+        gradingRequestedAt: attempt.gradingRequestedAt,
+      });
+      if (failed.outcome !== "changed") return "received";
+      console.error(
+        JSON.stringify({ event: "grading.restart_cap_reached", attemptId: attempt.id, restarts: attempt.gradingRestarts }),
+      );
+      return "grading_failed";
     }
     const claim = await claimGradingRestart(service, attempt.id);
-    if (!claim.ok || !claim.value) return;
+    if (!claim.ok || !claim.value) return "received";
     scheduleGrading("restart", attempt.id);
     console.log(JSON.stringify({ event: "grading.restart_scheduled", attemptId: attempt.id }));
+    return "received";
   } catch (error) {
     console.error(
       JSON.stringify({
@@ -85,6 +113,7 @@ async function restartIfStuck(attempt: Attempt): Promise<void> {
         code: error instanceof Error ? error.name : typeof error,
       }),
     );
+    return "received";
   }
 }
 
