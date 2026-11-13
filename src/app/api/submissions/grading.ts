@@ -75,7 +75,7 @@ export async function runGrading(channel: GradingSource, attemptId: string): Pro
       logDone(attemptId, channel, "failed", null);
       return "failed";
     }
-    const run = await gradeAttempt(attemptId, gradingPorts(service), { hintsUsed: 0 });
+    const run = await gradeAttempt(attemptId, gradingPorts(service));
     const { reason, score } = run.log;
     if (run.outcome === "lost") {
       // The attempt moved on before this run wrote (Abandon, or a newer run after Try again / a

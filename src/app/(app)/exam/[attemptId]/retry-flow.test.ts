@@ -84,7 +84,7 @@ beforeEach(() => {
       gradingRequestedAt: "2026-11-10T01:05:00+00:00",
     },
   }));
-  mocks.loadForGrading.mockImplementation(async () => ({ ok: true, value: { status: row.status, snapshot } }));
+  mocks.loadForGrading.mockImplementation(async () => ({ ok: true, value: { status: row.status, snapshot, gradingRequestedAt: null, hintsUsed: 0 } }));
   mocks.downloadSubmissionFile.mockImplementation(async () => ({ ok: true, value: file }));
   mocks.changeStatus.mockImplementation(
     async (_client: unknown, _id: string, from: AttemptStatus, event: AttemptEvent, _log: string, options: { result?: Result } = {}) => {

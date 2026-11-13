@@ -87,7 +87,7 @@ beforeEach(() => {
   });
   mocks.loadForGrading.mockImplementation(async (_client, id: string) => ({
     ok: true,
-    value: id === ATTEMPT_ID ? { status, snapshot } : null,
+    value: id === ATTEMPT_ID ? { status, snapshot, gradingRequestedAt: null, hintsUsed: 0 } : null,
   }));
   mocks.downloadSubmissionFile.mockImplementation(async (_client, id: string, n: number) => ({
     ok: true,

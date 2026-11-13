@@ -51,6 +51,14 @@ export const examMessages = {
   retryFailed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
 } as const;
 
+/** Hint group on the exam screen (EXPERIENCE.md › Message set, Hint rows; illustrative). */
+export const hintMessages = {
+  /** "Hint — attempt no longer open" row: Finish, upload or Abandon came first. */
+  notOpen: "Hint cuma bisa dibuka selama percobaan masih berjalan, ya.",
+  /** "Hint — network / server" row (the Login "network" row). */
+  failed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
+} as const;
+
 /**
  * Upload Dropzone's inline message slot (EXPERIENCE.md › Message set): one per
  * AD-6 rejection code (verbatim), the size limit and a failed request.

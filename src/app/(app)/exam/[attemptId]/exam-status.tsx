@@ -5,6 +5,7 @@ import { unstable_rethrow, useRouter } from "next/navigation";
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "@/adapters/supabase/attempts";
 import { OrbitLoader } from "@/components/exam/orbit-loader";
+import type { HintState } from "@/core/services/attempts";
 import { examMessages, shellMessages } from "@/messages/id";
 import {
   SLOW_GRADING_S,
@@ -16,6 +17,7 @@ import {
   slowGradingWaitMs,
   type Anchor,
 } from "./exam-time";
+import { HintPanel } from "./hint-panel";
 import { retryGrading, type RetryState } from "./retry-actions";
 import { UploadDropzone } from "./upload-dropzone";
 
@@ -86,7 +88,11 @@ export function resultPath(body: unknown): string | null {
  * Live regions carry line 1, the instruction and the slow message; the time
  * sits on line 1 but outside them, so it is never announced per tick.
  *
- * While `open`, the Upload Dropzone sits under the status line (CAP-4). An
+ * While `open`, the Upload Dropzone sits under the status line (CAP-4); with
+ * a hint state whose quota is above 0 (`hints`, read by the page on the
+ * service role), the Hint Select + Hint Button sit beside it and the revealed
+ * hints below (`HintPanel`, CAP-7). No hint state (quota 0, Ujian Akhir, or
+ * the read failed): the Dropzone alone. Nothing hint-related after `open`. An
  * accepted upload moves the screen at once, as when a poll sees the change.
  * A poll that sees `graded` with a `resultId` replaces this page with Results
  * (polling stops and the screen stays as it was while Results loads); `graded`
@@ -105,6 +111,7 @@ export function ExamStatus({
   initialStatus,
   initialElapsed,
   initialReceivedSeconds,
+  hints = null,
 }: {
   attemptId: string;
   itemLabel: string;
@@ -113,6 +120,8 @@ export function ExamStatus({
   initialElapsed: number;
   /** Seconds since the current grading was requested (`grading_requested_at`, else `received_at`) at server render; `null` when not received yet. */
   initialReceivedSeconds: number | null;
+  /** The attempt's hint state at server render (only while `open`); `null` hides the hint group. */
+  hints?: HintState | null;
 }) {
   const router = useRouter();
   const [status, setStatus] = useState<AttemptStatus>(initialStatus);
@@ -309,11 +318,20 @@ export function ExamStatus({
           Back to Dashboard
         </Link>
       )}
-      {open && (
-        <div className="mt-[26px] w-full max-w-[400px]">
-          <UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />
-        </div>
-      )}
+      {open &&
+        (hints !== null && hints.quota > 0 ? (
+          <div className="mt-[26px] w-full">
+            <HintPanel
+              attemptId={attemptId}
+              initial={hints}
+              beside={<UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />}
+            />
+          </div>
+        ) : (
+          <div className="mt-[26px] w-full max-w-[400px]">
+            <UploadDropzone onReceived={applyStatus} onSessionLost={() => setLost(true)} />
+          </div>
+        ))}
     </div>
   );
 }

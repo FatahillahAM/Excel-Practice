@@ -22,6 +22,9 @@
  *   `setTimeout(0)`, and steps it itself only when it finds Jest's fake
  *   timers. Under Vitest's that timer would never fire (the call hangs), so
  *   this module gives it the one `jest` method it asks for.
+ * - Radix Select (`components/ui/select.tsx`) calls `hasPointerCapture`,
+ *   `releasePointerCapture` and `scrollIntoView`, which jsdom lacks: no-op
+ *   stubs are installed when they are missing.
  * - Next: mock `next/navigation` (`useRouter` returning one stable object, so
  *   effects that depend on it do not re-run every render), and `next/link` as
  *   a plain `<a>` if a test renders one that needs router context.
@@ -54,4 +57,12 @@ if (typeof window !== "undefined" && typeof window.matchMedia !== "function") {
         dispatchEvent: () => false,
       }) as MediaQueryList,
   });
+}
+
+if (typeof Element !== "undefined") {
+  const proto = Element.prototype as unknown as Record<string, unknown>;
+  proto.hasPointerCapture ??= () => false;
+  proto.setPointerCapture ??= () => {};
+  proto.releasePointerCapture ??= () => {};
+  proto.scrollIntoView ??= () => {};
 }

@@ -124,7 +124,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: `grade()` does not compare `hintsUsed` with the snapshot's `hintQuota`; a count above the quota would still be graded (5 points each).
   evidence: 3.4 review; `hintsUsed` comes from `hint_reveals` in 3.5, whose `reveal_hint` RPC enforces the quota — add the check (or a clamp) there.
-  status: open
+  status: done — grade() throws above the quota; reveal_hint and the hint_reveals fence enforce it (3.5)
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: An attempt whose stored snapshot is v1 (written before 3.4) ends `grading_failed` (`snapshot_invalid`), and Try again only repeats that failure.
   evidence: 3.4 review; only attempts open before the deploy have v1 snapshots — the orchestrator checks Production for `open`/`received`/`grading_failed` attempts before the merge and abandons any first.

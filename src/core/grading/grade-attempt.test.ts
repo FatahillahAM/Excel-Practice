@@ -15,7 +15,7 @@ function ports(overrides: {
   complete?: CompleteOutcome;
 } = {}) {
   const attempt =
-    overrides.attempt === undefined ? { status: "received" as const, snapshot: SNAPSHOT, gradingRequestedAt: STAMP } : overrides.attempt;
+    overrides.attempt === undefined ? { status: "received" as const, snapshot: SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 0 } : overrides.attempt;
   const file = overrides.file === undefined ? BYTES : overrides.file;
   const reading = overrides.reading ?? readingOf(correctCells());
   const p = {
@@ -38,7 +38,7 @@ const V1_SNAPSHOT = {
   questions: SNAPSHOT.questions.map((question) => Object.fromEntries(Object.entries(question).filter(([key]) => key !== "hints" && key !== "tip"))),
 };
 
-const run = (p: GradingPorts) => gradeAttempt(ID, p, { hintsUsed: 0 });
+const run = (p: GradingPorts) => gradeAttempt(ID, p);
 
 describe("gradeAttempt", () => {
   it("all correct: writes grade_ok with a 100 Result from the received attempt's file", async () => {
@@ -70,15 +70,23 @@ describe("gradeAttempt", () => {
     expect((await run(p)).log).toMatchObject({ outcome: "graded", score: 80 });
   });
 
-  it("passes hintsUsed to grade()", async () => {
-    const p = ports();
-    expect((await gradeAttempt(ID, p, { hintsUsed: 2 })).log.score).toBe(90);
+  it("passes the loaded hintsUsed to grade()", async () => {
+    const p = ports({ attempt: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 2 } });
+    expect((await gradeAttempt(ID, p)).log.score).toBe(90);
+    const [, , result] = p.complete.mock.calls[0] as unknown as [string, string, unknown];
+    expect(resultSchema.parse(result)).toMatchObject({ hintsUsed: 2, hintPenalty: 10, score: 90 });
+  });
+
+  it("a loaded hintsUsed above the snapshot's hintQuota: grading_failed (grade_threw)", async () => {
+    const p = ports({ attempt: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 4 } });
+    expect((await gradeAttempt(ID, p)).log).toMatchObject({ outcome: "grading_failed", reason: "grade_threw" });
+    expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null, STAMP);
   });
 
   it.each([
-    ["a null snapshot (tracer attempt)", { attempt: { status: "received" as const, snapshot: null, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
-    ["a stored v1 snapshot (no version, hintQuota, hints or Tips)", { attempt: { status: "received" as const, snapshot: V1_SNAPSHOT, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
-    ["a snapshot failing examSnapshotSchema", { attempt: { status: "received" as const, snapshot: { ...SNAPSHOT, seed: -1 }, gradingRequestedAt: STAMP } }, "snapshot_invalid"],
+    ["a null snapshot (tracer attempt)", { attempt: { status: "received" as const, snapshot: null, gradingRequestedAt: STAMP, hintsUsed: 0 } }, "snapshot_invalid"],
+    ["a stored v1 snapshot (no version, hintQuota, hints or Tips)", { attempt: { status: "received" as const, snapshot: V1_SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 0 } }, "snapshot_invalid"],
+    ["a snapshot failing examSnapshotSchema", { attempt: { status: "received" as const, snapshot: { ...SNAPSHOT, seed: -1 }, gradingRequestedAt: STAMP, hintsUsed: 0 } }, "snapshot_invalid"],
     ["an unreadable workbook", { reading: "throw" as const }, "file_unreadable"],
   ])("%s: writes grade_error with no Result", async (_, overrides, reason) => {
     const p = ports(overrides);
@@ -97,7 +105,7 @@ describe("gradeAttempt", () => {
   });
 
   it("passes a null stamp through for a row received before the stamp existed", async () => {
-    const p = ports({ attempt: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: null } });
+    const p = ports({ attempt: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: null, hintsUsed: 0 } });
     expect((await run(p)).outcome).toBe("graded");
     expect((p.complete.mock.calls[0] as unknown[])[3]).toBeNull();
   });
@@ -106,7 +114,7 @@ describe("gradeAttempt", () => {
     const broken = { ...SNAPSHOT };
     // Passes examSnapshotSchema (the range is only a string ≥ 2 there) but grade() cannot expand it.
     broken.questions = SNAPSHOT.questions.map((q, i) => (i === 0 ? { ...q, range: "H3:H2" } : q));
-    const p = ports({ attempt: { status: "received", snapshot: broken, gradingRequestedAt: STAMP } });
+    const p = ports({ attempt: { status: "received", snapshot: broken, gradingRequestedAt: STAMP, hintsUsed: 0 } });
     expect((await run(p)).log).toMatchObject({ outcome: "grading_failed", reason: "grade_threw" });
     expect(p.complete).toHaveBeenCalledWith(ID, "grade_error", null, STAMP);
   });
@@ -114,7 +122,7 @@ describe("gradeAttempt", () => {
   it.each(["open", "graded", "grading_failed", "abandoned", "closed"] as const)(
     "skips an attempt in %s without reading or writing",
     async (status) => {
-      const p = ports({ attempt: { status, snapshot: SNAPSHOT, gradingRequestedAt: STAMP } });
+      const p = ports({ attempt: { status, snapshot: SNAPSHOT, gradingRequestedAt: STAMP, hintsUsed: 0 } });
       expect(await run(p)).toMatchObject({ outcome: "skipped", log: { reason: "not_received" } });
       expect(p.readSubmission).not.toHaveBeenCalled();
       expect(p.complete).not.toHaveBeenCalled();

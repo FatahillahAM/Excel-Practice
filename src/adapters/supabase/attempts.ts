@@ -80,6 +80,8 @@ export const ATTEMPT_FILES_BUCKET = "attempt-files";
 export const XLSM_CONTENT_TYPE = "application/vnd.ms-excel.sheet.macroEnabled.12";
 
 const TABLE = "attempts";
+/** Revealed hints (migration 20261113000001); grading counts them. */
+const HINT_REVEALS_TABLE = "hint_reveals";
 const UNIQUE_VIOLATION = "23505";
 /** The partial unique index on attempts in progress (migration 20261102000001). */
 const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
@@ -418,19 +420,22 @@ export async function claimGradingRestart(service: SupabaseClient, attemptId: st
 
 /**
  * What grading needs of an attempt: its status, the stored snapshot,
- * unvalidated (core validates it), and the stamp of the request this run
- * serves (its compare-and-set matches it).
+ * unvalidated (core validates it), the stamp of the request this run serves
+ * (its compare-and-set matches it), and how many hints it revealed.
  */
 export interface GradingRow {
   status: AttemptStatus;
   snapshot: unknown;
   gradingRequestedAt: string | null;
+  /** `hint_reveals` rows of the attempt (migration 20261113000001): `grade()`'s `hintsUsed`. */
+  hintsUsed: number;
 }
 
 /**
  * Grading (service role, AD-9): the attempt's status, snapshot (the session
- * cannot read `snapshot`) and `grading_requested_at`; `null` when there is no
- * such attempt.
+ * cannot read `snapshot`), `grading_requested_at` and the count of its
+ * `hint_reveals` rows; `null` when there is no such attempt. Either read
+ * failing is `ok: false` (`attempt.load_for_grading_failed`).
  */
 export async function loadForGrading(service: SupabaseClient, attemptId: string): Promise<Read<GradingRow | null>> {
   if (!isAttemptId(attemptId)) return { ok: true, value: null };
@@ -446,9 +451,27 @@ export async function loadForGrading(service: SupabaseClient, attemptId: string)
     }
     if (!data) return { ok: true, value: null };
     const row = data as { status: AttemptStatus; snapshot: unknown; grading_requested_at?: string | null };
+
+    const hints = await service
+      .from(HINT_REVEALS_TABLE)
+      .select("*", { count: "exact", head: true })
+      .eq("attempt_id", attemptId);
+    if (hints.error) {
+      logError("attempt.load_for_grading_failed", hints.error.code);
+      return { ok: false };
+    }
+    if (typeof hints.count !== "number" || !Number.isInteger(hints.count) || hints.count < 0) {
+      logError("attempt.load_for_grading_failed", "no_hint_count");
+      return { ok: false };
+    }
     return {
       ok: true,
-      value: { status: row.status, snapshot: row.snapshot ?? null, gradingRequestedAt: row.grading_requested_at ?? null },
+      value: {
+        status: row.status,
+        snapshot: row.snapshot ?? null,
+        gradingRequestedAt: row.grading_requested_at ?? null,
+        hintsUsed: hints.count,
+      },
     };
   } catch (error) {
     logError("attempt.load_for_grading_failed", errorName(error));
