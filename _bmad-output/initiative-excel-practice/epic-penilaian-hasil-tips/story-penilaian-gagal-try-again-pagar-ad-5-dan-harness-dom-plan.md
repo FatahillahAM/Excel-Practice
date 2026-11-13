@@ -3,7 +3,7 @@ title: 'Penilaian gagal, Try again, pagar AD-5, dan harness DOM'
 type: 'feature'
 ticket: '3'
 created: '2026-11-10'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
