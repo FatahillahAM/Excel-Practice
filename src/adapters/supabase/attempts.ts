@@ -27,6 +27,8 @@ export type { AttemptEvent, AttemptStatus } from "@/core/services/attempts";
 
 export interface Attempt {
   id: string;
+  /** The owner (RLS already limits session reads to the owner; callers that write on the service role check it again). */
+  userId: string;
   itemId: string;
   status: AttemptStatus;
   templateVersion: number;
@@ -86,7 +88,7 @@ const UNIQUE_VIOLATION = "23505";
 /** The partial unique index on attempts in progress (migration 20261102000001). */
 const IN_PROGRESS_INDEX = "attempts_one_in_progress_idx";
 export const ATTEMPT_COLUMNS =
-  "id, item_id, status, template_version, started_at, received_at, grading_requested_at, grading_restarts";
+  "id, user_id, item_id, status, template_version, started_at, received_at, grading_requested_at, grading_restarts";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** `attempt-files/<attemptId>/generated.xlsm` (Consistency Conventions › Storage paths). */
@@ -566,6 +568,7 @@ export async function abandon(supabase: SupabaseClient, attemptId: string): Prom
 
 interface AttemptRow {
   id: string;
+  user_id: string;
   item_id: string;
   status: AttemptStatus;
   template_version: number;
@@ -578,6 +581,7 @@ interface AttemptRow {
 function toAttempt(row: AttemptRow): Attempt {
   return {
     id: row.id,
+    userId: row.user_id,
     itemId: row.item_id,
     status: row.status,
     templateVersion: row.template_version,

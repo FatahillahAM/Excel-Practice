@@ -25,15 +25,17 @@ export type HintActionState =
 
 const FAILED = "hint.reveal_failed";
 const MAX_QUESTION = 99;
-const MAX_HINT_INDEX = 9;
+/** A sanity bound only: `reveal_hint` bounds the index by the snapshot's hints for that soal. */
+const MAX_HINT_INDEX = 99;
 
 /**
  * The exam screen's Hint Button (CAP-7, EXPERIENCE.md › Hint Button): reveals
  * hint `hintIndex` (0-based, the client's next index for that soal) of soal
  * `question` for the session user's attempt. Ownership and `open` come from
- * the session read (RLS); the write is `reveal_hint` on the service role
+ * the session read (RLS) and an explicit owner check; the write is `reveal_hint` on the service role
  * (AD-9: the session cannot read the snapshot or write `hint_reveals`), which
- * locks the attempt, checks `open` and the snapshot's quota again, and
+ * locks the attempt, checks `open`, the soal, the index against that soal's
+ * hints and the snapshot's quota again, and
  * records only the next index — so a double submit (same index) answers
  * `already` and spends nothing. Without a session: Login, then back to this
  * exam. A malformed id or numbers, someone else's attempt or any failure:
@@ -54,7 +56,7 @@ export async function revealHint(_previous: HintActionState, formData: FormData)
 
 /** A whole number from a form field, within `min`…`max`; `null` otherwise. */
 function intField(value: FormDataEntryValue | null, min: number, max: number): number | null {
-  if (typeof value !== "string" || !/^\d{1,3}$/.test(value)) return null;
+  if (typeof value !== "string" || !/^\d{1,2}$/.test(value)) return null;
   const n = Number(value);
   return n >= min && n <= max ? n : null;
 }
@@ -76,8 +78,15 @@ async function run(formData: FormData): Promise<HintActionState | { redirectTo: 
 
   const supabase = await createClient();
   const read = await readAttempt(supabase, validId);
-  // `!ok` was logged by the adapter; `null` is an attempt that is missing or not the user's.
-  if (!read.ok || read.value === null) return { status: "error" };
+  if (!read.ok) {
+    console.error(JSON.stringify({ event: FAILED, attemptId: validId, code: "session_read_failed" }));
+    return { status: "error" };
+  }
+  // RLS hides another user's attempt; the owner is checked again before the service-role write (AD-9).
+  if (read.value === null || read.value.userId !== user.id) {
+    console.error(JSON.stringify({ event: FAILED, code: "not_found" }));
+    return { status: "error" };
+  }
   if (read.value.status !== "open") {
     console.log(JSON.stringify({ event: "hint.refused", attemptId: validId, code: "not_open" }));
     return { status: "not_open" };

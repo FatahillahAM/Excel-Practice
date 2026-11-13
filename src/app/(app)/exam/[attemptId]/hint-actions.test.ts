@@ -29,6 +29,7 @@ const TEXT = "Kunci tarifnya dengan F4.";
 
 const attempt = (status: string) => ({
   id: ID,
+  userId: "user-1",
   itemId: "L01-P1",
   status,
   templateVersion: 1,
@@ -134,7 +135,7 @@ describe("revealHint (Server Action)", () => {
     ["soal 100", { question: "100" }],
     ["a fractional soal", { question: "1.5" }],
     ["a negative index", { hintIndex: "-1" }],
-    ["index 10", { hintIndex: "10" }],
+    ["index 100", { hintIndex: "100" }],
     ["no index", { hintIndex: null }],
   ])("%s: error, nothing read", async (_, fields) => {
     expect(await revealHint(IDLE, form(fields))).toEqual({ status: "error" });
@@ -142,12 +143,33 @@ describe("revealHint (Server Action)", () => {
     expect(mocks.revealHint).not.toHaveBeenCalled();
   });
 
-  it("someone else's (or a missing) attempt, or a failed read: error with nothing about it", async () => {
+  it("a missing attempt (RLS hides it): error with nothing about it", async () => {
     mocks.readAttempt.mockResolvedValue({ ok: true, value: null });
     expect(await revealHint(IDLE, form())).toEqual({ status: "error" });
+    expect(mocks.revealHint).not.toHaveBeenCalled();
+  });
+
+  it("an attempt of another user that the session read returned: error, no service-role call", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...attempt("open"), userId: "user-2" } });
+    expect(await revealHint(IDLE, form())).toEqual({ status: "error" });
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.revealHint).not.toHaveBeenCalled();
+    expect(lines(errors)).toEqual([{ event: "hint.reveal_failed", code: "not_found" }]);
+  });
+
+  it("a failed session read: error, logged hint.reveal_failed", async () => {
     mocks.readAttempt.mockResolvedValue({ ok: false });
     expect(await revealHint(IDLE, form())).toEqual({ status: "error" });
     expect(mocks.revealHint).not.toHaveBeenCalled();
+    expect(lines(errors)).toEqual([{ event: "hint.reveal_failed", attemptId: ID, code: "session_read_failed" }]);
+  });
+
+  it("passes an index up to 99 to the RPC (the snapshot bounds it there)", async () => {
+    mocks.revealHint.mockResolvedValue(answer("no_more_hints", { used: 0 }));
+    expect(await revealHint(IDLE, form({ hintIndex: "99" }))).toEqual({ status: "no_more_hints", used: 0, quota: 3 });
+    expect(mocks.revealHint).toHaveBeenCalledWith(SERVICE, ID, 2, 99);
+    await revealHint(IDLE, form({ hintIndex: "10", question: "99" }));
+    expect(mocks.revealHint).toHaveBeenLastCalledWith(SERVICE, ID, 99, 10);
   });
 
   it("without the service env, a failed RPC, or a throw: error", async () => {

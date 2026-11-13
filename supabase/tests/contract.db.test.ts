@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { fixtureSnapshot } from "../../src/content/levels/01-fondasi/__fixtures__/l01-p1";
 import { ATTEMPT_EVENTS, ATTEMPT_STATUSES, transition } from "../../src/core/services/attempts/lifecycle";
 
 /**
@@ -892,19 +893,9 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
   });
 
   describe("hint_reveals + reveal_hint (B5, AD-5, AD-9)", () => {
-    const hintsOf = (n: number, count: number) => Array.from({ length: count }, (_, i) => `Hint ${i + 1} soal ${n}.`);
-    /** A v2-like snapshot: quota 3, questions 1–4 with 3 hints each, question 5 with 1 hint. */
-    const HINT_SNAPSHOT = {
-      version: 2,
-      contentVersion: 1,
-      scenarioId: "baut-sinar-presisi",
-      seed: 42,
-      hintQuota: 3,
-      questions: [
-        ...[1, 2, 3, 4].map((n) => ({ number: n, points: 20, hints: hintsOf(n, 3) })),
-        { number: 5, points: 20, hints: hintsOf(5, 1) },
-      ],
-    };
+    /** The real L01-P1 snapshot as Start writes it: quota 3, questions 1–4 with 3 hints each. */
+    const HINT_SNAPSHOT = fixtureSnapshot();
+    const hintText = (question: number, index: number) => HINT_SNAPSHOT.questions[question - 1].hints[index];
     type Answer = { code: string; question: number; hintIndex: number; hint: string | null; used: number; quota: number };
 
     const reveal = (id: string, question: number, index: number) =>
@@ -914,6 +905,22 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       );
     const count = async (id: string) =>
       (await db.query("select count(*)::int as n from public.hint_reveals where attempt_id = $1", [id])).rows[0].n as number;
+    /** The service role's reads, as grading (`count`) and `readHintState` (columns, reveal order) run them. */
+    const serviceCount = (id: string) =>
+      asService(
+        async (q) =>
+          (await q.query("select count(*)::int as n from public.hint_reveals where attempt_id = $1", [id])).rows[0].n as number,
+      );
+    const serviceRows = (id: string) =>
+      asService(
+        async (q) =>
+          (
+            await q.query(
+              "select question_number, hint_index from public.hint_reveals where attempt_id = $1 order by revealed_at, hint_index",
+              [id],
+            )
+          ).rows,
+      );
     const insertAsSuper = (id: string, question: number, index: number) =>
       db.query("insert into public.hint_reveals (attempt_id, question_number, hint_index) values ($1, $2, $3)", [
         id,
@@ -921,26 +928,59 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
         index,
       ]);
 
+    it("uses the L01-P1 snapshot: quota 3, 4 questions with 3 hints", () => {
+      expect(HINT_SNAPSHOT.hintQuota).toBe(3);
+      expect(HINT_SNAPSHOT.questions.map((q) => q.hints.length)).toEqual([3, 3, 3, 3]);
+    });
+
     it("reveals up to the quota with the snapshot's text, then answers quota_used with no new row", async () => {
       const { id } = await attemptIn("open", HINT_SNAPSHOT);
       expect(await reveal(id, 2, 0)).toEqual({
         code: "revealed",
         question: 2,
         hintIndex: 0,
-        hint: "Hint 1 soal 2.",
+        hint: hintText(2, 0),
         used: 1,
         quota: 3,
       });
-      expect(await reveal(id, 2, 1)).toMatchObject({ code: "revealed", hint: "Hint 2 soal 2.", used: 2 });
-      expect(await reveal(id, 1, 0)).toMatchObject({ code: "revealed", hint: "Hint 1 soal 1.", used: 3 });
+      expect(await reveal(id, 2, 1)).toMatchObject({ code: "revealed", hint: hintText(2, 1), used: 2 });
+      expect(await reveal(id, 1, 0)).toMatchObject({ code: "revealed", hint: hintText(1, 0), used: 3 });
       expect(await reveal(id, 3, 0)).toMatchObject({ code: "quota_used", hint: null, used: 3, quota: 3 });
       expect(await count(id)).toBe(3);
+    });
+
+    it("chain: 3 reveals through reveal_hint → the service role counts 3 → the 4th is quota_used", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      for (const [question, index] of [
+        [1, 0],
+        [2, 0],
+        [2, 1],
+      ]) {
+        expect(await reveal(id, question, index)).toMatchObject({ code: "revealed" });
+      }
+      expect(await serviceCount(id)).toBe(3);
+      expect(await serviceRows(id)).toEqual([
+        { question_number: 1, hint_index: 0 },
+        { question_number: 2, hint_index: 0 },
+        { question_number: 2, hint_index: 1 },
+      ]);
+      expect(await reveal(id, 4, 0)).toMatchObject({ code: "quota_used", used: 3 });
+      expect(await serviceCount(id)).toBe(3);
+    });
+
+    it("the service role reads the count and the columns readHintState reads (0 rows for a fresh attempt)", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      expect(await serviceCount(id)).toBe(0);
+      expect(await serviceRows(id)).toEqual([]);
+      await reveal(id, 3, 0);
+      expect(await serviceCount(id)).toBe(1);
+      expect(await serviceRows(id)).toEqual([{ question_number: 3, hint_index: 0 }]);
     });
 
     it("answers the same index twice with already and the same text, writing one row", async () => {
       const { id } = await attemptIn("open", HINT_SNAPSHOT);
       expect(await reveal(id, 3, 0)).toMatchObject({ code: "revealed", used: 1 });
-      expect(await reveal(id, 3, 0)).toMatchObject({ code: "already", hint: "Hint 1 soal 3.", used: 1 });
+      expect(await reveal(id, 3, 0)).toMatchObject({ code: "already", hint: hintText(3, 0), used: 1 });
       expect(await count(id)).toBe(1);
     });
 
@@ -951,11 +991,11 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect(await count(id)).toBe(0);
     });
 
-    it("answers no_more_hints once the question's hints are all shown, while quota is left", async () => {
+    it("answers no_more_hints once the question's hints are all shown", async () => {
       const { id } = await attemptIn("open", HINT_SNAPSHOT);
-      expect(await reveal(id, 5, 0)).toMatchObject({ code: "revealed", used: 1 });
-      expect(await reveal(id, 5, 1)).toMatchObject({ code: "no_more_hints", hint: null, used: 1, quota: 3 });
-      expect(await count(id)).toBe(1);
+      for (const index of [0, 1, 2]) expect(await reveal(id, 4, index)).toMatchObject({ code: "revealed" });
+      expect(await reveal(id, 4, 3)).toMatchObject({ code: "no_more_hints", hint: null, used: 3, quota: 3 });
+      expect(await count(id)).toBe(3);
     });
 
     it("answers no_question, not_found and snapshot_invalid without a row", async () => {
@@ -986,7 +1026,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect(await count(id)).toBe(0);
     });
 
-    it("refuses direct insert, update and delete by the session and the service role (42501)", async () => {
+    it("refuses direct insert, update and delete by the session, the service role and anon (42501)", async () => {
       const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
       expect(await reveal(id, 1, 0)).toMatchObject({ code: "revealed" });
       const statements = [
@@ -1002,6 +1042,17 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect(await count(id)).toBe(1);
     });
 
+    it("cannot be read by the session (not even its own attempt's rows) or anon (42501)", async () => {
+      const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
+      await reveal(id, 4, 0);
+      await expectSqlError(
+        asUser(uid, (q) => q.query("select question_number, hint_index from public.hint_reveals where attempt_id = $1", [id])),
+        "42501",
+      );
+      await expectSqlError(asUser(uid, (q) => q.query("select count(*) from public.hint_reveals")), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select * from public.hint_reveals")), "42501");
+    });
+
     it("superuser: refuses an insert for an attempt that is not open (hint_reveals_open_only)", async () => {
       const { id } = await attemptIn("received", HINT_SNAPSHOT);
       await expectSqlError(insertAsSuper(id, 1, 0), "23514", "hint_reveals_open_only");
@@ -1011,26 +1062,64 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     it("superuser: refuses the row past the quota (hint_reveals_quota), and a duplicate (23505)", async () => {
       const { id } = await attemptIn("open", HINT_SNAPSHOT);
       await insertAsSuper(id, 1, 0);
-      await expectSqlError(insertAsSuper(id, 1, 0), "23505");
+      // The duplicate is also not the next index: the fence refuses it before the primary key does.
+      await expectSqlError(insertAsSuper(id, 1, 0), "23514", "hint_reveals_order");
       await insertAsSuper(id, 1, 1);
       await insertAsSuper(id, 2, 0);
       await expectSqlError(insertAsSuper(id, 3, 0), "23514", "hint_reveals_quota");
       expect(await count(id)).toBe(3);
-      const bare = await attemptIn("open");
-      await expectSqlError(insertAsSuper(bare.id, 1, 0), "23514", "hint_reveals_quota");
     });
 
-    it("is read by the owner only; anon has no access", async () => {
-      const { uid, id } = await attemptIn("open", HINT_SNAPSHOT);
-      await reveal(id, 4, 0);
-      const own = await asUser(uid, (q) =>
-        q.query("select question_number, hint_index from public.hint_reveals where attempt_id = $1", [id]),
+    it("superuser: the primary key still refuses a duplicate once the fence is out of the way (23505)", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      await insertAsSuper(id, 1, 0);
+      await db.query("alter table public.hint_reveals disable trigger hint_reveals_fence");
+      try {
+        await expectSqlError(insertAsSuper(id, 1, 0), "23505");
+      } finally {
+        await db.query("alter table public.hint_reveals enable trigger hint_reveals_fence");
+      }
+    });
+
+    it.each([
+      ["a gap (index 1 before index 0)", [] as [number, number][], [1, 1]],
+      ["a gap after one hint (index 2 after index 0)", [[1, 0]] as [number, number][], [1, 2]],
+      ["a question the snapshot does not have", [] as [number, number][], [9, 0]],
+      ["an index past the question's hints", [[4, 0], [4, 1], [4, 2]] as [number, number][], [4, 3]],
+    ])("superuser: refuses %s (hint_reveals_order)", async (_, before, [question, index]) => {
+      // Quota 10 so only the order rule can refuse.
+      const { id } = await attemptIn("open", { ...HINT_SNAPSHOT, hintQuota: 10 });
+      for (const [q, i] of before) await insertAsSuper(id, q, i);
+      await expectSqlError(insertAsSuper(id, question, index), "23514", "hint_reveals_order");
+      expect(await count(id)).toBe(before.length);
+    });
+
+    it("superuser: refuses any row for an attempt without a snapshot", async () => {
+      const bare = await attemptIn("open");
+      await expectSqlError(insertAsSuper(bare.id, 1, 0), "23514", "hint_reveals_order");
+    });
+
+    it("stamps revealed_at with the statement's clock, so reveals in one transaction keep their order", async () => {
+      const { id } = await attemptIn("open", HINT_SNAPSHOT);
+      await db.query("begin");
+      try {
+        await insertAsSuper(id, 1, 0);
+        await insertAsSuper(id, 1, 1);
+        await db.query("commit");
+      } catch (error) {
+        await db.query("rollback");
+        throw error;
+      }
+      const { rows } = await db.query(
+        "select hint_index, revealed_at from public.hint_reveals where attempt_id = $1 order by hint_index",
+        [id],
       );
-      expect(own.rows).toEqual([{ question_number: 4, hint_index: 0 }]);
-      const stranger = await newUser();
-      const seen = await asUser(stranger, (q) => q.query("select * from public.hint_reveals"));
-      expect(seen.rowCount).toBe(0);
-      await expectSqlError(as("anon", null, (q) => q.query("select * from public.hint_reveals")), "42501");
+      expect((rows[1].revealed_at as Date).getTime()).toBeGreaterThanOrEqual((rows[0].revealed_at as Date).getTime());
+      const { rows: distinct } = await db.query(
+        "select count(distinct revealed_at)::int as n from public.hint_reveals where attempt_id = $1",
+        [id],
+      );
+      expect(distinct[0].n).toBe(2);
     });
 
     it("goes with its attempt when the attempt is deleted (the owner's Start compensation)", async () => {

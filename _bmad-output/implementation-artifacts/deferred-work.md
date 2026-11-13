@@ -133,3 +133,15 @@
   summary: Every question needs 1–3 hints even when the level's `hintQuota` is 0 (the Ujian Akhir allows none).
   evidence: 3.4 review; revisit when the Ujian Akhir content is written (hints optional, or not stored, when the quota is 0).
   status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-hint-dari-awal-sampai-akhir-plan.md`
+  summary: Deploying the code before migration 20261113000001 breaks grading (`loadForGrading` counts `hint_reveals`: every load fails, U4 restarts, then `grading_failed`) and the hint group; only the AD-13 order (migration first) guards it.
+  evidence: 3.5 review; no runtime fallback when the table is missing.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-hint-dari-awal-sampai-akhir-plan.md`
+  summary: Rows written past the fence (trigger disabled, or a restore) can make `hintsUsed` exceed `hintQuota`; `grade()` throws, the attempt goes `grading_failed`, and Try again repeats the same failure.
+  evidence: 3.5 review; the fence makes it unreachable through any role while the trigger is on — fix the data by hand if it ever happens.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-hint-dari-awal-sampai-akhir-plan.md`
+  summary: A snapshot written outside the app with a fractional `hintQuota` or question `number` (e.g. `3.0`) is read by `reveal_hint` / the fence as invalid (quota 0, `snapshot_invalid`, or no such question), while zod may accept it differently.
+  evidence: 3.5 review; the app writes only integers (`examSnapshotSchema`), so this needs a hand-written snapshot.
+  status: open

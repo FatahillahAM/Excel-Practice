@@ -3,7 +3,7 @@ title: 'Hint dari awal sampai akhir'
 type: 'feature'
 ticket: '5'
 created: '2026-11-13'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -122,13 +122,44 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - `HintActionState` for `not_open` from the session read carries no `used`/`quota` (no RPC was called); from the RPC it does.
 - `already` is not logged (no new deduction); `hint.refused` covers `quota_used`, `no_more_hints`, `out_of_order`, `not_open`; `not_found` / `no_question` / `snapshot_invalid` from the RPC map to `error` and log `hint.reveal_failed` with that code.
 - The repo has no jest-dom: the DOM tests assert attributes, text and `document.activeElement` directly. `src/test/dom.ts` gained no-op `hasPointerCapture` / `setPointerCapture` / `releasePointerCapture` / `scrollIntoView` stubs for Radix Select.
+- Review patches (see Plan Change Log): the read-only revealed list reuses `RevealedHintList` from `hint-panel.tsx`; the immediate poll after `not_open` is a ref read by the poll effect (delay 0 once); the status-line notices are English chrome constants (`hintNotices` in `hint-panel.tsx`), not `id.ts` messages.
 - Local checks: `npm run lint`, `npx tsc --noEmit`, `npm test`, `npm run build`, `npm run test:db` (local Postgres 16 only; `schema_version` = `20261113000001`) all pass. The migration was not applied to any remote database.
 
 ## Plan Change Log
 
+- 2026-11-13 (review of 3.5, four lenses; migration not applied anywhere, so edited in place):
+  - `hint_reveals`: the session's `select` grant and owner policy are dropped (nothing used them; RLS stays on with no policy) — Design Notes' "the session may `select` its own reveal rows" no longer holds. `revealed_at` defaults to `clock_timestamp()`. The fence also refuses (23514 `hint_reveals_order`) a question the snapshot does not have, an index that is not the question's next one, and an index past the question's hints. Contract tests use the real L01-P1 snapshot (`fixtureSnapshot()`), read as the service role, and check the session cannot read.
+  - Server Action: explicit owner check (`attempt.userId === user.id`, `Attempt` gains `userId`, `user_id` added to `ATTEMPT_COLUMNS`) after the session read; a failed session read logs `hint.reveal_failed`; `hintIndex` 0–99 (the snapshot bounds it through the RPC).
+  - Exam page: hint state is also read for `received` / `grading_failed`; a legacy/invalid snapshot logs info `exam.hint_state_unavailable` instead of error.
+  - UI: the hint state lives in `ExamStatus` (HintPanel is controlled); revealed hints stay on screen read-only after `open`, and a reveal resolving after that still joins them; a refresh replaces local state only when the server's `used` ≥ local (or right after `out_of_order`); a polite status line says "Hint revealed, K hints left." and gives feedback for `quota_used` / `no_more_hints` / `out_of_order`, focus on the button; `not_open` also polls the status at once; the Select has a visible "Hint for" label and `aria-labelledby` (label + value); the Select + button row wraps.
+  - Rejected: moving `already` after the quota check (an `already` answer returns the same text at no charge, which is correct).
+
 ## Review Triage Log
 
-Paused 2026-11-13 at the user's request: all four review lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment) were stopped before reporting; re-run all four on resume. Migration 20261113000001_hint_reveals is not applied anywhere.
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), re-run 2026-11-13 after the pause.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | service_role SELECT grant on `hint_reveals` untested (deleting it kept every test green; grading would fail in prod) | patched — contract tests read as service role |
+| 2 | Session SELECT grant + owner policy unused | patched — dropped; RLS on, service role only |
+| 3 | Contract tests use a hand-written snapshot; no real chain reveal → count → quota | patched — L01-P1 `fixtureSnapshot()`, 3 reveals → count 3 → 4th `quota_used` |
+| 4 | Fence allows gaps, unknown questions, indices past the hints | patched — `hint_reveals_order` (23514) |
+| 5 | `revealed_at` = transaction start, wrong order after reload | patched — `clock_timestamp()` |
+| 6 | A hint charged then lost when upload unmounts the panel | patched — revealed hints stay read-only after `open`; page reads them for received/grading_failed |
+| 7 | `quota_used` / `no_more_hints` / `out_of_order` silent; `not_open` leaves status stale | patched — polite status line, focus kept; immediate status poll |
+| 8 | Refresh can wipe a newer local reveal | patched — replace only when server `used` ≥ local |
+| 9 | Select accessible name hides the selected soal; combined live announcement; narrow-screen overflow | patched |
+| 10 | No explicit owner check; session-read failure not logged; hint index capped at 9 | patched |
+| 11 | Legacy snapshot logs error on every render | patched — info `exam.hint_state_unavailable` |
+| 12 | `unstable_rethrow`, submit lock, focus assertions untested or vacuous | patched — DOM tests (mutation-checked) |
+| 13 | Spine AD-9 sentence garbled; Production check's 4th-hint step ambiguous | patched |
+| 14 | 4th hint from an old tab on an already-opened index answers `already` | rejected — same text, no charge; Production check picks an unopened soal |
+| 15 | Code deployed before migration fails grading | deferred — AD-13 order (dev → prod before merge) |
+| 16 | Rows written past the fence → `hintsUsed > quota` loops on Try again | deferred |
+| 17 | Fractional jsonb numbers in hand-written snapshots | deferred — app never writes them |
+
+Checks after patches: lint, typecheck, test (65 files, 1260), build, test:db (126) pass.
+
 
 ## Design Notes
 
@@ -160,5 +191,5 @@ select count(*) into v_next from public.hint_reveals where attempt_id = p_attemp
 
 **Production check (orchestrator/user, after merge; not hitl):**
 - Before the code deploys: migration `20261113000001_hint_reveals` applied to `dev`, then `prod`; `/health` shows `20261113000001` in both. In `dev` SQL inside `begin … rollback`: superuser insert into `hint_reveals` for a `graded` attempt fails with `hint_reveals_open_only`.
-- Laptop, Production: Start L01-P1; open 3 hints (e.g. Soal 1, then Soal 2 twice) — each shows inline with focus, quota 2 → 1 → 0, then "No hints left"; a 4th attempt (second tab with the old page) is refused with no new row; reload the exam page → the 3 hints and "No hints left" come back.
+- Laptop, Production: Start L01-P1; open 3 hints (e.g. Soal 1, then Soal 2 twice) — each shows inline with focus, quota 2 → 1 → 0, then "No hints left"; a 4th attempt (second tab opened before the reveals, with the old page: pick a soal with no hint opened yet, e.g. Soal 3 — an index already opened answers `already`, which is correct and free) is refused with "No hints left." and no new row; reload the exam page → the 3 hints and "No hints left" come back. After Finish, the 3 revealed hints stay on the exam screen (read-only) while the file is graded.
 - Finish a fully correct file → Results shows 85/100; read-only SQL: `select count(*) from hint_reveals where attempt_id = '<id>'` = 3, `result->>'hintsUsed'` = 3, `result->>'hintPenalty'` = 15; runtime logs show three `hint.revealed`, one `hint.refused` and no `hint.reveal_failed`.

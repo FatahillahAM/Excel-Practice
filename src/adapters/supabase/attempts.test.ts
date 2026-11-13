@@ -246,6 +246,7 @@ describe("findOpenAttemptId", () => {
 describe("readAttempt", () => {
   const row = {
     id: ID,
+    user_id: "user-1",
     item_id: "L01-P1",
     status: "open",
     template_version: 1,
@@ -261,6 +262,7 @@ describe("readAttempt", () => {
       ok: true,
       value: {
         id: ID,
+        userId: "user-1",
         itemId: "L01-P1",
         status: "open",
         templateVersion: 1,

@@ -14,8 +14,11 @@
 -- is granted insert, update or delete on the table.
 --
 -- The fence below refuses, for every role (superuser included), an insert for
--- an attempt that is not `open` (23514 `hint_reveals_open_only`) or past the
--- snapshot's `hintQuota` (23514 `hint_reveals_quota`).
+-- an attempt that is not `open` (23514 `hint_reveals_open_only`); for a
+-- question the snapshot does not have, an index that is not the question's
+-- next one, or an index past the question's hints (23514
+-- `hint_reveals_order`); or past the snapshot's `hintQuota` (23514
+-- `hint_reveals_quota`).
 --
 -- Deploy order (AD-13): apply this migration before the code that reads it.
 -- Grading counts `hint_reveals` when it loads an attempt; without the table
@@ -26,36 +29,27 @@ create table public.hint_reveals (
   attempt_id uuid not null references public.attempts (id) on delete cascade,
   question_number integer not null check (question_number >= 1),
   hint_index integer not null check (hint_index >= 0),
-  revealed_at timestamptz not null default now(),
+  -- The statement's own clock: two reveals in one transaction keep their order.
+  revealed_at timestamptz not null default clock_timestamp(),
   primary key (attempt_id, question_number, hint_index)
 );
 
 -- (2) RLS and grants. Supabase's default privileges on `public` grant every
--- API role every table privilege: take them all back, then grant only reads.
+-- API role every table privilege: take them all back, then grant only what
+-- the server paths need. RLS stays on with no policy, so the session (and
+-- anon) can neither read nor write the table: the exam page reads hint state
+-- with the service role, because the quota and texts are in the snapshot.
 alter table public.hint_reveals enable row level security;
 
 revoke all on public.hint_reveals from anon, authenticated, service_role;
--- The session reads its own attempt's reveals (AD-9: owner-only policy on an
--- exposed table); the exam page itself reads hint state with the service
--- role, because the quota and texts are in the snapshot.
-grant select on public.hint_reveals to authenticated;
 -- Grading counts the reveals; the exam page reads them (service role, AD-9).
 grant select on public.hint_reveals to service_role;
 
-create policy "hint reveals are readable by the attempt's owner"
-  on public.hint_reveals for select
-  to authenticated
-  using (
-    exists (
-      select 1 from public.attempts a
-      where a.id = attempt_id
-        and a.user_id = (select auth.uid())
-    )
-  );
-
--- (3) The fence, for every role: the attempt (locked) must be `open`, and the
--- attempt's reveals so far must stay under the snapshot's `hintQuota`
--- (a missing or non-integer quota counts as 0).
+-- (3) The fence, for every role: the attempt (locked) must be `open`; the
+-- question must be in the snapshot, the index must be the question's next one
+-- (hints open in order, no gap) and within its hints; and the attempt's
+-- reveals so far must stay under the snapshot's `hintQuota` (a missing or
+-- non-integer quota counts as 0).
 create or replace function public.hint_reveals_fence()
 returns trigger
 language plpgsql
@@ -66,6 +60,9 @@ declare
   v_snapshot jsonb;
   v_quota integer;
   v_used integer;
+  v_next integer;
+  v_question jsonb;
+  v_hint_count integer;
 begin
   select a.status, a.snapshot into v_status, v_snapshot
     from public.attempts a
@@ -75,6 +72,25 @@ begin
   if v_status is distinct from 'open' then
     raise exception 'hint_reveals: attempt % is not open', new.attempt_id
       using errcode = 'check_violation', constraint = 'hint_reveals_open_only';
+  end if;
+
+  if coalesce(jsonb_typeof(v_snapshot -> 'questions'), '') = 'array' then
+    select q into v_question
+      from jsonb_array_elements(v_snapshot -> 'questions') q
+      where jsonb_typeof(q -> 'number') = 'number' and (q ->> 'number') = new.question_number::text
+      limit 1;
+  end if;
+  v_hint_count := case
+    when jsonb_typeof(v_question -> 'hints') = 'array' then jsonb_array_length(v_question -> 'hints')
+    else 0
+  end;
+  select count(*) into v_next
+    from public.hint_reveals r
+    where r.attempt_id = new.attempt_id and r.question_number = new.question_number;
+
+  if v_question is null or new.hint_index <> v_next or new.hint_index >= v_hint_count then
+    raise exception 'hint_reveals: question % hint % is not the next hint of the snapshot', new.question_number, new.hint_index
+      using errcode = 'check_violation', constraint = 'hint_reveals_order';
   end if;
 
   v_quota := case

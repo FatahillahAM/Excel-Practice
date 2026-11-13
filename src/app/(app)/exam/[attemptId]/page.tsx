@@ -18,6 +18,9 @@ import { ExamStatus } from "./exam-status";
 
 export const metadata: Metadata = { title: surfaceTitle("Exam"), robots: { index: false } };
 
+/** Statuses whose exam screen shows hints: the hint group while `open`, the revealed hints read-only after. */
+const HINT_STATUSES: readonly Attempt["status"][] = ["open", "received", "grading_failed"];
+
 const CARD = "flex flex-col gap-4 rounded-lg border border-border bg-card p-4";
 
 /**
@@ -25,7 +28,8 @@ const CARD = "flex flex-col gap-4 rounded-lg border border-border bg-card p-4";
  * centered column without a card or visible heading — Orbit Loader, Exam
  * Status Line (time since Start, from the server: AD-8), the hint group
  * (Hint Select + Hint Button) beside the Upload Dropzone and the revealed
- * hints while open, Setup Guide link. The hint state (quota, soal, revealed
+ * hints while open (the revealed hints stay, read-only, while the file is
+ * graded), Setup Guide link. The hint state (quota, soal, revealed
  * hints) comes from the server on every render (reload, Resume): read with
  * the service role after the session read proved the attempt is the user's
  * (AD-9); if that read fails, the exam works without the hint group.
@@ -99,7 +103,8 @@ async function loadAttempt(attemptId: string, path: string): Promise<LoadedAttem
       if (valid.value) redirect(`/results/${encodeURIComponent(read.value.id)}`);
     }
     const attempt = read.value;
-    const hints = attempt.status === "open" ? await loadHints(attempt.id) : null;
+    // In progress: the hint group while open; afterwards the revealed hints stay on screen read-only.
+    const hints = HINT_STATUSES.includes(attempt.status) ? await loadHints(attempt.id) : null;
     // After the session reads: request time, so the page is dynamic.
     const now = Date.now();
     const receivedFrom = attempt.gradingRequestedAt ?? attempt.receivedAt;
@@ -119,11 +124,11 @@ async function loadAttempt(attemptId: string, path: string): Promise<LoadedAttem
 }
 
 /**
- * The open attempt's hint state, on the service role (the snapshot holds the
- * quota and texts; AD-9), called only after the session read proved the
- * attempt is the user's. `null` when the env is missing, the read fails or
- * throws, or the snapshot is not a valid v2 one (logged
- * `exam.hint_state_failed`): the page renders without the hint group.
+ * The in-progress attempt's hint state, on the service role (the snapshot
+ * holds the quota and texts; AD-9), called only after the session read proved
+ * the attempt is the user's. `null` when the env is missing or the read fails
+ * or throws (error `exam.hint_state_failed`), or the snapshot is not a valid
+ * v2 one (info `exam.hint_state_unavailable`): the page renders without hints.
  */
 async function loadHints(attemptId: string): Promise<HintState | null> {
   try {
@@ -138,7 +143,8 @@ async function loadHints(attemptId: string): Promise<HintState | null> {
       return null;
     }
     if (read.value === null) {
-      console.error(JSON.stringify({ event: "exam.hint_state_failed", attemptId, code: "snapshot_invalid" }));
+      // A tracer or legacy (v1) snapshot has no hints: expected, not a fault.
+      console.log(JSON.stringify({ event: "exam.hint_state_unavailable", attemptId }));
       return null;
     }
     return read.value;
