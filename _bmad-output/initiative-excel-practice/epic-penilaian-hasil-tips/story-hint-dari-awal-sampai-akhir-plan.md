@@ -128,6 +128,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 ## Review Triage Log
 
+Paused 2026-11-13 at the user's request: all four review lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment) were stopped before reporting; re-run all four on resume. Migration 20261113000001_hint_reveals is not applied anywhere.
+
 ## Design Notes
 
 - [ASSUMPTION] Hint text is not copied into `hint_reveals`: the RPC and the page read it from the snapshot (AD-3 source of truth). The session may `select` its own reveal rows (owner-only policy, AD-9 rule for exposed tables), but the page's state comes from the service-role read because quota, question numbers and texts live in the snapshot the session cannot read.
