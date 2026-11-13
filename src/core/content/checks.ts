@@ -60,24 +60,66 @@ export type Check = z.infer<typeof checkSchema>;
 export const KEY_TOLERANCE = 1e-9;
 
 /**
- * Function names only Microsoft 365 has (`level-curriculum.md` › Dilarang):
- * Excel 2021 cannot run them, so no question, Instructions text, hint, Tip or
- * level function list may name them.
+ * Function names only Microsoft 365 has (`level-curriculum.md` › Dilarang,
+ * plus the other Microsoft 365-only functions): Excel 2021 cannot run them, so
+ * no question, Instructions text, hint, Tip or level function list may name them.
  */
-export const M365_ONLY_FUNCTIONS = ["LAMBDA", "TEXTSPLIT", "VSTACK", "HSTACK", "TAKE", "DROP", "GROUPBY", "PIVOTBY"] as const;
+export const M365_ONLY_FUNCTIONS = [
+  "LAMBDA",
+  "TEXTSPLIT",
+  "VSTACK",
+  "HSTACK",
+  "TAKE",
+  "DROP",
+  "GROUPBY",
+  "PIVOTBY",
+  "TEXTBEFORE",
+  "TEXTAFTER",
+  "TOCOL",
+  "TOROW",
+  "WRAPROWS",
+  "WRAPCOLS",
+  "CHOOSEROWS",
+  "CHOOSECOLS",
+  "EXPAND",
+  "BYROW",
+  "BYCOL",
+  "MAP",
+  "REDUCE",
+  "SCAN",
+  "MAKEARRAY",
+  "ISOMITTED",
+  "IMAGE",
+  "REGEXTEST",
+  "REGEXEXTRACT",
+  "REGEXREPLACE",
+  "PERCENTOF",
+  "TRIMRANGE",
+] as const;
 
-// Whole word: no letter, digit or `_` around it, and not part of a dotted name (`T.TAKE`, `TAKE.X`);
-// a sentence's full stop still ends the word.
+const M365_NAMES = M365_ONLY_FUNCTIONS.join("|");
+// Not part of a longer or dotted name (`XTAKE`, `T.TAKE`, `TAKE.X`); a sentence's full stop still ends the word.
+const BEFORE = "(?<![A-Za-z0-9_]|[A-Za-z0-9_]\\.)";
+// Either the bare name in uppercase (`pakai VSTACK`, `=TAKE(`), or the name in any case written as a
+// call (`=take(`, `Take(`): ordinary prose (`take a break`, `peta map`) does not match.
 const M365_RE = new RegExp(
-  `(?<![A-Za-z0-9_]|[A-Za-z0-9_]\\.)(${M365_ONLY_FUNCTIONS.join("|")})(?![A-Za-z0-9_]|\\.[A-Za-z0-9_])`,
-  "g",
+  `${BEFORE}(?:(${M365_NAMES})(?=\\()|(${M365_NAMES})(?![A-Za-z0-9_]|\\.[A-Za-z0-9_]))`,
+  "gi",
 );
+const UPPERCASE_NAME = new Set<string>(M365_ONLY_FUNCTIONS);
 
 /**
- * The Microsoft 365-only function names in `text`, each once, in order of
- * appearance: whole words in uppercase, as Excel names are written in content
- * (`=TAKE(`, `pakai VSTACK`); Indonesian or English prose in lowercase does not match.
+ * The Microsoft 365-only function names in `text` (in uppercase), each once, in
+ * order of appearance: whole words in uppercase, as Excel names are written in
+ * content (`pakai VSTACK`), or a call in any case (`=take(A1:A9,3)`, `Lambda(x`).
+ * Lowercase or capitalized prose without a `(` does not match.
  */
 export function findM365Functions(text: string): string[] {
-  return [...new Set(Array.from(text.matchAll(M365_RE), (match) => match[1]))];
+  const names: string[] = [];
+  for (const match of text.matchAll(M365_RE)) {
+    // A call counts in any case; the bare-word branch matched case-insensitively and counts only in uppercase.
+    const name = match[1] !== undefined ? match[1].toUpperCase() : UPPERCASE_NAME.has(match[2]) ? match[2] : null;
+    if (name !== null) names.push(name);
+  }
+  return [...new Set(names)];
 }

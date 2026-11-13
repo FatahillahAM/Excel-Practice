@@ -3,7 +3,7 @@ title: 'Kontrak hint dan Tips, snapshot v2, konten L01-P1'
 type: 'feature'
 ticket: '4'
 created: '2026-11-13'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -104,7 +104,36 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 ## Plan Change Log
 
+- 2026-11-13 (review of 3.4, four lenses): content — Q1 hint 2 is a general hint instead of a click-by-click recipe; Q4 hint 3 no longer writes the required references (`$N2`, `O$1`), explains the F4 cycle on A1 and names the part to lock in words, and fills O2:R2 with Ctrl+R then O2:R{gridLast} with Ctrl+D; Tip `l01-format-persen` uses the prompts' decimal dot (0.25) and says the status bar Sum (Jumlah) shows 100% once the cells are formatted as percent. Design Notes › Content updated to match. `contentVersion` stays 2 (not yet deployed).
+- 2026-11-13 (review): `findM365Functions` also matches a call in any case (`take(`, `Vstack(`), still the bare name only in uppercase so prose (`take a break`, `Map the data`) does not match; `M365_ONLY_FUNCTIONS` gains TEXTBEFORE, TEXTAFTER, TOCOL, TOROW, WRAPROWS, WRAPCOLS, CHOOSEROWS, CHOOSECOLS, EXPAND, BYROW, BYCOL, MAP, REDUCE, SCAN, MAKEARRAY, ISOMITTED, IMAGE, REGEXTEST, REGEXEXTRACT, REGEXREPLACE, PERCENTOF, TRIMRANGE (30 names; `level-curriculum.md` › Dilarang still lists the original 8). The same check runs on Instructions, Data, prompts, `uses_functions`, hints and Tips.
+- 2026-11-13 (review): `defineLevelModule` generates every item × scenario with `TIP_CHECK_SEEDS` (1–5), validates each exam and compares Tips across all of them, not only seed 1.
+- 2026-11-13 (review): Tip shortcuts must match `SHORTCUT_RE` (Excel key names, modifiers `Ctrl`/`Shift`/`Alt`/`Fn` joined with `+` to one key, or one key alone such as `F4`); `ctrl d`, `F4 lalu Enter`, `Ctrl++` are refused.
+- 2026-11-13 (review): `hintQuota` is bounded 0–20 (`MAX_HINT_QUOTA`) in both `levelModuleSchema` and `examSnapshotSchema`.
+- 2026-11-13 (review): golden expected Results take each Tip from the `TIPS` constants instead of the snapshot under test.
+
 ## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), 2026-11-13.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | Q1 hint 2 dictates the full formula click by click | patched — general hint |
+| 2 | Q4 hint 3 spells out required reference `$N2`; its fill steps (Ctrl+R/Ctrl+D on O2 alone) overwrite the formula | patched — generic F4 cycle, correct block-then-fill steps |
+| 3 | Percent Tip uses comma decimal unlike the prompts; status bar shows 100% only once formatted | patched |
+| 4 | M365 check case-sensitive and list incomplete (TEXTBEFORE, CHOOSECOLS, …) | patched — calls matched in any case, 30 names |
+| 5 | "One Tip id, one content" checked at seed 1 only | patched — seeds 1–5 × scenarios at load |
+| 6 | Shortcut format unchecked (`ctrl d`, `Ctrl++`) | patched — `SHORTCUT_RE` |
+| 7 | `hintQuota` unbounded; not shown to come from the level | patched — 0..20; start-actions test with quota 2 |
+| 8 | Leak test only whole formulas / JS number format; Tips unchecked | patched — required refs verbatim, id-ID/percent formats, Tip bodies |
+| 9 | Rejection tests don't assert issue paths; golden Tips copied from the snapshot under test | patched |
+| 10 | v1-snapshot attempts fail and loop on Try again | deferred — U5; prod checked for running attempts before merge |
+| 11 | Tip-id uniqueness across levels | deferred — 3.9 |
+| 12 | `grade()` doesn't compare `hintsUsed` with `hintQuota` | deferred — 3.5 |
+| 13 | Hints required while `hintQuota` may be 0 (Ujian Akhir) | deferred |
+| 14 | `tipSchema` in Result now requires kebab-case id | accepted — every stored Result has `tip: null` |
+| 15 | Q2 hints together reconstruct the formula | accepted — last hint teaches the F4 technique by design; checks still require the formula |
+
+Checks after patches: lint, typecheck, test (61 files, 1169), build pass.
 
 ## Design Notes
 
@@ -120,7 +149,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 **Soal 1 — Total Biaya (H2:H{last})**
 1. "Total Biaya cukup dihitung dari dua kolom di baris yang sama: Unit Diproduksi dan Biaya per Unit."
-2. "Di H2, ketik = lalu klik sel Unit Diproduksi baris 2, ketik *, lalu klik sel Biaya per Unit baris 2. Jangan ketik angkanya: rumus harus merujuk sel."
+2. "Rumus dimulai dengan = dan merujuk sel di baris yang sama, bukan angka yang diketik."
 3. "Kedua referensi memang harus ikut bergeser per baris, jadi tidak perlu tanda $. Setelah H2 benar, blok H2:H{last} lalu tekan Ctrl+D."
 - Tip `l01-isi-rumus-sekaligus` · "Isi rumus ke bawah sekaligus" · "Blok sel dari rumus paling atas sampai baris terakhir data, lalu tekan Ctrl+D: rumus di sel atas disalin ke semua sel yang diblok. Cara lain: blok dulu seluruh range, ketik rumusnya, lalu tekan Ctrl+Enter supaya semua sel terisi sekaligus." · `["Ctrl+D", "Ctrl+Enter"]`
 
@@ -134,12 +163,12 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 1. "Porsi = unit batch itu dibagi total unit semua batch. Pembilangnya berubah per baris, penyebutnya selalu total yang sama."
 2. "Saat rumus disalin ke bawah, range di dalam SUM ikut bergeser kalau tidak dikunci, jadi total di baris bawah tidak lagi mencakup semua batch."
 3. "Di dalam SUM, blok range E2:E{last} lalu tekan F4 sekali supaya awal dan akhir range sama-sama terkunci. Unit batch di pembilang tetap tanpa $."
-- Tip `l01-format-persen` · "Tampilkan porsi sebagai persen" · "Hasil pembagian seperti 0,25 lebih mudah dibaca sebagai 25%. Blok selnya lalu tekan Ctrl+Shift+%: hanya tampilannya yang berubah, nilainya tetap sama. Untuk cek cepat, blok semua porsi dan lihat Sum di status bar: totalnya harus 100%." · `["Ctrl+Shift+%"]`
+- Tip `l01-format-persen` · "Tampilkan porsi sebagai persen" · "Hasil pembagian seperti 0.25 lebih mudah dibaca sebagai 25%. Blok selnya lalu tekan Ctrl+Shift+%: hanya tampilannya yang berubah, nilainya tetap sama. Untuk cek cepat, blok semua porsi yang sudah diformat persen lalu lihat Sum (Jumlah) di status bar: hasilnya harus 100%." · `["Ctrl+Shift+%"]`
 
 **Soal 4 — Simulasi kenaikan biaya (O2:R{gridLast})**
 1. "Setiap sel di O2:R{gridLast} memakai dua angka: Biaya Dasar di kolom N pada baris yang sama, dan persentase kenaikan di baris 1 pada kolom yang sama."
 2. "Saat disalin ke kanan, rujukan ke kolom N tidak boleh pindah kolom; saat disalin ke bawah, rujukan ke baris 1 tidak boleh pindah baris. Ini referensi campuran: hanya satu bagian yang dikunci."
-3. "Tekan F4 berulang untuk berganti bentuk: N2 → $N$2 → N$2 → $N2. Kunci kolomnya saja untuk Biaya Dasar dan barisnya saja untuk persentase, lalu isi O2 ke kanan (Ctrl+R) dan ke bawah (Ctrl+D)."
+3. "Tekan F4 berulang untuk berganti bentuk referensi: A1 → $A$1 → A$1 → $A1. Untuk Biaya Dasar kunci kolomnya saja, untuk persentase kunci barisnya saja. Setelah O2 benar, blok O2:R2 lalu Ctrl+R, kemudian blok O2:R{gridLast} lalu Ctrl+D."
 - Tip `l01-referensi-campuran` · "Satu rumus untuk tabel dua arah" · "Di tabel yang dibaca dari judul kiri dan judul atas, kunci kolom untuk judul kiri ($A2) dan baris untuk judul atas (B$1). Tulis rumus di sel pojok kiri atas, blok baris pertama lalu Ctrl+R, kemudian blok seluruh tabel lalu Ctrl+D." · `["F4", "Ctrl+R", "Ctrl+D"]`
 
 ## Verification

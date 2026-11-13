@@ -72,8 +72,8 @@ export const TIPS = {
     id: "l01-format-persen",
     title: "Tampilkan porsi sebagai persen",
     body:
-      "Hasil pembagian seperti 0,25 lebih mudah dibaca sebagai 25%. Blok selnya lalu tekan Ctrl+Shift+%: hanya tampilannya yang berubah, nilainya tetap sama. " +
-      "Untuk cek cepat, blok semua porsi dan lihat Sum di status bar: totalnya harus 100%.",
+      "Hasil pembagian seperti 0.25 lebih mudah dibaca sebagai 25%. Blok selnya lalu tekan Ctrl+Shift+%: hanya tampilannya yang berubah, nilainya tetap sama. " +
+      "Untuk cek cepat, blok semua porsi yang sudah diformat persen lalu lihat Sum (Jumlah) di status bar: hasilnya harus 100%.",
     shortcuts: ["Ctrl+Shift+%"],
   },
   mixed: {
@@ -161,7 +161,7 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       key: columnKey("H", (row) => row.units * row.cost),
       hints: [
         "Total Biaya cukup dihitung dari dua kolom di baris yang sama: Unit Diproduksi dan Biaya per Unit.",
-        "Di H2, ketik = lalu klik sel Unit Diproduksi baris 2, ketik *, lalu klik sel Biaya per Unit baris 2. Jangan ketik angkanya: rumus harus merujuk sel.",
+        "Rumus dimulai dengan = dan merujuk sel di baris yang sama, bukan angka yang diketik.",
         `Kedua referensi memang harus ikut bergeser per baris, jadi tidak perlu tanda $. Setelah H2 benar, blok H2:H${last} lalu tekan Ctrl+D.`,
       ],
       tip: tipOf(TIPS.fill),
@@ -214,7 +214,8 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       hints: [
         `Setiap sel di O2:R${gridLast} memakai dua angka: Biaya Dasar di kolom N pada baris yang sama, dan persentase kenaikan di baris 1 pada kolom yang sama.`,
         "Saat disalin ke kanan, rujukan ke kolom N tidak boleh pindah kolom; saat disalin ke bawah, rujukan ke baris 1 tidak boleh pindah baris. Ini referensi campuran: hanya satu bagian yang dikunci.",
-        "Tekan F4 berulang untuk berganti bentuk: N2 → $N$2 → N$2 → $N2. Kunci kolomnya saja untuk Biaya Dasar dan barisnya saja untuk persentase, lalu isi O2 ke kanan (Ctrl+R) dan ke bawah (Ctrl+D).",
+        "Tekan F4 berulang untuk berganti bentuk referensi: A1 → $A$1 → A$1 → $A1. Untuk Biaya Dasar kunci kolomnya saja, untuk persentase kunci barisnya saja. " +
+          `Setelah O2 benar, blok O2:R2 lalu Ctrl+R, kemudian blok O2:R${gridLast} lalu Ctrl+D.`,
       ],
       tip: tipOf(TIPS.mixed),
     },

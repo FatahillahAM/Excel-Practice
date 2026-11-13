@@ -319,7 +319,7 @@ describe("startAttempt", () => {
   });
 
   /** Runs `fn` with a level field replaced, then puts it back. */
-  async function withLevel<K extends "scenarios" | "contentVersion">(key: K, value: unknown, fn: () => Promise<void>) {
+  async function withLevel<K extends "scenarios" | "contentVersion" | "hintQuota">(key: K, value: unknown, fn: () => Promise<void>) {
     const level = findItem("L01-P1")!.level as unknown as Record<K, unknown>;
     const saved = level[key];
     level[key] = value;
@@ -340,6 +340,22 @@ describe("startAttempt", () => {
     expect(mocks.createAttempt).not.toHaveBeenCalled();
     const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
     expect(lines).toEqual([expect.objectContaining({ event: "attempt.start_no_scenarios", itemId: "L01-P1" })]);
+  });
+
+  it("writes the level's hintQuota into the snapshot", async () => {
+    await withLevel("hintQuota", 2, async () => {
+      expect(await start()).toEqual({ redirected: `/exam/${ID}?download=1` });
+    });
+    expect((mocks.writeSnapshot.mock.calls[0][3] as ExamSnapshot).hintQuota).toBe(2);
+  });
+
+  it("refuses a hintQuota above 20 in the snapshot before generating the workbook", async () => {
+    await withLevel("hintQuota", 21, async () => {
+      expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([expect.objectContaining({ event: "attempt.start_invalid_exam", part: "snapshot" })]);
   });
 
   it("refuses a snapshot outside its schema before generating the workbook", async () => {

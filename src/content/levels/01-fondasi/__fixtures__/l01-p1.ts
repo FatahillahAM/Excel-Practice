@@ -21,7 +21,7 @@ import {
 import { shiftFormula } from "@/core/grading/formula";
 import { RESULT_VERSION, type Result } from "@/core/grading";
 import { fondasi } from "..";
-import { practice1 } from "../practice-1";
+import { practice1, TIPS } from "../practice-1";
 
 /**
  * Test only: the golden fixtures of L01-P1 (AD-3, spine › fixtures). One exam
@@ -290,7 +290,10 @@ export function expectedResult(variant: Variant, snapshot: ExamSnapshot = fixtur
   return resultOf(EXPECTED[variant], snapshot);
 }
 
-/** The full `Result` an `ExpectedGrade` stands for, with no hints; each question's Tip comes from the snapshot. */
+/** The Tips of questions 1–4, from the content constants (not from the snapshot under test). */
+const EXPECTED_TIPS = [TIPS.fill, TIPS.lock, TIPS.percent, TIPS.mixed];
+
+/** The full `Result` an `ExpectedGrade` stands for, with no hints; each question's Tip is the L01-P1 constant (`TIPS`), in order. */
 export function resultOf(expected: ExpectedGrade, snapshot: ExamSnapshot = fixtureSnapshot()): Result {
   const pointsEarned = snapshot.questions.reduce((sum, q, i) => sum + (expected.questions[i].correct ? q.points : 0), 0);
   return {
@@ -309,7 +312,7 @@ export function resultOf(expected: ExpectedGrade, snapshot: ExamSnapshot = fixtu
       pointsAwarded: expected.questions[i].correct ? q.points : 0,
       correct: expected.questions[i].correct,
       reasonText: expected.questions[i].reasonText,
-      tip: q.tip,
+      tip: { ...EXPECTED_TIPS[i], shortcuts: [...EXPECTED_TIPS[i].shortcuts] },
     })),
   };
 }

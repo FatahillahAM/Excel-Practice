@@ -9,6 +9,7 @@ import {
   itemLabel,
   levelModuleSchema,
   SNAPSHOT_VERSION,
+  tipSchema,
   type ExamCellValue,
   type GeneratedExam,
   type LevelItem,
@@ -178,17 +179,26 @@ describe("L01-P1 generate", () => {
       seed: 99,
       questions: exam.questions.map((q) => without(q, "hints", "tip")),
     };
-    for (const candidate of [
-      without(snapshot, "version"),
-      { ...snapshot, version: 1 },
-      without(snapshot, "hintQuota"),
-      { ...snapshot, hintQuota: -1 },
-      { ...snapshot, questions: exam.questions.map((q) => without(q, "hints")) },
-      { ...snapshot, questions: exam.questions.map((q) => without(q, "tip")) },
-      v1,
-    ]) {
-      expect(examSnapshotSchema.safeParse(candidate).success, JSON.stringify(Object.keys(candidate))).toBe(false);
-    }
+    const paths = (candidate: unknown) => {
+      const parsed = examSnapshotSchema.safeParse(candidate);
+      expect(parsed.success).toBe(false);
+      return parsed.error!.issues.map((issue) => issue.path.join("."));
+    };
+    expect(paths(without(snapshot, "version"))).toEqual(["version"]);
+    expect(paths({ ...snapshot, version: 1 })).toEqual(["version"]);
+    expect(paths(without(snapshot, "hintQuota"))).toEqual(["hintQuota"]);
+    expect(paths({ ...snapshot, hintQuota: -1 })).toEqual(["hintQuota"]);
+    expect(paths({ ...snapshot, hintQuota: 21 })).toEqual(["hintQuota"]);
+    expect(examSnapshotSchema.safeParse({ ...snapshot, hintQuota: 20 }).success).toBe(true);
+    expect(paths({ ...snapshot, questions: exam.questions.map((q) => without(q, "hints")) })).toEqual(
+      exam.questions.map((_, i) => `questions.${i}.hints`),
+    );
+    expect(paths({ ...snapshot, questions: exam.questions.map((q) => without(q, "tip")) })).toEqual(
+      exam.questions.map((_, i) => `questions.${i}.tip`),
+    );
+    expect(paths(v1)).toEqual(
+      expect.arrayContaining(["version", "hintQuota", "questions.0.hints", "questions.0.tip", "questions.3.hints", "questions.3.tip"]),
+    );
   });
 });
 
@@ -206,12 +216,12 @@ type MutableExam = {
 };
 
 /** Practice 1 with its output changed by `mutate`. */
-function brokenItem(mutate: (exam: MutableExam, scenario: FondasiScenario) => void): LevelItem<FondasiScenario> {
+function brokenItem(mutate: (exam: MutableExam, scenario: FondasiScenario, seed: number) => void): LevelItem<FondasiScenario> {
   return {
     ...practice1,
     generate(seed, scenario) {
       const exam = structuredClone(practice1.generate(seed, scenario)) as unknown as MutableExam;
-      mutate(exam, scenario);
+      mutate(exam, scenario, seed);
       return exam as unknown as GeneratedExam;
     },
   };
@@ -283,7 +293,12 @@ describe("defineLevelModule (load-time checks)", () => {
     ["a Tip id that is not kebab-case", { items: [brokenItem((e) => (e.questions[0].tip.id = "Kunci Sel"))] }, /questions\[0\]\.tip\.id/],
     ["a Tip with an empty body", { items: [brokenItem((e) => (e.questions[1].tip.body = " "))] }, /questions\[1\]\.tip\.body/],
     ["Tip shortcuts that are not a list", { items: [brokenItem((e) => (e.questions[1].tip.shortcuts = "F4"))] }, /questions\[1\]\.tip\.shortcuts/],
-    ["a Tip with a field of its own", { items: [brokenItem((e) => (e.questions[2].tip.level = 1))] }, /Unrecognized key/],
+    ["a Tip with a field of its own", { items: [brokenItem((e) => (e.questions[2].tip.level = 1))] }, /Unrecognized key: "level"\n\s*→ at questions\[2\]\.tip/],
+    ["a lowercase shortcut", { items: [brokenItem((e) => (e.questions[0].tip.shortcuts = ["ctrl d"]))] }, /questions\[0\]\.tip\.shortcuts\[0\]/],
+    ["prose as a shortcut", { items: [brokenItem((e) => (e.questions[1].tip.shortcuts = ["F4 lalu Enter"]))] }, /questions\[1\]\.tip\.shortcuts\[0\]/],
+    ["a shortcut with an empty key", { items: [brokenItem((e) => (e.questions[3].tip.shortcuts = ["F4", "Ctrl++"]))] }, /questions\[3\]\.tip\.shortcuts\[1\]/],
+    ["take( in a hint, lowercase", { items: [brokenItem((e) => (e.questions[0].hints[0] = "Coba =take(E2:E13,3) dulu."))] }, /Microsoft 365-only function TAKE/],
+    ["TEXTBEFORE in a Tip title", { items: [brokenItem((e) => (e.questions[0].tip.title = "Potong teks dengan TEXTBEFORE"))] }, /Microsoft 365-only function TEXTBEFORE/],
     ["TAKE in a hint", { items: [brokenItem((e) => (e.questions[0].hints[1] = "Pakai TAKE untuk baris pertama."))] }, /Microsoft 365-only function TAKE/],
     ["VSTACK in a Tip body", { items: [brokenItem((e) => (e.questions[1].tip.body += " Gabungkan dengan VSTACK."))] }, /Microsoft 365-only function VSTACK/],
     ["LAMBDA in a Tip shortcut", { items: [brokenItem((e) => (e.questions[2].tip.shortcuts = ["LAMBDA"]))] }, /Microsoft 365-only function LAMBDA/],
@@ -296,6 +311,11 @@ describe("defineLevelModule (load-time checks)", () => {
       "one Tip id with different content in two scenarios",
       { items: [brokenItem((e, scenario) => scenario.id === scenarios[1].id && (e.questions[0].tip.title = "Judul lain"))] },
       /Tip l01-isi-rumus-sekaligus differs/,
+    ],
+    [
+      "a Tip whose body depends on the seed (seeds 1–5 are compared)",
+      { items: [brokenItem((e, _scenario, seed) => seed === 4 && (e.questions[2].tip.body += " Contoh 4."))] },
+      /\(seed 4\): Tip l01-format-persen differs/,
     ],
     ["a scenario failing the level schema", { scenarios: [...scenarios.slice(1), { ...scenarios[0], lines: ["Lini A"] }] }, /scenario/],
     [
@@ -315,6 +335,7 @@ describe("defineLevelModule (load-time checks)", () => {
       { items: [item, item] },
       { id: "02-fondasi" },
       { hintQuota: -1 },
+      { hintQuota: 21 },
       { phase: "later" },
       { functions: [] },
       { functions: [""] },
@@ -324,6 +345,20 @@ describe("defineLevelModule (load-time checks)", () => {
     ]) {
       const candidate = { ...validLevel, ...change } as unknown as LevelModule<FondasiScenario>;
       expect(() => defineLevelModule(candidate), JSON.stringify(change)).toThrow();
+    }
+  });
+
+  it("accepts a hint quota of 0 to 20", () => {
+    for (const hintQuota of [0, 20]) expect(() => defineLevelModule({ ...validLevel, hintQuota })).not.toThrow();
+  });
+
+  it("accepts shortcuts in Excel's key names: one key alone, or modifiers joined with +", () => {
+    const tip = { id: "kunci", title: "Kunci", body: "Isi." };
+    for (const shortcut of ["F4", "Fn+F4", "Ctrl+D", "Ctrl+Enter", "Ctrl+Shift+%", "Ctrl+R", "Alt+=", "Ctrl+Shift+$", "F12"]) {
+      expect(tipSchema.safeParse({ ...tip, shortcuts: [shortcut] }).success, shortcut).toBe(true);
+    }
+    for (const shortcut of ["ctrl d", "Ctrl d", "F4 lalu Enter", "Ctrl++", "Ctrl+", "+D", "F13", "Ctrl+Shift", " F4", "LAMBDA", ""]) {
+      expect(tipSchema.safeParse({ ...tip, shortcuts: [shortcut] }).success, shortcut).toBe(false);
     }
   });
 

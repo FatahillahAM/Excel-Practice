@@ -66,6 +66,7 @@ describe("L01-P1 golden fixtures (code-built)", () => {
       questions: result.questions.map(({ correct, reasonText }) => ({ correct, reasonText })),
     }).toEqual(EXPECTED[variant]);
     expect(result).toEqual(expectedResult(variant, snapshot));
+    expect(result.questions.map((q) => q.tip?.id)).toEqual(["l01-isi-rumus-sekaligus", "l01-kunci-sel-f4", "l01-format-persen", "l01-referensi-campuran"]);
   });
 
   it("the correct variant is read as shared formulas filled down and right", () => {

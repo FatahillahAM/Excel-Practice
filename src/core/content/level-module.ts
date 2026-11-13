@@ -128,6 +128,10 @@ export const TOTAL_POINTS = 100;
 export const MIN_SCENARIOS_V1 = 10;
 /** The seed `defineLevelModule` generates every (item, scenario) with. */
 export const LOAD_CHECK_SEED = 1;
+/** The seeds `defineLevelModule` also generates every (item, scenario) with, to check one Tip id is one content. */
+export const TIP_CHECK_SEEDS: readonly number[] = [LOAD_CHECK_SEED, 2, 3, 4, 5];
+/** A level's hint quota, at most (CAP-7). */
+export const MAX_HINT_QUOTA = 20;
 /** Hints per question, at most (and at least 1). */
 export const MAX_HINTS_PER_QUESTION = 3;
 /** The `ExamSnapshot` shape version: 2 adds `version`, `hintQuota`, and hints and a Tip per question. */
@@ -161,6 +165,14 @@ export const scenarioSchema = z.object({
   story: z.string().trim().min(1).max(1000),
 });
 
+/**
+ * One keyboard shortcut in Excel's own key names: modifiers (`Ctrl`, `Shift`,
+ * `Alt`, `Fn`) joined with `+` to one key (`Ctrl+Shift+%`, `Fn+F4`), or one key
+ * alone (`F4`). Not prose (`F4 lalu Enter`), not lowercase (`ctrl d`), not `Ctrl++`.
+ */
+export const SHORTCUT_RE =
+  /^(?:(?:Ctrl|Shift|Alt|Fn)\+)*(?:[A-Z0-9]|F(?:[1-9]|1[0-2])|Enter|Tab|Esc|Space|Home|End|Delete|Backspace|Insert|PageUp|PageDown|Up|Down|Left|Right|[%$#!@^&*()\-=;:'",.\/\\[\]`~])$/;
+
 /** A Tip (CAP-8): what Results shows under a question and the Tips collection keeps, by `id`. */
 export const tipSchema = z
   .object({
@@ -169,7 +181,7 @@ export const tipSchema = z
     title: z.string().trim().min(1).max(200),
     body: z.string().trim().min(1).max(2000),
     /** Keyboard shortcuts, in Excel's own key names joined with `+` (`Ctrl+Shift+%`, `F4`). */
-    shortcuts: z.array(z.string().trim().min(1).max(40)).max(10),
+    shortcuts: z.array(z.string().max(40).regex(SHORTCUT_RE, "Shortcut must be Excel key names joined with + (Ctrl+D, F4)")).max(10),
   })
   .strict();
 
@@ -332,7 +344,7 @@ export const examSnapshotSchema = z
     contentVersion: z.number().int().positive(),
     scenarioId: scenarioSchema.shape.id,
     seed: z.number().refine(isSeed, "Seed is a uint32"),
-    hintQuota: z.number().int().min(0),
+    hintQuota: z.number().int().min(0).max(MAX_HINT_QUOTA),
     questions: z.array(examQuestionSchema).min(1).max(MAX_QUESTIONS),
   })
   .strict()
@@ -354,7 +366,7 @@ export const levelModuleSchema = z
     phase: z.enum(["v1", "next"]),
     contentVersion: z.number().int().positive(),
     functions: z.array(z.string().trim().min(1)).min(1),
-    hintQuota: z.number().int().min(0),
+    hintQuota: z.number().int().min(0).max(MAX_HINT_QUOTA),
     scenarios: z.array(scenarioSchema),
     scenarioSchema: z.custom<z.ZodType>(
       (value) => typeof (value as { safeParse?: unknown } | null)?.safeParse === "function",
@@ -405,8 +417,9 @@ export const levelModuleSchema = z
  * Validates a level module at load time and returns it unchanged; throws on a
  * malformed module: the static shape (`levelModuleSchema`), every scenario
  * against the level's `scenarioSchema`, and every item's `generate` once per
- * scenario (seed `LOAD_CHECK_SEED`) against `generatedExamSchema`, and that
- * one Tip id has one content across every generated item × scenario.
+ * scenario and seed of `TIP_CHECK_SEEDS` (`LOAD_CHECK_SEED` first) against
+ * `generatedExamSchema`, and that one Tip id has one content across every
+ * generated item × scenario × seed.
  */
 export function defineLevelModule<S extends Scenario>(level: LevelModule<S>): LevelModule<S> {
   levelModuleSchema.parse(level);
@@ -419,25 +432,30 @@ export function defineLevelModule<S extends Scenario>(level: LevelModule<S>): Le
     const tips = new Map<string, { tip: Tip; where: string }>();
     for (const item of level.items) {
       for (const scenario of level.scenarios) {
-        const where = `${item.id} × ${scenario.id}`;
-        let exam: unknown;
-        try {
-          exam = item.generate(LOAD_CHECK_SEED, scenario);
-        } catch (error) {
-          problems.push(`${where}: generate threw ${error instanceof Error ? error.message : String(error)}`);
-          continue;
-        }
-        const parsed = generatedExamSchema.safeParse(exam);
-        if (!parsed.success) {
-          problems.push(`${where}: ${z.prettifyError(parsed.error)}`);
-          continue;
-        }
-        for (const question of parsed.data.questions) {
-          const seen = tips.get(question.tip.id);
-          if (seen === undefined) tips.set(question.tip.id, { tip: question.tip, where });
-          else if (!sameTip(seen.tip, question.tip)) {
-            problems.push(`${where}: Tip ${question.tip.id} differs from the one in ${seen.where} (one id, one Tip)`);
+        // One problem per (item, scenario): the first seed that fails.
+        for (const seed of TIP_CHECK_SEEDS) {
+          const where = `${item.id} × ${scenario.id} (seed ${seed})`;
+          let exam: unknown;
+          try {
+            exam = item.generate(seed, scenario);
+          } catch (error) {
+            problems.push(`${where}: generate threw ${error instanceof Error ? error.message : String(error)}`);
+            break;
           }
+          const parsed = generatedExamSchema.safeParse(exam);
+          if (!parsed.success) {
+            problems.push(`${where}: ${z.prettifyError(parsed.error)}`);
+            break;
+          }
+          const before = problems.length;
+          for (const question of parsed.data.questions) {
+            const seen = tips.get(question.tip.id);
+            if (seen === undefined) tips.set(question.tip.id, { tip: question.tip, where });
+            else if (!sameTip(seen.tip, question.tip)) {
+              problems.push(`${where}: Tip ${question.tip.id} differs from the one in ${seen.where} (one id, one Tip)`);
+            }
+          }
+          if (problems.length > before) break;
         }
       }
     }
