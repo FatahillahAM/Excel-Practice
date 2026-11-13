@@ -3,7 +3,7 @@ title: 'Penilaian gagal, Try again, pagar AD-5, dan harness DOM'
 type: 'feature'
 ticket: '3'
 created: '2026-11-10'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -36,7 +36,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 **Never:**
 - Hint, Tip konten, snapshot v2 (3.4–3.5); isi Results (3.6); harness untuk Orbit toggle, Upload Dropzone, dialog Abandon, Settings, auto-download (epic 4 memakai harness ini).
-- Batas jumlah penilaian ulang atau job terjadwal; penilaian ulang dari `grading_failed` tanpa klik user.
+- Job terjadwal; penilaian ulang dari `grading_failed` tanpa klik user; lebih dari 3 penilaian ulang otomatis berturut-turut (setelah itu `grading_failed`; keputusan user 2026-11-13).
 - Mengubah migrasi lama, `received_at`, atau constraint `attempts_result_only_when_graded`; memberi sesi izin tulis atas `status` selain Abandon.
 - Tes yang di-skip atau ditunda.
 
@@ -112,7 +112,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 - 2026-11-12, review patches (four lenses; coordinator, with user decisions of 2026-11-12):
   - Grading-run identity: `loadForGrading` returns `grading_requested_at`; the grader's final compare-and-set also matches it (`changeStatus` option `gradingRequestedAt`, `is null` for legacy rows). A run started before a Try again or a U4 restart (both move the stamp) is `lost`; `grading.lost` now means "the attempt moved on first" (Abandon or a superseded run).
-  - Restart cap 3 (reverses the Design Notes assumption "No restart cap" and the frozen Never "Batas jumlah penilaian ulang", by user decision 2026-11-12; frozen text left as written): column `grading_restarts int not null default 0` added to the same migration 20261110000001 (not applied anywhere yet); `claim_grading_restart` increments it and refuses at 3; the trigger resets it to 0 on `grading_failed → received` (Try again, same UPDATE); not writable by session or service. At the cap, still `received` 15 s after the last restart, the status route moves the attempt `received → grading_failed` (service role, `changeStatus` with the stamp), logs `grading.restart_cap_reached` and answers `grading_failed`.
+  - Restart cap 3 (reverses the Design Notes assumption "No restart cap" and the frozen Never "Batas jumlah penilaian ulang", confirmed by the user 2026-11-13; frozen Never line amended): column `grading_restarts int not null default 0` added to the same migration 20261110000001 (not applied anywhere yet); `claim_grading_restart` increments it and refuses at 3; the trigger resets it to 0 on `grading_failed → received` (Try again, same UPDATE); not writable by session or service. At the cap, still `received` 15 s after the last restart, the status route moves the attempt `received → grading_failed` (service role, `changeStatus` with the stamp), logs `grading.restart_cap_reached` and answers `grading_failed`.
   - `file_missing` now writes `grading_failed` at once (a restart cannot restore the object; Try again can); the other store faults still leave `received`.
   - Status route: the claim/escalation runs only after the app-clock 15 s pre-check on a `received` attempt; `grading.service_env_missing` is logged once per process.
   - Try again: a throw from `scheduleGrading` after the compare-and-set still answers `retried` (U4 picks the attempt up) and logs `grading.schedule_failed`.
@@ -127,7 +127,7 @@ Four lenses (blind-hunter, intent-alignment 2026-11-11; edge-case-hunter, verifi
 | # | Finding | Decision |
 |---|---|---|
 | 1 | Stale grading run (started before Try again / U4 restart) can overwrite the newer run | patched — final CAS also matches `grading_requested_at` |
-| 2 | U4 restart unbounded; store faults (`file_missing` etc.) loop every 15 s forever, user never gets Try again | patched — `grading_restarts` cap 3 then `grading_failed`; `file_missing` → `grading_failed` at once (**reverses frozen Never "batas jumlah penilaian ulang" — pending user confirmation**) |
+| 2 | U4 restart unbounded; store faults (`file_missing` etc.) loop every 15 s forever, user never gets Try again | patched — `grading_restarts` cap 3 then `grading_failed`; `file_missing` → `grading_failed` at once (cap confirmed by the user 2026-11-13; frozen Never amended) |
 | 3 | Claim RPC and service-env error log on every 2 s poll | patched — only after the 15 s pre-check; env log once per process |
 | 4 | Try again: `after()` throws after CAS → error shown though status moved | patched — returns `retried`, logs `grading.schedule_failed` |
 | 5 | Stale Try again error mislabels a later grading failure | patched — error state cleared when status leaves `grading_failed` |
