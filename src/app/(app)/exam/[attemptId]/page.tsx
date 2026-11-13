@@ -74,7 +74,7 @@ async function Exam({ params }: { params: Promise<{ attemptId: string }> }) {
   );
 }
 
-/** An attempt as read at render, with the server's seconds since Start and since `received_at` (AD-8). */
+/** An attempt as read at render, with the server's seconds since Start and since `grading_requested_at` (else `received_at`) (AD-8). */
 type LoadedAttempt = { attempt: Attempt; elapsed: number; receivedSeconds: number | null };
 
 /** The attempt through the user's session (RLS); `null` when it is missing or not theirs. */
@@ -94,10 +94,12 @@ async function loadAttempt(attemptId: string, path: string): Promise<LoadedAttem
     // After the session read: request time, so the page is dynamic.
     const now = Date.now();
     const attempt = read.value;
+    const receivedFrom = attempt.gradingRequestedAt ?? attempt.receivedAt;
     return {
       attempt,
       elapsed: elapsedSeconds(attempt.startedAt, now),
-      receivedSeconds: attempt.receivedAt === null ? null : elapsedSeconds(attempt.receivedAt, now),
+      // Since the current grading was requested (a Try again counts from 0), else since the first file.
+      receivedSeconds: receivedFrom === null ? null : elapsedSeconds(receivedFrom, now),
     };
   } catch (error) {
     // `redirect()` and Next's prerender interrupts are not failures.

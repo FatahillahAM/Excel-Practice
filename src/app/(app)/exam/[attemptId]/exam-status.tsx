@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { unstable_rethrow, useRouter } from "next/navigation";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "@/adapters/supabase/attempts";
 import { OrbitLoader } from "@/components/exam/orbit-loader";
 import { examMessages, shellMessages } from "@/messages/id";
@@ -16,10 +16,19 @@ import {
   slowGradingWaitMs,
   type Anchor,
 } from "./exam-time";
+import { retryGrading, type RetryState } from "./retry-actions";
 import { UploadDropzone } from "./upload-dropzone";
 
 /** AD-11: the exam screen polls every 2 s while the attempt is in one of these. */
 const POLLED: readonly AttemptStatus[] = ["open", "received", "grading_failed"];
+/** The Orbit moves while something is still under way: Excel open, or grading. It stops once grading failed. */
+const ORBIT: readonly AttemptStatus[] = ["open", "received"];
+const RETRY_IDLE: RetryState = { status: "idle" };
+
+/** Primary Button (the Start button's classes, `levels/start-control.tsx`). */
+const PRIMARY_BUTTON =
+  "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-md bg-primary px-[18px] font-bold text-primary-foreground shadow-[0_4px_0_0_var(--primary-edge)] transition-[transform,box-shadow,opacity] hover:shadow-[0_4px_0_0_var(--primary-edge),0_0_0_4px_var(--glow-soft)] active:translate-y-[2px] active:shadow-[0_2px_0_0_var(--primary-edge)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60";
+
 export const POLL_MS = 2000;
 /** The elapsed time steps once a second, while the attempt is open. */
 export const TICK_MS = 1000;
@@ -35,8 +44,9 @@ export function statusLine(status: AttemptStatus, itemLabel: string): string {
     case "open":
       return `Excel is open — ${itemLabel}`;
     case "received":
-    case "grading_failed":
       return "File received — grading…";
+    case "grading_failed":
+      return "File received — grading failed.";
     case "graded":
       // Reached only without a valid Result (graded by SQL before results existed): with one, the screen moves to Results.
       return "This attempt was graded without detailed results.";
@@ -81,6 +91,13 @@ export function resultPath(body: unknown): string | null {
  * A poll that sees `graded` with a `resultId` replaces this page with Results
  * (polling stops and the screen stays as it was while Results loads); `graded`
  * without one says so and offers Dashboard.
+ *
+ * `grading_failed`: no Orbit, the destructive "Penilaian gagal" alert and the
+ * "Try again" Primary Button, which posts the attempt to `retryGrading`
+ * ("Trying again…" and disabled while pending). `retried` moves the screen to
+ * `received` at once (the slow message counts from 0); `unchanged` waits for
+ * the next poll; `error` puts the network message in the alert and the
+ * button comes back. Polling goes on throughout.
  */
 export function ExamStatus({
   attemptId,
@@ -94,7 +111,7 @@ export function ExamStatus({
   initialStatus: AttemptStatus;
   /** Seconds since Start at server render. */
   initialElapsed: number;
-  /** Seconds since `received_at` at server render; `null` when not received yet. */
+  /** Seconds since the current grading was requested (`grading_requested_at`, else `received_at`) at server render; `null` when not received yet. */
   initialReceivedSeconds: number | null;
 }) {
   const router = useRouter();
@@ -110,9 +127,13 @@ export function ExamStatus({
   const downloadStarted = useRef(false);
   const downloadUrl = `/exam/${attemptId}/download`;
 
+  /** A Try again that failed, shown only while the attempt is still in the `grading_failed` that produced it. */
+  const [retryError, setRetryError] = useState(false);
+
   /** A status the screen learned (poll or accepted upload); a move to `received` counts from now. */
   const applyStatus = useCallback(
     (next: AttemptStatus) => {
+      if (next !== "grading_failed") setRetryError(false);
       const anchor = receivedAnchorOnChange(status, next, performance.now());
       if (anchor !== null) {
         receivedAnchor.current = anchor;
@@ -121,6 +142,24 @@ export function ExamStatus({
       setStatus(next);
     },
     [status],
+  );
+
+  const [, retryAction, retryPending] = useActionState(
+    async (previous: RetryState, formData: FormData): Promise<RetryState> => {
+      setRetryError(false);
+      let next: RetryState;
+      try {
+        next = await retryGrading(previous, formData);
+      } catch (error) {
+        // Next's redirect (no session → Login) and interrupts go on; a transport failure is a message.
+        unstable_rethrow(error);
+        next = { status: "error" };
+      }
+      if (next.status === "retried") applyStatus("received");
+      if (next.status === "error") setRetryError(true);
+      return next;
+    },
+    RETRY_IDLE,
   );
 
   useEffect(() => {
@@ -223,10 +262,12 @@ export function ExamStatus({
   /** Abandoned (here or on another device) or closed: nothing more to do on this screen. */
   const ended = isEnded(status);
   const slow = isGradingSlow(status, receivedSeconds);
+  const failed = status === "grading_failed";
+  const retryFailed = retryError && !retryPending;
 
   return (
     <div className="flex w-full flex-col items-center">
-      {POLLED.includes(status) && <OrbitLoader />}
+      {ORBIT.includes(status) && <OrbitLoader />}
       <div className="mt-[18px] flex flex-col items-center text-center">
         <p className="text-[15px] font-semibold text-foreground">
           <span role="status">{statusLine(status, itemLabel)}</span>
@@ -250,6 +291,19 @@ export function ExamStatus({
           </p>
         )}
       </div>
+      {failed && (
+        <div className="mt-3 flex flex-col items-center gap-3 text-center">
+          <p role="alert" lang="id" className="text-sm font-medium text-destructive">
+            {retryFailed ? examMessages.retryFailed : examMessages.gradingFailed}
+          </p>
+          <form action={retryAction}>
+            <input type="hidden" name="attemptId" value={attemptId} />
+            <button type="submit" disabled={retryPending} className={PRIMARY_BUTTON}>
+              {retryPending ? "Trying again…" : "Try again"}
+            </button>
+          </form>
+        </div>
+      )}
       {ended && (
         <Link href="/dashboard" className="mt-2 font-bold text-primary underline-offset-4 hover:underline">
           Back to Dashboard

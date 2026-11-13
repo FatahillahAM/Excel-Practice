@@ -12,21 +12,24 @@ import type { WorkbookReading } from "./workbook-reading";
  * reads `submission-1`, grades it, and asks `complete` to write `graded` +
  * the `Result` (`grade_ok`) or `grading_failed` (`grade_error`), which the
  * adapter does through `transition()` with one compare-and-set on
- * `status = 'received'` (AD-5).
+ * `status = 'received'` and on the `grading_requested_at` this run loaded
+ * (AD-5): a run that a Try again or a U4 restart superseded (both move the
+ * stamp) matches no row and is `lost`, so a stale run never overwrites a
+ * newer one.
  *
  * | Case                                                  | Write          | Outcome          |
  * |-------------------------------------------------------|----------------|------------------|
  * | graded                                                | `grade_ok`     | `graded`         |
- * | snapshot null or invalid; file unreadable; `grade()` throws | `grade_error` | `grading_failed` |
+ * | snapshot null or invalid; `submission-1` missing; file unreadable; `grade()` throws | `grade_error` | `grading_failed` |
  * | attempt missing or no longer `received`               | none           | `skipped`        |
- * | compare-and-set matched no row (Abandon came first)   | (discarded)    | `lost`           |
+ * | compare-and-set matched no row (Abandon, or a newer run, came first) | (discarded) | `lost` |
  * | the store could not answer (read or write)            | none           | `failed`         |
- * | `submission-1` missing (`file_missing`)               | none           | `failed`         |
  *
- * A store fault leaves the attempt `received` (entry 3 restarts it). So does
- * a missing `submission-1`: the attempt is `received` only after its file was
- * stored, so a missing object is a storage fault worth retrying, not a bad
- * file. `file_unreadable` is a file that exists but is no workbook. The log
+ * A store fault (`load_failed`, `file_read_failed`, `write_failed`) leaves
+ * the attempt `received`: U4 restarts it. A missing `submission-1` is
+ * `grading_failed` at once: the attempt is `received` only after its file was
+ * stored, so nothing a restart could do brings the object back; Try again
+ * can. `file_unreadable` is a file that exists but is no workbook. The log
  * carries no file bytes, key or token.
  */
 
@@ -34,6 +37,8 @@ export interface GradingAttempt {
   status: AttemptStatus;
   /** `attempts.snapshot` as stored: validated here, never trusted. */
   snapshot: unknown;
+  /** The database's stamp of the grading request this run serves (ISO 8601); `complete` matches it. */
+  gradingRequestedAt: string | null;
 }
 
 /** What `complete` did: `changed` (written), `lost` (the status moved first), `failed` (store fault). */
@@ -46,11 +51,16 @@ export interface GradingPorts {
   readSubmission(attemptId: string): Promise<PortRead<Uint8Array | null>>;
   /** WorkbookIO (AD-4); throws when the bytes are not a readable workbook. */
   readWorkbook(bytes: Uint8Array): Promise<WorkbookReading>;
-  /** `received` → `graded` with `result`, or → `grading_failed` (`result` null), in one compare-and-set. */
+  /**
+   * `received` → `graded` with `result`, or → `grading_failed` (`result`
+   * null), in one compare-and-set on the status and on `gradingRequestedAt`
+   * (the stamp loaded at the start of this run).
+   */
   complete(
     attemptId: string,
     event: typeof AttemptEvent.GRADE_OK | typeof AttemptEvent.GRADE_ERROR,
     result: Result | null,
+    gradingRequestedAt: string | null,
   ): Promise<CompleteOutcome>;
 }
 
@@ -97,9 +107,10 @@ export async function gradeAttempt(
   if (loaded.value === null) return done("skipped", "not_found");
   // A duplicate Finish, Abandon, or an attempt already graded: nothing to do.
   if (loaded.value.status !== "received") return done("skipped", "not_received");
+  const requestedAt = loaded.value.gradingRequestedAt;
 
   const fail = async (reason: GradingReason): Promise<GradingRun> => {
-    const written = await ports.complete(attemptId, AttemptEvent.GRADE_ERROR, null);
+    const written = await ports.complete(attemptId, AttemptEvent.GRADE_ERROR, null, requestedAt);
     if (written === "changed") return done("grading_failed", reason);
     return written === "lost" ? done("lost", "lost") : done("failed", "write_failed");
   };
@@ -110,8 +121,8 @@ export async function gradeAttempt(
 
   const file = await ports.readSubmission(attemptId);
   if (!file.ok) return done("failed", "file_read_failed");
-  // The file was stored before `received`: its absence is a fault to retry, not a terminal failure.
-  if (file.value === null) return done("failed", "file_missing");
+  // The file was stored before `received`: a restart cannot bring it back, Try again can.
+  if (file.value === null) return fail("file_missing");
 
   let reading: WorkbookReading;
   try {
@@ -127,7 +138,7 @@ export async function gradeAttempt(
     return fail("grade_threw");
   }
 
-  const written = await ports.complete(attemptId, AttemptEvent.GRADE_OK, result);
+  const written = await ports.complete(attemptId, AttemptEvent.GRADE_OK, result, requestedAt);
   if (written === "changed") return done("graded", null, result.score);
   return written === "lost" ? done("lost", "lost") : done("failed", "write_failed");
 }

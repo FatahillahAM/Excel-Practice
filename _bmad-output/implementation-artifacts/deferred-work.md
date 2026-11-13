@@ -72,7 +72,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-layar-exam-lengkap-plan.md`
   summary: The Orbit Loader pause/play toggle (`data-paused`, label switch) and the button's absence under reduced motion after hydration have no automated test; neither have the ExamStatus tick/poll/slow-timer effects.
   evidence: 2.4 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
-  status: moved — epic 4 (DOM test harness) (sweep 2.11, 2026-11-09).
+  status: moved — epic 4 (DOM test harness) (sweep 2.11, 2026-11-09). The ExamStatus poll and slow-timer effects are covered by 3.3 (`exam-status.dom.test.tsx`); the tick and the Orbit toggle stay with epic 4.
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-upload-dropzone-dan-route-upload-plan.md`
   summary: Upload Dropzone interaction (focus return after a rejection, alert/status announcements, drag-over, keyboard activation, disabled input while uploading) has no automated test.
   evidence: 2.5 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
@@ -100,7 +100,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-tracer-l01-p1-dinilai-results-muncul-sendiri-di-production-plan.md`
   summary: The exam screen's poll effect (redirect to Results when the status route returns `resultId`, `leaving` state) has no DOM test; only the server render is tested.
   evidence: 3.1 review (medium if wrong); add with the DOM test harness in entry 3.3.
-  status: open
+  status: done — exam-status.dom.test.tsx (3.3)
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-tracer-l01-p1-dinilai-results-muncul-sendiri-di-production-plan.md`
   summary: No test proves behaviour when migration `20261109000001_attempts_result` is only partly applied (column present without grants or trigger).
   evidence: 3.1 review (low); migrations are applied whole via Supabase MCP, dev then prod.

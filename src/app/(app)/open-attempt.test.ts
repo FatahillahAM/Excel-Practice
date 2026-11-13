@@ -50,9 +50,13 @@ describe("attemptCardView", () => {
     });
   });
 
-  it.each(["received", "grading_failed"] as const)("%s: 'File received — grading…' instead of the time", (status) => {
+  it.each([
+    ["received", "File received — grading…"],
+    ["grading_failed", "File received — grading failed."],
+  ] as const)("%s: the exam screen's status line instead of the time", (status, caption) => {
     const view = attemptCardView({ ...ATTEMPT, status }, 754);
-    expect(view.caption).toBe("File received — grading…");
+    // Same text as the exam screen's line 1 (`statusLine` in exam-status.tsx).
+    expect(view.caption).toBe(caption);
     expect(view.time).toBeNull();
     expect(view.title).toBe("Practice 1 · Level 1");
     expect(view.resumeHref).toBe(`/exam/${ID}`);

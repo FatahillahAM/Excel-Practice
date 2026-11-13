@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { examMessages } from "@/messages/id";
+import { examMessages, loginMessages } from "@/messages/id";
 import { POLL_MS, TICK_MS, isEnded, isFinalPollFailure, resultPath, statusLine } from "./exam-status";
 
 describe("Exam Status Line", () => {
@@ -12,9 +12,11 @@ describe("Exam Status Line", () => {
     expect(statusLine("received", "Practice 1")).toBe("File received — grading…");
   });
 
-  it("says the same while grading failed, and has the slow-grading message verbatim", () => {
-    expect(statusLine("grading_failed", "Practice 1")).toBe("File received — grading…");
+  it("says grading failed once it did, and has the slow-grading and failure messages verbatim", () => {
+    expect(statusLine("grading_failed", "Practice 1")).toBe("File received — grading failed.");
     expect(examMessages.gradingSlow).toBe("Penilaian agak lama, tunggu sebentar ya.");
+    expect(examMessages.gradingFailed).toBe("Penilaian gagal. Coba lagi, ya — file kamu aman.");
+    expect(examMessages.retryFailed).toBe(loginMessages.network);
   });
 
   it("polls every 2 s (AD-11) and steps the time every second", () => {

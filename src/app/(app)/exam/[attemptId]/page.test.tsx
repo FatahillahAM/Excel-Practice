@@ -37,6 +37,7 @@ const ATTEMPT = {
   templateVersion: 1,
   startedAt: "2026-11-02T01:00:00+00:00",
   receivedAt: null,
+  gradingRequestedAt: null,
 };
 
 /** The text inside every `role="status"` live region of the markup. */
@@ -122,7 +123,24 @@ describe("Exam page", () => {
     expect(html).not.toContain(examMessages.gradingSlow);
   });
 
-  it("shows no slow-grading message once grading failed", async () => {
+  it("counts the slow-grading message from grading_requested_at (a Try again), not from the first file", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-02T01:10:20.000Z"));
+    mocks.readAttempt.mockResolvedValue({
+      ok: true,
+      value: {
+        ...ATTEMPT,
+        status: "received",
+        receivedAt: "2026-11-02T01:00:00+00:00",
+        gradingRequestedAt: "2026-11-02T01:10:15+00:00",
+      },
+    });
+    const html = await render();
+    expect(liveRegionText(html)).toContain("File received — grading…");
+    expect(html).not.toContain(examMessages.gradingSlow);
+  });
+
+  it("grading failed: no slow message, no Orbit, the failure alert and a Try again button for this attempt", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-11-02T01:20:00.000Z"));
     mocks.readAttempt.mockResolvedValue({
@@ -130,8 +148,13 @@ describe("Exam page", () => {
       value: { ...ATTEMPT, status: "grading_failed", receivedAt: "2026-11-02T01:10:00+00:00" },
     });
     const html = await render();
-    expect(html).toContain("File received — grading…");
+    expect(liveRegionText(html)).toContain("File received — grading failed.");
     expect(html).not.toContain(examMessages.gradingSlow);
+    expect(html).not.toMatch(/<svg[^>]*viewBox="0 0 100 100"/);
+    expect(html).toMatch(new RegExp(`<p role="alert" lang="id" class="[^"]*text-destructive[^"]*">${examMessages.gradingFailed}</p>`));
+    expect(html).toMatch(/<button type="submit"[^>]*>Try again<\/button>/);
+    expect(html).toContain(`name="attemptId" value="${ID}"`);
+    expect(html).not.toContain("Back to Dashboard");
   });
 
   it("shows the Upload Dropzone while open: a file input for .xlsm/.xlsx, labelled, and no alert", async () => {

@@ -24,6 +24,7 @@ import { runGrading, scheduleGrading } from "./grading";
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const SERVICE = { service: true };
 const BYTES = new Uint8Array([9, 9]);
+const STAMP = "2026-11-10T01:05:00+00:00";
 
 let logs: ReturnType<typeof vi.spyOn>;
 let errors: ReturnType<typeof vi.spyOn>;
@@ -32,7 +33,10 @@ beforeEach(() => {
   logs = vi.spyOn(console, "log").mockImplementation(() => {});
   errors = vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.createServiceClient.mockReturnValue(SERVICE);
-  mocks.loadForGrading.mockResolvedValue({ ok: true, value: { status: "received", snapshot: SNAPSHOT } });
+  mocks.loadForGrading.mockResolvedValue({
+    ok: true,
+    value: { status: "received", snapshot: SNAPSHOT, gradingRequestedAt: STAMP },
+  });
   mocks.downloadSubmissionFile.mockResolvedValue({ ok: true, value: BYTES });
   mocks.readWorkbook.mockResolvedValue(readingOf(correctCells()));
   mocks.changeStatus.mockImplementation(async (_c, _id, _from, event) => ({
@@ -59,6 +63,22 @@ describe("scheduleGrading", () => {
   });
 });
 
+describe("scheduleGrading for Try again and the U4 restart", () => {
+  it.each(["retry", "restart"] as const)("logs %s as the channel", async (source) => {
+    scheduleGrading(source, ID);
+    expect(mocks.after).toHaveBeenCalledTimes(1);
+    const task = mocks.after.mock.calls[0][0] as () => Promise<unknown>;
+    await expect(task()).resolves.toBe("graded");
+    expect(lines(logs)).toEqual([{ event: "grading.done", attemptId: ID, channel: source, outcome: "graded", score: 100 }]);
+  });
+
+  it("logs the source on a failure line too", async () => {
+    mocks.readWorkbook.mockRejectedValue(new Error("Not an Excel workbook"));
+    expect(await runGrading("retry", ID)).toBe("grading_failed");
+    expect(lines(errors)).toEqual([{ event: "grading.file_unreadable", attemptId: ID, channel: "retry" }]);
+  });
+});
+
 describe("runGrading", () => {
   it("grades on the service role: loads, downloads submission-1, reads it, writes graded + Result in one compare-and-set", async () => {
     expect(await runGrading("upload", ID)).toBe("graded");
@@ -69,6 +89,8 @@ describe("runGrading", () => {
     const [client, id, from, event, , options] = mocks.changeStatus.mock.calls[0];
     expect([client, id, from, event]).toEqual([SERVICE, ID, "received", "grade_ok"]);
     expect(resultSchema.parse(options.result)).toMatchObject({ score: 100, correctCount: 4 });
+    // The compare-and-set also matches the stamp loaded at run start (a stale run is lost).
+    expect(options.gradingRequestedAt).toBe(STAMP);
     expect(errors).not.toHaveBeenCalled();
   });
 
@@ -83,7 +105,9 @@ describe("runGrading", () => {
   it("writes grading_failed without a Result and logs grading.file_unreadable when the workbook cannot be read", async () => {
     mocks.readWorkbook.mockRejectedValue(new Error("Not an Excel workbook"));
     expect(await runGrading("macro", ID)).toBe("grading_failed");
-    expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "attempt.grade_error_failed", {});
+    expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "attempt.grade_error_failed", {
+      gradingRequestedAt: STAMP,
+    });
     expect(lines(errors)).toEqual([{ event: "grading.file_unreadable", attemptId: ID, channel: "macro" }]);
     expect(lines(logs)[0]).toMatchObject({ outcome: "grading_failed", score: null });
   });
@@ -94,7 +118,7 @@ describe("runGrading", () => {
     expect(lines(errors)[0].event).toBe("grading.snapshot_invalid");
   });
 
-  it("maps a lost compare-and-set to lost, logged as grading.lost at info level (a benign race), not an error", async () => {
+  it("maps a lost compare-and-set (Abandon, or a newer run, came first) to lost, logged as grading.lost at info level, not an error", async () => {
     mocks.changeStatus.mockResolvedValue({ outcome: "lost" });
     expect(await runGrading("macro", ID)).toBe("lost");
     expect(errors).not.toHaveBeenCalled();
@@ -110,10 +134,12 @@ describe("runGrading", () => {
     expect(lines(errors)[0].event).toBe("grading.write_failed");
   });
 
-  it("a missing submission-1 is a retryable fault: no write, grading.file_missing, outcome failed", async () => {
+  it("a missing submission-1: grading_failed at once (Try again, not a restart), logged grading.file_missing", async () => {
     mocks.downloadSubmissionFile.mockResolvedValue({ ok: true, value: null });
-    expect(await runGrading("upload", ID)).toBe("failed");
-    expect(mocks.changeStatus).not.toHaveBeenCalled();
+    expect(await runGrading("upload", ID)).toBe("grading_failed");
+    expect(mocks.changeStatus).toHaveBeenCalledWith(SERVICE, ID, "received", "grade_error", "attempt.grade_error_failed", {
+      gradingRequestedAt: STAMP,
+    });
     expect(lines(errors)).toEqual([{ event: "grading.file_missing", attemptId: ID, channel: "upload" }]);
   });
 

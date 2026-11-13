@@ -4,6 +4,7 @@ import {
   abandon,
   ATTEMPT_COLUMNS,
   changeStatus,
+  claimGradingRestart,
   createAttempt,
   deleteOpenAttempt,
   downloadGeneratedFile,
@@ -184,6 +185,8 @@ describe("findOpenAttempt", () => {
     template_version: 1,
     started_at: "2026-11-02T01:00:00+00:00",
     received_at: "2026-11-02T01:10:00+00:00",
+    grading_requested_at: "2026-11-02T01:12:00+00:00",
+    grading_restarts: 1,
   };
 
   it("reads the user's attempt in open, received or grading_failed, with the attempt columns", async () => {
@@ -197,6 +200,8 @@ describe("findOpenAttempt", () => {
         templateVersion: 1,
         startedAt: row.started_at,
         receivedAt: row.received_at,
+        gradingRequestedAt: row.grading_requested_at,
+        gradingRestarts: 1,
       },
     });
     expect(calls).toEqual([
@@ -242,13 +247,24 @@ describe("readAttempt", () => {
     template_version: 1,
     started_at: "2026-11-02T01:00:00+00:00",
     received_at: null,
+    grading_requested_at: null,
+    grading_restarts: 0,
   };
 
   it("maps the row", async () => {
     const { client, calls } = fakeClient({ data: row, error: null });
     expect(await readAttempt(client, ID)).toEqual({
       ok: true,
-      value: { id: ID, itemId: "L01-P1", status: "open", templateVersion: 1, startedAt: row.started_at, receivedAt: null },
+      value: {
+        id: ID,
+        itemId: "L01-P1",
+        status: "open",
+        templateVersion: 1,
+        startedAt: row.started_at,
+        receivedAt: null,
+        gradingRequestedAt: null,
+        gradingRestarts: 0,
+      },
     });
     expect(calls[1]).toEqual(["eq", ["id", ID]]);
   });
@@ -431,6 +447,43 @@ describe("changeStatus (AD-5)", () => {
   });
 });
 
+describe("claimGradingRestart (service role, U4)", () => {
+  function fakeRpc(answer: () => Promise<Result>) {
+    const rpc = vi.fn(answer);
+    return { client: { rpc } as unknown as SupabaseClient, rpc };
+  }
+
+  it("calls claim_grading_restart with the attempt id and is true for the winner", async () => {
+    const { client, rpc } = fakeRpc(async () => ({ data: true, error: null }));
+    expect(await claimGradingRestart(client, ID)).toEqual({ ok: true, value: true });
+    expect(rpc).toHaveBeenCalledWith("claim_grading_restart", { p_attempt_id: ID });
+  });
+
+  it("is false when the claim matched no row (within 15 s, or not received)", async () => {
+    expect(await claimGradingRestart(fakeRpc(async () => ({ data: false, error: null })).client, ID)).toEqual({
+      ok: true,
+      value: false,
+    });
+  });
+
+  it("is false for a segment that is not a uuid, without asking the database", async () => {
+    const { client, rpc } = fakeRpc(async () => ({ data: true, error: null }));
+    expect(await claimGradingRestart(client, "not-a-uuid")).toEqual({ ok: true, value: false });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("is not ok on an error or a throw, logged as attempt.claim_restart_failed with the code", async () => {
+    const failed = fakeRpc(async () => ({ data: null, error: { code: "42501", message: "denied" } }));
+    expect(await claimGradingRestart(failed.client, ID)).toEqual({ ok: false });
+    const threw = fakeRpc(() => Promise.reject(new TypeError("fetch failed")));
+    expect(await claimGradingRestart(threw.client, ID)).toEqual({ ok: false });
+    expect(errors.mock.calls.map(([line]) => JSON.parse(String(line)))).toEqual([
+      { event: "attempt.claim_restart_failed", code: "42501" },
+      { event: "attempt.claim_restart_failed", code: "TypeError" },
+    ]);
+  });
+});
+
 describe("abandon (session)", () => {
   const row = (status: string) => ({
     id: ID,
@@ -493,6 +546,27 @@ describe("changeStatus with a Result (grading)", () => {
     ]);
   });
 
+  it("also matches the grading request's stamp the run loaded, so a superseded run is lost", async () => {
+    const stamp = "2026-11-10T01:05:00+00:00";
+    const { client, calls } = fakeClient({ data: [], error: null });
+    expect(
+      await changeStatus(client, ID, "received", "grade_ok", "grading.x", { result: RESULT, gradingRequestedAt: stamp }),
+    ).toEqual({ outcome: "lost" });
+    expect(calls).toEqual([
+      ["update", [{ status: "graded", result: RESULT }]],
+      ["eq", ["id", ID]],
+      ["eq", ["status", "received"]],
+      ["eq", ["grading_requested_at", stamp]],
+      ["select", ["id"]],
+    ]);
+    const legacy = fakeClient({ data: [{ id: ID }], error: null });
+    expect(await changeStatus(legacy.client, ID, "received", "grade_error", "grading.x", { gradingRequestedAt: null })).toEqual({
+      outcome: "changed",
+      status: "grading_failed",
+    });
+    expect(legacy.calls[3]).toEqual(["is", ["grading_requested_at", null]]);
+  });
+
   it("writes grading_failed without a Result, and nothing for a refused edge", async () => {
     const { client, calls } = fakeClient({ data: [{ id: ID }], error: null });
     expect(await changeStatus(client, ID, "received", "grade_error")).toEqual({ outcome: "changed", status: "grading_failed" });
@@ -516,12 +590,16 @@ describe("changeStatus with a Result (grading)", () => {
 });
 
 describe("loadForGrading (service role)", () => {
-  it("reads status and snapshot by id", async () => {
+  it("reads status, snapshot and the grading request's stamp by id", async () => {
     const snapshot = { contentVersion: 1 };
-    const { client, calls } = fakeClient({ data: { status: "received", snapshot }, error: null });
-    expect(await loadForGrading(client, ID)).toEqual({ ok: true, value: { status: "received", snapshot } });
+    const stamp = "2026-11-10T01:05:00+00:00";
+    const { client, calls } = fakeClient({ data: { status: "received", snapshot, grading_requested_at: stamp }, error: null });
+    expect(await loadForGrading(client, ID)).toEqual({
+      ok: true,
+      value: { status: "received", snapshot, gradingRequestedAt: stamp },
+    });
     expect(calls).toEqual([
-      ["select", ["status, snapshot"]],
+      ["select", ["status, snapshot, grading_requested_at"]],
       ["eq", ["id", ID]],
       ["maybeSingle", []],
     ]);

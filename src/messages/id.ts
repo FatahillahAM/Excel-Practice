@@ -45,6 +45,10 @@ export const examMessages = {
   finishHint: "Klik Finish di file kalau sudah selesai, ya.",
   /** "Grading slow" row: after 15 s in `received` (AD-11). */
   gradingSlow: "Penilaian agak lama, tunggu sebentar ya.",
+  /** "Grading failed" row: the attempt is `grading_failed` (alert, with "Try again"). */
+  gradingFailed: "Penilaian gagal. Coba lagi, ya — file kamu aman.",
+  /** Try again did not go through (the Login "network" row). */
+  retryFailed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
 } as const;
 
 /**
