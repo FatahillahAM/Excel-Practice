@@ -3,7 +3,7 @@ title: 'Kontrak hint dan Tips, snapshot v2, konten L01-P1'
 type: 'feature'
 ticket: '4'
 created: '2026-11-13'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
