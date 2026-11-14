@@ -193,3 +193,18 @@ select count(*) into v_next from public.hint_reveals where attempt_id = p_attemp
 - Before the code deploys: migration `20261113000001_hint_reveals` applied to `dev`, then `prod`; `/health` shows `20261113000001` in both. In `dev` SQL inside `begin … rollback`: superuser insert into `hint_reveals` for a `graded` attempt fails with `hint_reveals_open_only`.
 - Laptop, Production: Start L01-P1; open 3 hints (e.g. Soal 1, then Soal 2 twice) — each shows inline with focus, quota 2 → 1 → 0, then "No hints left"; a 4th attempt (second tab opened before the reveals, with the old page: pick a soal with no hint opened yet, e.g. Soal 3 — an index already opened answers `already`, which is correct and free) is refused with "No hints left." and no new row; reload the exam page → the 3 hints and "No hints left" come back. After Finish, the 3 revealed hints stay on the exam screen (read-only) while the file is graded.
 - Finish a fully correct file → Results shows 85/100; read-only SQL: `select count(*) from hint_reveals where attempt_id = '<id>'` = 3, `result->>'hintsUsed'` = 3, `result->>'hintPenalty'` = 15; runtime logs show three `hint.revealed`, one `hint.refused` and no `hint.reveal_failed`.
+
+### Production evidence (2026-11-14, deployment `dpl_2SmkLUmMgTcW9QGih6ZukaQKfjPX`, PR #19)
+
+Migration `20261113000001_hint_reveals` applied to dev and prod before the merge (grants, RLS, trigger and schema_version verified on both).
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 15:33:48 | `attempt.started` | attempt `5fa43d9b`, L01-P1, scenario `botol-plastik-tirta`, `contentVersion` 2 |
+| 15:35:18 | `hint.revealed` | question 1, index 0, used 1 |
+| 15:35:28 | `hint.revealed` | question 1, index 1, used 2 |
+| 15:35:31 | `hint.revealed` | question 1, index 2, used 3 |
+| 15:40:28.182 | macro submission | `received: true`, `duplicate: false` |
+| 15:40:28.823 | `grading.done` | channel macro, outcome graded, score 85 |
+
+Stored rows: `hint_reveals` = 1.0, 1.1, 1.2. Result: score 85, 4 of 4 correct, `hintsUsed` 3, `hintPenalty` 15. No `hint.refused` line: with the quota used, the Hint button is `aria-disabled` and posts nothing, so a 4th press never reaches the server (server-side `quota_used` is covered by the contract chain test). No error lines.
