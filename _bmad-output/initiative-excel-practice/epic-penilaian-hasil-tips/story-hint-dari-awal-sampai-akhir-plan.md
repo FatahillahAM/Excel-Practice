@@ -3,7 +3,7 @@ title: 'Hint dari awal sampai akhir'
 type: 'feature'
 ticket: '5'
 created: '2026-11-13'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
