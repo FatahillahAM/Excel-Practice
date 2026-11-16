@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { Kbd } from "@/components/ui/kbd";
 import type { Tip } from "@/core/grading/result";
 import { cn } from "@/lib/utils";
+import { resultsMessages } from "@/messages/id";
 import { shortcutKeys } from "./outcome";
 
 /**
@@ -35,7 +36,7 @@ export function TipsCard({
           <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px] leading-[1.2] font-bold text-muted-foreground">{`Level ${levelNumber}`}</span>
         )}
         <span className={cn("text-[12px] font-bold", correct ? "text-success" : "text-destructive")}>
-          <span aria-hidden="true">{correct ? "✓" : "✗"}</span> <span lang="id">{`Soal ${questionNumber}`}</span>
+          <span aria-hidden="true">{correct ? "✓" : "✗"}</span> <span lang="id">{resultsMessages.question(questionNumber)}</span>
           {` · ${correct ? "Correct" : "Wrong"}`}
         </span>
       </div>
@@ -47,8 +48,8 @@ export function TipsCard({
       </p>
       {tip.shortcuts.length > 0 ? (
         <ul aria-label="Shortcuts" className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1.5">
-          {tip.shortcuts.map((shortcut) => (
-            <li key={shortcut} data-shortcut={shortcut} className="flex items-center gap-1 text-[12px] text-muted-foreground">
+          {tip.shortcuts.map((shortcut, i) => (
+            <li key={`${i}-${shortcut}`} data-shortcut={shortcut} className="flex items-center gap-1 text-[12px] text-muted-foreground">
               {shortcutKeys(shortcut).map((key, index) => (
                 <Fragment key={`${index}-${key}`}>
                   {index > 0 ? "+" : null}

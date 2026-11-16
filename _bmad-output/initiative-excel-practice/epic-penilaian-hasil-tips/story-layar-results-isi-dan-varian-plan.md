@@ -3,7 +3,7 @@ title: 'Layar Results: isi dan varian'
 type: 'feature'
 ticket: '6'
 created: '2026-11-16'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -117,13 +117,47 @@ context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-pr
 - `ResultsFocus` lives in its own file (`results-focus.tsx`) because `results-view.tsx` stays a server component.
 - `TipsCard.levelNumber` is `number | null`: an item unknown to the registry has no level, so the "Level N" tag is left out.
 - `ScoreBadge` adds `data-glow` next to `data-variant`/`data-mode`: in `static` mode the variant stays `pass` (from the score) while the face is flat.
-- Carousel end: the last cards cannot scroll to their own snap position, so the scroll sync keeps the selected card when the track sits at that card's (capped) target and maps "scrolled to the end" to the last card.
+- Carousel end: the last cards cannot scroll to their own snap position, so the scroll sync keeps the selected card when the track sits at that card's (capped) target (see Plan Change Log for the end-of-track rule).
 - "See tip" has the accessible name "See tip, Soal N" (visible text "See tip") so several rows are distinguishable.
 - `scrollTo` was missing in jsdom: stub and doc line added to `src/test/dom.ts`.
 
 ## Plan Change Log
 
+Review patches (2026-11-16), behaviour that differs from the first build or refines the frozen text:
+
+- "See tip" focuses the target Tips Card (slides are `tabindex="-1"`, named "Tip k of n"; still not tab stops) instead of the carousel region, so the reader lands on the card asked for. Modified or non-primary clicks are left to the browser; the `#tip-N` anchor stays.
+- The current card is marked (`data-current`, `aria-current`, static `primary` border), so the position shows when the track cannot scroll. Arrow keys also work on a focused card, and focus follows.
+- Carousel scroll sync: runs once on mount (anchor scroll before hydration); a resized track is put back at the current card (`ResizeObserver`); a user scroll that lands at the end selects the first of the cards sharing that position (no longer the last), and keeps the current card when it is one of them. The carousel is keyed on its cards, so another list starts at card 1.
+- Deduction line shows the points actually taken, `pointsEarned − score` (floor at 0: 10 earned, 3 hints → "Hint ×3 −10"); equal to "−5N" otherwise. DOM text is "Hint ×3 −15" with a space; the heading reads "Wrong answers 2".
+- "needs 80" comes from `PASS_SCORE`. An item kind that is neither `practice` nor `test` is shown like an unknown item (id heading and label).
+- `tip` missing altogether is treated like `tip: null`.
+- `ResultsFocus` focuses with `preventScroll`, and not when the URL has a fragment or focus is already inside `<main>`. The failed-load heading ("Results") gets the same id/`tabindex="-1"` and focus.
+- `ScoreBadge` is three layers for 3.7: wrapper `[data-slot="score-badge"]` (data attributes, `aria-hidden`, static glow) → `[data-slot="score-badge-disc"]` → `[data-slot="score-badge-face"]` (colour, score). "Semua benar!", the wrong answers and the Tips each sit in a `<section>` (`data-slot="all-correct" | "wrong-answers" | "tips"`).
+- "Soal N" in Results comes from `resultsMessages.question`. "See tip" is at least 24×24px. Fixtures added: `V1_NO_TIPS_80`, `FLOORED_0`.
+
 ## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), 2026-11-16.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | Carousel scroll, target geometry and user-scroll sync never exercised by tests (jsdom has no layout) | patched — geometry-stubbed tests with a `scrollTo` spy, scroll/scrollend sync, defaultPrevented checks |
+| 2 | Current card invisible when the track cannot scroll (wide screens, last cards share one position) | patched — static `border-primary` + `aria-current` on the current card |
+| 3 | "See tip" focuses the whole region; swallows modified clicks | patched — focuses the target card; modified clicks pass through |
+| 4 | Index stale after resize / pre-hydration anchor scroll / changed card list; end-of-track jump | patched — sync on mount, ResizeObserver, keyed carousel, end rule keeps the current card |
+| 5 | Deduction row "Hint ×3−15" without space; overstated when the score floors at 0 | patched — real whitespace; shows `pointsEarned − score` |
+| 6 | "Wrong answers2" accessible name; "needs 80" literal; non-practice kinds labelled Test | patched |
+| 7 | `tip !== null` crashes on a missing `tip` key; duplicate shortcut React keys | patched |
+| 8 | "See tip" target below 24px; "Soal N" hard-coded | patched — target size; `resultsMessages.question` |
+| 9 | `<h1>` focus steals focus/scroll on reload, back, hash; failed branch never focuses | patched — `preventScroll`, hash and already-focused guards; failed heading focused |
+| 10 | Page-level Test kind path untested | patched — `findItem` mocked with a Test item |
+| 11 | 3.7 cannot build on a single-element Score Badge without breaking 3.6 tests | patched — wrapper / disc / face layers, assertions on data attributes, sections for "Semua benar!", v1 ≥80 fixture |
+| 12 | Scroll-snap, smooth scroll, phone layout, title/focus after `router.replace` are browser-only | deferred — checked by hand in Production (no browser test layer) |
+| 13 | `<code lang="en">` on Excel terms; ≥80 panel mockup styling; duplicate Tip ids as separate cards; Test removed from registry loses pass/fail heading | deferred |
+| 14 | `cache()` de-duplication of the metadata/page read not observable in unit tests | accepted |
+| 15 | `started_at`/`received_at` grants | rejected — migration 20261104000001 already grants both to the session |
+
+Checks after patches: lint, typecheck, test (67 files, 1336), build pass.
 
 ## Design Notes
 

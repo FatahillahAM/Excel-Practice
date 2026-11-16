@@ -74,6 +74,10 @@ export const TEST_88 = buildResult({ points: [12, 28, 30, 30], wrong: [1] });
 export const TEST_72 = buildResult({ points: [12, 28, 30, 30], wrong: [2] });
 /** A version 1 Result from before Tips were stored: every `tip` is `null`. */
 export const V1_NO_TIPS = buildResult({ version: 1, wrong: [2], tips: "none" });
+/** A version 1 Result without Tips at exactly 80 (the ≥ 80 variant with no Tips section). */
+export const V1_NO_TIPS_80 = buildResult({ version: 1, wrong: [1], tips: "none" });
+/** The floor at 0: 10 points earned, 3 hints (−15 nominal), score 0, so only 10 points were taken. */
+export const FLOORED_0 = buildResult({ points: [10, 30, 30, 30], wrong: [2, 3, 4], hintsUsed: 3 });
 /** Tips on Soal 1 and 3 only; Soal 2 (no Tip) and Soal 3 (Tip) are wrong. */
 export const PARTIAL_TIPS = buildResult({ wrong: [2, 3], tips: [1, 3] });
 
@@ -86,4 +90,6 @@ export const RESULT_FIXTURES = {
   TEST_72,
   V1_NO_TIPS,
   PARTIAL_TIPS,
+  V1_NO_TIPS_80,
+  FLOORED_0,
 } as const;

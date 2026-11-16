@@ -6,7 +6,8 @@ import { getSessionUser } from "@/adapters/supabase/auth";
 import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
 import { createClient } from "@/adapters/supabase/server";
 import { resultsOutcome } from "@/components/results/outcome";
-import { ResultsView } from "@/components/results/results-view";
+import { ResultsFocus } from "@/components/results/results-focus";
+import { RESULTS_HEADING_ID, ResultsView } from "@/components/results/results-view";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { PageTitle } from "@/components/shell/page-title";
 import { resultSchema, type Result } from "@/core/grading";
@@ -36,8 +37,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * user's session (AD-9) and validated with `resultSchema`, plus the attempt's
  * time (`received_at − started_at`, AD-8). Missing (not the user's, not graded,
  * or graded by SQL before results existed) → 404; invalid or unreadable → the
- * first-load alert. The exam screen navigates here by itself: `ResultsView` in
- * `live` mode moves focus to the `<h1>`.
+ * first-load alert. The exam screen navigates here by itself: focus moves to
+ * the `<h1>` (`ResultsFocus`), of the outcome and of the alert alike.
  */
 export default function ResultsPage({ params }: Params) {
   return (
@@ -59,7 +60,9 @@ async function Results({ params }: Params) {
   if (loaded.status === "failed") {
     return (
       <>
-        <PageTitle>Results</PageTitle>
+        <PageTitle id={RESULTS_HEADING_ID} tabIndex={-1}>
+          Results
+        </PageTitle>
         <div className={`${CARD} w-full lg:max-w-[400px]`}>
           <p role="alert" lang="id">
             {shellMessages.firstLoadFailed}
@@ -68,6 +71,7 @@ async function Results({ params }: Params) {
             Try again
           </a>
         </div>
+        <ResultsFocus targetId={RESULTS_HEADING_ID} />
       </>
     );
   }

@@ -1,13 +1,13 @@
 "use client";
 
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import type { QuestionResult } from "@/core/grading/result";
 import { resultsMessages } from "@/messages/id";
 import { TipsCard } from "./tips-card";
 
 /** Quiet time after the last `scroll` event before the shown card is read from the scroll position. */
-const SCROLL_SETTLE_MS = 120;
+export const SCROLL_SETTLE_MS = 120;
 
 const tipAnchor = (questionNumber: number) => `tip-${questionNumber}`;
 
@@ -15,27 +15,97 @@ const NAV_BUTTON =
   "grid size-11 place-items-center rounded-[10px] border border-input-border bg-card text-foreground sm:size-8 " +
   "aria-disabled:cursor-default aria-disabled:text-muted-foreground aria-disabled:opacity-60";
 
+/** A question that carries a Tip (`tip` may be missing altogether in data older than the schema). */
+type TippedQuestion = QuestionResult & { tip: NonNullable<QuestionResult["tip"]> };
+const hasTip = (question: QuestionResult): question is TippedQuestion => question.tip != null;
+
+interface CarouselHandle {
+  /** Shows and focuses the card of that question; `false` when it has none. */
+  showQuestion: (questionNumber: number) => boolean;
+}
+
 /**
  * Below the Outcome panel (EXPERIENCE.md › Results): the Wrong Answer Rows (or
  * "Semua benar!"), then the Tips Carousel with one Tips Card per question
  * that has a Tip. Rendered from the stored `Result`'s questions only.
- *
- * The carousel moves exactly one card per Prev/Next press or Left/Right arrow
- * on its region, never by itself; at an end the button is `aria-disabled` and
- * keeps focus. "Tip k of n" is a polite live region. Smooth scrolling is CSS
- * (`scroll-smooth`), so the global reduced-motion rule turns it off.
  */
 export function ResultsDetails({ questions, levelNumber }: { questions: readonly QuestionResult[]; levelNumber: number | null }) {
   const wrong = questions.filter((question) => !question.correct);
-  const tipped = questions.filter((question) => question.tip !== null);
-  const count = tipped.length;
+  const tipped = questions.filter(hasTip);
+  const carousel = useRef<CarouselHandle>(null);
 
+  function seeTip(event: MouseEvent<HTMLAnchorElement>, questionNumber: number) {
+    // A modified or non-primary click (new tab, download…) is the browser's.
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (carousel.current?.showQuestion(questionNumber)) event.preventDefault();
+  }
+
+  return (
+    <>
+      {wrong.length === 0 ? (
+        <section data-slot="all-correct" aria-label="Answers">
+          <p lang="id" className="rounded-md bg-success-soft px-3.5 py-3 text-[15px] font-bold text-success">
+            {resultsMessages.allCorrect}
+          </p>
+        </section>
+      ) : (
+        <section data-slot="wrong-answers" aria-labelledby="results-wrong-heading" className="flex flex-col gap-2.5">
+          <h2 id="results-wrong-heading" className="flex items-center gap-2.5 text-[16px] font-extrabold">
+            Wrong answers <span className="font-mono text-[12px] font-bold text-muted-foreground">{wrong.length}</span>
+          </h2>
+          <ul className="grid gap-2.5">
+            {wrong.map((question) => (
+              <li
+                key={question.number}
+                data-slot="wrong-answer-row"
+                className="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 rounded-md bg-destructive-soft px-3.5 py-3 sm:grid-cols-[auto_1fr_auto]"
+              >
+                <span className="text-[14px] font-extrabold whitespace-nowrap text-destructive">
+                  <span aria-hidden="true">✗</span> <span lang="id">{resultsMessages.question(question.number)}</span>
+                </span>
+                <p lang="id" className="text-foreground [overflow-wrap:anywhere]">
+                  {question.reasonText}
+                </p>
+                {hasTip(question) ? (
+                  <a
+                    href={`#${tipAnchor(question.number)}`}
+                    onClick={(event) => seeTip(event, question.number)}
+                    aria-label={`See tip, ${resultsMessages.question(question.number)}`}
+                    className="col-start-2 inline-flex min-h-6 min-w-6 items-center justify-self-start text-[13px] font-bold whitespace-nowrap text-primary underline-offset-4 hover:underline sm:col-start-3"
+                  >
+                    See tip
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {tipped.length > 0 ? (
+        // Keyed on its cards: another list of Tips starts again at the first card.
+        <TipsCarousel key={tipped.map((question) => question.number).join(",")} ref={carousel} tipped={tipped} levelNumber={levelNumber} />
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * Tips Carousel: moves exactly one card per Prev/Next press or Left/Right
+ * arrow (on its region or on a card), never by itself; at an end the button is
+ * `aria-disabled` and keeps focus. The current card is marked (`data-current`,
+ * `aria-current`, a `primary` border), so the position shows even when the
+ * track cannot scroll. "Tip k of n" is a polite live region. Smooth scrolling
+ * is CSS (`scroll-smooth`), so the global reduced-motion rule turns it off.
+ */
+function TipsCarousel({ tipped, levelNumber, ref }: { tipped: readonly TippedQuestion[]; levelNumber: number | null; ref: Ref<CarouselHandle> }) {
+  const count = tipped.length;
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   const trackRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  /** Where the track sits when card `i` is shown: its left edge, capped at the end of the track. */
+  /** Where the track sits when card `i` is shown: its left edge, capped at the end of the track (the last cards share it). */
   function targetLeft(i: number): number {
     const track = trackRef.current;
     const slide = slideRefs.current[i];
@@ -44,45 +114,58 @@ export function ResultsDetails({ questions, levelNumber }: { questions: readonly
     return Math.min(Math.max(0, slide.offsetLeft - (slideRefs.current[0]?.offsetLeft ?? 0)), max);
   }
 
+  function select(next: number) {
+    indexRef.current = next;
+    setIndex(next);
+  }
+
   function show(next: number) {
     const clamped = Math.min(Math.max(next, 0), count - 1);
-    indexRef.current = clamped;
-    setIndex(clamped);
+    select(clamped);
     trackRef.current?.scrollTo({ left: targetLeft(clamped) });
   }
 
-  function step(delta: -1 | 1) {
+  /** One card back or forward; `false` at an end. */
+  function step(delta: -1 | 1): boolean {
     const next = indexRef.current + delta;
-    if (next < 0 || next > count - 1) return;
+    if (next < 0 || next > count - 1) return false;
     show(next);
+    return true;
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.target !== event.currentTarget) return;
     if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+    const onTrack = event.target === event.currentTarget;
+    const onSlide = slideRefs.current.includes(event.target as HTMLDivElement);
+    if (!onTrack && !onSlide) return;
     event.preventDefault();
-    step(event.key === "ArrowRight" ? 1 : -1);
+    const moved = step(event.key === "ArrowRight" ? 1 : -1);
+    // Focus was on a card ("See tip"): it follows to the card now shown.
+    if (moved && onSlide) slideRefs.current[indexRef.current]?.focus({ preventScroll: true });
   }
 
-  function seeTip(event: MouseEvent<HTMLAnchorElement>, questionNumber: number) {
-    const target = tipped.findIndex((question) => question.number === questionNumber);
-    const track = trackRef.current;
-    if (target < 0 || !track) return;
-    event.preventDefault();
-    track.scrollIntoView({ block: "nearest" });
-    show(target);
-    track.focus({ preventScroll: true });
-  }
+  useImperativeHandle(ref, () => ({
+    showQuestion(questionNumber) {
+      const target = tipped.findIndex((question) => question.number === questionNumber);
+      const track = trackRef.current;
+      if (target < 0 || !track) return false;
+      track.scrollIntoView({ block: "nearest" });
+      show(target);
+      slideRefs.current[target]?.focus({ preventScroll: true });
+      return true;
+    },
+  }));
 
-  // The user scrolled the track (swipe, wheel, scrollbar): the shown card is the one nearest its left edge.
   useEffect(() => {
     const track = trackRef.current;
-    if (!track || count === 0) return;
+    if (!track) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    // The track was scrolled by the user (swipe, wheel) or by the browser (a `#tip-N` anchor before hydration).
     const sync = () => {
       const left = track.scrollLeft;
-      // A programmatic move that has arrived: keep its card (the last cards share the end position).
+      // The current card sits here (after a button press, or as one of the cards sharing the end): keep it.
       if (Math.abs(left - targetLeft(indexRef.current)) <= 2) return;
+      // Otherwise the card whose position is nearest; of the cards sharing the end, the first (its left edge is nearest).
       let nearest = 0;
       let best = Number.POSITIVE_INFINITY;
       for (let i = 0; i < count; i += 1) {
@@ -92,9 +175,7 @@ export function ResultsDetails({ questions, levelNumber }: { questions: readonly
           nearest = i;
         }
       }
-      if (left >= track.scrollWidth - track.clientWidth - 2) nearest = count - 1;
-      indexRef.current = nearest;
-      setIndex(nearest);
+      select(nearest);
     };
     const onScroll = () => {
       clearTimeout(timer);
@@ -106,111 +187,78 @@ export function ResultsDetails({ questions, levelNumber }: { questions: readonly
     };
     track.addEventListener("scroll", onScroll, { passive: true });
     track.addEventListener("scrollend", onScrollEnd);
+    sync();
+    // A resized track has other positions: put the current card back at its own.
+    const observer =
+      typeof ResizeObserver === "undefined" ? null : new ResizeObserver(() => track.scrollTo({ left: targetLeft(indexRef.current) }));
+    observer?.observe(track);
     return () => {
       clearTimeout(timer);
+      observer?.disconnect();
       track.removeEventListener("scroll", onScroll);
       track.removeEventListener("scrollend", onScrollEnd);
     };
-    // `targetLeft` reads refs only.
+    // `targetLeft` and `select` use refs and a state setter only.
   }, [count]);
 
   const atStart = index <= 0;
   const atEnd = index >= count - 1;
 
   return (
-    <>
-      {wrong.length === 0 ? (
-        <p lang="id" className="rounded-md bg-success-soft px-3.5 py-3 text-[15px] font-bold text-success">
-          {resultsMessages.allCorrect}
-        </p>
-      ) : (
-        <section aria-labelledby="results-wrong-heading" className="flex flex-col gap-2.5">
-          <h2 id="results-wrong-heading" className="flex items-center gap-2.5 text-[16px] font-extrabold">
-            Wrong answers
-            <span className="font-mono text-[12px] font-bold text-muted-foreground">{wrong.length}</span>
-          </h2>
-          <ul className="grid gap-2.5">
-            {wrong.map((question) => (
-              <li
-                key={question.number}
-                data-slot="wrong-answer-row"
-                className="grid grid-cols-[auto_1fr] items-start gap-x-3 gap-y-1 rounded-md bg-destructive-soft px-3.5 py-3 sm:grid-cols-[auto_1fr_auto]"
-              >
-                <span className="text-[14px] font-extrabold whitespace-nowrap text-destructive">
-                  <span aria-hidden="true">✗</span> <span lang="id">{`Soal ${question.number}`}</span>
-                </span>
-                <p lang="id" className="text-foreground [overflow-wrap:anywhere]">
-                  {question.reasonText}
-                </p>
-                {question.tip !== null ? (
-                  <a
-                    href={`#${tipAnchor(question.number)}`}
-                    onClick={(event) => seeTip(event, question.number)}
-                    aria-label={`See tip, Soal ${question.number}`}
-                    className="col-start-2 justify-self-start text-[13px] font-bold whitespace-nowrap text-primary underline-offset-4 hover:underline sm:col-start-3"
-                  >
-                    See tip
-                  </a>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {count > 0 ? (
-        <section aria-labelledby="results-tips-heading" className="flex flex-col gap-3">
-          <div className="flex items-end justify-between gap-3">
-            <h2 id="results-tips-heading" className="text-[16px] font-extrabold">
-              Tips &amp; Tricks
-            </h2>
-            <div className="flex items-center gap-2">
-              <p aria-live="polite" className="mr-1 text-[12px] font-medium text-muted-foreground">
-                {`Tip ${index + 1} of ${count}`}
-              </p>
-              <button type="button" aria-label="Previous tip" aria-disabled={atStart} onClick={() => step(-1)} className={NAV_BUTTON}>
-                <ChevronLeft aria-hidden="true" className="size-4" />
-              </button>
-              <button type="button" aria-label="Next tip" aria-disabled={atEnd} onClick={() => step(1)} className={NAV_BUTTON}>
-                <ChevronRight aria-hidden="true" className="size-4" />
-              </button>
-            </div>
-          </div>
-          <div className="relative after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-12 after:bg-linear-to-r after:from-transparent after:to-background after:content-['']">
+    <section data-slot="tips" aria-labelledby="results-tips-heading" className="flex flex-col gap-3">
+      <div className="flex items-end justify-between gap-3">
+        <h2 id="results-tips-heading" className="text-[16px] font-extrabold">
+          Tips &amp; Tricks
+        </h2>
+        <div className="flex items-center gap-2">
+          <p aria-live="polite" className="mr-1 text-[12px] font-medium text-muted-foreground">
+            {`Tip ${index + 1} of ${count}`}
+          </p>
+          <button type="button" aria-label="Previous tip" aria-disabled={atStart} onClick={() => step(-1)} className={NAV_BUTTON}>
+            <ChevronLeft aria-hidden="true" className="size-4" />
+          </button>
+          <button type="button" aria-label="Next tip" aria-disabled={atEnd} onClick={() => step(1)} className={NAV_BUTTON}>
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </button>
+        </div>
+      </div>
+      <div className="relative after:pointer-events-none after:absolute after:inset-y-0 after:right-0 after:w-12 after:bg-linear-to-r after:from-transparent after:to-background after:content-['']">
+        <div
+          ref={trackRef}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Tips"
+          tabIndex={0}
+          onKeyDown={onKeyDown}
+          className="relative flex snap-x snap-mandatory gap-3.5 overflow-x-auto scroll-smooth rounded-lg py-0.5 pr-12 pl-0.5 [scrollbar-width:none] focus-visible:outline-offset-0"
+        >
+          {tipped.map((question, i) => (
             <div
-              ref={trackRef}
-              role="region"
-              aria-roledescription="carousel"
-              aria-label="Tips"
-              tabIndex={0}
-              onKeyDown={onKeyDown}
-              className="relative flex snap-x snap-mandatory gap-3.5 overflow-x-auto scroll-smooth rounded-lg py-0.5 pr-12 pl-0.5 [scrollbar-width:none] focus-visible:outline-offset-0"
+              key={question.number}
+              ref={(node) => {
+                slideRefs.current[i] = node;
+              }}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`Tip ${i + 1} of ${count}`}
+              aria-current={i === index ? "true" : undefined}
+              data-current={i === index ? "true" : undefined}
+              // Focusable by "See tip" only, never a tab stop.
+              tabIndex={-1}
+              className="w-[272px] max-w-[82vw] flex-none snap-start scroll-ml-0.5 rounded-lg focus-visible:-outline-offset-2"
             >
-              {tipped.map((question, i) => (
-                <div
-                  key={question.number}
-                  ref={(node) => {
-                    slideRefs.current[i] = node;
-                  }}
-                  role="group"
-                  aria-roledescription="slide"
-                  aria-label={`Tip ${i + 1} of ${count}`}
-                  data-current={i === index ? "true" : undefined}
-                  className="w-[272px] max-w-[82vw] flex-none snap-start scroll-ml-0.5"
-                >
-                  <TipsCard
-                    id={tipAnchor(question.number)}
-                    tip={question.tip!}
-                    questionNumber={question.number}
-                    correct={question.correct}
-                    levelNumber={levelNumber}
-                  />
-                </div>
-              ))}
+              <TipsCard
+                id={tipAnchor(question.number)}
+                tip={question.tip}
+                questionNumber={question.number}
+                correct={question.correct}
+                levelNumber={levelNumber}
+                className={i === index ? "border-primary" : undefined}
+              />
             </div>
-          </div>
-        </section>
-      ) : null}
-    </>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

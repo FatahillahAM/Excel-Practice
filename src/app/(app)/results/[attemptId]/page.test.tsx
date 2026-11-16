@@ -3,6 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  findItem: vi.fn(),
+  realFindItem: (() => null) as (itemId: string) => unknown,
   getSessionUser: vi.fn(),
   readResult: vi.fn(),
   notFound: vi.fn(() => {
@@ -23,8 +25,13 @@ vi.mock("next/navigation", () => ({
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
 vi.mock("@/adapters/supabase/attempts", () => ({ readResult: mocks.readResult }));
+vi.mock("@/content/levels", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/content/levels")>();
+  mocks.realFindItem = actual.findItem;
+  return { ...actual, findItem: (itemId: string) => mocks.findItem(itemId) };
+});
 
-import { PRACTICE_64, PRACTICE_85 } from "@/core/grading/__fixtures__/results";
+import { PRACTICE_64, PRACTICE_85, TEST_72, TEST_88 } from "@/core/grading/__fixtures__/results";
 import { shellMessages } from "@/messages/id";
 import ResultsPage, { generateMetadata } from "./page";
 
@@ -67,6 +74,7 @@ const title = async () => (await generateMetadata({ params: Promise.resolve({ at
 let errors: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
+  mocks.findItem.mockImplementation(mocks.realFindItem);
   errors = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -84,7 +92,7 @@ describe("Results page", () => {
     const html = await render();
     expect(html).toMatch(/<h1[^>]*id="results-heading"[^>]*tabindex="-1"[^>]*>Practice 1 — 85\/100<\/h1>/);
     expect(html).toContain('Level 1 — <span lang="id">Fondasi</span>');
-    expect(html).toMatch(/Hint ×3<\/span><span[^>]*>−15<\/span>/);
+    expect(html).toMatch(/Hint ×3<\/span> <span[^>]*>−15<\/span>/);
     expect(html).toMatch(/>4<\/span> <span[^>]*>of 4 correct<\/span>/);
     expect(html).toMatch(/>06:48<\/span> <span[^>]*>time<\/span>/);
     expect(html).toContain('data-variant="pass"');
@@ -119,6 +127,22 @@ describe("Results page", () => {
     expect(html).not.toContain('aria-roledescription="carousel"');
   });
 
+  it("shows a Test with the Test heading, label and document title", async () => {
+    const real = mocks.realFindItem("L01-P1") as { level: object; item: object };
+    mocks.findItem.mockReturnValue({ level: real.level, item: { ...real.item, id: "L01-T", kind: "test", number: 1 } });
+    mocks.readResult.mockResolvedValue(stored(TEST_88, "L01-T"));
+    const passed = await render();
+    expect(passed).toMatch(/<h1[^>]*>Test passed — 88\/100<\/h1>/);
+    expect(passed).toContain('Test · Level 1 — <span lang="id">Fondasi</span>');
+    expect(passed).toContain('data-kind="test"');
+    expect(await title()).toBe("Test passed — 88/100 · WORKING HARD with EXCEL");
+    expect(mocks.findItem).toHaveBeenCalledWith("L01-T");
+
+    mocks.readResult.mockResolvedValue(stored(TEST_72, "L01-T"));
+    expect(await render()).toMatch(/<h1[^>]*>Test not passed — 72\/100, needs 80<\/h1>/);
+    expect(await title()).toBe("Test not passed — 72/100, needs 80 · WORKING HARD with EXCEL");
+  });
+
   it("labels an item the registry does not know by its id", async () => {
     mocks.readResult.mockResolvedValue(stored(PRACTICE_85, "L09-P9"));
     const html = await render();
@@ -135,6 +159,7 @@ describe("Results page", () => {
     mocks.readResult.mockResolvedValue(stored({ ...RESULT, score: 100 }));
     const html = await render();
     expect(html).toContain('role="alert"');
+    expect(html).toMatch(/<h1[^>]*id="results-heading"[^>]*tabindex="-1"[^>]*>Results<\/h1>/);
     expect(html).toContain(shellMessages.firstLoadFailed);
     expect(html).toContain(`href="/results/${ID}"`);
     expect(html).not.toContain("/100");

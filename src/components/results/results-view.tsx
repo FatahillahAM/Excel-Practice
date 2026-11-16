@@ -3,7 +3,7 @@ import { PageTitle } from "@/components/shell/page-title";
 import type { LevelItemKind } from "@/core/content/level-module";
 import type { Result } from "@/core/grading/result";
 import { formatElapsed } from "@/core/services/attempts/elapsed";
-import { deductionParts, levelLabelLead, resultsOutcome } from "./outcome";
+import { deductionParts, knownItem, levelLabelLead, resultsOutcome } from "./outcome";
 import { ResultsDetails } from "./results-details";
 import { ResultsFocus } from "./results-focus";
 import { ScoreBadge } from "./score-badge";
@@ -34,9 +34,10 @@ export interface ResultsViewProps {
 export function ResultsView({ itemId, item, level, result, durationSeconds, mode }: ResultsViewProps) {
   const { variant, heading } = resultsOutcome({ item, itemId, result });
   const deduction = deductionParts(result);
+  const known = knownItem(item);
 
   return (
-    <div data-slot="results" data-variant={variant} data-mode={mode} data-kind={item?.kind ?? "unknown"} className="mx-auto flex w-full max-w-[880px] flex-col gap-7">
+    <div data-slot="results" data-variant={variant} data-mode={mode} data-kind={known?.kind ?? "unknown"} className="mx-auto flex w-full max-w-[880px] flex-col gap-7">
       <section
         aria-labelledby={RESULTS_HEADING_ID}
         className="grid items-center gap-6 rounded-lg border border-border bg-card p-5 sm:grid-cols-[200px_1fr] sm:gap-7 sm:px-8 sm:py-7"
@@ -45,14 +46,19 @@ export function ResultsView({ itemId, item, level, result, durationSeconds, mode
           <ScoreBadge score={result.score} variant={variant} mode={mode} />
           <p data-slot="deduction" className="flex flex-wrap justify-center gap-x-1.5 text-[12px] font-medium text-muted-foreground">
             <span>{deduction.label}</span>
-            {deduction.penalty !== null ? <span className="font-mono font-bold text-warning">{deduction.penalty}</span> : null}
+            {deduction.penalty !== null ? (
+              <>
+                {" "}
+                <span className="font-mono font-bold text-warning">{deduction.penalty}</span>
+              </>
+            ) : null}
           </p>
         </div>
         <div className="flex min-w-0 flex-col items-center gap-3 text-center sm:items-start sm:text-left">
           <p data-slot="level-label" className="font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] text-muted-foreground uppercase">
-            {item !== null && level !== null ? (
+            {known !== null && level !== null ? (
               <>
-                {levelLabelLead(level.number, item.kind)}
+                {levelLabelLead(level.number, known.kind)}
                 <span lang="id">{level.name}</span>
               </>
             ) : (

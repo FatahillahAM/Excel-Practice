@@ -1,5 +1,5 @@
 import type { LevelItemKind } from "@/core/content/level-module";
-import { isPassingScore, type Result } from "@/core/grading/result";
+import { PASS_SCORE, isPassingScore, type Result } from "@/core/grading/result";
 
 /**
  * What the Results screen says about a stored `Result`, as plain text (CAP-5):
@@ -18,23 +18,35 @@ export interface ResultsOutcome {
 /** The registry's view of the item; `null` when no level has `itemId`. */
 export type OutcomeItem = { kind: LevelItemKind; number: number } | null;
 
+/** The item when it is one Results knows how to name (a practice or a Test); `null` otherwise, shown by its id. */
+export function knownItem(item: OutcomeItem): OutcomeItem {
+  return item !== null && (item.kind === "practice" || item.kind === "test") ? item : null;
+}
+
 export function resultsOutcome({ item, itemId, result }: { item: OutcomeItem; itemId: string; result: Pick<Result, "score"> }): ResultsOutcome {
   const passed = isPassingScore(result.score);
   const score = `${result.score}/100`;
   const variant: ResultsVariant = passed ? "pass" : "calm";
-  if (item === null) return { variant, heading: `${itemId} — ${score}` };
-  if (item.kind === "practice") return { variant, heading: `Practice ${item.number} — ${score}` };
-  return { variant, heading: passed ? `Test passed — ${score}` : `Test not passed — ${score}, needs 80` };
+  const known = knownItem(item);
+  if (known === null) return { variant, heading: `${itemId} — ${score}` };
+  if (known.kind === "practice") return { variant, heading: `Practice ${known.number} — ${score}` };
+  return { variant, heading: passed ? `Test passed — ${score}` : `Test not passed — ${score}, needs ${PASS_SCORE}` };
 }
 
-/** The deduction line under the Score Badge: its label and, with hints, the points taken (shown in `warning`). */
-export function deductionParts(result: Pick<Result, "hintsUsed" | "hintPenalty">): { label: string; penalty: string | null } {
+type Deducted = Pick<Result, "hintsUsed" | "pointsEarned" | "score">;
+
+/**
+ * The deduction line under the Score Badge: its label and, with hints, the
+ * points actually taken (shown in `warning`): `pointsEarned − score`, which is
+ * 5 × hints unless the floor at 0 took less (10 earned, 3 hints → −10).
+ */
+export function deductionParts(result: Deducted): { label: string; penalty: string | null } {
   if (result.hintsUsed <= 0) return { label: "No hints", penalty: null };
-  return { label: `Hint ×${result.hintsUsed}`, penalty: `−${result.hintPenalty}` };
+  return { label: `Hint ×${result.hintsUsed}`, penalty: `−${Math.max(0, result.pointsEarned - result.score)}` };
 }
 
 /** "No hints", or "Hint ×3 −15". */
-export function deductionText(result: Pick<Result, "hintsUsed" | "hintPenalty">): string {
+export function deductionText(result: Deducted): string {
   const { label, penalty } = deductionParts(result);
   return penalty === null ? label : `${label} ${penalty}`;
 }

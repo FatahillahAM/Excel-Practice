@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildResult } from "@/core/grading/__fixtures__/results";
+import { FLOORED_0, buildResult } from "@/core/grading/__fixtures__/results";
 import { deductionParts, deductionText, levelLabel, resultsOutcome, shortcutKeys } from "./outcome";
 
 const practice = { kind: "practice", number: 1 } as const;
@@ -28,6 +28,12 @@ describe("resultsOutcome", () => {
     expect(resultsOutcome({ item: test, itemId: "L01-T", result: at(79) }).heading).toBe("Test not passed — 79/100, needs 80");
   });
 
+  it("falls back to the item id for a kind that is neither a practice nor a Test", () => {
+    const final = { kind: "final", number: 1 } as unknown as { kind: "test"; number: number };
+    expect(resultsOutcome({ item: final, itemId: "UA", result: at(90) })).toEqual({ variant: "pass", heading: "UA — 90/100" });
+    expect(resultsOutcome({ item: final, itemId: "UA", result: at(50) }).heading).toBe("UA — 50/100");
+  });
+
   it("falls back to the item id for an item the registry does not know", () => {
     expect(resultsOutcome({ item: null, itemId: "L09-P9", result: at(70) }).heading).toBe("L09-P9 — 70/100");
   });
@@ -42,6 +48,11 @@ describe("deductionText", () => {
   it("is the hint count and 5 points per hint", () => {
     expect(deductionText(buildResult({ hintsUsed: 3 }))).toBe("Hint ×3 −15");
     expect(deductionParts(buildResult({ hintsUsed: 1 }))).toEqual({ label: "Hint ×1", penalty: "−5" });
+  });
+
+  it("shows the points actually taken when the floor at 0 took fewer", () => {
+    expect(FLOORED_0).toMatchObject({ pointsEarned: 10, hintPenalty: 15, score: 0 });
+    expect(deductionText(FLOORED_0)).toBe("Hint ×3 −10");
   });
 });
 

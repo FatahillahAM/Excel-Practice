@@ -55,6 +55,8 @@ export const examMessages = {
 export const resultsMessages = {
   /** Replaces the Wrong Answer Rows when every question is correct. */
   allCorrect: "Semua benar!",
+  /** A question by its number, as the Instructions sheet names it: "Soal 2". */
+  question: (number: number) => `Soal ${number}`,
 } as const;
 
 /** Hint group on the exam screen (EXPERIENCE.md › Message set, Hint rows; illustrative). */
