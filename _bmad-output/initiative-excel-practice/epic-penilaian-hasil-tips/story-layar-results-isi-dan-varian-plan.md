@@ -3,7 +3,7 @@ title: 'Layar Results: isi dan varian'
 type: 'feature'
 ticket: '6'
 created: '2026-11-16'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
