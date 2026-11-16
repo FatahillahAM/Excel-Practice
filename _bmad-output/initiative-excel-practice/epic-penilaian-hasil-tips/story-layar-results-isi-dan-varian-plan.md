@@ -3,13 +3,14 @@ title: 'Layar Results: isi dan varian'
 type: 'feature'
 ticket: '6'
 created: '2026-11-16'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '8eaca15cd1612d97c6a71cd9acf7251791e349a4'
 context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/DESIGN.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/mockups/key-results.html']
 ---
 
@@ -109,6 +110,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-pr
 - Given `npm test`, then everything passes with no skipped tests; no migration file is added.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
