@@ -25,6 +25,9 @@
  * - Radix Select (`components/ui/select.tsx`) calls `hasPointerCapture`,
  *   `releasePointerCapture` and `scrollIntoView`, which jsdom lacks: no-op
  *   stubs are installed when they are missing.
+ * - The Tips Carousel (`components/results/results-details.tsx`) calls
+ *   `Element.prototype.scrollTo`, which jsdom lacks: a no-op stub is installed
+ *   when it is missing.
  * - Next: mock `next/navigation` (`useRouter` returning one stable object, so
  *   effects that depend on it do not re-run every render), and `next/link` as
  *   a plain `<a>` if a test renders one that needs router context.
@@ -65,4 +68,5 @@ if (typeof Element !== "undefined") {
   proto.setPointerCapture ??= () => {};
   proto.releasePointerCapture ??= () => {};
   proto.scrollIntoView ??= () => {};
+  proto.scrollTo ??= () => {};
 }

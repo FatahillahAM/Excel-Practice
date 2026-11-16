@@ -24,8 +24,9 @@ vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUse
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
 vi.mock("@/adapters/supabase/attempts", () => ({ readResult: mocks.readResult }));
 
+import { PRACTICE_64, PRACTICE_85 } from "@/core/grading/__fixtures__/results";
 import { shellMessages } from "@/messages/id";
-import ResultsPage from "./page";
+import ResultsPage, { generateMetadata } from "./page";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
 const RESULT = {
@@ -55,6 +56,14 @@ async function render(): Promise<string> {
   return renderToStaticMarkup(await Component(results.props));
 }
 
+const STARTED = "2026-11-02T01:00:00+00:00";
+const RECEIVED = "2026-11-02T01:06:48+00:00";
+const stored = (result: unknown, itemId = "L01-P1", receivedAt: string | null = RECEIVED) => ({
+  ok: true,
+  value: { itemId, result, startedAt: STARTED, receivedAt },
+});
+const title = async () => (await generateMetadata({ params: Promise.resolve({ attemptId: ID }) })).title;
+
 let errors: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
@@ -70,15 +79,51 @@ afterEach(() => {
 });
 
 describe("Results page", () => {
-  it("shows the heading, the item, the score out of 100 and x of y correct", async () => {
-    mocks.readResult.mockResolvedValue({ ok: true, value: { itemId: "L01-P1", result: RESULT } });
+  it("shows the outcome heading, the level label, the deduction, x of y correct and the time", async () => {
+    mocks.readResult.mockResolvedValue(stored(PRACTICE_85));
     const html = await render();
-    expect(html).toMatch(/<h1[^>]*>Results<\/h1>/);
-    expect(html).toContain("Level 1 · Practice 1");
-    expect(html).toMatch(/75<span[^>]*>\/100<\/span>/);
-    expect(html).toContain("3 of 4 correct");
+    expect(html).toMatch(/<h1[^>]*id="results-heading"[^>]*tabindex="-1"[^>]*>Practice 1 — 85\/100<\/h1>/);
+    expect(html).toContain('Level 1 — <span lang="id">Fondasi</span>');
+    expect(html).toMatch(/Hint ×3<\/span><span[^>]*>−15<\/span>/);
+    expect(html).toMatch(/>4<\/span> <span[^>]*>of 4 correct<\/span>/);
+    expect(html).toMatch(/>06:48<\/span> <span[^>]*>time<\/span>/);
+    expect(html).toContain('data-variant="pass"');
+    expect(html).toContain('data-mode="live"');
+    expect(html).toContain(">Semua benar!</p>");
+    expect(html.match(/data-slot="tips-card"/g)).toHaveLength(4);
+    expect(html).toContain("Tip 1 of 4");
     expect(html).toMatch(/<a [^>]*href="\/dashboard"[^>]*>Back to Dashboard<\/a>/);
     expect(mocks.readResult).toHaveBeenCalledWith(SUPABASE, ID);
+  });
+
+  it("lists the wrong answers with their reasons and a See tip anchor", async () => {
+    mocks.readResult.mockResolvedValue(stored(PRACTICE_64));
+    const html = await render();
+    expect(html).toMatch(/<h1[^>]*>Practice 1 — 64\/100<\/h1>/);
+    expect(html).toContain('data-variant="calm"');
+    expect(html.match(/data-slot="wrong-answer-row"/g)).toHaveLength(2);
+    expect(html).toContain(PRACTICE_64.questions[1].reasonText);
+    expect(html).toMatch(/<a [^>]*href="#tip-2"[^>]*>See tip<\/a>/);
+    expect(html).toContain('id="tip-2"');
+    expect(html).not.toContain("Semua benar!");
+    expect(html).toContain("No hints");
+  });
+
+  it("renders a legacy Result without Tips, and hides the time without received_at", async () => {
+    mocks.readResult.mockResolvedValue(stored(RESULT, "L01-P1", null));
+    const html = await render();
+    expect(html).toMatch(/<h1[^>]*>Practice 1 — 75\/100<\/h1>/);
+    expect(html).toMatch(/>3<\/span> <span[^>]*>of 4 correct<\/span>/);
+    expect(html).not.toContain('data-slot="time"');
+    expect(html).not.toContain("See tip");
+    expect(html).not.toContain('aria-roledescription="carousel"');
+  });
+
+  it("labels an item the registry does not know by its id", async () => {
+    mocks.readResult.mockResolvedValue(stored(PRACTICE_85, "L09-P9"));
+    const html = await render();
+    expect(html).toMatch(/<h1[^>]*>L09-P9 — 85\/100<\/h1>/);
+    expect(html).toMatch(/data-slot="level-label"[^>]*>L09-P9<\/p>/);
   });
 
   it("is notFound without a stored Result (another user's attempt, not graded, or graded by SQL)", async () => {
@@ -87,7 +132,7 @@ describe("Results page", () => {
   });
 
   it("shows the first-load alert and logs results.load_failed for a Result that fails resultSchema", async () => {
-    mocks.readResult.mockResolvedValue({ ok: true, value: { itemId: "L01-P1", result: { ...RESULT, score: 100 } } });
+    mocks.readResult.mockResolvedValue(stored({ ...RESULT, score: 100 }));
     const html = await render();
     expect(html).toContain('role="alert"');
     expect(html).toContain(shellMessages.firstLoadFailed);
@@ -106,5 +151,34 @@ describe("Results page", () => {
     mocks.getSessionUser.mockResolvedValue(null);
     await expect(render()).rejects.toMatchObject({ url: `/login?next=${encodeURIComponent(`/results/${ID}`)}` });
     expect(mocks.readResult).not.toHaveBeenCalled();
+  });
+
+  describe("document title", () => {
+    it("carries the outcome once the Result is read", async () => {
+      mocks.readResult.mockResolvedValue(stored(PRACTICE_85));
+      expect(await title()).toBe("Practice 1 — 85/100 · WORKING HARD with EXCEL");
+      mocks.readResult.mockResolvedValue(stored(PRACTICE_85, "L09-P9"));
+      expect(await title()).toBe("L09-P9 — 85/100 · WORKING HARD with EXCEL");
+    });
+
+    it("is Results, not indexed, for a failed read, an invalid Result and no Result", async () => {
+      mocks.readResult.mockResolvedValue({ ok: false });
+      expect(await generateMetadata({ params: Promise.resolve({ attemptId: ID }) })).toEqual({
+        title: "Results · WORKING HARD with EXCEL",
+        robots: { index: false },
+      });
+      mocks.readResult.mockResolvedValue(stored({ ...RESULT, score: 100 }));
+      expect(await title()).toBe("Results · WORKING HARD with EXCEL");
+      mocks.readResult.mockResolvedValue({ ok: true, value: null });
+      expect(await title()).toBe("Results · WORKING HARD with EXCEL");
+      expect(mocks.notFound).not.toHaveBeenCalled();
+    });
+
+    it("is Results without a session, and never redirects", async () => {
+      mocks.getSessionUser.mockResolvedValue(null);
+      expect(await title()).toBe("Results · WORKING HARD with EXCEL");
+      expect(mocks.redirect).not.toHaveBeenCalled();
+      expect(mocks.readResult).not.toHaveBeenCalled();
+    });
   });
 });

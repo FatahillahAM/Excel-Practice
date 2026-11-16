@@ -688,15 +688,28 @@ describe("downloadSubmissionFile (service role)", () => {
 });
 
 describe("readResult (session)", () => {
-  it("reads item and result of the user's attempt", async () => {
+  it("reads item, result and the two timestamps of the user's attempt", async () => {
     const result = { version: 1 };
-    const { client, calls } = fakeClient({ data: { item_id: "L01-P1", result }, error: null });
-    expect(await readResult(client, ID)).toEqual({ ok: true, value: { itemId: "L01-P1", result } });
+    const startedAt = "2026-11-02T01:00:00+00:00";
+    const receivedAt = "2026-11-02T01:06:48+00:00";
+    const { client, calls } = fakeClient({
+      data: { item_id: "L01-P1", result, started_at: startedAt, received_at: receivedAt },
+      error: null,
+    });
+    expect(await readResult(client, ID)).toEqual({ ok: true, value: { itemId: "L01-P1", result, startedAt, receivedAt } });
     expect(calls).toEqual([
-      ["select", ["item_id, result"]],
+      ["select", ["item_id, result, started_at, received_at"]],
       ["eq", ["id", ID]],
       ["maybeSingle", []],
     ]);
+  });
+
+  it("gives a null receivedAt for a row without received_at", async () => {
+    const row = { item_id: "L01-P1", result: { version: 1 }, started_at: "2026-11-02T01:00:00+00:00", received_at: null };
+    expect(await readResult(fakeClient({ data: row, error: null }).client, ID)).toMatchObject({
+      ok: true,
+      value: { receivedAt: null },
+    });
   });
 
   it("is null for no row (RLS), a null result, or a malformed id; not ok on an error", async () => {

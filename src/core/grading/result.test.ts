@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { questionResultSchema, resultSchema, scoreOf, tipSchema, type Result } from "./result";
+import { PASS_SCORE, isPassingScore, questionResultSchema, resultSchema, scoreOf, tipSchema, type Result } from "./result";
 
 const RESULT: Result = {
   version: 2,
@@ -102,5 +102,15 @@ describe("scoreOf", () => {
     expect(scoreOf(100, 0)).toBe(100);
     expect(scoreOf(75, 3)).toBe(60);
     expect(scoreOf(10, 3)).toBe(0);
+  });
+});
+
+describe("isPassingScore", () => {
+  it("passes from 80", () => {
+    expect(PASS_SCORE).toBe(80);
+    expect(isPassingScore(79)).toBe(false);
+    expect(isPassingScore(80)).toBe(true);
+    expect(isPassingScore(100)).toBe(true);
+    expect(isPassingScore(0)).toBe(false);
   });
 });

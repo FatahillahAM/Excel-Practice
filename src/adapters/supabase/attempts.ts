@@ -511,25 +511,34 @@ export async function downloadSubmissionFile(
 export interface StoredResult {
   itemId: string;
   result: unknown;
+  /** `started_at` (server time, AD-8). */
+  startedAt: string;
+  /** `received_at`: stamped once, at the first accepted file; `null` for a row without it. */
+  receivedAt: string | null;
 }
 
 /**
  * The attempt's `result` through the user's session (RLS: owner only;
- * migration 20261109000001 grants the session `select (result)`); `null` when
+ * migration 20261109000001 grants the session `select (result)`, 20261104000001
+ * `started_at` and `received_at`), with the two timestamps Results derives the
+ * attempt's time from; `null` when
  * the attempt does not exist, is not theirs, or has no Result (not graded, or
  * graded by SQL before results existed).
  */
 export async function readResult(supabase: SupabaseClient, attemptId: string): Promise<Read<StoredResult | null>> {
   if (!isAttemptId(attemptId)) return { ok: true, value: null };
   try {
-    const { data, error } = await supabase.from(TABLE).select("item_id, result").eq("id", attemptId).maybeSingle();
+    const { data, error } = await supabase.from(TABLE).select("item_id, result, started_at, received_at").eq("id", attemptId).maybeSingle();
     if (error) {
       logError("attempt.read_result_failed", error.code);
       return { ok: false };
     }
-    const row = data as { item_id: string; result: unknown } | null;
+    const row = data as { item_id: string; result: unknown; started_at: string; received_at?: string | null } | null;
     if (!row || row.result === null || row.result === undefined) return { ok: true, value: null };
-    return { ok: true, value: { itemId: row.item_id, result: row.result } };
+    return {
+      ok: true,
+      value: { itemId: row.item_id, result: row.result, startedAt: row.started_at, receivedAt: row.received_at ?? null },
+    };
   } catch (error) {
     logError("attempt.read_result_failed", errorName(error));
     return { ok: false };
