@@ -145,3 +145,23 @@
   summary: A snapshot written outside the app with a fractional `hintQuota` or question `number` (e.g. `3.0`) is read by `reveal_hint` / the fence as invalid (quota 0, `snapshot_invalid`, or no such question), while zod may accept it differently.
   evidence: 3.5 review; the app writes only integers (`examSnapshotSchema`), so this needs a hand-written snapshot.
   status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
+  summary: Browser-only behaviour of Results (scroll-snap, CSS smooth scroll, the stacked phone layout, `document.title` and focus on the `<h1>` after the exam screen's `router.replace`) has no automated test; jsdom tests stub the geometry.
+  evidence: 3.6 review; there is no browser test layer — these are checked by hand in Production (plan › Verification).
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
+  summary: Excel terms inside wrong-answer reasons and Tip bodies (`SUMIFS`, `$A$1`) are not wrapped in `<code lang="en">` as in the mockup: the whole text is `lang="id"`.
+  evidence: 3.6 review; stored reasons and Tips are plain strings — needs markup in the content contract or a tokenizer at render.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
+  summary: The mockup's ≥80 panel styling is not built: `glow-soft` radial tint on the Outcome panel, the coin's gradient and inset rings, and the panel's hover `glow` border.
+  evidence: 3.6 review; 3.6 has a flat `primary` face with a static glow — assign to 3.7 or a polish entry.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
+  summary: Two questions carrying the same Tip id show as two separate Tips Cards on Results.
+  evidence: 3.6 review; one card per question is the frozen rule — revisit if content reuses a Tip within one item (the Tips collection in 3.9 dedupes by id).
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
+  summary: A Test item later removed from the registry loses its "Test passed / not passed" heading and falls back to "`<itemId>` — S/100": the item kind comes from the live registry, not the stored Result.
+  evidence: 3.6 review; store the kind with the attempt/Result, or derive it from the item id, when Test items exist (epic 5).
+  status: open

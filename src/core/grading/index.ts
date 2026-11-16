@@ -31,8 +31,10 @@ export { REASON_TEMPLATES, reasonText } from "./reasons";
 export type { Reason, ReasonKind } from "./reasons";
 export {
   HINT_PENALTY_POINTS,
+  PASS_SCORE,
   RESULT_VERSION,
   RESULT_VERSIONS,
+  isPassingScore,
   questionResultSchema,
   resultSchema,
   scoreOf,

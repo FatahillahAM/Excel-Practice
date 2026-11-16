@@ -51,6 +51,14 @@ export const examMessages = {
   retryFailed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
 } as const;
 
+/** Results (EXPERIENCE.md › Results). */
+export const resultsMessages = {
+  /** Replaces the Wrong Answer Rows when every question is correct. */
+  allCorrect: "Semua benar!",
+  /** A question by its number, as the Instructions sheet names it: "Soal 2". */
+  question: (number: number) => `Soal ${number}`,
+} as const;
+
 /** Hint group on the exam screen (EXPERIENCE.md › Message set, Hint rows; illustrative). */
 export const hintMessages = {
   /** "Hint — attempt no longer open" row: Finish, upload or Abandon came first. */

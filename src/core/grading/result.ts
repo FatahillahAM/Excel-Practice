@@ -13,6 +13,14 @@ import { MAX_QUESTIONS, TOTAL_POINTS, scenarioSchema, tipSchema, type Tip } from
 /** Points one revealed hint costs (AD-3). */
 export const HINT_PENALTY_POINTS = 5;
 
+/** The score a Test needs to pass, and from which Results celebrates (CAP-5, CAP-9). */
+export const PASS_SCORE = 80;
+
+/** Whether a score reaches `PASS_SCORE` (≥ 80). */
+export function isPassingScore(score: number): boolean {
+  return score >= PASS_SCORE;
+}
+
 /**
  * The `Result` shape version: later entries (more checkers, Tips) bump it so
  * old Results stay readable. 2: all five checkers and their reasons (entry 2);

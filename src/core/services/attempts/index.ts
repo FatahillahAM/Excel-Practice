@@ -9,6 +9,6 @@ export {
   transition,
 } from "./lifecycle";
 export type { AttemptStatus, TransitionResult } from "./lifecycle";
-export { elapsedSeconds } from "./elapsed";
+export { attemptDurationSeconds, elapsedSeconds, formatElapsed } from "./elapsed";
 export { hintState, hintsLeft, nextHintIndex, questionExhausted } from "./hints";
 export type { HintReveal, HintRevealRow, HintState } from "./hints";
