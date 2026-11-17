@@ -3,7 +3,7 @@ title: 'Layar Results: isi dan varian'
 type: 'feature'
 ticket: '6'
 created: '2026-11-16'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -181,3 +181,17 @@ Checks after patches: lint, typecheck, test (67 files, 1336), build pass.
 - Open `/results/b55b185f…` (3.4, 20/100): calm badge, wrong rows with reasons and "See tip" that jumps to the card.
 - Open `/results/7ee570ef…` or `fc496faf…` (v1, no Tips): page renders without a Tips section or "See tip".
 - New L01-P1 attempt finished on the laptop: the exam screen moves to Results by itself, focus on the `<h1>`, title carries the score; phone width shows the stacked layout without horizontal scroll; runtime logs show no `results.load_failed`.
+
+### Production evidence (2026-11-16, deployment `dpl_6sLfQMh4Qq7bZH9RRkWqyLzgyeEj`, PR #20)
+
+No migration. Deployment ready 15:37 UTC.
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 15:40:36 | `attempt.started` | attempt `91e3d0bc`, L01-P1, scenario `furnitur-jati-makmur` |
+| 15:42:00 | `hint.revealed` | question 3, index 0, used 1 |
+| 15:42:08 | `hint.revealed` | question 3, index 1, used 2 |
+| 15:43:08.116 | macro submission | `received: true`, `duplicate: false` |
+| 15:43:09.163 | `grading.done` | channel macro, outcome graded, score 60 |
+
+Stored Result: 3 of 4 correct (question 4 wrong), points earned 70, `hintsUsed` 2, `hintPenalty` 10, score 60; duration 2 min 32 s. Expected on Results: "Practice 1 — 60/100" in the calm variant, "Hint ×2 −10", "3 of 4 correct", one wrong-answer row with "See tip", four Tips. No error lines. Browser-only items (auto navigation, carousel, phone layout) are confirmed by the user, not by logs.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FLOORED_0, buildResult } from "@/core/grading/__fixtures__/results";
-import { deductionParts, deductionText, levelLabel, resultsOutcome, shortcutKeys } from "./outcome";
+import { deductionParts, deductionText, knownItem, levelLabel, resultsMotion, resultsOutcome, shortcutKeys, type OutcomeItem } from "./outcome";
 
 const practice = { kind: "practice", number: 1 } as const;
 const test = { kind: "test", number: 1 } as const;
@@ -68,5 +68,22 @@ describe("shortcutKeys", () => {
     expect(shortcutKeys("Ctrl+Shift+%")).toEqual(["Ctrl", "Shift", "%"]);
     expect(shortcutKeys("Ctrl+D")).toEqual(["Ctrl", "D"]);
     expect(shortcutKeys("F4")).toEqual(["F4"]);
+  });
+});
+
+describe("resultsMotion", () => {
+  const items: Record<string, OutcomeItem> = {
+    practice: { kind: "practice", number: 1 },
+    test: { kind: "test", number: 1 },
+    unknown: null,
+  };
+  const cases = Object.entries(items).flatMap(([name, item]) =>
+    [79, 80].flatMap((score) => (["live", "static"] as const).map((mode) => ({ name, item, score, mode }))),
+  );
+  it.each(cases)("$name, score $score, $mode", ({ item, score, mode }) => {
+    const { variant } = resultsOutcome({ item, itemId: "X", result: { score } });
+    const motion = resultsMotion({ variant, kind: knownItem(item)?.kind ?? null, mode });
+    const moving = mode === "live" && score >= 80;
+    expect(motion).toEqual({ turn: moving, scene: moving, fire: moving && item?.kind === "test" });
   });
 });

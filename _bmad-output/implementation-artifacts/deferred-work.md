@@ -165,3 +165,11 @@
   summary: A Test item later removed from the registry loses its "Test passed / not passed" heading and falls back to "`<itemId>` — S/100": the item kind comes from the live registry, not the stored Result.
   evidence: 3.6 review; store the kind with the attempt/Result, or derive it from the item id, when Test items exist (epic 5).
   status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-gerak-results-plan.md`
+  summary: Browser-only Results motion has no automated test: the badge turn, the count-up (incl. the `@property` fallback), the Fire Effect's look, the scroll lift, and whether the Tailwind 3D utilities (`perspective-*`, `transform-3d`, `backface-hidden`, `rotate-y-180`) emit the expected CSS.
+  evidence: 3.7 review; jsdom runs no CSS animation — tests cover the trigger attributes and `globals.test.ts` string checks; the rest is checked by hand in a browser (plan › Verification).
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-gerak-results-plan.md`
+  summary: Save-Data and `deviceMemory ≤ 4` keep the badge turn, count-up and Fire Effect; only the 3D scroll scene is dropped.
+  evidence: 3.7 review; AD-12 limits only scenes on these signals (plan › Design Notes [ASSUMPTION]); revisit if low-end devices show jank.
+  status: open

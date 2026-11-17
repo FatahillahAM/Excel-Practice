@@ -97,6 +97,20 @@ const user = () => userEvent.setup({ advanceTimers: vi.advanceTimersByTimeAsync 
 const statusLineText = () => screen.getAllByRole("status")[0].textContent;
 
 describe("ExamStatus in the DOM", () => {
+  it("marks the Results count-up before it replaces with Results (3.7)", async () => {
+    window.sessionStorage.clear();
+    let marked: string | null = null;
+    mocks.router.replace.mockImplementationOnce(() => {
+      marked = window.sessionStorage.getItem("excel-practice.results-count-up");
+    });
+    queue = [answer("graded", ID)];
+    show("received");
+    await pass(POLL_MS);
+    expect(mocks.router.replace).toHaveBeenCalledWith(`/results/${ID}`);
+    expect(marked).toBe(`/results/${ID}`);
+    window.sessionStorage.clear();
+  });
+
   it("(a) polls received, then graded with a resultId: replaces with Results once and polls no more", async () => {
     queue = [answer("received"), answer("graded", ID)];
     show("open");

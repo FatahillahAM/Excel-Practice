@@ -5,6 +5,7 @@ import { unstable_rethrow, useRouter } from "next/navigation";
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import type { AttemptStatus } from "@/adapters/supabase/attempts";
 import { OrbitLoader } from "@/components/exam/orbit-loader";
+import { markResultsCountUp } from "@/components/results/count-up-marker";
 import type { HintState } from "@/core/services/attempts";
 import { examMessages, shellMessages } from "@/messages/id";
 import {
@@ -253,6 +254,8 @@ export function ExamStatus({
         const results = resultPath(body);
         if (results !== null) {
           setLeaving(true);
+          // Results counts the score up only after this client move (3.7).
+          markResultsCountUp(results);
           router.replace(results);
           return;
         }
