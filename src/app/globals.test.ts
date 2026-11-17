@@ -20,13 +20,49 @@ describe("globals.css Results motion", () => {
     expect(end).toBeGreaterThan(start);
   });
 
-  it("uses results-lift only inside @supports (animation-timeline: view())", () => {
-    const supports = block.indexOf("@supports (animation-timeline: view())");
-    expect(supports).toBeGreaterThan(-1);
+  it("uses results-lift only inside the @supports (animation-timeline: view()) braces", () => {
+    const open = block.indexOf("@supports (animation-timeline: view()) {");
+    expect(open).toBeGreaterThan(-1);
+    // The matching closing brace of the @supports rule.
+    let depth = 0;
+    let close = -1;
+    for (let i = block.indexOf("{", open); i < block.length; i += 1) {
+      if (block[i] === "{") depth += 1;
+      if (block[i] === "}" && --depth === 0) {
+        close = i;
+        break;
+      }
+    }
+    expect(close).toBeGreaterThan(open);
     const uses = [...block.matchAll(/animation:\s*results-lift/g)].map((m) => m.index);
     expect(uses.length).toBeGreaterThan(0);
-    for (const at of uses) expect(at).toBeGreaterThan(supports);
+    for (const at of uses) {
+      expect(at).toBeGreaterThan(open);
+      expect(at).toBeLessThan(close);
+    }
+    expect(block.slice(open, close)).toMatch(/animation-range:\s*entry 0% entry 100%/);
     expect(css.replace(block, "")).not.toMatch(/results-lift/);
+  });
+
+  it("animates the fire with transform and opacity only", () => {
+    for (const name of ["fire-flame", "fire-haze"]) {
+      const props = [...keyframes(name).matchAll(/([a-z-]+)\s*:/g)].map((m) => m[1]);
+      expect(props.length).toBeGreaterThan(0);
+      for (const prop of props) expect(["transform", "opacity"]).toContain(prop);
+    }
+  });
+
+  it("plays every animation once: no iteration count other than 1", () => {
+    for (const m of block.matchAll(/animation-iteration-count:\s*([^;]+);/g)) expect(m[1].trim()).toBe("1");
+  });
+
+  it("turns the count-up off in forced colours (no transparent text, no counter)", () => {
+    const at = block.indexOf("@media (forced-colors: active)");
+    expect(at).toBeGreaterThan(-1);
+    const rule = block.slice(at, block.indexOf("/* Fire Effect", at));
+    expect(rule).toMatch(/color:\s*inherit/);
+    expect(rule).toMatch(/animation:\s*none/);
+    expect(rule).toMatch(/content:\s*none/);
   });
 
   it("never animates box-shadow or filter in a Results keyframe", () => {

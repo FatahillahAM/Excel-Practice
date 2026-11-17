@@ -1,10 +1,11 @@
 "use client";
 
 import { Flame } from "lucide-react";
-import type { CSSProperties } from "react";
-import { useMotionPreference } from "@/hooks/use-motion-preference";
+import { useLayoutEffect, useState, type CSSProperties } from "react";
 import { cn } from "@/lib/utils";
+import { takeResultsCountUp } from "./count-up-marker";
 import type { ResultsVariant } from "./outcome";
+import { usePlayOnce } from "./use-play-once";
 
 /**
  * Score Badge (DESIGN.md › Score Badge): a 168px disc with the score in
@@ -19,8 +20,10 @@ import type { ResultsVariant } from "./outcome";
  *
  * Motion (3.7, CSS only): with `turn` and full motion the wrapper gets
  * `data-animate="turn"` and `--score-n`; `globals.css` turns the disc once
- * (showing the `streak` back face) and counts the score up through a
- * pseudo-element. The score's DOM text is always the final value.
+ * (showing the `streak` back face, rendered only then). The count-up through a
+ * pseudo-element (`data-count="up"`) runs only after a client move from the
+ * exam screen (`count-up-marker.ts`), never after the final score was already
+ * painted by the server. The score's DOM text is always the final value.
  */
 export function ScoreBadge({
   score,
@@ -35,7 +38,12 @@ export function ScoreBadge({
   turn?: boolean;
 }) {
   const glowing = variant === "pass" && mode === "live";
-  const animate = useMotionPreference() === "full" && turn;
+  const animate = usePlayOnce(turn);
+  const [countUp, setCountUp] = useState(false);
+  useLayoutEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCountUp(takeResultsCountUp());
+  }, []);
   return (
     <div
       aria-hidden="true"
@@ -44,8 +52,9 @@ export function ScoreBadge({
       data-mode={mode}
       data-glow={glowing ? "true" : "false"}
       data-animate={animate ? "turn" : undefined}
+      data-count={animate && countUp ? "up" : undefined}
       style={animate ? ({ "--score-n": score } as CSSProperties) : undefined}
-      className={cn("size-[168px] shrink-0 rounded-full perspective-[900px]", glowing && "shadow-[0_0_28px_var(--glow-strong),0_30px_40px_rgba(0,0,0,0.45)]")}
+      className={cn("relative size-[168px] shrink-0 rounded-full perspective-[900px]", glowing && "shadow-[0_0_28px_var(--glow-strong),0_30px_40px_rgba(0,0,0,0.45)]")}
     >
       <div data-slot="score-badge-disc" className="relative size-full rounded-full transform-3d">
         <div
@@ -60,12 +69,14 @@ export function ScoreBadge({
             <span className="mt-1 block font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] opacity-75">/100</span>
           </div>
         </div>
+        {animate ? (
         <div
           data-slot="score-badge-back"
           className="absolute inset-0 grid rotate-y-180 place-items-center rounded-full bg-streak text-primary-foreground backface-hidden"
         >
           <Flame aria-hidden="true" className="size-16" strokeWidth={1.6} />
         </div>
+        ) : null}
       </div>
     </div>
   );

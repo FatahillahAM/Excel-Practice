@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@/test/dom";
 import { act, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { FLOORED_0, PRACTICE_64, PRACTICE_85, SCORE_79, SCORE_80, TEST_72, TEST_88, V1_NO_TIPS_80 } from "@/core/grading/__fixtures__/results";
 import type { Result } from "@/core/grading/result";
@@ -24,8 +24,12 @@ const fires = () => document.querySelectorAll<HTMLElement>('[data-slot="fire-eff
 const scened = () => document.querySelectorAll("[data-scene]");
 const scoreText = () => document.querySelector<HTMLElement>('[data-slot="score-badge-score"]')!.textContent;
 
-function expectStill(score: number) {
+function expectStill(score: number, glow: "true" | "false") {
+  expect(badge().dataset.glow).toBe(glow);
   expect(badge().hasAttribute("data-animate")).toBe(false);
+  expect(badge().hasAttribute("data-count")).toBe(false);
+  expect(slot("score-badge-back")).toBeNull();
+  expect(slot("fire-tint")).toBeNull();
   expect(badge().style.getPropertyValue("--score-n")).toBe("");
   expect(scened()).toHaveLength(0);
   expect(fires()).toHaveLength(0);
@@ -46,8 +50,21 @@ function mockReducedMotion(matches: boolean) {
   })) as typeof window.matchMedia;
 }
 
+/** Puts the Answers and Tips sections below the viewport (the scroll scene's mount gate), or the given ones in view. */
+function placeSections(inView: readonly string[] = []) {
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+    const top = inView.includes(this.dataset.slot ?? "") ? 100 : window.innerHeight + 200;
+    return { top, bottom: top + 200, left: 0, right: 0, width: 0, height: 200, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+  });
+}
+const panel = () => heading().closest("section")!;
+const COUNT_KEY = "excel-practice.results-count-up";
+
 type Nav = Navigator & { deviceMemory?: number; connection?: unknown };
+beforeEach(() => placeSections());
 afterEach(() => {
+  vi.restoreAllMocks();
+  window.sessionStorage.clear();
   window.matchMedia = realMatchMedia;
   delete document.documentElement.dataset.motion;
   delete (navigator as Nav).deviceMemory;
@@ -89,7 +106,7 @@ describe("Results motion", () => {
   ] as const)("%s is calm and still", (_name, result, item) => {
     view(result, { item });
     expect(badge().dataset.variant).toBe("calm");
-    expectStill(result.score);
+    expectStill(result.score, "false");
   });
 
   it("80 moves, 79 stays still", () => {
@@ -110,7 +127,7 @@ describe("Results motion", () => {
 
   it("static mode has no motion for a Test passed", () => {
     view(TEST_88, { item: TEST, mode: "static" });
-    expectStill(88);
+    expectStill(88, "false");
   });
 
   it.each([
@@ -119,11 +136,10 @@ describe("Results motion", () => {
   ])("reduced motion (%s) is still with the final score", (_name, reduce) => {
     reduce();
     const first = view(PRACTICE_85);
-    expectStill(85);
-    expect(badge().dataset.glow).toBe("true");
+    expectStill(85, "true");
     first.unmount();
     view(TEST_88, { item: TEST });
-    expectStill(88);
+    expectStill(88, "true");
   });
 
   it("turning the switch on while open removes the motion and the fire", async () => {
@@ -132,7 +148,68 @@ describe("Results motion", () => {
     await act(async () => {
       document.documentElement.dataset.motion = "reduce";
     });
-    expectStill(88);
+    expectStill(88, "true");
+  });
+
+  it("plays once per mount: reduced at mount, then full, never starts", async () => {
+    document.documentElement.dataset.motion = "reduce";
+    view(TEST_88, { item: TEST });
+    await act(async () => {
+      delete document.documentElement.dataset.motion;
+    });
+    expectStill(88, "true");
+  });
+
+  it("does not replay after reduced motion was turned on and off again", async () => {
+    view(TEST_88, { item: TEST });
+    await act(async () => {
+      document.documentElement.dataset.motion = "reduce";
+    });
+    await act(async () => {
+      delete document.documentElement.dataset.motion;
+    });
+    expectStill(88, "true");
+  });
+
+  it("counts up only after the exam screen's client move, never on a hard load", () => {
+    const hard = view(PRACTICE_85);
+    expect(badge().dataset.animate).toBe("turn");
+    expect(badge().hasAttribute("data-count")).toBe(false);
+    hard.unmount();
+
+    window.sessionStorage.setItem(COUNT_KEY, window.location.pathname);
+    const moved = view(PRACTICE_85);
+    expect(badge().dataset.count).toBe("up");
+    expect(window.sessionStorage.getItem(COUNT_KEY)).toBeNull();
+    moved.unmount();
+
+    window.sessionStorage.setItem(COUNT_KEY, "/results/another");
+    view(PRACTICE_85);
+    expect(badge().hasAttribute("data-count")).toBe(false);
+  });
+
+  it("the Outcome panel keeps the 3.6 frame: never overflow-hidden; the tint only with full motion", () => {
+    const test = view(TEST_88, { item: TEST });
+    expect(panel().className).not.toContain("overflow-hidden");
+    expect(slot("fire-tint")).not.toBeNull();
+    expect(slot("fire-tint")!.getAttribute("aria-hidden")).toBe("true");
+    test.unmount();
+    view(PRACTICE_85);
+    expect(panel().className).not.toContain("overflow-hidden");
+    expect(slot("fire-tint")).toBeNull();
+  });
+
+  it("the fire sits in the badge column, behind the badge", () => {
+    view(TEST_88, { item: TEST });
+    const fire = fires()[0];
+    expect(fire.parentElement).toBe(badge().parentElement);
+  });
+
+  it("a section already in view at mount does not lift", () => {
+    placeSections(["wrong-answers"]);
+    view(TEST_88, { item: TEST });
+    expect(slot("wrong-answers")!.hasAttribute("data-scene")).toBe(false);
+    expect(slot("tips")!.dataset.scene).toBe("lift");
   });
 
   it.each([

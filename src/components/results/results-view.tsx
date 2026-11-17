@@ -4,7 +4,7 @@ import type { LevelItemKind } from "@/core/content/level-module";
 import type { Result } from "@/core/grading/result";
 import { formatElapsed } from "@/core/services/attempts/elapsed";
 import { cn } from "@/lib/utils";
-import { FireEffect } from "./fire-effect";
+import { FireEffect, FireTint } from "./fire-effect";
 import { deductionParts, knownItem, levelLabelLead, resultsMotion, resultsOutcome } from "./outcome";
 import { ResultsDetails } from "./results-details";
 import { ResultsFocus } from "./results-focus";
@@ -45,14 +45,15 @@ export function ResultsView({ itemId, item, level, result, durationSeconds, mode
       <section
         aria-labelledby={RESULTS_HEADING_ID}
         className={cn(
-          "relative grid items-center gap-6 overflow-hidden rounded-lg border border-border bg-card p-5 sm:grid-cols-[200px_1fr] sm:gap-7 sm:px-8 sm:py-7",
-          motion.fire && "bg-[radial-gradient(ellipse_40%_90%_at_14%_70%,var(--streak-glow),transparent_70%)]",
+          "grid items-center gap-6 rounded-lg border border-border bg-card p-5 sm:grid-cols-[200px_1fr] sm:gap-7 sm:px-8 sm:py-7",
+          motion.fire && "relative",
         )}
       >
-        {motion.fire ? <FireEffect /> : null}
-        <div className="relative flex flex-col items-center gap-2.5">
+        {motion.fire ? <FireTint /> : null}
+        <div className={cn("flex flex-col items-center gap-2.5", motion.fire && "relative")}>
+          {motion.fire ? <FireEffect /> : null}
           <ScoreBadge score={result.score} variant={variant} mode={mode} turn={motion.turn} />
-          <p data-slot="deduction" className="flex flex-wrap justify-center gap-x-1.5 text-[12px] font-medium text-muted-foreground">
+          <p data-slot="deduction" className={cn("flex flex-wrap justify-center gap-x-1.5 text-[12px] font-medium text-muted-foreground", motion.fire && "relative")}>
             <span>{deduction.label}</span>
             {deduction.penalty !== null ? (
               <>
@@ -62,7 +63,7 @@ export function ResultsView({ itemId, item, level, result, durationSeconds, mode
             ) : null}
           </p>
         </div>
-        <div className="relative flex min-w-0 flex-col items-center gap-3 text-center sm:items-start sm:text-left">
+        <div className={cn("flex min-w-0 flex-col items-center gap-3 text-center sm:items-start sm:text-left", motion.fire && "relative")}>
           <p data-slot="level-label" className="font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] text-muted-foreground uppercase">
             {known !== null && level !== null ? (
               <>

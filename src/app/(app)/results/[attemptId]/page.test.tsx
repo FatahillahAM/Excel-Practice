@@ -147,11 +147,9 @@ describe("Results page", () => {
     mocks.readResult.mockResolvedValue(stored(PRACTICE_85));
     const practice = await render();
     expect(practice).toContain('data-glow="true"');
-    for (const html of [practice]) {
-      expect(html).not.toContain("data-animate");
-      expect(html).not.toContain("data-scene");
-      expect(html).not.toContain("fire-effect");
-    }
+    expect(practice).not.toContain("data-animate");
+    expect(practice).not.toContain("data-scene");
+    expect(practice).not.toContain("fire-effect");
 
     const real = mocks.realFindItem("L01-P1") as { level: object; item: object };
     mocks.findItem.mockReturnValue({ level: real.level, item: { ...real.item, id: "L01-T", kind: "test", number: 1 } });
@@ -160,6 +158,8 @@ describe("Results page", () => {
     expect(test).not.toContain("data-animate");
     expect(test).not.toContain("data-scene");
     expect(test).not.toContain("fire-effect");
+    expect(test).not.toContain("fire-tint");
+    expect(test).not.toContain("score-badge-back");
   });
 
   it("labels an item the registry does not know by its id", async () => {

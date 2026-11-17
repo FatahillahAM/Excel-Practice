@@ -3,7 +3,7 @@ title: 'Gerak Results'
 type: 'feature'
 ticket: '7'
 created: '2026-11-16'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -115,8 +115,28 @@ Names below were re-checked against the merged 3.6 code on 2026-11-17.
 ## Plan Change Log
 
 - 2026-11-17 — re-checked against merged 3.6: Score Badge three layers (wrapper/disc/face) named with their real `data-slot`s; turn on the disc, trigger and `--score-n` on the wrapper, new back face `score-badge-back` with no text, counter as `::after` so 3.6 `textContent` assertions hold; `ScoreBadge` noted as becoming a client component, `ResultsView` stays server; scene sections named `wrong-answers` / `all-correct` / `tips` (frozen Adegan scroll line now names them, meaning unchanged; "Semua benar!" section lifts too, as the frozen text already said); motion gate kind via `knownItem` and tied to `data-glow`; fixtures named (`PRACTICE_85`, `TEST_88` + Test item prop, `V1_NO_TIPS_80`, `FLOORED_0`, …) incl. frozen matrix rows (meaning unchanged); fire element `data-fire` → `data-slot="fire-effect"`, placed outside the badge; `globals.css` keyframe list and `--glow-soft` corrected; `globals.test.ts` marked new; deferred ≥80 panel mockup styling explicitly not taken by 3.7 (static, not needed by the motion).
+- 2026-11-17 — review patches: (1) count-up only after the exam screen's client move to Results (one-shot sessionStorage marker `excel-practice.results-count-up` set before `router.replace`, consumed on mount, wrapper `data-count="up"`); a hard load turns the badge without counting, so the painted final score never drops to 0 (option (a)); (2) back face `score-badge-back` rendered only while the turn is active; (3) Outcome panel never `overflow-hidden` (3.6 frame; `relative` only for a Test passed); the fire clips itself; (4) fire anchored inside the badge column, centred (left 50% + negative half width), flame widths in %, tint is its own `fire-tint` layer centred on the badge (top centre on phones); (5) tint rendered client-side with full motion only, like the fire; (6) `forced-colors: active` turns the count-up off; (7) motion plays once per mount (`usePlayOnce`: armed only if full motion at mount, before paint; once cleared by reduced motion it never replays); (8) a section lifts only if its top is below the viewport at mount, `animation-range: entry 0% entry 100%`; (9) test hardening; (10) deferred-work entries for browser-only checks and Save-Data/low-memory keeping turn + fire.
 
 ## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), 2026-11-17.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | Score shows final value, then drops to 0 after hydration before counting up | patched — count-up only after the exam screen's one-shot navigation marker; a hard load turns without counting |
+| 2 | Flame back face rendered in every badge (calm, static, reduced) | patched — rendered only while the turn is active |
+| 3 | `overflow-hidden` on the Outcome panel clips the 3.6 badge glow for every variant | patched — removed; fire clips itself |
+| 4 | Fire off-centre on phones (desktop coordinates), flames overflow | patched — inside the badge column, centred, percentage sizes; tint centred on the badge |
+| 5 | Test-pass tint ignores reduced motion / SSR | patched — client-only with full motion |
+| 6 | Forced colours: count-up overlaps the real score | patched — `forced-colors` disables the counter |
+| 7 | Turning reduced motion off again replays the motion | patched — `usePlayOnce` latch decided at mount |
+| 8 | Scroll scene: sections already in view jump to a mid state; short pages stay faded | patched — only sections below the viewport at mount; range ends at `entry 100%` |
+| 9 | Tests: calm `data-glow` unchecked, `@supports` check too loose, no iteration-count/fire-property checks, one-item loop | patched |
+| 10 | Turn, count-up, fire look, lift, `@property` fallback and Tailwind 3D utilities are browser-only | deferred — checked by hand in Production |
+| 11 | Save-Data / low memory keep turn and fire | accepted — AD-12 limits only the 3D scroll scene; deferred-work note |
+| 12 | Next.js 16.4.2 security advisory (GHSA-mfr8-8qww-v76h) stops the first `npm run build` | out of scope — app uses no `unstable_cache` / `'use cache'`; upgrade proposed to the user as a separate PR |
+
+Checks after patches: lint, typecheck, test (69 files, 1379), build pass (second run; first run stops on the advisory notice).
 
 ## Design Notes
 
