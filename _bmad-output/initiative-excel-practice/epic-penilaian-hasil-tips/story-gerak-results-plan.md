@@ -3,7 +3,7 @@ title: 'Gerak Results'
 type: 'feature'
 ticket: '7'
 created: '2026-11-16'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
