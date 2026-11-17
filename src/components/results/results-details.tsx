@@ -3,6 +3,7 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useImperativeHandle, useRef, useState, type KeyboardEvent, type MouseEvent, type Ref } from "react";
 import type { QuestionResult } from "@/core/grading/result";
+import { useMotionPreference } from "@/hooks/use-motion-preference";
 import { resultsMessages } from "@/messages/id";
 import { TipsCard } from "./tips-card";
 
@@ -29,7 +30,18 @@ interface CarouselHandle {
  * "Semua benar!"), then the Tips Carousel with one Tips Card per question
  * that has a Tip. Rendered from the stored `Result`'s questions only.
  */
-export function ResultsDetails({ questions, levelNumber }: { questions: readonly QuestionResult[]; levelNumber: number | null }) {
+export function ResultsDetails({
+  questions,
+  levelNumber,
+  scene = false,
+}: {
+  questions: readonly QuestionResult[];
+  levelNumber: number | null;
+  /** May the sections lift in while scrolled (from `resultsMotion`)? Also off on Save-Data / low memory. */
+  scene?: boolean;
+}) {
+  const motionScene = useMotionPreference({ scene: true });
+  const lift = scene && motionScene === "full" ? "lift" : undefined;
   const wrong = questions.filter((question) => !question.correct);
   const tipped = questions.filter(hasTip);
   const carousel = useRef<CarouselHandle>(null);
@@ -43,13 +55,13 @@ export function ResultsDetails({ questions, levelNumber }: { questions: readonly
   return (
     <>
       {wrong.length === 0 ? (
-        <section data-slot="all-correct" aria-label="Answers">
+        <section data-slot="all-correct" data-scene={lift} aria-label="Answers">
           <p lang="id" className="rounded-md bg-success-soft px-3.5 py-3 text-[15px] font-bold text-success">
             {resultsMessages.allCorrect}
           </p>
         </section>
       ) : (
-        <section data-slot="wrong-answers" aria-labelledby="results-wrong-heading" className="flex flex-col gap-2.5">
+        <section data-slot="wrong-answers" data-scene={lift} aria-labelledby="results-wrong-heading" className="flex flex-col gap-2.5">
           <h2 id="results-wrong-heading" className="flex items-center gap-2.5 text-[16px] font-extrabold">
             Wrong answers <span className="font-mono text-[12px] font-bold text-muted-foreground">{wrong.length}</span>
           </h2>
@@ -84,7 +96,7 @@ export function ResultsDetails({ questions, levelNumber }: { questions: readonly
 
       {tipped.length > 0 ? (
         // Keyed on its cards: another list of Tips starts again at the first card.
-        <TipsCarousel key={tipped.map((question) => question.number).join(",")} ref={carousel} tipped={tipped} levelNumber={levelNumber} />
+        <TipsCarousel key={tipped.map((question) => question.number).join(",")} ref={carousel} tipped={tipped} levelNumber={levelNumber} lift={lift} />
       ) : null}
     </>
   );
@@ -98,7 +110,17 @@ export function ResultsDetails({ questions, levelNumber }: { questions: readonly
  * track cannot scroll. "Tip k of n" is a polite live region. Smooth scrolling
  * is CSS (`scroll-smooth`), so the global reduced-motion rule turns it off.
  */
-function TipsCarousel({ tipped, levelNumber, ref }: { tipped: readonly TippedQuestion[]; levelNumber: number | null; ref: Ref<CarouselHandle> }) {
+function TipsCarousel({
+  tipped,
+  levelNumber,
+  lift,
+  ref,
+}: {
+  tipped: readonly TippedQuestion[];
+  levelNumber: number | null;
+  lift: "lift" | undefined;
+  ref: Ref<CarouselHandle>;
+}) {
   const count = tipped.length;
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
@@ -205,7 +227,7 @@ function TipsCarousel({ tipped, levelNumber, ref }: { tipped: readonly TippedQue
   const atEnd = index >= count - 1;
 
   return (
-    <section data-slot="tips" aria-labelledby="results-tips-heading" className="flex flex-col gap-3">
+    <section data-slot="tips" data-scene={lift} aria-labelledby="results-tips-heading" className="flex flex-col gap-3">
       <div className="flex items-end justify-between gap-3">
         <h2 id="results-tips-heading" className="text-[16px] font-extrabold">
           Tips &amp; Tricks

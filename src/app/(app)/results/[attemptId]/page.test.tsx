@@ -143,6 +143,25 @@ describe("Results page", () => {
     expect(await title()).toBe("Test not passed — 72/100, needs 80 · WORKING HARD with EXCEL");
   });
 
+  it("server-renders the static frame for a ≥ 80 Result: no motion trigger and no fire", async () => {
+    mocks.readResult.mockResolvedValue(stored(PRACTICE_85));
+    const practice = await render();
+    expect(practice).toContain('data-glow="true"');
+    for (const html of [practice]) {
+      expect(html).not.toContain("data-animate");
+      expect(html).not.toContain("data-scene");
+      expect(html).not.toContain("fire-effect");
+    }
+
+    const real = mocks.realFindItem("L01-P1") as { level: object; item: object };
+    mocks.findItem.mockReturnValue({ level: real.level, item: { ...real.item, id: "L01-T", kind: "test", number: 1 } });
+    mocks.readResult.mockResolvedValue(stored(TEST_88, "L01-T"));
+    const test = await render();
+    expect(test).not.toContain("data-animate");
+    expect(test).not.toContain("data-scene");
+    expect(test).not.toContain("fire-effect");
+  });
+
   it("labels an item the registry does not know by its id", async () => {
     mocks.readResult.mockResolvedValue(stored(PRACTICE_85, "L09-P9"));
     const html = await render();

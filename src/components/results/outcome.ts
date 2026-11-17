@@ -65,3 +65,23 @@ export function levelLabel(level: { number: number; name: string }, kind: LevelI
 export function shortcutKeys(shortcut: string): string[] {
   return shortcut.split("+").filter((key) => key.length > 0);
 }
+
+/** Which Results motion may play, before the motion preference (AD-12). */
+export interface ResultsMotion {
+  /** The Score Badge turn and the score count-up. */
+  turn: boolean;
+  /** The Fire Effect behind the badge (a Test passed). */
+  fire: boolean;
+  /** The scroll scene of the sections below the Outcome panel. */
+  scene: boolean;
+}
+
+/**
+ * Pure motion gate: `turn` and `scene` in `live` mode for a `pass` (the same
+ * condition as the badge's `data-glow="true"`); `fire` also needs a Test.
+ * `kind` is `knownItem(item)?.kind ?? null`; `null` only blocks the fire.
+ */
+export function resultsMotion({ variant, kind, mode }: { variant: ResultsVariant; kind: LevelItemKind | null; mode: "live" | "static" }): ResultsMotion {
+  const moving = mode === "live" && variant === "pass";
+  return { turn: moving, fire: moving && kind === "test", scene: moving };
+}

@@ -3,7 +3,9 @@ import { PageTitle } from "@/components/shell/page-title";
 import type { LevelItemKind } from "@/core/content/level-module";
 import type { Result } from "@/core/grading/result";
 import { formatElapsed } from "@/core/services/attempts/elapsed";
-import { deductionParts, knownItem, levelLabelLead, resultsOutcome } from "./outcome";
+import { cn } from "@/lib/utils";
+import { FireEffect } from "./fire-effect";
+import { deductionParts, knownItem, levelLabelLead, resultsMotion, resultsOutcome } from "./outcome";
 import { ResultsDetails } from "./results-details";
 import { ResultsFocus } from "./results-focus";
 import { ScoreBadge } from "./score-badge";
@@ -28,22 +30,28 @@ export interface ResultsViewProps {
  * the stored `Result` only (AD-3): Outcome panel (static Score Badge with the
  * deduction line, level label, the `<h1>` that states the outcome, "x of y
  * correct", time), then the Wrong Answer Rows and the Tips Carousel. The
- * variant comes from the item kind and the score alone; nothing here moves
- * (the Results motion hooks on `data-variant` / `data-mode`).
+ * variant comes from the item kind and the score alone. Motion (3.7) is
+ * gated by `resultsMotion` and played by CSS: the badge turn, the scroll
+ * scene below, and for a Test passed the Fire Effect behind the badge.
  */
 export function ResultsView({ itemId, item, level, result, durationSeconds, mode }: ResultsViewProps) {
   const { variant, heading } = resultsOutcome({ item, itemId, result });
   const deduction = deductionParts(result);
   const known = knownItem(item);
+  const motion = resultsMotion({ variant, kind: known?.kind ?? null, mode });
 
   return (
     <div data-slot="results" data-variant={variant} data-mode={mode} data-kind={known?.kind ?? "unknown"} className="mx-auto flex w-full max-w-[880px] flex-col gap-7">
       <section
         aria-labelledby={RESULTS_HEADING_ID}
-        className="grid items-center gap-6 rounded-lg border border-border bg-card p-5 sm:grid-cols-[200px_1fr] sm:gap-7 sm:px-8 sm:py-7"
+        className={cn(
+          "relative grid items-center gap-6 overflow-hidden rounded-lg border border-border bg-card p-5 sm:grid-cols-[200px_1fr] sm:gap-7 sm:px-8 sm:py-7",
+          motion.fire && "bg-[radial-gradient(ellipse_40%_90%_at_14%_70%,var(--streak-glow),transparent_70%)]",
+        )}
       >
-        <div className="flex flex-col items-center gap-2.5">
-          <ScoreBadge score={result.score} variant={variant} mode={mode} />
+        {motion.fire ? <FireEffect /> : null}
+        <div className="relative flex flex-col items-center gap-2.5">
+          <ScoreBadge score={result.score} variant={variant} mode={mode} turn={motion.turn} />
           <p data-slot="deduction" className="flex flex-wrap justify-center gap-x-1.5 text-[12px] font-medium text-muted-foreground">
             <span>{deduction.label}</span>
             {deduction.penalty !== null ? (
@@ -54,7 +62,7 @@ export function ResultsView({ itemId, item, level, result, durationSeconds, mode
             ) : null}
           </p>
         </div>
-        <div className="flex min-w-0 flex-col items-center gap-3 text-center sm:items-start sm:text-left">
+        <div className="relative flex min-w-0 flex-col items-center gap-3 text-center sm:items-start sm:text-left">
           <p data-slot="level-label" className="font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] text-muted-foreground uppercase">
             {known !== null && level !== null ? (
               <>
@@ -86,7 +94,7 @@ export function ResultsView({ itemId, item, level, result, durationSeconds, mode
         </div>
       </section>
 
-      <ResultsDetails questions={result.questions} levelNumber={level?.number ?? null} />
+      <ResultsDetails questions={result.questions} levelNumber={level?.number ?? null} scene={motion.scene} />
       {mode === "live" ? <ResultsFocus targetId={RESULTS_HEADING_ID} /> : null}
     </div>
   );
