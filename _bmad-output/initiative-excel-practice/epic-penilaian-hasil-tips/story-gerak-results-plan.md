@@ -182,3 +182,14 @@ Checks after patches: lint, typecheck, test (69 files, 1379), build pass (second
 | 06:36:45 | `grading.done` | macro, graded, score 40 (2 of 4, 1 hint) |
 
 Both scores are below 80, so only the calm path (no turn, no count-up, no glow, no fire) was exercised. The ≥80 path (turn and count-up after auto navigation, reload without count-up) still needs one attempt scoring 80 or more. No error lines; the Next.js 16.4.6 build deployed cleanly.
+
+Follow-up attempts, same deployment:
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 06:41:50 | `attempt.started` | attempt `b18f342b`, `sepatu-langkah-jaya` |
+| 06:44:28 | `grading.done` | score 70 (3 of 4, no hints) — calm path |
+| 06:46:59 | `attempt.started` | attempt `e9fafb75`, `garmen-benang-emas` |
+| 06:48:13 | `grading.done` | score 100 (4 of 4, no hints) — ≥80 motion path |
+
+The ≥80 path now has a real attempt (`e9fafb75`, 100). The on-screen motion (turn, count-up, reload without count-up, Reduce motion) is confirmed by the user, not by logs. No error lines.
