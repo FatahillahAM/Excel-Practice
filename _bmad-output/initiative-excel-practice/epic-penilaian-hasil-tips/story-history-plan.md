@@ -3,7 +3,7 @@ title: 'History'
 type: 'feature'
 ticket: '8'
 created: '2026-11-18'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -57,7 +57,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-pr
 | Baca daftar gagal | error PostgREST | pesan muat pertama + "Try again" | log `attempt.list_results_failed` |
 | Buka detail | klik baris skor 85 | `ResultsView mode="static"`: 85/100, alasan & Tips sama dengan Results pertama; tanpa atribut gerak/marker; fokus tidak dipindah | — |
 | Detail tanpa sesi / bukan milik / tanpa Result | `/history/<id>` | login dengan `next` / 404 / 404 | — |
-| Detail Result tidak valid | schema gagal | pesan muat pertama + "Try again" | log `results.load_failed` |
+| Detail Result tidak valid | schema gagal | 404 (sama seperti daftar yang tidak menampilkannya; keputusan user 2026-11-18) | log `results.load_failed` |
 
 </frozen-after-approval>
 
@@ -116,7 +116,7 @@ Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment)
 | 1 | List query relies on RLS alone | patched — explicit `user_id` filter |
 | 2 | Real PostgREST/RLS semantics of the list never tested (fake client only) | patched — contract DB test: owner-only, order with tie, exclusions, column grants, RLS without the filter |
 | 3 | 50-row cap applied before invalid Results are dropped | patched — fetch 70, filter, then cap at 50 |
-| 4 | Detail opens attempts the list would hide (status, invalid Result) | patched — 404 unless graded/closed with a valid Result (**changes the frozen "Detail Result tidak valid" row from alert to 404 — pending user confirmation**) |
+| 4 | Detail opens attempts the list would hide (status, invalid Result) | patched — 404 unless graded/closed with a valid Result (404 confirmed by the user 2026-11-18; frozen matrix row amended) |
 | 5 | Failure heading / fallback title say "Results" on History detail | patched — "History" |
 | 6 | Row link accessible name runs fields together | patched — labelled `aria-label`; visible "time" label |
 | 7 | Duplicate list-failure log; catch path untested | patched — `history.load_failed`, tested |
