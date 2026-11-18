@@ -3,7 +3,7 @@ title: 'Gerak Results'
 type: 'feature'
 ticket: '7'
 created: '2026-11-16'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -169,3 +169,27 @@ Checks after patches: lint, typecheck, test (69 files, 1379), build pass (second
 - Settings › Reduce motion on, reload the 85/100 Result: final score, face-up badge, nothing moves; switch off again.
 - Phone width: no horizontal scroll, nothing shifts while the badge turns.
 - A new L01-P1 attempt finished on the laptop with ≥ 80: Results appears by itself and the turn plays once; focus is on the `<h1>`; runtime logs show no `results.load_failed`.
+
+### Production evidence (2026-11-17, deployment `dpl_FCqUWEf6CKoHV31tk6xdXRdsWGjk` = PR #21 + Next.js 16.4.6 from PR #22)
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 06:34:18 | `attempt.started` | attempt `113588be`, L01-P1, `botol-plastik-tirta` |
+| 06:34:47–50 | `hint.revealed` ×3 | question 4, indices 0–2 |
+| 06:35:25 | `grading.done` | macro, graded, score 30 (2 of 4, 3 hints) |
+| 06:35:45 | `attempt.started` | attempt `f4f54dd4`, L01-P1, `roti-mentari` |
+| 06:35:48 | `hint.revealed` | question 3, index 0 |
+| 06:36:45 | `grading.done` | macro, graded, score 40 (2 of 4, 1 hint) |
+
+Both scores are below 80, so only the calm path (no turn, no count-up, no glow, no fire) was exercised. The ≥80 path (turn and count-up after auto navigation, reload without count-up) still needs one attempt scoring 80 or more. No error lines; the Next.js 16.4.6 build deployed cleanly.
+
+Follow-up attempts, same deployment:
+
+| Time (UTC) | Event | Detail |
+|---|---|---|
+| 06:41:50 | `attempt.started` | attempt `b18f342b`, `sepatu-langkah-jaya` |
+| 06:44:28 | `grading.done` | score 70 (3 of 4, no hints) — calm path |
+| 06:46:59 | `attempt.started` | attempt `e9fafb75`, `garmen-benang-emas` |
+| 06:48:13 | `grading.done` | score 100 (4 of 4, no hints) — ≥80 motion path |
+
+The ≥80 path now has a real attempt (`e9fafb75`, 100). The on-screen motion (turn, count-up, reload without count-up, Reduce motion) is confirmed by the user, not by logs. No error lines.

@@ -173,3 +173,11 @@
   summary: Save-Data and `deviceMemory ≤ 4` keep the badge turn, count-up and Fire Effect; only the 3D scroll scene is dropped.
   evidence: 3.7 review; AD-12 limits only scenes on these signals (plan › Design Notes [ASSUMPTION]); revisit if low-end devices show jank.
   status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-history-plan.md`
+  summary: The `page-enter` drop animation still runs on `/history` and `/history/<id>`, whose Results render static.
+  evidence: 3.8 review; `page-enter` is the global page transition (reduced motion already turns it off), not Results motion — `mode="static"` covers turn, count-up, glow, fire and scene only; revisit if the History detail should open fully still.
+  status: open
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-history-plan.md`
+  summary: Two attempts started in the same minute show identical dates in the History list; their order comes from the `id desc` tiebreak, which is not visible.
+  evidence: 3.8 review; the date format is `dateStyle: medium, timeStyle: short` (no seconds); revisit if users start several attempts per minute.
+  status: open

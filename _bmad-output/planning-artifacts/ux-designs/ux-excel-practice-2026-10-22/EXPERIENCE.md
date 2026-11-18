@@ -188,7 +188,7 @@ Behavioral. Visual specs: `DESIGN.md` → Components (same names).
 | Results | Test passed, Level 4 | Fire Effect; `<h1>` "Level 4 complete! Level 5 is coming soon"; "Back to Level Map". |
 | Results | Test not passed (<80) | `<h1>` "Test not passed — 72/100, needs 80"; calm; "Try the Test again" (CAP-9). |
 | Results | New record | "New record" Badge next to time (CAP-11). |
-| Results | Opened from History | `Skeleton` while loading; static (no count-up, turn, fire or scene); "Practice again". |
+| Results | Opened from History | `Skeleton` while loading; static (no count-up, turn, fire or scene); "Practice again" (deferred to epic 4, epic decision 2026-11-09; 3.8 ships "Back to History" only). |
 | History / Records / Tips & Tricks | Empty | One-line message + link to Dashboard's next action. |
 | Tips & Tricks | Filter or search with no match | One-line message (e.g. "Belum ada Tips untuk Level 3 — selesaikan latihan dulu, ya.") + clear filter. |
 | Setup Guide | Default | Steps list; no completion tracking implied. |
