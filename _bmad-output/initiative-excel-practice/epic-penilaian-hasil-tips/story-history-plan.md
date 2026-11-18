@@ -144,3 +144,7 @@ Checks after patches: lint, typecheck, test (72 files, 1409), build, test:db (12
 **Manual checks (Production, after merge):**
 - `/history` lists the graded Production attempts (e.g. `91e3d0bc` 60, `e9fafb75` 100) newest first; the 2.12 SQL-graded rows do not appear.
 - Opening `e9fafb75` shows 100/100, same reasons and Tips as its first view, no turn/count-up/fire; reload identical. Skeleton visible on slow network; phone width without horizontal scroll.
+
+### Production evidence (2026-11-18, PR #23)
+
+No migration. User checked on Production after the merge: `/history` lists the recent graded attempts newest first; opening a row shows the same Results as its first view (score, reasons, Tips) with no motion and a "Back to History" link; phone layout fine. Opening History writes no log lines, so this rests on the user's check.
