@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   realFindItem: (() => null) as (itemId: string) => unknown,
   getSessionUser: vi.fn(),
   readResult: vi.fn(),
+  listGradedResults: vi.fn(),
   notFound: vi.fn(() => {
     throw Object.assign(new Error("NEXT_HTTP_ERROR_FALLBACK;404"), { notFound: true });
   }),
@@ -27,7 +28,11 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => ({}) }));
-vi.mock("@/adapters/supabase/attempts", () => ({ readResult: mocks.readResult }));
+vi.mock("@/adapters/supabase/attempts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/adapters/supabase/attempts")>()),
+  readResult: mocks.readResult,
+  listGradedResults: mocks.listGradedResults,
+}));
 vi.mock("@/content/levels", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/content/levels")>();
   mocks.realFindItem = actual.findItem;
@@ -35,16 +40,18 @@ vi.mock("@/content/levels", async (importOriginal) => {
 });
 
 import { markResultsCountUp } from "@/components/results/count-up-marker";
-import { PRACTICE_85, TEST_88 } from "@/core/grading/__fixtures__/results";
+import { PRACTICE_85, TEST_88, V1_NO_TIPS } from "@/core/grading/__fixtures__/results";
 import type { Result } from "@/core/grading";
 import { shellMessages } from "@/messages/id";
+import { surfaceTitle } from "@/components/shell/nav-items";
 import ResultsPage from "../../results/[attemptId]/page";
+import { HistoryList } from "../history-list";
 import HistoryDetailPage, { generateMetadata } from "./page";
 
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
-const stored = (result: unknown, itemId = "L01-P1") => ({
+const stored = (result: unknown, itemId = "L01-P1", status = "graded") => ({
   ok: true,
-  value: { itemId, result, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: "2026-11-02T01:06:48+00:00" },
+  value: { itemId, status, result, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: "2026-11-02T01:06:48+00:00" },
 });
 
 type El = ReactElement<{ children: ReactElement | ReactElement[] }>;
@@ -82,6 +89,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   mocks.getSessionUser.mockReset();
   mocks.readResult.mockReset();
+  mocks.listGradedResults.mockReset();
   mocks.findItem.mockReset();
   mocks.notFound.mockClear();
   mocks.redirect.mockClear();
@@ -91,6 +99,7 @@ describe("History detail", () => {
   it.each([
     ["PRACTICE_85", PRACTICE_85, "L01-P1", 85],
     ["TEST_88", TEST_88, "L01-T", 88],
+    ["V1_NO_TIPS", V1_NO_TIPS, "L01-P1", V1_NO_TIPS.score],
   ] as [string, Result, string, number][])("%s: same content as live Results, static, no motion", async (_n, result, itemId, score) => {
     if (itemId === "L01-T") {
       mocks.findItem.mockImplementation(() => ({
@@ -140,12 +149,48 @@ describe("History detail", () => {
     expect(mocks.readResult).not.toHaveBeenCalled();
   });
 
-  it("shows the first-load alert for an invalid Result, Try again to History, focus kept", async () => {
-    mocks.readResult.mockResolvedValue(stored({ version: 1 }));
+  it.each([
+    ["an invalid Result", () => stored({ version: 1 })],
+    ["status received", () => stored(PRACTICE_85, "L01-P1", "received")],
+    ["status grading_failed", () => stored(PRACTICE_85, "L01-P1", "grading_failed")],
+    ["status abandoned", () => stored(PRACTICE_85, "L01-P1", "abandoned")],
+  ])("is 404 for what the list would not show: %s", async (_n, value) => {
+    mocks.readResult.mockResolvedValue(value());
+    await expect(historyDetail()).rejects.toMatchObject({ notFound: true });
+    expect(String((await generateMetadata(params())).title)).toMatch(/^History/);
+  });
+
+  it("opens a closed attempt", async () => {
+    mocks.readResult.mockResolvedValue(stored(PRACTICE_85, "L01-P1", "closed"));
+    const { container } = render(await historyDetail());
+    expect(container.querySelector('[data-slot="results"]')!.getAttribute("data-mode")).toBe("static");
+  });
+
+  it("shows the first-load alert under History when the read fails, Try again here, focus kept", async () => {
+    mocks.readResult.mockResolvedValue({ ok: false });
     const before = document.activeElement;
     const { getByRole } = render(await historyDetail());
+    expect(getByRole("heading", { level: 1 }).textContent).toBe("History");
     expect(getByRole("alert").textContent).toBe(shellMessages.firstLoadFailed);
     expect(getByRole("link", { name: "Try again" }).getAttribute("href")).toBe(`/history/${ID}`);
     expect(document.activeElement).toBe(before);
+    expect((await generateMetadata(params())).title).toBe(surfaceTitle("History"));
+  });
+
+  it("a list row's href opens the same attempt in the detail page", async () => {
+    mocks.listGradedResults.mockResolvedValue({
+      ok: true,
+      value: [{ id: ID, itemId: "L01-P1", status: "graded", result: PRACTICE_85, startedAt: stored(PRACTICE_85).value.startedAt, receivedAt: stored(PRACTICE_85).value.receivedAt }],
+    });
+    mocks.readResult.mockResolvedValue(stored(PRACTICE_85));
+    const list = render((await HistoryList()) as ReactElement);
+    const href = list.getByRole("link").getAttribute("href")!;
+    list.unmount();
+    const attemptId = decodeURIComponent(href.replace(/^\/history\//, ""));
+    const page = HistoryDetailPage({ params: Promise.resolve({ attemptId }) }) as El;
+    const { container } = render(await streamed(page));
+    expect(mocks.readResult).toHaveBeenCalledWith(expect.anything(), ID);
+    expect(container.querySelector('[data-slot="score-badge-score"]')!.textContent).toBe("85");
+    expect(container.querySelector("h1")!.textContent).toBe("Practice 1 — 85/100");
   });
 });

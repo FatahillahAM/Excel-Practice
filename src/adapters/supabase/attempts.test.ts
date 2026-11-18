@@ -14,6 +14,7 @@ import {
   findOpenAttemptId,
   generatedFilePath,
   hasValidResult,
+  HISTORY_HEADROOM,
   HISTORY_LIMIT,
   listGradedResults,
   loadForGrading,
@@ -695,12 +696,12 @@ describe("readResult (session)", () => {
     const startedAt = "2026-11-02T01:00:00+00:00";
     const receivedAt = "2026-11-02T01:06:48+00:00";
     const { client, calls } = fakeClient({
-      data: { item_id: "L01-P1", result, started_at: startedAt, received_at: receivedAt },
+      data: { item_id: "L01-P1", status: "graded", result, started_at: startedAt, received_at: receivedAt },
       error: null,
     });
-    expect(await readResult(client, ID)).toEqual({ ok: true, value: { itemId: "L01-P1", result, startedAt, receivedAt } });
+    expect(await readResult(client, ID)).toEqual({ ok: true, value: { itemId: "L01-P1", status: "graded", result, startedAt, receivedAt } });
     expect(calls).toEqual([
-      ["select", ["item_id, result, started_at, received_at"]],
+      ["select", ["item_id, status, result, started_at, received_at"]],
       ["eq", ["id", ID]],
       ["maybeSingle", []],
     ]);
@@ -774,9 +775,9 @@ describe("listGradedResults (session)", () => {
     received_at,
   });
 
-  it("reads graded/closed rows with a Result, newest first, limited", async () => {
+  it("reads the user's graded/closed rows with a Result, newest first, limit plus headroom", async () => {
     const { client, from, calls } = fakeClient({ data: [row("a", { version: 1 }), row("b", { version: 1 }, null)], error: null });
-    expect(await listGradedResults(client)).toEqual({
+    expect(await listGradedResults(client, "user-a")).toEqual({
       ok: true,
       value: [
         { id: "a", itemId: "L01-P1", status: "graded", result: { version: 1 }, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: "2026-11-02T01:06:48+00:00" },
@@ -785,25 +786,27 @@ describe("listGradedResults (session)", () => {
     });
     expect(from).toHaveBeenCalledWith("attempts");
     expect(HISTORY_LIMIT).toBe(50);
+    expect(HISTORY_HEADROOM).toBe(20);
     expect(calls).toEqual([
       ["select", ["id, item_id, status, result, started_at, received_at"]],
+      ["eq", ["user_id", "user-a"]],
       ["in", ["status", ["graded", "closed"]]],
       ["not", ["result", "is", null]],
       ["order", ["started_at", { ascending: false }]],
       ["order", ["id", { ascending: false }]],
-      ["limit", [50]],
+      ["limit", [70]],
     ]);
   });
 
   it("drops a row whose result is null all the same", async () => {
     const { client } = fakeClient({ data: [row("a", null), row("b", { version: 1 })], error: null });
-    const read = await listGradedResults(client);
+    const read = await listGradedResults(client, "user-a");
     expect(read.ok && read.value.map((r) => r.id)).toEqual(["b"]);
   });
 
   it("is not ok on an error or a throw, and logs", async () => {
-    expect(await listGradedResults(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client)).toEqual({ ok: false });
-    expect(await listGradedResults(fakeClient(() => Promise.reject(new TypeError("net"))).client)).toEqual({ ok: false });
+    expect(await listGradedResults(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client, "user-a")).toEqual({ ok: false });
+    expect(await listGradedResults(fakeClient(() => Promise.reject(new TypeError("net"))).client, "user-a")).toEqual({ ok: false });
     expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([
       { event: "attempt.list_results_failed", code: "42501" },
       { event: "attempt.list_results_failed", code: "TypeError" },

@@ -48,7 +48,7 @@ async function Results({ params }: Params) {
   const loaded = await loadResult(attemptId);
   if (loaded.status === "login") redirect(loginRedirectPath(path, ""));
   if (loaded.status === "missing") notFound();
-  if (loaded.status === "failed") return <ResultsLoadFailed path={path} focus />;
+  if (loaded.status === "failed" || loaded.status === "invalid") return <ResultsLoadFailed path={path} focus />;
 
   const found = findItem(loaded.itemId);
   return (

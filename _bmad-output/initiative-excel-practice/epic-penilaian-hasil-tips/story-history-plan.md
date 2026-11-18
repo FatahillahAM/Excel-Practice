@@ -102,6 +102,31 @@ context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-pr
 - "Back to History" uses `next/link` (lint rule); the list's "Try again" stays a plain `<a>` for a full reload like the other first-load alerts (eslint-disable on that line).
 - Build lists `/history` as dynamic (ƒ) and `/history/[attemptId]` as partial prerender (◐), the same as `/results/[attemptId]`; the Result is read per request inside Suspense.
 
+## Plan Change Log
+
+- 2026-11-18 — review patches (four lenses): (1) `listGradedResults(supabase, userId)` adds `.eq("user_id", userId)` on top of RLS; (2) it reads `HISTORY_LIMIT + HISTORY_HEADROOM` (50 + 20) rows and `toHistoryRows` slices to 50 after dropping invalid Results, so a few invalid newest rows no longer shorten the list (frozen "batas 50" meaning kept: at most 50 shown); (3) History detail opens only what the list would show: `readResult` now also selects `status`, the shared loader returns `invalid` separately from `failed`, and `/history/<id>` gives 404 for a status other than `graded`/`closed` or a schema-invalid Result (still logged `results.load_failed`) — this replaces the frozen matrix row "Detail Result tidak valid → pesan muat pertama" for History only; live `/results/<id>` keeps the alert; read failures still show the alert; (4) the History detail's failure `<h1>` and fallback document title say "History"; (5) each row link has an accessible name "label, date, score S/100, time mm:ss" (`aria-label` from the same values) and the time shows a visible "time" label; (6) the list page's catch logs `history.load_failed` (the adapter alone logs `attempt.list_results_failed`); (7) contract DB test for the list query as `authenticated`; (8) detail tests add `V1_NO_TIPS` and a list-href → detail case; (9) EXPERIENCE.md notes "Practice again" deferred to epic 4; (10) two deferred-work entries. `readResult`'s query-shape test now expects `status` in the select (same assertion, one more column).
+
+
+## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment), 2026-11-18.
+
+| # | Finding | Decision |
+|---|---|---|
+| 1 | List query relies on RLS alone | patched — explicit `user_id` filter |
+| 2 | Real PostgREST/RLS semantics of the list never tested (fake client only) | patched — contract DB test: owner-only, order with tie, exclusions, column grants, RLS without the filter |
+| 3 | 50-row cap applied before invalid Results are dropped | patched — fetch 70, filter, then cap at 50 |
+| 4 | Detail opens attempts the list would hide (status, invalid Result) | patched — 404 unless graded/closed with a valid Result (**changes the frozen "Detail Result tidak valid" row from alert to 404 — pending user confirmation**) |
+| 5 | Failure heading / fallback title say "Results" on History detail | patched — "History" |
+| 6 | Row link accessible name runs fields together | patched — labelled `aria-label`; visible "time" label |
+| 7 | Duplicate list-failure log; catch path untested | patched — `history.load_failed`, tested |
+| 8 | Verify claim compared only two fixtures; list → detail path untested | patched — `V1_NO_TIPS` case, row href followed into detail |
+| 9 | EXPERIENCE.md still promises "Practice again" on History | patched — note: deferred to epic 4 |
+| 10 | `page-enter` transition on static History pages; same-minute dates | deferred |
+| 11 | Row date is `started_at`, not completion | accepted — user decision 2026-11-18 |
+
+Checks after patches: lint, typecheck, test (72 files, 1409), build, test:db (127) pass.
+
 ## Design Notes
 
 - Route over query param: `/history/<id>` keeps the sidebar "History" active (existing `activeNavItem`), gives a natural "Back to History", and keeps `/results/<id>` strictly live (3.7 count-up marker logic untouched).

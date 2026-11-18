@@ -15,12 +15,13 @@ async function loadHistory(): Promise<ListState> {
   try {
     const user = await getSessionUser();
     if (!user) return { status: "login" };
-    const read = await listGradedResults(await createClient());
+    const read = await listGradedResults(await createClient(), user.id);
     if (!read.ok) return { status: "failed" };
     return { status: "loaded", rows: toHistoryRows(read.value) };
   } catch (error) {
     unstable_rethrow(error);
-    console.error(JSON.stringify({ event: "attempt.list_results_failed", code: (error as Error)?.name ?? "unknown" }));
+    // The adapter logs its own read failures; this is the page's (session, client).
+    console.error(JSON.stringify({ event: "history.load_failed", code: (error as Error)?.name ?? "unknown" }));
     return { status: "failed" };
   }
 }
@@ -58,6 +59,7 @@ export async function HistoryList() {
         <li key={row.id} className="border-b border-border last:border-b-0">
           <a
             href={row.href}
+            aria-label={row.accessibleName}
             data-slot="history-row"
             className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3 hover:bg-muted focus-visible:bg-muted"
           >
@@ -70,8 +72,8 @@ export async function HistoryList() {
             <span data-slot="history-score" className="font-bold tabular-nums">
               {row.score}
             </span>
-            <span data-slot="history-time" className="text-[12px] text-muted-foreground tabular-nums">
-              {row.time}
+            <span data-slot="history-time" className="text-[12px] text-muted-foreground">
+              <span className="tabular-nums">{row.time}</span> time
             </span>
           </a>
         </li>

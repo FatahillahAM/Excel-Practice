@@ -7,23 +7,36 @@ import { ResultsView } from "@/components/results/results-view";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { attemptDurationSeconds } from "@/core/services/attempts";
 import { findItem } from "@/content/levels";
-import { loadResult, outcomeOf, ResultsLoadFailed, ResultsSkeleton } from "../../results/load-result";
+import { isListable } from "../history-rows";
+import { loadResult, outcomeOf, ResultsLoadFailed, ResultsSkeleton, type LoadState } from "../../results/load-result";
 
 type Params = { params: Promise<{ attemptId: string }> };
 
-/** Same title as live Results: the outcome heading, "Results" otherwise. */
+/**
+ * Only what the History list would show: a `graded` / `closed` attempt with a
+ * schema-valid Result. Anything else (incl. an invalid Result) is `missing`
+ * (404); a read that could not be answered stays `failed` (the alert).
+ */
+async function loadHistoryResult(attemptId: string): Promise<LoadState> {
+  const loaded = await loadResult(attemptId);
+  if (loaded.status === "invalid") return { status: "missing" };
+  if (loaded.status === "loaded" && !isListable(loaded.attemptStatus)) return { status: "missing" };
+  return loaded;
+}
+
+/** The outcome heading like live Results; "History" otherwise. */
 export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { attemptId } = await params;
-  const loaded = await loadResult(attemptId);
-  const title = loaded.status === "loaded" ? outcomeOf(loaded).heading : "Results";
+  const loaded = await loadHistoryResult(attemptId);
+  const title = loaded.status === "loaded" ? outcomeOf(loaded).heading : "History";
   return { title: surfaceTitle(title), robots: { index: false } };
 }
 
 /**
  * History detail (`/history/<attemptId>`): the stored Result through the same
  * loader as live Results, rendered `mode="static"` (no motion, focus stays).
- * No session → login back here; missing → 404; invalid or unreadable → the
- * first-load alert.
+ * No session → login back here; not listable (status, missing or invalid
+ * Result) → 404; unreadable → the first-load alert under "History".
  */
 export default function HistoryDetailPage({ params }: Params) {
   return (
@@ -42,10 +55,10 @@ async function HistoryDetail({ params }: Params) {
   const { attemptId } = await params;
   const path = `/history/${encodeURIComponent(attemptId)}`;
 
-  const loaded = await loadResult(attemptId);
+  const loaded = await loadHistoryResult(attemptId);
   if (loaded.status === "login") redirect(loginRedirectPath(path, ""));
-  if (loaded.status === "missing") notFound();
-  if (loaded.status === "failed") return <ResultsLoadFailed path={path} focus={false} />;
+  if (loaded.status === "missing" || loaded.status === "invalid") notFound();
+  if (loaded.status === "failed") return <ResultsLoadFailed path={path} focus={false} title="History" />;
 
   const found = findItem(loaded.itemId);
   return (

@@ -1194,6 +1194,59 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
     });
   });
 
+  describe("History list (3.8: listGradedResults as the session runs it)", () => {
+    /** One of `uid`'s attempts moved along AD-5 `steps` (superuser; `graded` carries `result`, kept by `closed`), `started_at` set. */
+    async function historyAttempt(uid: string, steps: string[], result: unknown, startedAt: string): Promise<string> {
+      const id = await start(uid);
+      for (const next of steps) {
+        if (next === "graded") {
+          await db.query("update public.attempts set status = $2, result = $3 where id = $1", [id, next, JSON.stringify(result)]);
+        } else {
+          await db.query("update public.attempts set status = $2 where id = $1", [id, next]);
+        }
+      }
+      // A `closed` row (time limit, from open) carrying a Result, as the list must also accept.
+      if (steps.at(-1) === "closed" && result !== null) {
+        await db.query("update public.attempts set result = $2 where id = $1", [id, JSON.stringify(result)]);
+      }
+      await db.query("update public.attempts set started_at = $2 where id = $1", [id, startedAt]);
+      return id;
+    }
+
+    it("returns only the user's graded/closed rows with a Result, newest first by started_at then id, every column readable", async () => {
+      const a = await newUser();
+      const b = await newUser();
+      const older = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-01T01:00:00Z");
+      const tieX = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-02T01:00:00Z");
+      const tieY = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-02T01:00:00Z");
+      const closed = await historyAttempt(a, ["closed"], RESULT, "2026-11-03T01:00:00Z");
+      await historyAttempt(a, ["closed"], null, "2026-11-04T01:00:00Z");
+      await historyAttempt(a, ["abandoned"], null, "2026-11-05T01:00:00Z");
+      await historyAttempt(a, ["received"], null, "2026-11-06T01:00:00Z");
+      await historyAttempt(b, ["received", "graded"], RESULT, "2026-11-07T01:00:00Z");
+
+      const { rows } = await asUser(a, (q) =>
+        q.query(
+          `select id, item_id, status, result, started_at, received_at from public.attempts
+           where user_id = $1 and status in ('graded', 'closed') and result is not null
+           order by started_at desc, id desc limit 70`,
+          [a],
+        ),
+      );
+      const [tieFirst, tieSecond] = [tieX, tieY].sort().reverse();
+      expect(rows.map((r) => r.id)).toEqual([closed, tieFirst, tieSecond, older]);
+      expect(rows[0]).toMatchObject({ item_id: "L01-P1", status: "closed", result: RESULT });
+      expect(rows.every((r) => r.started_at instanceof Date)).toBe(true);
+      expect(rows.map((r) => r.received_at instanceof Date)).toEqual([false, true, true, true]);
+
+      // Without the explicit user filter RLS still keeps B's rows out.
+      const rls = await asUser(a, (q) =>
+        q.query("select id from public.attempts where status in ('graded', 'closed') and result is not null"),
+      );
+      expect(rls.rows.map((r) => r.id).sort()).toEqual([older, tieX, tieY, closed].sort());
+    });
+  });
+
   describe("anon", () => {
     it("has no access to attempts or profiles", async () => {
       await expectSqlError(as("anon", null, (q) => q.query("select id from public.attempts")), "42501");

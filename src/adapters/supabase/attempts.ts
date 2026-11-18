@@ -510,6 +510,8 @@ export async function downloadSubmissionFile(
 /** A graded attempt's stored Result as read through the session, unvalidated (callers parse it with `resultSchema`). */
 export interface StoredResult {
   itemId: string;
+  /** The attempt's status: History shows only `graded` / `closed` (live Results does not look at it). */
+  status: AttemptStatus;
   result: unknown;
   /** `started_at` (server time, AD-8). */
   startedAt: string;
@@ -528,16 +530,16 @@ export interface StoredResult {
 export async function readResult(supabase: SupabaseClient, attemptId: string): Promise<Read<StoredResult | null>> {
   if (!isAttemptId(attemptId)) return { ok: true, value: null };
   try {
-    const { data, error } = await supabase.from(TABLE).select("item_id, result, started_at, received_at").eq("id", attemptId).maybeSingle();
+    const { data, error } = await supabase.from(TABLE).select("item_id, status, result, started_at, received_at").eq("id", attemptId).maybeSingle();
     if (error) {
       logError("attempt.read_result_failed", error.code);
       return { ok: false };
     }
-    const row = data as { item_id: string; result: unknown; started_at: string; received_at?: string | null } | null;
+    const row = data as { item_id: string; status: AttemptStatus; result: unknown; started_at: string; received_at?: string | null } | null;
     if (!row || row.result === null || row.result === undefined) return { ok: true, value: null };
     return {
       ok: true,
-      value: { itemId: row.item_id, result: row.result, startedAt: row.started_at, receivedAt: row.received_at ?? null },
+      value: { itemId: row.item_id, status: row.status, result: row.result, startedAt: row.started_at, receivedAt: row.received_at ?? null },
     };
   } catch (error) {
     logError("attempt.read_result_failed", errorName(error));
@@ -545,8 +547,14 @@ export async function readResult(supabase: SupabaseClient, attemptId: string): P
   }
 }
 
-/** How many History rows the list reads (newest first; no pagination). */
+/** How many History rows the page shows (newest first; no pagination). */
 export const HISTORY_LIMIT = 50;
+/**
+ * Extra rows read past `HISTORY_LIMIT`, so a few schema-invalid Results among
+ * the newest (dropped by the page) do not cut the list short; the page slices
+ * back to `HISTORY_LIMIT` after validating.
+ */
+export const HISTORY_HEADROOM = 20;
 
 /** One graded attempt for History: its Result still unvalidated (the page parses it). */
 export interface StoredHistoryRow {
@@ -561,19 +569,21 @@ export interface StoredHistoryRow {
 /**
  * The user's attempts that have a stored Result (`graded` or `closed`, `result`
  * not null), newest first (`started_at desc, id desc`, served by
- * `attempts_user_started_idx`), at most `HISTORY_LIMIT`. Session read: RLS
- * keeps it to the owner; only columns granted to `authenticated` are read.
+ * `attempts_user_started_idx`), at most `HISTORY_LIMIT + HISTORY_HEADROOM`.
+ * Session read: RLS keeps it to the owner, and `user_id = userId` says so
+ * again (defence in depth); only columns granted to `authenticated` are read.
  */
-export async function listGradedResults(supabase: SupabaseClient): Promise<Read<StoredHistoryRow[]>> {
+export async function listGradedResults(supabase: SupabaseClient, userId: string): Promise<Read<StoredHistoryRow[]>> {
   try {
     const { data, error } = await supabase
       .from(TABLE)
       .select("id, item_id, status, result, started_at, received_at")
+      .eq("user_id", userId)
       .in("status", ["graded", "closed"])
       .not("result", "is", null)
       .order("started_at", { ascending: false })
       .order("id", { ascending: false })
-      .limit(HISTORY_LIMIT);
+      .limit(HISTORY_LIMIT + HISTORY_HEADROOM);
     if (error) {
       logError("attempt.list_results_failed", error.code);
       return { ok: false };
