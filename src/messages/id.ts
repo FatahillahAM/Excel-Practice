@@ -17,6 +17,8 @@ export type LoginError = keyof typeof loginMessages;
 export const shellMessages = {
   /** "First-load failure" row, verbatim. */
   firstLoadFailed: "Datanya belum kemuat. Coba lagi, ya.",
+  /** History with no graded attempt yet: one line, with a link to Dashboard. */
+  historyEmpty: "Belum ada hasil. Mulai latihan dari Dashboard, ya.",
   /** Settings › Saved / error (illustrative). */
   preferenceSaveFailed: "Pengaturan belum tersimpan. Coba lagi, ya.",
 } as const;

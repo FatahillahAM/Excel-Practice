@@ -14,6 +14,8 @@ import {
   findOpenAttemptId,
   generatedFilePath,
   hasValidResult,
+  HISTORY_LIMIT,
+  listGradedResults,
   loadForGrading,
   markReceived,
   readAttempt,
@@ -42,7 +44,7 @@ function fakeClient(result: Result | Result[] | (() => Promise<Result>)) {
       ? result()
       : Promise.resolve(Array.isArray(result) ? result[query++] : result);
   const builder: Record<string, unknown> = {};
-  for (const name of ["select", "insert", "update", "delete", "eq", "in", "is"]) {
+  for (const name of ["select", "insert", "update", "delete", "eq", "in", "is", "not", "order", "limit"]) {
     builder[name] = (...args: unknown[]) => (calls.push([name, args]), builder);
   }
   for (const name of ["single", "maybeSingle"]) {
@@ -759,5 +761,52 @@ describe("hasValidResult (session)", () => {
     expect(await hasValidResult(fakeClient({ data: null, error: { code: "08006", message: "x" } }).client, ID)).toEqual({
       ok: false,
     });
+  });
+});
+
+describe("listGradedResults (session)", () => {
+  const row = (id: string, result: unknown, received_at: string | null = "2026-11-02T01:06:48+00:00") => ({
+    id,
+    item_id: "L01-P1",
+    status: "graded",
+    result,
+    started_at: "2026-11-02T01:00:00+00:00",
+    received_at,
+  });
+
+  it("reads graded/closed rows with a Result, newest first, limited", async () => {
+    const { client, from, calls } = fakeClient({ data: [row("a", { version: 1 }), row("b", { version: 1 }, null)], error: null });
+    expect(await listGradedResults(client)).toEqual({
+      ok: true,
+      value: [
+        { id: "a", itemId: "L01-P1", status: "graded", result: { version: 1 }, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: "2026-11-02T01:06:48+00:00" },
+        { id: "b", itemId: "L01-P1", status: "graded", result: { version: 1 }, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: null },
+      ],
+    });
+    expect(from).toHaveBeenCalledWith("attempts");
+    expect(HISTORY_LIMIT).toBe(50);
+    expect(calls).toEqual([
+      ["select", ["id, item_id, status, result, started_at, received_at"]],
+      ["in", ["status", ["graded", "closed"]]],
+      ["not", ["result", "is", null]],
+      ["order", ["started_at", { ascending: false }]],
+      ["order", ["id", { ascending: false }]],
+      ["limit", [50]],
+    ]);
+  });
+
+  it("drops a row whose result is null all the same", async () => {
+    const { client } = fakeClient({ data: [row("a", null), row("b", { version: 1 })], error: null });
+    const read = await listGradedResults(client);
+    expect(read.ok && read.value.map((r) => r.id)).toEqual(["b"]);
+  });
+
+  it("is not ok on an error or a throw, and logs", async () => {
+    expect(await listGradedResults(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client)).toEqual({ ok: false });
+    expect(await listGradedResults(fakeClient(() => Promise.reject(new TypeError("net"))).client)).toEqual({ ok: false });
+    expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([
+      { event: "attempt.list_results_failed", code: "42501" },
+      { event: "attempt.list_results_failed", code: "TypeError" },
+    ]);
   });
 });

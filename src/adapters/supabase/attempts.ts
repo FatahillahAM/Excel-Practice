@@ -545,6 +545,66 @@ export async function readResult(supabase: SupabaseClient, attemptId: string): P
   }
 }
 
+/** How many History rows the list reads (newest first; no pagination). */
+export const HISTORY_LIMIT = 50;
+
+/** One graded attempt for History: its Result still unvalidated (the page parses it). */
+export interface StoredHistoryRow {
+  id: string;
+  itemId: string;
+  status: AttemptStatus;
+  result: unknown;
+  startedAt: string;
+  receivedAt: string | null;
+}
+
+/**
+ * The user's attempts that have a stored Result (`graded` or `closed`, `result`
+ * not null), newest first (`started_at desc, id desc`, served by
+ * `attempts_user_started_idx`), at most `HISTORY_LIMIT`. Session read: RLS
+ * keeps it to the owner; only columns granted to `authenticated` are read.
+ */
+export async function listGradedResults(supabase: SupabaseClient): Promise<Read<StoredHistoryRow[]>> {
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("id, item_id, status, result, started_at, received_at")
+      .in("status", ["graded", "closed"])
+      .not("result", "is", null)
+      .order("started_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(HISTORY_LIMIT);
+    if (error) {
+      logError("attempt.list_results_failed", error.code);
+      return { ok: false };
+    }
+    const rows = (data ?? []) as {
+      id: string;
+      item_id: string;
+      status: AttemptStatus;
+      result: unknown;
+      started_at: string;
+      received_at?: string | null;
+    }[];
+    return {
+      ok: true,
+      value: rows
+        .filter((row) => row.result !== null && row.result !== undefined)
+        .map((row) => ({
+          id: row.id,
+          itemId: row.item_id,
+          status: row.status,
+          result: row.result,
+          startedAt: row.started_at,
+          receivedAt: row.received_at ?? null,
+        })),
+    };
+  } catch (error) {
+    logError("attempt.list_results_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
 /**
  * Whether the attempt has a stored Result that passes `resultSchema` (read
  * validated, not trusted): what the status endpoint and the exam page ask
