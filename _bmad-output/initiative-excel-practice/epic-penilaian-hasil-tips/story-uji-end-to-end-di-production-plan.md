@@ -3,7 +3,7 @@ title: 'Uji end-to-end di Production'
 type: 'feature'
 ticket: '11'
 created: '2026-11-18'
-status: 'draft'
+status: 'in-progress'
 hitl: true
 route: 'full'
 route_source: 'auto'
@@ -11,6 +11,7 @@ review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'ed89e6c7549525648e24f630d7488d625bc51e58'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/epic-penilaian-hasil-tips.md']
 ---
 
@@ -104,6 +105,8 @@ DW4 Fire Effect: tidak diuji di Production (U9, 3.7; epic 5). DW6 = baris 1–8 
 - Given rows 1–8 done, then every Done when has at least one Production log line or `prod` row in Implementation Notes, F has exactly its 3 real `hint_reveals` rows, and no attempt is open/received/grading_failed in `prod`.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 Evidence table (fill during the run, times UTC):
 
