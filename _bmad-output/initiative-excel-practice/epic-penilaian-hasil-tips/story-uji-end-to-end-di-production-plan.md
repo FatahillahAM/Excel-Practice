@@ -3,7 +3,7 @@ title: 'Uji end-to-end di Production'
 type: 'feature'
 ticket: '11'
 created: '2026-11-18'
-status: 'built'
+status: done
 hitl: true
 route: 'full'
 route_source: 'auto'
