@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LevelModule, LevelPhase } from "@/core/content/level-module";
 import { PRACTICE_64, PRACTICE_85, SCORE_79, SCORE_80, TEST_72, TEST_88 } from "@/core/grading/__fixtures__/results";
-import { levelProgress, toGradedAttempts, type GradedAttempt } from "./level-progress";
+import { FIXTURE_LEVELS, fixtureLevel } from "@/core/content/__fixtures__/levels";
+import { canStart, levelProgress, toGradedAttempts, v1Complete, type GradedAttempt } from "./level-progress";
 
 /** A registry module with only what progress reads: number, name, phase and item ids. */
 function fixtureModule(number: number, phase: LevelPhase = "v1", practices = 5, test = true): LevelModule {
@@ -63,6 +64,85 @@ describe("levelProgress", () => {
 
   it("a later level's passed Test does not open it while locked", () => {
     expect(states(levelProgress([at("L02-T", 90)], [L1, L2])).slice(0, 2)).toEqual(["active", "locked"]);
+  });
+});
+
+const practices = (level: number, count = 5) =>
+  Array.from({ length: count }, (_, i) => at(`L${String(level).padStart(2, "0")}-P${i + 1}`, 10 * (i + 1)));
+const check = (attempts: GradedAttempt[], itemId: string, modules = FIXTURE_LEVELS) => canStart(levelProgress(attempts, modules), modules, itemId);
+
+describe("gates on fixture Levels 1–4 (matrix)", () => {
+  it("fixture levels pass defineLevelModule and hold 5 practices + Test each", () => {
+    expect(FIXTURE_LEVELS.map((mod) => mod.items.map((item) => item.id).join(","))).toEqual(
+      [1, 2, 3, 4].map((n) => ["P1", "P2", "P3", "P4", "P5", "T"].map((s) => `L0${n}-${s}`).join(",")),
+    );
+  });
+
+  it("Test locked with 4 practices: server refuses, 1 to go", () => {
+    const attempts = practices(1, 4);
+    expect(levelProgress(attempts, FIXTURE_LEVELS)[0].practicesDone.size).toBe(4);
+    expect(check(attempts, "L01-T")).toEqual({ ok: false, reason: "test_locked" });
+  });
+
+  it("Test opens after 5 distinct practices, any score (0 counts)", () => {
+    expect(check([...practices(1, 4), at("L01-P5", 0)], "L01-T")).toEqual({ ok: true, practiceAgain: false });
+    expect(check([...practices(1, 4), at("L01-P4", 90)], "L01-T")).toEqual({ ok: false, reason: "test_locked" });
+  });
+
+  it("Test 80 passes: Level 1 passed, Level 2 active and startable", () => {
+    const attempts = [...practices(1), at("L01-T", 80)];
+    expect(states(levelProgress(attempts, FIXTURE_LEVELS)).slice(0, 3)).toEqual(["passed", "active", "locked"]);
+    expect(check(attempts, "L02-P1")).toEqual({ ok: true, practiceAgain: false });
+    expect(check(attempts, "L01-T")).toEqual({ ok: true, practiceAgain: true });
+  });
+
+  it("Test 79 fails: retake at once, no new requirement; Level 2 refused", () => {
+    const attempts = [...practices(1), at("L01-T", 79)];
+    const level = levelProgress(attempts, FIXTURE_LEVELS)[0];
+    expect(level).toMatchObject({ state: "active", testPassed: false, testAttempted: true });
+    expect(check(attempts, "L01-T")).toEqual({ ok: true, practiceAgain: false });
+    expect(check(attempts, "L02-P1")).toEqual({ ok: false, reason: "level_locked" });
+  });
+
+  it("a failed Practice again after passing keeps the level passed", () => {
+    const attempts = [...practices(1), at("L01-T", 85), at("L01-T", 50)];
+    expect(states(levelProgress(attempts, FIXTURE_LEVELS)).slice(0, 2)).toEqual(["passed", "active"]);
+  });
+
+  it("Level 4 passed: V1 complete, nothing new unlocks (even with a Level 5 module)", () => {
+    const attempts = [1, 2, 3, 4].flatMap((n) => [...practices(n), at(`L0${n}-T`, 90)]);
+    const modules = [...FIXTURE_LEVELS, fixtureLevel(5)];
+    const progress = levelProgress(attempts, modules);
+    expect(states(progress).slice(0, 5)).toEqual(["passed", "passed", "passed", "passed", "under_construction"]);
+    expect(v1Complete(progress)).toBe(true);
+    expect(check(attempts, "L05-P1", modules)).toEqual({ ok: false, reason: "under_construction" });
+    expect(v1Complete(levelProgress(attempts.slice(0, -1), modules))).toBe(false);
+  });
+
+  it("next level missing from the registry: Under Construction, Start refused", () => {
+    const modules = [FIXTURE_LEVELS[0]];
+    const attempts = [...practices(1), at("L01-T", 90)];
+    expect(levelProgress(attempts, modules)[1].state).toBe("under_construction");
+    expect(check(attempts, "L02-P1", modules)).toEqual({ ok: false, reason: "unknown_item" });
+    expect(check(attempts, "L02-P1", [FIXTURE_LEVELS[0], fixtureLevel(2, { phase: "next" })])).toEqual({ ok: false, reason: "under_construction" });
+  });
+
+  it("Practice again on a done practice: allowed, and never changes pips, gate or level status", () => {
+    const before = [...practices(1, 3)];
+    expect(check(before, "L01-P1")).toEqual({ ok: true, practiceAgain: true });
+    const after = [...before, at("L01-P1", 100), at("L01-P1", 5), at("L01-P2", 0)];
+    const [a, b] = [levelProgress(before, FIXTURE_LEVELS)[0], levelProgress(after, FIXTURE_LEVELS)[0]];
+    expect([...b.practicesDone].sort()).toEqual([...a.practicesDone].sort());
+    expect(b.state).toBe(a.state);
+    expect(check(after, "L01-T")).toEqual({ ok: false, reason: "test_locked" });
+  });
+
+  it("unknown item L09-P1 is refused", () => {
+    expect(check([], "L09-P1")).toEqual({ ok: false, reason: "unknown_item" });
+  });
+
+  it("a practice of a locked level is refused", () => {
+    expect(check([], "L03-P1")).toEqual({ ok: false, reason: "level_locked" });
   });
 });
 

@@ -70,13 +70,13 @@ Adjust once 4.1 lands (`levelProgress` shape).
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/content/__fixtures__/levels.ts` -- fixture `LevelModule`s for Levels 1–4 each with 5 practices + Test (valid against `defineLevelModule`) -- proves gates without epic-5 content.
-- [ ] `src/core/progress/level-progress.ts` (+test) -- per item `{status, practiceAgain}`, test gate, unlock, V1 end, Under Construction; `canStart(progress, itemId)`; table tests for every matrix row incl. "Practice again never changes pips/gate".
-- [ ] `src/app/(app)/levels/start-actions.ts` (+test) -- refuse items `canStart` rejects (typed reason, no attempt); accept completed items as Practice again.
-- [ ] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` -- "Start Test", "Try the Test again", "Practice again", lock line, V1 end line.
-- [ ] `src/components/shell/use-is-phone.ts` -- `matchMedia` of the device-gating query; `start-control.tsx` shows the phone message instead of calling the action.
-- [ ] `src/app/(app)/dashboard/level-path.tsx` -- callout primary button + V1 end state.
-- [ ] `src/app/(app)/levels/*.dom.test.tsx` -- phone: tap shows message and action mock is never called; open-attempt lock text.
+- [x] `src/core/content/__fixtures__/levels.ts` -- fixture `LevelModule`s for Levels 1–4 each with 5 practices + Test (valid against `defineLevelModule`) -- proves gates without epic-5 content.
+- [x] `src/core/progress/level-progress.ts` (+test) -- per item `{status, practiceAgain}`, test gate, unlock, V1 end, Under Construction; `canStart(progress, itemId)`; table tests for every matrix row incl. "Practice again never changes pips/gate".
+- [x] `src/app/(app)/levels/start-actions.ts` (+test) -- refuse items `canStart` rejects (typed reason, no attempt); accept completed items as Practice again.
+- [x] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` -- "Start Test", "Try the Test again", "Practice again", lock line, V1 end line.
+- [x] `src/components/shell/use-is-phone.ts` -- `matchMedia` of the device-gating query; `start-control.tsx` shows the phone message instead of calling the action.
+- [x] `src/app/(app)/dashboard/level-path.tsx` -- callout primary button + V1 end state.
+- [x] `src/app/(app)/levels/*.dom.test.tsx` -- phone: tap shows message and action mock is never called; open-attempt lock text.
 
 **Acceptance Criteria:**
 - Given fixture Levels 1–4, when all four Tests pass, then the callout shows "Level 4 complete — Level 5 is coming soon" and nothing new unlocks.
@@ -85,6 +85,12 @@ Adjust once 4.1 lands (`levelProgress` shape).
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- `levelProgress` adds `testAttempted`; levels after `V1_LAST_LEVEL` (4) are Under Construction; `canStart(progress, modules, itemId)` returns `{ok, practiceAgain}` or a typed `StartRefusal` (`unknown_item | under_construction | level_locked | test_locked`); `v1Complete` drives the V1 end line. A level missing from the registry gives `unknown_item` at Start (its items do not exist).
+- Start reads `listProgressAttempts` after the item lookup and returns `{status: "refused", reason}` (logged `attempt.start_refused`) before any generation or insert; a failed read is `startFailed`. No device check on the server.
+- Fixture levels live in core (`src/core/content/__fixtures__/levels.ts`, self-contained generator, `defineLevelModule`-valid); `start-actions.gate.test.ts` mocks the registry with them to prove the server gate.
+- Code Map deviation: no `src/components/shell/use-is-phone.ts`. Per the user decision, phone gating is CSS only (`[@media(pointer:coarse)_and_(max-width:1023px)]`) in `StartControl`: the real form is hidden and a look-alike `type="button"` outside any form shows `phoneStartMessage` in a polite status region. `PHONE_QUERY` is exported for reference.
+- Panel: `levelPanel(level, completed, result)` adds Test `passed|failed`, `practiceAgain` per row and `primary` ("Start Practice N" / "Start Test" / "Try the Test again"); rows carry a secondary "Practice again"; the lock reason renders once (under the Primary Button, else its own line) and every control points at it. /levels shows the last passed level when none is active.
+- Dashboard: `LevelPath` takes `startLock` from the page; the callout shows the Primary Button or the Test lock line; Level 4 passed shows "Level 4 complete — Level 5 is coming soon" + "Practice again" link to /levels.
 
 ## Plan Change Log
 

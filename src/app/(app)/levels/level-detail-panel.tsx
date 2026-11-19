@@ -1,7 +1,16 @@
-import { Flame, Lock } from "lucide-react";
+import { Check, Flame, Lock } from "lucide-react";
 import type { LevelModule } from "@/core/content/level-module";
+import { V1_LAST_LEVEL } from "@/core/progress";
 import { cn } from "@/lib/utils";
-import { levelPanel, PRACTICE_COUNT, testLockLine, type PipState, type PracticeStatus } from "./level-panel";
+import {
+  levelPanel,
+  PRACTICE_COUNT,
+  testLockLine,
+  V1_END_LINE,
+  type PipState,
+  type PracticeStatus,
+  type TestResult,
+} from "./level-panel";
 import { StartControl } from "./start-control";
 import type { StartLock } from "./start-lock";
 
@@ -28,20 +37,33 @@ const PRACTICE_STATUS: Record<PracticeStatus, string> = {
  * Level Detail Panel (DESIGN.md, EXPERIENCE.md; `key-level-map.html`), inline
  * on /levels until the Level Map (epic 4) wraps it in a `Sheet`. Header,
  * Practice Pips with "x/5 practices done", one row per practice and the
- * Test, and one Start in the foot for the next item. Rows carry no buttons.
- * `startLock` (an attempt in progress) disables that Start with its reason.
+ * Test, and one Primary Button in the foot for the next item ("Start
+ * Practice N", "Start Test", "Try the Test again"). Done practices and a
+ * passed Test carry "Practice again" (CAP-11; never changes pips, gate or
+ * level status). `startLock` (an attempt in progress) disables every one of
+ * them, with its reason shown once. Level 4 passed shows the V1 end line.
  */
 export function LevelDetailPanel({
   level,
   completed = new Set<string>(),
+  result,
   startLock,
 }: {
   level: LevelModule;
   completed?: ReadonlySet<string>;
+  result?: TestResult;
   startLock?: StartLock;
 }) {
-  const panel = levelPanel(level, completed);
+  const panel = levelPanel(level, completed, result);
   const headingId = `level-${level.id}-heading`;
+  const passed = panel.test.status === "passed";
+  // The lock reason is shown once: under the Primary Button, else in its own line.
+  const lockLineId = panel.primary ? `start-${panel.primary.itemId}-lock` : `level-${level.id}-lock`;
+  const again = (itemId: string) => (
+    <div className="pt-1.5">
+      <StartControl itemId={itemId} text="Practice again" variant="secondary" lock={startLock} reasonId={startLock ? lockLineId : undefined} />
+    </div>
+  );
 
   return (
     <section
@@ -50,8 +72,8 @@ export function LevelDetailPanel({
     >
       <div className="flex flex-col gap-1">
         <p className={cn(LABEL, "flex items-center gap-1.5 text-primary")}>
-          <Flame aria-hidden="true" className="size-3.5" />
-          Level {level.number} · Active
+          {passed ? <Check aria-hidden="true" className="size-3.5" /> : <Flame aria-hidden="true" className="size-3.5" />}
+          Level {level.number} · {passed ? "Passed" : "Active"}
         </p>
         <h2 id={headingId} lang="id" className="text-[32px] leading-[1.1] font-[850] tracking-[-0.025em]">
           {level.name}
@@ -106,6 +128,7 @@ export function LevelDetailPanel({
                         Best {NO_VALUE} · {NO_VALUE}
                       </span>
                     )}
+                    {practice.practiceAgain && practice.itemId && again(practice.itemId)}
                   </td>
                   <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{NO_VALUE}</td>
                   <td className={cn(VALUE, "hidden px-3 sm:table-cell")}>{NO_VALUE}</td>
@@ -114,7 +137,12 @@ export function LevelDetailPanel({
             })}
             <tr className="h-[52px] border-t border-border bg-accent/55">
               <td className="px-3 py-1.5">
-                <span className={cn("block font-bold", panel.test.status !== "open" && "text-muted-foreground")}>
+                <span
+                  className={cn(
+                    "block font-bold",
+                    (panel.test.status === "locked" || panel.test.status === "unavailable") && "text-muted-foreground",
+                  )}
+                >
                   {panel.test.label}
                 </span>
                 {panel.test.status === "locked" && (
@@ -124,12 +152,17 @@ export function LevelDetailPanel({
                   </span>
                 )}
                 {panel.test.status === "open" && <span className={cn(CAPTION, "block text-primary")}>Open</span>}
+                {panel.test.status === "passed" && <span className={cn(CAPTION, "block text-primary")}>✓ Passed</span>}
+                {panel.test.status === "failed" && (
+                  <span className={cn(CAPTION, "block text-muted-foreground")}>Not passed yet</span>
+                )}
                 {panel.test.status === "unavailable" && (
                   <span className={cn(CAPTION, "block text-muted-foreground")}>{PRACTICE_STATUS.unavailable}</span>
                 )}
                 <span className={cn(CAPTION, "block text-muted-foreground sm:hidden")}>
                   Best {NO_VALUE} · {NO_VALUE}
                 </span>
+                {panel.test.practiceAgain && panel.test.itemId && again(panel.test.itemId)}
               </td>
               <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{NO_VALUE}</td>
               <td className={cn(VALUE, "hidden px-3 sm:table-cell")}>{NO_VALUE}</td>
@@ -138,10 +171,26 @@ export function LevelDetailPanel({
         </table>
       </div>
 
-      {panel.next && (
+      {level.number === V1_LAST_LEVEL && passed && <p className="font-bold text-primary">{V1_END_LINE}</p>}
+
+      {panel.primary ? (
         <div className="pt-1">
-          <StartControl itemId={panel.next.itemId} label={panel.next.label} lock={startLock} fullWidth />
+          <StartControl itemId={panel.primary.itemId} text={panel.primary.text} lock={startLock} fullWidth />
         </div>
+      ) : (
+        startLock && (
+          <p id={lockLineId} className="text-xs leading-[1.4] font-medium text-muted-foreground">
+            {startLock.reason}
+            {startLock.attemptId && (
+              <>
+                {" "}
+                <a href={`/exam/${startLock.attemptId}`} className="font-bold text-primary underline-offset-4 hover:underline">
+                  Go to the attempt
+                </a>
+              </>
+            )}
+          </p>
+        )
       )}
     </section>
   );

@@ -7,6 +7,7 @@ import {
   createAttempt,
   deleteOpenAttempt,
   findOpenAttemptId,
+  listProgressAttempts,
   uploadGeneratedFile,
   writeSnapshot,
 } from "@/adapters/supabase/attempts";
@@ -24,19 +25,24 @@ import {
   type ExamSnapshot,
   type GeneratedExam,
 } from "@/core/content/level-module";
-import { findItem } from "@/content/levels";
+import { canStart, levelProgress, toGradedAttempts, type StartRefusal } from "@/core/progress";
+import { findItem, levels } from "@/content/levels";
 import type { StartError } from "@/messages/id";
 
 export type StartState =
   | { status: "idle" }
   | { status: "error"; error: StartError }
   /** Another attempt is in progress; `attemptId` links to its exam screen when it could be read. */
-  | { status: "blocked"; attemptId: string | null };
+  | { status: "blocked"; attemptId: string | null }
+  /** The progress gate refuses the item (locked level or Test, Under Construction); nothing was created. */
+  | { status: "refused"; reason: StartRefusal };
 
 const LEVELS_PATH = "/levels";
 
 /**
- * Start (CAP-2): session → profile → item → seed and scenario → content
+ * Start (CAP-2): session → profile → item → progress gate (CAP-9, `canStart`
+ * over the user's graded attempts; a done item is a Practice again, same
+ * path, AD-5; no device check: phones are gated in the UI) → seed and scenario → content
  * `generate` and snapshot (validated) → token → workbook → session insert →
  * snapshot write on the service role (AD-9: the session has no privilege on
  * the answer key) → upload → the exam screen, which starts the download.
@@ -77,6 +83,13 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
     return { status: "error", error: "startFailed" };
   }
   const { level, item } = found;
+  const read = await listProgressAttempts(supabase, user.id);
+  if (!read.ok) return { status: "error", error: "startFailed" };
+  const gate = canStart(levelProgress(toGradedAttempts(read.value), levels), levels, item.id);
+  if (!gate.ok) {
+    console.error(JSON.stringify({ event: "attempt.start_refused", itemId: item.id, reason: gate.reason }));
+    return { status: "refused", reason: gate.reason };
+  }
   if (level.scenarios.length === 0) {
     console.error(JSON.stringify({ event: "attempt.start_no_scenarios", itemId: item.id }));
     return { status: "error", error: "startFailed" };

@@ -12,7 +12,7 @@ export const PRACTICE_COUNT = 5;
 
 export type PipState = "done" | "next" | "pending";
 export type PracticeStatus = "done" | "next" | "not_started" | "unavailable";
-export type TestStatus = "locked" | "open" | "unavailable";
+export type TestStatus = "locked" | "open" | "passed" | "failed" | "unavailable";
 
 export interface PanelPractice {
   number: number;
@@ -20,6 +20,8 @@ export interface PanelPractice {
   /** The registry item id, or `null` while the practice has no content. */
   itemId: string | null;
   status: PracticeStatus;
+  /** Done practices can be started again ("Practice again"; never changes pips, gate or level status). */
+  practiceAgain: boolean;
 }
 
 export interface PanelTest {
@@ -28,18 +30,37 @@ export interface PanelTest {
   status: TestStatus;
   /** Practices still to complete before the Test opens. */
   toGo: number;
+  /** A passed Test can be started again ("Practice again"). */
+  practiceAgain: boolean;
 }
+
+/** The level's Test outcome so far (from `levelProgress`). */
+export interface TestResult {
+  passed: boolean;
+  attempted: boolean;
+}
+
+const NO_TEST: TestResult = { passed: false, attempted: false };
 
 export interface LevelPanel {
   doneCount: number;
   pips: PipState[];
   practices: PanelPractice[];
   test: PanelTest;
-  /** The one item the panel's Start starts: the first practice not done, when it has content. */
+  /** The first practice not done, when it has content. */
   next: { itemId: string; label: string } | null;
+  /**
+   * The panel's Primary Button: "Start Practice N" for `next`, else "Start
+   * Test" (open) or "Try the Test again" (failed); `null` when neither.
+   */
+  primary: { itemId: string; text: string } | null;
 }
 
-export function levelPanel(level: Pick<LevelModule, "items">, completed: ReadonlySet<string>): LevelPanel {
+export function levelPanel(
+  level: Pick<LevelModule, "items">,
+  completed: ReadonlySet<string>,
+  result: TestResult = NO_TEST,
+): LevelPanel {
   const practiceItems = Array.from({ length: PRACTICE_COUNT }, (_, index) =>
     level.items.find((item) => item.kind === "practice" && item.number === index + 1),
   );
@@ -53,9 +74,9 @@ export function levelPanel(level: Pick<LevelModule, "items">, completed: Readonl
   const practices: PanelPractice[] = practiceItems.map((item, index) => {
     const number = index + 1;
     const label = itemLabel({ kind: "practice", number });
-    if (!item) return { number, label, itemId: null, status: "unavailable" };
+    if (!item) return { number, label, itemId: null, status: "unavailable", practiceAgain: false };
     const status: PracticeStatus = completed.has(item.id) ? "done" : index === nextIndex ? "next" : "not_started";
-    return { number, label, itemId: item.id, status };
+    return { number, label, itemId: item.id, status, practiceAgain: status === "done" };
   });
 
   const pips: PipState[] = practices.map((practice) =>
@@ -64,19 +85,36 @@ export function levelPanel(level: Pick<LevelModule, "items">, completed: Readonl
 
   const toGo = PRACTICE_COUNT - doneCount;
   const hasContent = level.items.length > 0;
-  const testStatus: TestStatus =
-    toGo === 0 ? (testItem ? "open" : "unavailable") : hasContent ? "locked" : "unavailable";
+  const testStatus: TestStatus = !testItem
+    ? toGo > 0 && hasContent
+      ? "locked"
+      : "unavailable"
+    : result.passed
+      ? "passed"
+      : toGo > 0
+        ? "locked"
+        : result.attempted
+          ? "failed"
+          : "open";
   const test: PanelTest = {
     label: itemLabel({ kind: "test", number: PRACTICE_COUNT + 1 }),
     itemId: testItem?.id ?? null,
     status: testStatus,
     toGo,
+    practiceAgain: testStatus === "passed",
   };
 
   const nextPractice = nextIndex === -1 ? null : practices[nextIndex];
   const next = nextPractice?.itemId ? { itemId: nextPractice.itemId, label: nextPractice.label } : null;
+  const primary = next
+    ? { itemId: next.itemId, text: `Start ${next.label}` }
+    : testItem && testStatus === "open"
+      ? { itemId: testItem.id, text: "Start Test" }
+      : testItem && testStatus === "failed"
+        ? { itemId: testItem.id, text: "Try the Test again" }
+        : null;
 
-  return { doneCount, pips, practices, test, next };
+  return { doneCount, pips, practices, test, next, primary };
 }
 
 /** EXPERIENCE.md › State Patterns: the Test row's lock line with the live count. */
@@ -95,3 +133,15 @@ export function completedItemIds(
   for (const item of level.items) if (item.kind === "practice" && done.has(item.number)) ids.add(item.id);
   return ids;
 }
+
+/** The level's Test outcome in `progress` (`levelProgress`): the panel's `result`. */
+export function testResult(
+  level: Pick<LevelModule, "number">,
+  progress: readonly Pick<LevelProgress, "number" | "testPassed" | "testAttempted">[],
+): TestResult {
+  const entry = progress.find((candidate) => candidate.number === level.number);
+  return { passed: entry?.testPassed ?? false, attempted: entry?.testAttempted ?? false };
+}
+
+/** EXPERIENCE.md › Level Callout: the line after Level 4's Test passes. */
+export const V1_END_LINE = "Level 4 complete — Level 5 is coming soon";

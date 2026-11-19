@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LevelItem } from "@/core/content/level-module";
 import { levels } from "@/content/levels";
 import { levelProgress } from "@/core/progress";
-import { completedItemIds, levelPanel, testLockLine } from "./level-panel";
+import { completedItemIds, levelPanel, testLockLine, testResult } from "./level-panel";
 
 const generate = () => ({ cells: { Data: { A1: "x" } }, questions: [] });
 const practice = (number: number): LevelItem => ({ id: `L01-P${number}`, kind: "practice", number, generate });
@@ -72,6 +72,44 @@ describe("levelPanel", () => {
 
   it("counts only practices toward the gate", () => {
     expect(levelPanel({ items: [practice(1), TEST] }, new Set(["L01-T"])).doneCount).toBe(0);
+  });
+});
+
+describe("levelPanel: Test outcome, Primary Button and Practice again", () => {
+  const all = [1, 2, 3, 4, 5].map(practice);
+  const level = { items: [...all, TEST] };
+  const done = new Set(all.map((item) => item.id));
+
+  it("next practice first: Start Practice N; done practices offer Practice again", () => {
+    const panel = levelPanel(level, new Set(["L01-P1", "L01-P2"]));
+    expect(panel.primary).toEqual({ itemId: "L01-P3", text: "Start Practice 3" });
+    expect(panel.practices.map((p) => p.practiceAgain)).toEqual([true, true, false, false, false]);
+    expect(panel.test.practiceAgain).toBe(false);
+  });
+
+  it("5 done, no Test attempt: Start Test", () => {
+    expect(levelPanel(level, done).primary).toEqual({ itemId: "L01-T", text: "Start Test" });
+  });
+
+  it("failed Test: Try the Test again, no Practice again on the Test", () => {
+    const panel = levelPanel(level, done, { passed: false, attempted: true });
+    expect(panel.test).toMatchObject({ status: "failed", practiceAgain: false });
+    expect(panel.primary).toEqual({ itemId: "L01-T", text: "Try the Test again" });
+  });
+
+  it("passed Test: no Primary Button, Practice again on the Test and every practice", () => {
+    const panel = levelPanel(level, done, { passed: true, attempted: true });
+    expect(panel.test).toMatchObject({ status: "passed", practiceAgain: true });
+    expect(panel.primary).toBeNull();
+    expect(panel.practices.every((p) => p.practiceAgain)).toBe(true);
+  });
+
+  it("testResult reads levelProgress", () => {
+    const at = (itemId: string, score: number) => ({ itemId, score, startedAt: "2026-11-02T01:00:00Z", receivedAt: null });
+    expect(testResult({ number: 1 }, levelProgress([], levels))).toEqual({ passed: false, attempted: false });
+    expect(testResult({ number: 7 }, [])).toEqual({ passed: false, attempted: false });
+    const mods = [{ ...levels[0], items: [...levels[0].items, TEST] }];
+    expect(testResult({ number: 1 }, levelProgress([at("L01-T", 50)], mods))).toEqual({ passed: false, attempted: true });
   });
 });
 

@@ -5,6 +5,7 @@ import { PageTitle } from "@/components/shell/page-title";
 import { shellMessages } from "@/messages/id";
 import { attemptCardView, loadOpenAttempt } from "../open-attempt";
 import { AttemptCard, DASHBOARD_TITLE_ID } from "./attempt-card";
+import { BLOCKED_MESSAGE } from "../levels/start-lock";
 import { LevelPath, LevelPathSkeleton } from "./level-path";
 import { StreakHero, StreakHeroSkeleton } from "./streak-hero";
 
@@ -29,7 +30,11 @@ export default async function DashboardPage() {
       <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
         <div className="flex w-full min-w-0 flex-col lg:flex-1">
           <Suspense fallback={<LevelPathSkeleton />}>
-            <LevelPath />
+            <LevelPath
+              startLock={
+                loaded !== null && loaded !== "failed" ? { reason: BLOCKED_MESSAGE, attemptId: loaded.attempt.id } : undefined
+              }
+            />
           </Suspense>
         </div>
         {/* Phone: the rail (Streak Hero, then the Attempt Card) is the first screen, above the Level Path. */}

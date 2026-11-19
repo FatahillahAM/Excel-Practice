@@ -53,6 +53,12 @@ export const startMessages = {
 
 export type StartError = keyof typeof startMessages;
 
+/** EXPERIENCE.md › Message set "Start on phone" (decided): shown instead of Start / Practice again on a phone. */
+export const phoneStartMessage = "Latihan dikerjakan di Excel laptop, ya. Buka web ini di laptop untuk mulai.";
+
+/** The Start gate refused the item (locked level or Test, Under Construction; illustrative). */
+export const startRefusedMessage = "Item ini belum bisa dimulai. Muat ulang halaman ini, ya.";
+
 /** Attempt Card's Abandon dialog (Dashboard; illustrative, like `startMessages`). */
 export const attemptMessages = {
   /** The dialog's body: what Abandon does. */

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   createAttempt: vi.fn(),
   deleteOpenAttempt: vi.fn(),
   findOpenAttemptId: vi.fn(),
+  listProgressAttempts: vi.fn(),
   uploadGeneratedFile: vi.fn(),
   generateExamWorkbook: vi.fn(),
   writeSnapshot: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock("@/adapters/supabase/attempts", () => ({
   createAttempt: mocks.createAttempt,
   deleteOpenAttempt: mocks.deleteOpenAttempt,
   findOpenAttemptId: mocks.findOpenAttemptId,
+  listProgressAttempts: mocks.listProgressAttempts,
   uploadGeneratedFile: mocks.uploadGeneratedFile,
   writeSnapshot: mocks.writeSnapshot,
 }));
@@ -96,6 +98,7 @@ beforeEach(() => {
   mocks.deleteOpenAttempt.mockResolvedValue(true);
   mocks.findOpenAttemptId.mockResolvedValue({ ok: true, value: OTHER_ID });
   mocks.uploadGeneratedFile.mockResolvedValue(true);
+  mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [] });
   mocks.writeSnapshot.mockResolvedValue(true);
   mocks.createServiceClient.mockReturnValue(SERVICE);
   mocks.randomInt.mockImplementation((max: number) => mocks.realRandomInt!(max));
@@ -391,6 +394,14 @@ describe("startAttempt", () => {
 
   it("refuses an unknown item", async () => {
     expect(await start(form({ itemId: "L09-P5", timeZone: "Asia/Jakarta" }))).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it("reads the session user's progress for the gate; a failed read starts nothing", async () => {
+    mocks.listProgressAttempts.mockResolvedValue({ ok: false });
+    expect(await start()).toEqual({ status: "error", error: "startFailed" });
+    expect(mocks.listProgressAttempts).toHaveBeenCalledWith(SUPABASE, "user-1");
     expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
     expect(mocks.createAttempt).not.toHaveBeenCalled();
   });
