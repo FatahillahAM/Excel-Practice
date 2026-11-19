@@ -615,6 +615,59 @@ export async function listGradedResults(supabase: SupabaseClient, userId: string
   }
 }
 
+/** Rows per page when reading every graded attempt for the Tips collection. */
+export const TIPS_PAGE = 200;
+/** Hard stop for the Tips read (guards a runaway loop); reaching it is logged. */
+export const TIPS_MAX_ROWS = 5000;
+
+/** One graded attempt for the Tips collection: its Result still unvalidated (the page parses it). */
+export interface StoredTipRow {
+  id: string;
+  itemId: string;
+  result: unknown;
+  startedAt: string;
+}
+
+/**
+ * Every attempt of the user with a stored Result (`graded` or `closed`,
+ * `result` not null), newest first (`started_at desc, id desc`), read in
+ * pages of `TIPS_PAGE` until a short page, at most `TIPS_MAX_ROWS` (logged as
+ * `attempt.list_tips_truncated`). Session read like `listGradedResults`: RLS
+ * plus `user_id = userId`; only columns granted to `authenticated`.
+ */
+export async function listResultsForTips(supabase: SupabaseClient, userId: string): Promise<Read<StoredTipRow[]>> {
+  const out: StoredTipRow[] = [];
+  try {
+    for (let from = 0; from < TIPS_MAX_ROWS; from += TIPS_PAGE) {
+      const to = Math.min(from + TIPS_PAGE, TIPS_MAX_ROWS) - 1;
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select("id, item_id, result, started_at")
+        .eq("user_id", userId)
+        .in("status", ["graded", "closed"])
+        .not("result", "is", null)
+        .order("started_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to);
+      if (error) {
+        logError("attempt.list_tips_failed", error.code);
+        return { ok: false };
+      }
+      const rows = (data ?? []) as { id: string; item_id: string; result: unknown; started_at: string }[];
+      for (const row of rows) {
+        if (row.result === null || row.result === undefined) continue;
+        out.push({ id: row.id, itemId: row.item_id, result: row.result, startedAt: row.started_at });
+      }
+      if (rows.length < to - from + 1) return { ok: true, value: out };
+    }
+    logError("attempt.list_tips_truncated", String(TIPS_MAX_ROWS));
+    return { ok: true, value: out };
+  } catch (error) {
+    logError("attempt.list_tips_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
 /**
  * Whether the attempt has a stored Result that passes `resultSchema` (read
  * validated, not trusted): what the status endpoint and the exam page ask

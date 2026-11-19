@@ -15,7 +15,7 @@ import {
   type LevelItem,
   type LevelModule,
 } from "@/core/content/level-module";
-import { findItem, levels } from "./index";
+import { assertTipsAgreeAcrossLevels, findItem, levels } from "./index";
 import { fondasi } from "./01-fondasi";
 import { DATA_HEADERS, practice1 } from "./01-fondasi/practice-1";
 import { fondasiScenarioSchema, scenarios, type FondasiScenario } from "./01-fondasi/scenarios";
@@ -372,5 +372,29 @@ describe("defineLevelModule (load-time checks)", () => {
     expect(() => defineLevelModule({ ...validLevel, items: [practice1, test] })).not.toThrow();
     expect(itemLabel({ kind: "test", number: 6 })).toBe("Test");
     expect(() => defineLevelModule({ ...validLevel, phase: "next", scenarios: [], items: [] })).not.toThrow();
+  });
+});
+
+describe("Tip ids across levels", () => {
+  /** A copy of Level 1 as another level, its Practice 1 Tips changed by `edit`. */
+  const otherLevel = (edit: (exam: GeneratedExam) => GeneratedExam): LevelModule =>
+    ({
+      ...fondasi,
+      id: "02-lain",
+      number: 2,
+      items: [{ ...practice1, id: "L02-P1", generate: (seed: number, scenario: FondasiScenario) => edit(practice1.generate(seed, scenario)) }],
+    }) as unknown as LevelModule;
+
+  it("accepts the registry and a second level reusing an id with the same content", () => {
+    expect(() => assertTipsAgreeAcrossLevels(levels)).not.toThrow();
+    expect(() => assertTipsAgreeAcrossLevels([fondasi as unknown as LevelModule, otherLevel((exam) => exam)])).not.toThrow();
+  });
+
+  it("rejects one Tip id with different content in two levels", () => {
+    const changed = otherLevel((exam) => ({
+      ...exam,
+      questions: exam.questions.map((q, i) => (i === 0 ? { ...q, tip: { ...q.tip, title: "Judul lain" } } : q)),
+    }));
+    expect(() => assertTipsAgreeAcrossLevels([fondasi as unknown as LevelModule, changed])).toThrow(/differs between levels 01-fondasi and 02-lain/);
   });
 });
