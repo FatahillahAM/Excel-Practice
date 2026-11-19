@@ -1,12 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { prerender } from "react-dom/static";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn() }));
+const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn(), loadProgress: vi.fn() }));
 vi.mock("./abandon-actions", () => ({ abandonAttempt: vi.fn() }));
 vi.mock("../open-attempt", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../open-attempt")>();
   return { ...actual, loadOpenAttempt: mocks.loadOpenAttempt };
 });
+vi.mock("../progress", () => ({ loadProgress: mocks.loadProgress }));
 // `open-attempt` imports the session adapters; never reached with `loadOpenAttempt` mocked.
 vi.mock("@/adapters/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: vi.fn() }));
@@ -40,6 +42,8 @@ describe("Dashboard", () => {
     expect(html).not.toContain("Attempt in progress");
     expect(html).not.toContain("Resume");
     expect(html).not.toContain('role="alert"');
+    // The Level Path streams in its own Suspense boundary: its skeleton first.
+    expect(html).toContain('data-slot="level-path-skeleton"');
   });
 
   it("open: the Attempt Card with name, time since Start, Resume to the exam screen and an Abandon trigger", async () => {
@@ -75,5 +79,24 @@ describe("Dashboard", () => {
     expect(html).toMatch(new RegExp(`<p role="alert" lang="id">${shellMessages.firstLoadFailed}</p>`));
     expect(html).toContain('href="/dashboard"');
     expect(html).not.toContain("Attempt in progress");
+  });
+});
+
+describe("Dashboard with the Level Path resolved", () => {
+  /** Every Suspense boundary resolved (the Level Path's progress read included). */
+  async function renderAll(): Promise<string> {
+    const { prelude } = await prerender(await DashboardPage());
+    return new Response(prelude).text();
+  }
+
+  it("a failed progress read with an attempt in progress: both the Resume card and the alert", async () => {
+    mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt("open"), elapsed: 754 });
+    mocks.loadProgress.mockResolvedValue("failed");
+    const html = await renderAll();
+    expect(html).toContain("Attempt in progress");
+    expect(html).toMatch(new RegExp(`<a [^>]*href="/exam/${ID}"[^>]*>[\\s\\S]*?Resume</a>`));
+    expect(html).toMatch(new RegExp(`<p role="alert" lang="id">${shellMessages.firstLoadFailed}</p>`));
+    expect(html).not.toContain('aria-label="Level path"');
+    mocks.loadProgress.mockReset();
   });
 });

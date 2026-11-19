@@ -1,11 +1,14 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn() }));
+const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn(), loadProgress: vi.fn() }));
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
 vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
+vi.mock("../progress", () => ({ loadProgress: mocks.loadProgress }));
 
 import { levels } from "@/content/levels";
+import { levelProgress } from "@/core/progress";
+import { shellMessages } from "@/messages/id";
 import { LevelDetailPanel } from "./level-detail-panel";
 import Page from "./page";
 import { StartControl } from "./start-control";
@@ -29,6 +32,8 @@ async function renderPage(): Promise<string> {
 }
 
 mocks.loadOpenAttempt.mockResolvedValue(null);
+const NO_PROGRESS = levelProgress([], levels);
+mocks.loadProgress.mockResolvedValue(NO_PROGRESS);
 const html = await renderPage();
 
 /** The markup of `<tbody>`, where the rows live. */
@@ -142,5 +147,29 @@ describe("StartControl lock without attemptId (the { reason } shape)", () => {
     const markup = renderToStaticMarkup(<StartControl itemId="L01-P1" label="Practice 1" lock={{ reason: BLOCKED_MESSAGE }} />);
     expect(markup).toMatch(new RegExp(`<p id="start-L01-P1-lock"[^>]*>${BLOCKED_MESSAGE}</p>`));
     expect(markup).not.toContain("Go to the attempt");
+  });
+});
+
+describe("/levels — progress (the Dashboard's read)", () => {
+  afterEach(() => mocks.loadProgress.mockResolvedValue(NO_PROGRESS));
+  const at = (itemId: string) => ({ itemId, score: 40, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
+
+  it("marks a practice done in the progress as done (1/5, no Start for it)", async () => {
+    mocks.loadProgress.mockResolvedValue(levelProgress([at("L01-P1")], levels));
+    const markup = await renderPage();
+    expect(markup).toContain("1/5 practices done");
+    expect(markup).toContain("✓ Done");
+    expect(markup.match(/data-pip="done"/g)).toHaveLength(1);
+    expect(markup).not.toContain("Start Practice 1");
+  });
+
+  it("a failed read: the first-load message with Try again, no panel, counts or Start", async () => {
+    mocks.loadProgress.mockResolvedValue("failed");
+    const markup = await renderPage();
+    expect(markup).toMatch(new RegExp(`<p role="alert" lang="id">${shellMessages.firstLoadFailed}</p>`));
+    expect(markup).toMatch(/<a href="\/levels"[^>]*>Try again<\/a>/);
+    expect(markup).not.toContain("practices done");
+    expect(markup).not.toContain('type="submit"');
+    expect(markup).toContain("Level Map</h1>");
   });
 });

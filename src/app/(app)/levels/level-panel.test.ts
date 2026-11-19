@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { LevelItem } from "@/core/content/level-module";
 import { levels } from "@/content/levels";
-import { levelPanel, testLockLine } from "./level-panel";
+import { levelProgress } from "@/core/progress";
+import { completedItemIds, levelPanel, testLockLine } from "./level-panel";
 
 const generate = () => ({ cells: { Data: { A1: "x" } }, questions: [] });
 const practice = (number: number): LevelItem => ({ id: `L01-P${number}`, kind: "practice", number, generate });
@@ -78,5 +79,25 @@ describe("testLockLine", () => {
   it("uses the live count", () => {
     expect(testLockLine(5)).toBe("Test opens after 5 practices — 5 to go.");
     expect(testLockLine(1)).toBe("Test opens after 5 practices — 1 to go.");
+  });
+});
+
+describe("completedItemIds", () => {
+  const at = (itemId: string) => ({ itemId, score: 40, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
+
+  it("maps levelProgress practices to the level's item ids (repeats and the Test add nothing)", () => {
+    const progress = levelProgress([at("L01-P1"), at("L01-P1"), at("L01-T")], levels);
+    expect([...completedItemIds(levels[0], progress)]).toEqual(["L01-P1"]);
+    const panel = levelPanel(levels[0], completedItemIds(levels[0], progress));
+    expect(panel.doneCount).toBe(1);
+    expect(panel.practices[0].status).toBe("done");
+    // Content-less items behave as before.
+    expect(panel.practices.slice(1).map((p) => p.status)).toEqual(Array(4).fill("unavailable"));
+    expect(panel.next).toBeNull();
+  });
+
+  it("is empty without progress for the level", () => {
+    expect(completedItemIds(levels[0], []).size).toBe(0);
+    expect(completedItemIds({ number: 1, items: [practice(1)] }, levelProgress([], levels)).size).toBe(0);
   });
 });

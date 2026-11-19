@@ -16,9 +16,12 @@ import {
   hasValidResult,
   HISTORY_HEADROOM,
   HISTORY_LIMIT,
+  PROGRESS_MAX_ROWS,
+  PROGRESS_PAGE,
   TIPS_MAX_ROWS,
   TIPS_PAGE,
   listGradedResults,
+  listProgressAttempts,
   listResultsForTips,
   loadForGrading,
   markReceived,
@@ -892,6 +895,81 @@ describe("listResultsForTips (session)", () => {
       { event: "attempt.list_tips_failed", code: "42501" },
       { event: "attempt.list_tips_failed", code: "57014" },
       { event: "attempt.list_tips_failed", code: "TypeError" },
+    ]);
+  });
+});
+
+describe("listProgressAttempts (session)", () => {
+  const row = (id: string, result: unknown = { version: 2 }) => ({
+    id,
+    item_id: "L01-P1",
+    result,
+    started_at: "2026-11-02T01:00:00+00:00",
+    received_at: "2026-11-02T01:10:00+00:00",
+  });
+  const page = (n: number, offset = 0) => Array.from({ length: n }, (_, i) => row(`r${offset + i}`));
+  const shape = (from: number, to: number) => [
+    ["select", ["id, item_id, result, started_at, received_at"]],
+    ["eq", ["user_id", "user-a"]],
+    ["eq", ["status", "graded"]],
+    ["not", ["result", "is", null]],
+    ["order", ["received_at", { ascending: false }]],
+    ["order", ["id", { ascending: false }]],
+    ["range", [from, to]],
+  ];
+
+  it("reads five columns of the user's graded rows only, newest first, one short page", async () => {
+    const { client, from, calls } = fakeClient({ data: [row("a")], error: null });
+    expect(await listProgressAttempts(client, "user-a")).toEqual({
+      ok: true,
+      value: [{ id: "a", itemId: "L01-P1", result: { version: 2 }, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: "2026-11-02T01:10:00+00:00" }],
+    });
+    expect(from).toHaveBeenCalledWith("attempts");
+    expect(PROGRESS_PAGE).toBe(200);
+    expect(calls).toEqual(shape(0, 199));
+  });
+
+  it("pages until a short page", async () => {
+    const { client, calls } = fakeClient([
+      { data: page(200), error: null },
+      { data: page(3, 200), error: null },
+    ]);
+    const read = await listProgressAttempts(client, "user-a");
+    expect(read.ok && read.value.length).toBe(203);
+    // Read newest first, returned oldest first.
+    expect(read.ok && [read.value[0].id, read.value.at(-1)!.id]).toEqual(["r202", "r0"]);
+    expect(calls).toEqual([...shape(0, 199), ...shape(200, 399)]);
+  });
+
+  it("stops at PROGRESS_MAX_ROWS and logs the truncation only when more rows exist", async () => {
+    const pages = PROGRESS_MAX_ROWS / PROGRESS_PAGE;
+    const capped = (extra: number) =>
+      Array.from({ length: pages }, (_, i) => ({ data: page(i === pages - 1 ? PROGRESS_PAGE + extra : PROGRESS_PAGE, i * PROGRESS_PAGE), error: null }));
+    const exactClient = fakeClient(capped(0));
+    const exact = await listProgressAttempts(exactClient.client, "user-a");
+    expect(exact.ok && exact.value.length).toBe(PROGRESS_MAX_ROWS);
+    const ranges = exactClient.calls.filter(([name]) => name === "range").map(([, args]) => args);
+    expect(ranges).toHaveLength(pages);
+    expect(ranges.at(-1)).toEqual([PROGRESS_MAX_ROWS - PROGRESS_PAGE, PROGRESS_MAX_ROWS]);
+    expect(errors.mock.calls).toEqual([]);
+    const over = await listProgressAttempts(fakeClient(capped(1)).client, "user-a");
+    expect(over.ok && over.value.length).toBe(PROGRESS_MAX_ROWS);
+    // The newest rows are kept (r0 is the newest), the probe row (the oldest past the cap) is not.
+    expect(over.ok && [over.value[0].id, over.value.at(-1)!.id]).toEqual([`r${PROGRESS_MAX_ROWS - 1}`, "r0"]);
+    expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([{ event: "attempt.list_progress_truncated", code: "5000" }]);
+  });
+
+  it("drops a null result and keeps a missing received_at as null", async () => {
+    const read = await listProgressAttempts(fakeClient({ data: [row("a", null), { ...row("b"), received_at: null }], error: null }).client, "user-a");
+    expect(read.ok && read.value).toEqual([expect.objectContaining({ id: "b", receivedAt: null })]);
+  });
+
+  it("is not ok on an error or a throw, and logs", async () => {
+    expect(await listProgressAttempts(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client, "user-a")).toEqual({ ok: false });
+    expect(await listProgressAttempts(fakeClient(() => Promise.reject(new TypeError("net"))).client, "user-a")).toEqual({ ok: false });
+    expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([
+      { event: "attempt.list_progress_failed", code: "42501" },
+      { event: "attempt.list_progress_failed", code: "TypeError" },
     ]);
   });
 });
