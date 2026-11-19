@@ -673,6 +673,67 @@ export async function listResultsForTips(supabase: SupabaseClient, userId: strin
   }
 }
 
+/** Rows per page when reading every graded attempt for progress (Level Path, streak, gates, records). */
+export const PROGRESS_PAGE = 200;
+/** Hard stop for the progress read (guards a runaway loop); reaching it is logged. */
+export const PROGRESS_MAX_ROWS = 5000;
+
+/** One graded attempt for the progress model (AD-7): its Result still unvalidated (`toGradedAttempts` parses it). */
+export interface ProgressAttemptRow {
+  id: string;
+  itemId: string;
+  result: unknown;
+  startedAt: string;
+  receivedAt: string | null;
+}
+
+/**
+ * Every `graded` attempt of the user with a stored Result, oldest first
+ * (`received_at asc, id asc`: streak and records walk forward in time), read
+ * in pages of `PROGRESS_PAGE` until a short page, at most `PROGRESS_MAX_ROWS`
+ * (one probe row past the cap; `attempt.list_progress_truncated` only when
+ * more exist). The one shared read of epic 4 (Level Path, streak, gates,
+ * records): `closed` is not progress (AD-5). Session read: RLS plus
+ * `user_id = userId`; only columns granted to `authenticated`.
+ */
+export async function listProgressAttempts(supabase: SupabaseClient, userId: string): Promise<Read<ProgressAttemptRow[]>> {
+  const out: ProgressAttemptRow[] = [];
+  try {
+    for (let from = 0; ; from += PROGRESS_PAGE) {
+      // The last page reads one row past the cap: it says whether more exist, and is not returned.
+      const last = from + PROGRESS_PAGE >= PROGRESS_MAX_ROWS;
+      const to = last ? PROGRESS_MAX_ROWS : from + PROGRESS_PAGE - 1;
+      const { data, error } = await supabase
+        .from(TABLE)
+        .select("id, item_id, result, started_at, received_at")
+        .eq("user_id", userId)
+        .eq("status", "graded")
+        .not("result", "is", null)
+        .order("received_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (error) {
+        logError("attempt.list_progress_failed", error.code);
+        return { ok: false };
+      }
+      const rows = (data ?? []) as { id: string; item_id: string; result: unknown; started_at: string; received_at: string | null }[];
+      const kept = last ? rows.slice(0, PROGRESS_MAX_ROWS - from) : rows;
+      for (const row of kept) {
+        if (row.result === null || row.result === undefined) continue;
+        out.push({ id: row.id, itemId: row.item_id, result: row.result, startedAt: row.started_at, receivedAt: row.received_at ?? null });
+      }
+      if (last) {
+        if (rows.length > kept.length) logError("attempt.list_progress_truncated", String(PROGRESS_MAX_ROWS));
+        return { ok: true, value: out };
+      }
+      if (rows.length < PROGRESS_PAGE) return { ok: true, value: out };
+    }
+  } catch (error) {
+    logError("attempt.list_progress_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
 /**
  * Whether the attempt has a stored Result that passes `resultSchema` (read
  * validated, not trusted): what the status endpoint and the exam page ask

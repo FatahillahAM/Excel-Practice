@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn() }));
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
 vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
+vi.mock("../progress", async () => {
+  const { levelProgress } = await import("@/core/progress");
+  const { levels } = await import("@/content/levels");
+  return { loadProgress: async () => levelProgress([], levels) };
+});
 
 import { levels } from "@/content/levels";
 import { LevelDetailPanel } from "./level-detail-panel";

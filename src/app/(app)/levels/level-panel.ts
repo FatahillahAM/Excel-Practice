@@ -1,10 +1,11 @@
 import { itemLabel, type LevelModule } from "@/core/content/level-module";
+import type { LevelProgress } from "@/core/progress";
 
 /**
  * The view model of the Level Detail Panel, as a pure function of the level's
- * registry entry and the set of completed item ids. Until the progress model
- * (epic 4, AD-7) feeds `completed`, statuses come from content alone: an item
- * the registry does not have yet is "unavailable", never startable.
+ * registry entry and the set of completed item ids (from `levelProgress`,
+ * via `completedItemIds`, so /levels and the Dashboard agree). An item the
+ * registry does not have yet is "unavailable", never startable.
  */
 
 export const PRACTICE_COUNT = 5;
@@ -81,4 +82,16 @@ export function levelPanel(level: Pick<LevelModule, "items">, completed: Readonl
 /** EXPERIENCE.md › State Patterns: the Test row's lock line with the live count. */
 export function testLockLine(toGo: number): string {
   return `Test opens after ${PRACTICE_COUNT} practices — ${toGo} to go.`;
+}
+
+/** The level's practice item ids done in `progress` (`levelProgress`): the panel's `completed`. */
+export function completedItemIds(
+  level: Pick<LevelModule, "number" | "items">,
+  progress: readonly Pick<LevelProgress, "number" | "practicesDone">[],
+): Set<string> {
+  const done = progress.find((entry) => entry.number === level.number)?.practicesDone;
+  const ids = new Set<string>();
+  if (!done) return ids;
+  for (const item of level.items) if (item.kind === "practice" && done.has(item.number)) ids.add(item.id);
+  return ids;
 }

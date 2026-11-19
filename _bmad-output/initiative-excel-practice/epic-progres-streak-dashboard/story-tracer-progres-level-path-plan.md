@@ -68,13 +68,13 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/adapters/supabase/attempts.ts` -- `listProgressAttempts(supabase, userId): Promise<Read<ProgressAttemptRow[]>>` (`{id, itemId, result: unknown, startedAt, receivedAt}`), `status = 'graded'`, `result not null`, `received_at asc, id asc`, paged like Tips with a hard cap + truncation log -- the one shared read for 4.1–4.4.
-- [ ] `src/adapters/supabase/attempts.test.ts` + contract DB test -- query shape, owner-only, excludes non-graded, error → `{ok:false}`.
-- [ ] `src/core/progress/level-progress.ts` (+`.test.ts`) -- `toGradedAttempts(rows)` (parse/drop invalid → `{itemId, score, startedAt, receivedAt}`) and `levelProgress(attempts, levels)` → per level `{number, name, state, practicesDone: Set<number>, testPassed}`; table tests for the matrix with fixture `LevelModule`s (incl. a Test item).
-- [ ] `src/app/(app)/levels/level-panel.ts` (+test) -- take completed ids from `levelProgress`; behaviour for content-less items unchanged.
-- [ ] `src/app/(app)/dashboard/level-path.tsx` -- server component: nodes, active callout with Practice Pips + "x/5 practices done"; skeleton shaped like the path.
-- [ ] `src/app/(app)/dashboard/page.tsx` -- load progress in Suspense beside the existing Attempt Card; failed state.
-- [ ] `src/app/(app)/dashboard/level-path.dom.test.tsx` -- states, `aria-current`, pips text, failed and empty states.
+- [x] `src/adapters/supabase/attempts.ts` -- `listProgressAttempts(supabase, userId): Promise<Read<ProgressAttemptRow[]>>` (`{id, itemId, result: unknown, startedAt, receivedAt}`), `status = 'graded'`, `result not null`, `received_at asc, id asc`, paged like Tips with a hard cap + truncation log -- the one shared read for 4.1–4.4.
+- [x] `src/adapters/supabase/attempts.test.ts` + contract DB test -- query shape, owner-only, excludes non-graded, error → `{ok:false}`.
+- [x] `src/core/progress/level-progress.ts` (+`.test.ts`) -- `toGradedAttempts(rows)` (parse/drop invalid → `{itemId, score, startedAt, receivedAt}`) and `levelProgress(attempts, levels)` → per level `{number, name, state, practicesDone: Set<number>, testPassed}`; table tests for the matrix with fixture `LevelModule`s (incl. a Test item).
+- [x] `src/app/(app)/levels/level-panel.ts` (+test) -- take completed ids from `levelProgress`; behaviour for content-less items unchanged.
+- [x] `src/app/(app)/dashboard/level-path.tsx` -- server component: nodes, active callout with Practice Pips + "x/5 practices done"; skeleton shaped like the path.
+- [x] `src/app/(app)/dashboard/page.tsx` -- load progress in Suspense beside the existing Attempt Card; failed state.
+- [x] `src/app/(app)/dashboard/level-path.dom.test.tsx` -- states, `aria-current`, pips text, failed and empty states.
 
 **Acceptance Criteria:**
 - Given L01-P1 graded on Production from the laptop, when the Dashboard is opened on the phone, then Level 1 shows 1/5 pips (hitl).
@@ -83,6 +83,11 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Adapter: `listProgressAttempts` + `ProgressAttemptRow`, `PROGRESS_PAGE` 200 / `PROGRESS_MAX_ROWS` 5000 (probe row, `attempt.list_progress_truncated`); contract DB test added under "Progress (4.1)" (not run locally; CI runs `test:db`).
+- Core: `src/core/progress/level-progress.ts` exports `toGradedAttempts`, `levelProgress`, `CURRICULUM` (Level 1–9 names from `level-curriculum.md`) and `FINAL_EXAM_NAME`; `practicesDone` is `ReadonlySet<number>`. A level whose predecessor is Under Construction stays locked (nothing opens past a `next`/missing level).
+- Shared server loader `src/app/(app)/progress.ts` (`loadProgress`, logs `progress.load_failed` on a throw) feeds both the Dashboard Level Path and `/levels`; `completedItemIds` in `level-panel.ts` maps progress to the panel's `completed`. On `/levels` a failed progress read shows the panel without progress (no extra alert); the Dashboard carries the alert.
+- Level Path pips come from `levelPanel` (same view model as `/levels`); Ujian Akhir is a static Under Construction node. Dashboard layout: Level Path (own Suspense + skeleton) then the rail; the Attempt Card is unchanged.
+- Note: the registry has no `L01-T` yet, so Level 1 cannot reach "passed" in Production until the Test item ships; covered by fixture modules in tests.
 
 ## Plan Change Log
 

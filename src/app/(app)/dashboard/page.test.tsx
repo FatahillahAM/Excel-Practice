@@ -40,6 +40,8 @@ describe("Dashboard", () => {
     expect(html).not.toContain("Attempt in progress");
     expect(html).not.toContain("Resume");
     expect(html).not.toContain('role="alert"');
+    // The Level Path streams in its own Suspense boundary: its skeleton first.
+    expect(html).toContain('data-slot="level-path-skeleton"');
   });
 
   it("open: the Attempt Card with name, time since Start, Resume to the exam screen and an Abandon trigger", async () => {
