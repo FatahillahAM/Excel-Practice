@@ -3,13 +3,14 @@ title: 'Tracer: progres dari attempt graded → Level Path di Dashboard'
 type: 'feature'
 ticket: '1'
 created: '2026-11-19'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'b5c844460c952804ef497087684975bbb50e7f26'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/DESIGN.md']
 ---
 
@@ -80,6 +81,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given the same attempts, when `/levels` and `/dashboard` render, then both show the same practice statuses.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
