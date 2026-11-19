@@ -3,7 +3,7 @@ title: 'Streak, freeze, migrasi `freezes`, dan Streak Hero'
 type: 'feature'
 ticket: '2'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
