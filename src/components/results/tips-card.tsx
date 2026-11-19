@@ -20,7 +20,7 @@ export function TipsCard({
   className,
 }: {
   tip: Tip;
-  /** With `correct`, the "Soal N · Correct/Wrong" line (Results); left out in the collection. */
+  /** Both given: the "Soal N · Correct/Wrong" line (Results); either missing (collection): no line. */
   questionNumber?: number;
   correct?: boolean;
   /** `null` when the item is not in the registry: the tag is left out. */
@@ -36,7 +36,7 @@ export function TipsCard({
         ) : (
           <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-[11px] leading-[1.2] font-bold text-muted-foreground">{`Level ${levelNumber}`}</span>
         )}
-        {questionNumber === undefined ? null : (
+        {questionNumber === undefined || correct === undefined ? null : (
           <span className={cn("text-[12px] font-bold", correct ? "text-success" : "text-destructive")}>
             <span aria-hidden="true">{correct ? "✓" : "✗"}</span> <span lang="id">{resultsMessages.question(questionNumber)}</span>
             {` · ${correct ? "Correct" : "Wrong"}`}

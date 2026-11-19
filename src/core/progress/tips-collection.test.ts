@@ -18,29 +18,26 @@ describe("tipsCollection", () => {
   it("keeps one card per Tip id across overlapping attempts (4 + 4, 2 shared → 6)", () => {
     const older = withTips([tip("a"), tip("b"), tip("c"), tip("d")]);
     const newer = withTips([tip("c"), tip("d"), tip("e"), tip("f")]);
-    const out = tipsCollection([row("1", "2026-11-01T00:00:00Z", older), row("2", "2026-11-02T00:00:00Z", newer)], level1);
+    const out = tipsCollection([row("2", "2026-11-02T00:00:00Z", newer), row("1", "2026-11-01T00:00:00Z", older)], level1);
     expect(ids(out)).toEqual(["c", "d", "e", "f", "a", "b"]);
     expect(out.every((t) => t.levelNumber === 1)).toBe(true);
   });
 
-  it("uses the newest attempt's content whatever the input order", () => {
-    const old = row("1", "2026-11-01T00:00:00Z", withTips([tip("kunci-sel", "A")]));
-    const neu = row("2", "2026-11-02T00:00:00Z", withTips([tip("kunci-sel", "B")]));
-    expect(tipsCollection([old, neu], level1)[0].tip.title).toBe("B");
+  it("trusts the given (database) order: the first row's content wins", () => {
+    const neu = row("2", "2026-11-02T00:00:00.000002Z", withTips([tip("kunci-sel", "B")]));
+    const old = row("1", "2026-11-02T00:00:00.000001Z", withTips([tip("kunci-sel", "A")]));
     expect(tipsCollection([neu, old], level1)[0].tip.title).toBe("B");
   });
 
-  it("breaks a started_at tie by attempt id (desc)", () => {
-    const a = row("a", "2026-11-01T00:00:00Z", withTips([tip("x", "A")]));
-    const b = row("b", "2026-11-01T00:00:00Z", withTips([tip("x", "B")]));
-    expect(tipsCollection([a, b], level1)[0].tip.title).toBe("B");
-    expect(tipsCollection([b, a], level1)[0].tip.title).toBe("B");
+  it("takes the level of the first (newest) row's item", () => {
+    const neu = row("2", "2026-11-02T00:00:00Z", withTips([tip("x")]), "L02-P1");
+    const old = row("1", "2026-11-01T00:00:00Z", withTips([tip("x")]), "L01-P1");
+    expect(tipsCollection([neu, old], level1)[0].levelNumber).toBe(2);
   });
 
-  it("takes the level of the newest attempt's item", () => {
-    const old = row("1", "2026-11-01T00:00:00Z", withTips([tip("x")]), "L01-P1");
-    const neu = row("2", "2026-11-02T00:00:00Z", withTips([tip("x")]), "L02-P1");
-    expect(tipsCollection([old, neu], level1)[0].levelNumber).toBe(2);
+  it("is not thrown off by an invalid started_at", () => {
+    const out = tipsCollection([row("2", "not a date", withTips([tip("x", "B")])), row("1", "", withTips([tip("x", "A"), tip("y")]))], level1);
+    expect(out.map((t) => t.tip.title)).toEqual(["B", "Judul y"]);
   });
 
   it("skips questions without a Tip (Result v1) and keeps the others", () => {
@@ -54,7 +51,7 @@ describe("tipsCollection", () => {
 
   it("keeps Tips from beyond the 50 newest attempts", () => {
     const rows = Array.from({ length: 120 }, (_, i) =>
-      row(String(i).padStart(3, "0"), new Date(Date.UTC(2026, 0, 1) + i * 60_000).toISOString(), withTips([tip(i === 0 ? "oldest" : "common")])),
+      row(String(i).padStart(3, "0"), new Date(Date.UTC(2026, 0, 1) - i * 60_000).toISOString(), withTips([tip(i === 119 ? "oldest" : "common")])),
     );
     expect(ids(tipsCollection(rows, level1))).toEqual(["common", "oldest"]);
   });
@@ -82,6 +79,16 @@ describe("filterTips / tipLevels", () => {
     expect(ids(filterTips(tips, { level: "all", query: "sum" }))).toEqual(["sum"]);
     expect(ids(filterTips(tips, { level: "all", query: "  KUNCI " }))).toEqual(["l01-kunci-sel-f4"]);
     expect(ids(filterTips(tips, { level: "all", query: "$a$1" }))).toEqual(["l01-kunci-sel-f4"]);
+  });
+
+  it("collapses inner whitespace and ignores diacritics", () => {
+    const more: CollectedTip[] = [
+      { tip: tip("salin", "Salin cepat", { body: "Tekan Ctrl C lalu Ctrl V." }), levelNumber: 1 },
+      { tip: tip("kafe", "Daftar café"), levelNumber: 1 },
+    ];
+    expect(ids(filterTips(more, { level: "all", query: "ctrl  c" }))).toEqual(["salin"]);
+    expect(ids(filterTips(more, { level: "all", query: "CAFE" }))).toEqual(["kafe"]);
+    expect(ids(filterTips(more, { level: "all", query: "café" }))).toEqual(["kafe"]);
   });
 
   it("combines level and search (AND)", () => {

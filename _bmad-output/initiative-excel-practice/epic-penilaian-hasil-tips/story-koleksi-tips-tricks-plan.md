@@ -80,7 +80,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-pr
 - [x] `src/core/progress/tips-collection.test.ts` -- every I/O row that is pure: dedupe, newest wins regardless of input order and tie on `startedAt` by id, `tip: null`, unknown level, >50 rows, filter, search cases, AND, empty.
 - [x] `src/adapters/supabase/attempts.ts` -- `listResultsForTips(supabase, userId): Read<StoredTipRow[]>` selecting `id, item_id, result, started_at`, same filters/order, paged with `.range()` in pages of `TIPS_PAGE = 200` until a short page, hard stop at `TIPS_MAX_ROWS = 5000` (log `attempt.list_tips_truncated`); log `attempt.list_tips_failed` -- all graded attempts, not 50.
 - [x] `src/adapters/supabase/attempts.test.ts` -- query shape, paging across two pages, error → `{ok:false}`, null-result guard.
-- [ ] `supabase/tests/...` (existing contract-test file for the History list) -- owner-only read of the same columns as `authenticated` (run `npm run test:db`).
+- [x] `supabase/tests/...` (existing contract-test file for the History list) -- owner-only read of the same columns as `authenticated` (run `npm run test:db`).
 - [x] `src/app/(app)/tips/tips-data.ts` -- parse rows with `resultSchema`, drop + log `tips.result_invalid`, call `tipsCollection` with `findItem(...)?.level.number ?? null`.
 - [x] `src/components/results/tips-card.tsx` -- make the "Soal N · Correct/Wrong" line optional (render only when `questionNumber` is given); Results unchanged.
 - [x] `src/app/(app)/tips/page.tsx` + `tips-collection-view.tsx` (client) + `tips-skeleton` -- server page: session → login `/tips`, Suspense skeleton, failed/empty states; client view: level `<select>` (labelled "Level"), search `<input type="search">` (labelled "Search tips"), polite live count ("6 tips"), responsive card grid of `TipsCard`, no-results message + "Clear filters" button.
@@ -96,15 +96,30 @@ context: ['{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-pr
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
-- Contract test (`supabase/tests/contract.db.test.ts`) not extended: no Docker / local Supabase in this environment, so `npm run test:db` cannot run here. `listResultsForTips` reads the same table, filters and a subset of the columns `listGradedResults` already reads (covered by its contract test); the task stays open for a run with a local stack.
+- Contract test added in `supabase/tests/contract.db.test.ts` (History list block): A's graded/closed rows with a Result only, four columns, newest first; A's open, grading_failed and null-result rows and B's rows excluded. CI runs `npm run test:db` (`.github/workflows/ci.yml`), so it is verified there once CI runs; it could not run locally (no Docker / local Supabase).
 - Skeleton lives in `tips-list.tsx` next to the server list (History's `history-list.tsx` pattern) instead of a separate `tips-skeleton` file.
-- Cross-level check: `assertTipsAgreeAcrossLevels(levels)` in `src/content/levels/index.ts` runs at registry load; one generate per item (first scenario, `LOAD_CHECK_SEED`) per level, since `defineLevelModule` already proves one content per id within a level. `sameTip` is now exported from `level-module.ts`.
+- Cross-level check: `assertTipsAgreeAcrossLevels(levels)` in `src/content/levels/index.ts` runs at registry load; every item × scenario per level at `LOAD_CHECK_SEED` (other seeds are already proved within a level by `defineLevelModule`). `sameTip` is now exported from `level-module.ts`.
 - Copy (illustrative, in `shellMessages`): `tipsEmpty` "Belum ada Tips. Selesaikan latihan dari Dashboard dulu, ya."; `tipsNoMatch(level, query)` → "Belum ada Tips untuk Level N — selesaikan latihan dulu, ya." (level only) or "Nggak ada Tips [Level N ]yang cocok dengan \"q\"." (with a query).
-- `TipsCard` `questionNumber`/`correct` are optional; the "Soal N" line renders only with `questionNumber` (Results unchanged).
+- `TipsCard` `questionNumber`/`correct` are optional; the "Soal N" line renders only when both are given (Results unchanged).
+- Review fixes: `tipsCollection` trusts the adapter's DB order (`started_at desc, id desc`) and does not re-sort (JS Date drops microseconds); search normalizes with NFD + mark stripping, collapsed inner whitespace, trim, `id-ID` lower case; `listResultsForTips` reads one probe row past `TIPS_MAX_ROWS` and logs `attempt.list_tips_truncated` only when it exists (the probe row is not returned).
 
 ## Plan Change Log
 
 ## Review Triage Log
+
+Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment); no high-severity code defects.
+
+- Fixed: JS re-sort by Date.parse dropped microseconds and had a NaN comparator; collection now trusts DB order (edge-case 1-2).
+- Fixed: truncation log fired at exactly 5000 rows; now probes one extra row (edge-case 3).
+- Fixed: cross-level Tip check only used scenarios[0]; now every scenario (intent 4, verification 2).
+- Fixed: search folds diacritics and collapses inner whitespace (edge-case 5).
+- Fixed: Soal line requires both questionNumber and correct (intent 5).
+- Fixed: added DOM tests for newest-wins through tips-data, unknown-only levels, exact invalid-result log, aria-live count, search-only no-match, empty read; range-call count in adapter tests (verification 3-10).
+- Fixed: contract test for listResultsForTips owner/status filters added; runs in CI "Contract tests" (verification 1).
+- Deferred: offset paging can skip a row if an attempt is graded mid-read; cursor paging later (blind 2).
+- Deferred: a Tip id shared by two levels gets one level tag; revisit when Level 2 ships (blind 3).
+- Deferred: payload size / user notice past 5000 attempts (blind 1, edge-case 4); cap approved by user.
+- Accepted: import-time throw on cross-level mismatch matches the per-level registry checks (blind 4); attemptId in tips.result_invalid log is not content (intent 1); extra tips.load_failed log and skeleton filter bars (intent 3, 6).
 
 ## Design Notes
 

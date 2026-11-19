@@ -851,11 +851,29 @@ describe("listResultsForTips (session)", () => {
     expect(calls).toEqual([...shape(0, 199), ...shape(200, 399)]);
   });
 
-  it("stops at TIPS_MAX_ROWS and logs the truncation", async () => {
+  const capped = (extra: number) => {
     const pages = TIPS_MAX_ROWS / TIPS_PAGE;
-    const { client } = fakeClient(Array.from({ length: pages }, (_, i) => ({ data: page(TIPS_PAGE, i * TIPS_PAGE), error: null })));
+    return Array.from({ length: pages }, (_, i) => ({
+      data: page(i === pages - 1 ? TIPS_PAGE + extra : TIPS_PAGE, i * TIPS_PAGE),
+      error: null,
+    }));
+  };
+  const ranges = (calls: [string, unknown[]][]) => calls.filter(([name]) => name === "range").map(([, args]) => args);
+
+  it("reads exactly TIPS_MAX_ROWS rows without a truncation log (the probe row finds nothing)", async () => {
+    const { client, calls } = fakeClient(capped(0));
     const read = await listResultsForTips(client, "user-a");
     expect(read.ok && read.value.length).toBe(TIPS_MAX_ROWS);
+    expect(ranges(calls)).toHaveLength(TIPS_MAX_ROWS / TIPS_PAGE);
+    expect(ranges(calls).at(-1)).toEqual([TIPS_MAX_ROWS - TIPS_PAGE, TIPS_MAX_ROWS]);
+    expect(errors.mock.calls).toEqual([]);
+  });
+
+  it("stops at TIPS_MAX_ROWS and logs the truncation when more rows exist (probe row not returned)", async () => {
+    const { client, calls } = fakeClient(capped(1));
+    const read = await listResultsForTips(client, "user-a");
+    expect(read.ok && read.value.length).toBe(TIPS_MAX_ROWS);
+    expect(ranges(calls)).toHaveLength(TIPS_MAX_ROWS / TIPS_PAGE);
     expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([{ event: "attempt.list_tips_truncated", code: "5000" }]);
   });
 

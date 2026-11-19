@@ -1,6 +1,6 @@
 import type { Result, Tip } from "@/core/grading/result";
 
-/** One stored attempt whose Result already passed `resultSchema`. */
+/** One stored attempt whose Result already passed `resultSchema`; given newest first (`started_at desc, id desc`, the database's order). */
 export interface TipSourceRow {
   attemptId: string;
   itemId: string;
@@ -20,24 +20,17 @@ export interface TipFilter {
   query: string;
 }
 
-/** Newest first: `started_at desc, id desc` (the adapter's order, applied again here). */
-function newestFirst(a: TipSourceRow, b: TipSourceRow): number {
-  const ta = Date.parse(a.startedAt);
-  const tb = Date.parse(b.startedAt);
-  if (ta !== tb) return (Number.isNaN(tb) ? -Infinity : tb) - (Number.isNaN(ta) ? -Infinity : ta);
-  return a.attemptId < b.attemptId ? 1 : a.attemptId > b.attemptId ? -1 : 0;
-}
-
 /**
  * The Tips collection (CAP-8, AD-7): every Tip stored on the given Results,
- * one card per Tip id. When an id appears more than once, the newest attempt's
- * content and level win. Questions without a Tip (Result v1) add nothing.
+ * one card per Tip id. Rows come newest first in the database's order (not
+ * re-sorted here: `started_at` has microseconds a JS Date drops), so the first
+ * card seen per id wins: the newest attempt's content and level. Questions without a Tip (Result v1) add nothing.
  * Output is newest-first-seen. Pure: no I/O, no clock.
  */
 export function tipsCollection(rows: readonly TipSourceRow[], levelOf: (itemId: string) => number | null): CollectedTip[] {
   const seen = new Set<string>();
   const out: CollectedTip[] = [];
-  for (const row of [...rows].sort(newestFirst)) {
+  for (const row of rows) {
     const levelNumber = levelOf(row.itemId);
     for (const question of row.result.questions) {
       const tip = question.tip;
@@ -49,11 +42,12 @@ export function tipsCollection(rows: readonly TipSourceRow[], levelOf: (itemId: 
   return out;
 }
 
+/** Search form: marks stripped (NFD), inner whitespace collapsed, trimmed, lower case in `id-ID`. */
 function normalize(text: string): string {
-  return text.trim().toLocaleLowerCase("id-ID");
+  return text.normalize("NFD").replace(/\p{M}+/gu, "").replace(/\s+/g, " ").trim().toLocaleLowerCase("id-ID");
 }
 
-/** Level filter AND search (title, body, any shortcut; case-insensitive in `id-ID`, trimmed). */
+/** Level filter AND search (title, body, any shortcut; see `normalize`). */
 export function filterTips(tips: readonly CollectedTip[], filter: TipFilter): CollectedTip[] {
   const query = normalize(filter.query);
   return tips.filter(({ tip, levelNumber }) => {

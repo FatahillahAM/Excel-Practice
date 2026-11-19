@@ -377,12 +377,12 @@ describe("defineLevelModule (load-time checks)", () => {
 
 describe("Tip ids across levels", () => {
   /** A copy of Level 1 as another level, its Practice 1 Tips changed by `edit`. */
-  const otherLevel = (edit: (exam: GeneratedExam) => GeneratedExam): LevelModule =>
+  const otherLevel = (edit: (exam: GeneratedExam, scenario: FondasiScenario) => GeneratedExam): LevelModule =>
     ({
       ...fondasi,
       id: "02-lain",
       number: 2,
-      items: [{ ...practice1, id: "L02-P1", generate: (seed: number, scenario: FondasiScenario) => edit(practice1.generate(seed, scenario)) }],
+      items: [{ ...practice1, id: "L02-P1", generate: (seed: number, scenario: FondasiScenario) => edit(practice1.generate(seed, scenario), scenario) }],
     }) as unknown as LevelModule;
 
   it("accepts the registry and a second level reusing an id with the same content", () => {
@@ -396,5 +396,14 @@ describe("Tip ids across levels", () => {
       questions: exam.questions.map((q, i) => (i === 0 ? { ...q, tip: { ...q.tip, title: "Judul lain" } } : q)),
     }));
     expect(() => assertTipsAgreeAcrossLevels([fondasi as unknown as LevelModule, changed])).toThrow(/differs between levels 01-fondasi and 02-lain/);
+  });
+
+  it("rejects a difference that only one scenario (not the first) carries", () => {
+    const changed = otherLevel((exam, scenario) =>
+      scenario.id !== scenarios[1].id
+        ? exam
+        : { ...exam, questions: exam.questions.map((q, i) => (i === 2 ? { ...q, tip: { ...q.tip, body: "Isi lain." } } : q)) },
+    );
+    expect(() => assertTipsAgreeAcrossLevels([fondasi as unknown as LevelModule, changed])).toThrow(/differs between levels/);
   });
 });
