@@ -116,13 +116,13 @@ Evidence table (fill during the run, times UTC):
 | 1 | DW1 macro, DW4 | 01:55:41 · macro · `received: true` → `grading.done` graded 100 (0.6 s) · A `3a81cea9` | — |
 | 2 | DW1 upload, DW2 diketik | 02:30:31 · upload · `received: true` → `grading.done` graded 80; Q1 "Sel H2 berisi nilai yang diketik, bukan rumus." · B `bc74ebed` | First try `600baabf` uploaded the untouched download (submission 42312 B = generated 42312 B) → 0/100 "masih kosong"; user error, retried |
 | 3 | DW2 fungsi salah | 02:03:54 `bfaaafa8` 45 and 02:33:48 `ca86cac5` 75 · macro graded; Q3 "Hasil di J3 belum sesuai." | Reason names a wrong value, not `SUM`: the hand-made formula gave wrong J values (first try: relative refs, my instruction error; second: likely last row ≠ 13). Value checks run before the function check by design. Pending a clean variant |
-| 4 | DW3 | | |
-| 5 | DW4 gagal | | |
-| 6 | DW4 Try again | | |
-| 7 | DW5 History | | |
-| 8 | DW5 Tips & Tricks | | |
+| 4 | DW3 | 02:37:38–42 · `hint.revealed` used 1,2,3 (Q1, Q2, Q4) · F `2d3b7add`; 3 `hint_reveals` rows | No `hint.refused`: the 4th hint button was already disabled, so no request was sent (matrix allows "tombol mati / ditolak") |
+| 5 | DW4 gagal | 02:40:01 macro `received: true` → 02:40:02 `grading.grade_threw` (error) + `grading.done` grading_failed; row `grading_failed`; user saw "Try again" screen. Fake row inserted in one transaction, fence re-enabled (`tgenabled` O) | — |
+| 6 | DW4 Try again | Fake row deleted (1 row, 3 left) · 02:41:04 `attempt.grading_retried` → 02:41:05 `grading.done` retry graded 85; `result.hintsUsed` 3; user saw Results 85 | — |
+| 7 | DW5 History | User: list and detail as expected; no `history.*` error logs in window | — |
+| 8 | DW5 Tips & Tricks | User: one card per Tip, Level filter, search and no-match message as expected; no `tips.*`/`attempt.list_tips_*` logs | — |
 | 9 | Cek browser | User: title, `<h1>` focus, badge spin, count-up, Tips carousel on A all as expected (2026-11-19) | Phone layout not yet reported |
-| DW6 | all on Production | | |
+| DW6 | all on Production | All on `excel-practice-omega.vercel.app`, deployment `dpl_DFTDMPpXk1W6vHFKPpfbzpNS2s7S`; prod ends with 0 open/received/grading/grading_failed attempts | Row 3 `SUM` reason and phone layout not yet shown |
 
 ## Plan Change Log
 
