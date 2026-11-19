@@ -68,19 +68,30 @@ export interface LevelProgress {
   practicesDone: ReadonlySet<number>;
   /** The level's Test has a graded attempt scoring ≥ `PASS_SCORE`. */
   testPassed: boolean;
+  /** The level's Test has a graded attempt, any score ("Try the Test again" when not passed). */
+  testAttempted: boolean;
 }
+
+/** The last level of V1: passing its Test ends V1 ("Level 4 complete — Level 5 is coming soon"). */
+export const V1_LAST_LEVEL = 4;
+
+/** Distinct practices with a graded attempt that open the level's Test (CAP-9). */
+export const PRACTICES_FOR_TEST = 5;
 
 /**
  * Every curriculum level's state from graded attempts and the registry.
  * Level 1 is open; Level N+1 opens when Test N is passed. A level without a
  * module in the registry, or of phase `next`, is Under Construction (and
- * opens nothing after it). An open level is passed once its Test is passed,
- * else active. Unknown items are ignored.
+ * opens nothing after it), and so is every level after `V1_LAST_LEVEL` (V1
+ * ends there). An open level is passed once its Test is passed, else active.
+ * Unknown items are ignored. Practice again only adds attempts to items
+ * already counted, so it never changes pips, the gate or a level's state.
  */
 export function levelProgress(attempts: readonly GradedAttempt[], modules: readonly LevelModule[]): LevelProgress[] {
   const byNumber = new Map(modules.map((mod) => [mod.number, mod]));
   const done = new Map<number, Set<number>>();
   const passed = new Set<number>();
+  const attempted = new Set<number>();
   for (const attempt of attempts) {
     for (const mod of modules) {
       const item = mod.items.find((candidate) => candidate.id === attempt.itemId);
@@ -89,8 +100,9 @@ export function levelProgress(attempts: readonly GradedAttempt[], modules: reado
         const set = done.get(mod.number) ?? new Set<number>();
         set.add(item.number);
         done.set(mod.number, set);
-      } else if (isPassingScore(attempt.score)) {
-        passed.add(mod.number);
+      } else {
+        attempted.add(mod.number);
+        if (isPassingScore(attempt.score)) passed.add(mod.number);
       }
     }
   }
@@ -101,10 +113,59 @@ export function levelProgress(attempts: readonly GradedAttempt[], modules: reado
     const testPassed = passed.has(number);
     const practicesDone: ReadonlySet<number> = done.get(number) ?? new Set<number>();
     let state: LevelState;
-    if (!mod || mod.phase === "next") state = "under_construction";
+    const buildable = mod !== undefined && mod.phase !== "next" && number <= V1_LAST_LEVEL;
+    if (!buildable) state = "under_construction";
     else if (!open) state = "locked";
     else state = testPassed ? "passed" : "active";
-    open = open && mod !== undefined && mod.phase !== "next" && testPassed;
-    return { number, name: mod?.name ?? name, state, practicesDone, testPassed };
+    open = open && buildable && testPassed;
+    return { number, name: mod?.name ?? name, state, practicesDone, testPassed, testAttempted: attempted.has(number) };
   });
+}
+
+/** Level 4's Test is passed: V1 is complete and nothing new opens. */
+export function v1Complete(progress: readonly Pick<LevelProgress, "number" | "state">[]): boolean {
+  return progress.find((level) => level.number === V1_LAST_LEVEL)?.state === "passed";
+}
+
+/** Why Start refuses an item (no attempt is created). */
+export type StartRefusal = "unknown_item" | "under_construction" | "level_locked" | "test_locked" | "practice_locked";
+
+export type StartCheck =
+  | { ok: true; practiceAgain: boolean }
+  /** `toGo`: practices still to do, with `test_locked`. */
+  | { ok: false; reason: StartRefusal; toGo?: number };
+
+/**
+ * Whether `itemId` may be started now (the server Start gate, CAP-9): the
+ * item is in `modules`, its level is active or passed, and a Test needs
+ * `PRACTICES_FOR_TEST` practices done. Practices go in order: practice N
+ * needs every earlier practice with content done (as the panel's "next");
+ * a done practice or a passed Test is a Practice again; a failed Test can be
+ * retaken at once. An item id of a curriculum level without content is
+ * Under Construction; anything else unknown is `unknown_item`. An open
+ * attempt is not checked here (the database allows one at a time).
+ */
+export function canStart(progress: readonly LevelProgress[], modules: readonly LevelModule[], itemId: string): StartCheck {
+  for (const mod of modules) {
+    const item = mod.items.find((candidate) => candidate.id === itemId);
+    if (!item) continue;
+    const level = progress.find((entry) => entry.number === mod.number);
+    if (!level || level.state === "under_construction") return { ok: false, reason: "under_construction" };
+    if (level.state === "locked") return { ok: false, reason: "level_locked" };
+    if (item.kind === "practice") {
+      if (level.practicesDone.has(item.number)) return { ok: true, practiceAgain: true };
+      const skipped = mod.items.some(
+        (other) => other.kind === "practice" && other.number < item.number && !level.practicesDone.has(other.number),
+      );
+      return skipped ? { ok: false, reason: "practice_locked" } : { ok: true, practiceAgain: false };
+    }
+    if (level.practicesDone.size < PRACTICES_FOR_TEST) {
+      return { ok: false, reason: "test_locked", toGo: PRACTICES_FOR_TEST - level.practicesDone.size };
+    }
+    return { ok: true, practiceAgain: level.testPassed };
+  }
+  const match = /^L(\d{2})-(P[1-5]|T)$/.exec(itemId);
+  const level = match ? progress.find((entry) => entry.number === Number(match[1])) : undefined;
+  if (level?.state === "under_construction") return { ok: false, reason: "under_construction" };
+  return { ok: false, reason: "unknown_item" };
 }

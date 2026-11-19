@@ -3,13 +3,14 @@ title: 'Gerbang Test, aturan buka level, Practice again, dan pembatasan HP'
 type: 'feature'
 ticket: '3'
 created: '2026-11-19'
-status: 'draft'
+status: 'built'
 route: 'full'
 route_source: 'auto'
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
+baseline_revision: 'bc3c2a352b0873eef27db81df5ba6e5ad097c876'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md']
 ---
 
@@ -69,13 +70,13 @@ Adjust once 4.1 lands (`levelProgress` shape).
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/content/__fixtures__/levels.ts` -- fixture `LevelModule`s for Levels 1–4 each with 5 practices + Test (valid against `defineLevelModule`) -- proves gates without epic-5 content.
-- [ ] `src/core/progress/level-progress.ts` (+test) -- per item `{status, practiceAgain}`, test gate, unlock, V1 end, Under Construction; `canStart(progress, itemId)`; table tests for every matrix row incl. "Practice again never changes pips/gate".
-- [ ] `src/app/(app)/levels/start-actions.ts` (+test) -- refuse items `canStart` rejects (typed reason, no attempt); accept completed items as Practice again.
-- [ ] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` -- "Start Test", "Try the Test again", "Practice again", lock line, V1 end line.
-- [ ] `src/components/shell/use-is-phone.ts` -- `matchMedia` of the device-gating query; `start-control.tsx` shows the phone message instead of calling the action.
-- [ ] `src/app/(app)/dashboard/level-path.tsx` -- callout primary button + V1 end state.
-- [ ] `src/app/(app)/levels/*.dom.test.tsx` -- phone: tap shows message and action mock is never called; open-attempt lock text.
+- [x] `src/core/content/__fixtures__/levels.ts` -- fixture `LevelModule`s for Levels 1–4 each with 5 practices + Test (valid against `defineLevelModule`) -- proves gates without epic-5 content.
+- [x] `src/core/progress/level-progress.ts` (+test) -- per item `{status, practiceAgain}`, test gate, unlock, V1 end, Under Construction; `canStart(progress, itemId)`; table tests for every matrix row incl. "Practice again never changes pips/gate".
+- [x] `src/app/(app)/levels/start-actions.ts` (+test) -- refuse items `canStart` rejects (typed reason, no attempt); accept completed items as Practice again.
+- [x] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` -- "Start Test", "Try the Test again", "Practice again", lock line, V1 end line.
+- [x] `src/components/shell/use-is-phone.ts` -- `matchMedia` of the device-gating query; `start-control.tsx` shows the phone message instead of calling the action.
+- [x] `src/app/(app)/dashboard/level-path.tsx` -- callout primary button + V1 end state.
+- [x] `src/app/(app)/levels/*.dom.test.tsx` -- phone: tap shows message and action mock is never called; open-attempt lock text.
 
 **Acceptance Criteria:**
 - Given fixture Levels 1–4, when all four Tests pass, then the callout shows "Level 4 complete — Level 5 is coming soon" and nothing new unlocks.
@@ -83,9 +84,36 @@ Adjust once 4.1 lands (`levelProgress` shape).
 
 ## Implementation Notes
 
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- `levelProgress` adds `testAttempted`; levels after `V1_LAST_LEVEL` (4) are Under Construction; `canStart(progress, modules, itemId)` returns `{ok, practiceAgain}` or a typed `StartRefusal` (`unknown_item | under_construction | level_locked | test_locked`); `v1Complete` drives the V1 end line. A level missing from the registry gives `unknown_item` at Start (its items do not exist).
+- Start reads `listProgressAttempts` after the item lookup and returns `{status: "refused", reason}` (logged `attempt.start_refused`) before any generation or insert; a failed read is `startFailed`. No device check on the server.
+- Fixture levels live in core (`src/core/content/__fixtures__/levels.ts`, self-contained generator, `defineLevelModule`-valid); `start-actions.gate.test.ts` mocks the registry with them to prove the server gate.
+- Code Map deviation: no `src/components/shell/use-is-phone.ts`. Per the user decision, phone gating is CSS only (`[@media(pointer:coarse)_and_(max-width:1023px)]`) in `StartControl`: the real form is hidden and a look-alike `type="button"` outside any form shows `phoneStartMessage` in a polite status region. `PHONE_QUERY` is exported for reference.
+- Panel: `levelPanel(level, completed, result)` adds Test `passed|failed`, `practiceAgain` per row and `primary` ("Start Practice N" / "Start Test" / "Try the Test again"); rows carry a secondary "Practice again"; the lock reason renders once (under the Primary Button, else its own line) and every control points at it. /levels shows the last passed level when none is active.
+- Dashboard: `LevelPath` takes `startLock` from the page; the callout shows the Primary Button or the Test lock line; Level 4 passed shows "Level 4 complete — Level 5 is coming soon" + "Practice again" link to /levels.
+- Review fixes:
+  - A level with no Test item shows the Test as "unavailable" from the start.
+  - Practices go in order on both sides: `canStart` refuses with `practice_locked` until every earlier practice that has content is done. The panel's next practice is the first one with content that is not done, so a practice without content does not block the next.
+  - An unknown item id is refused through `canStart`: an id like `LNN-…` of a level without content is `under_construction`, anything else `unknown_item`. Both log `attempt.start_refused`.
+  - `test_locked` carries `toGo`. Refusal copy is per reason (`startRefusedMessages`); `test_locked` reuses `testLockLine`.
+  - /levels renders the panel only for an active or passed level (`state` is passed into the header), otherwise an empty state.
+  - Phone button: with a lock it is `aria-disabled` and described by the lock reason. The reason now renders outside the form, so it shows on every device. The phone status comes after the button.
+  - New action gate tests: Level 2 missing from the registry, L05-P1 after Level 4, a crafted L01-P5.
+
 ## Plan Change Log
 
 ## Review Triage Log
+
+Two combined reviewers (blind+edge-case incl. server gate bypass, verification+intent-alignment); no blocking defects — a crafted Start cannot open a locked Test or level.
+
+- Fixed: a level with no Test item showed "locked … k to go" until 5/5; now "unavailable" from the start (approved decision).
+- Fixed: server did not enforce practice order (crafted L01-P5 on a new account started); `canStart` refuses with `practice_locked`; panel and server agree on "next" when a middle practice has no content.
+- Fixed: /levels could show a level the server refuses; panel only for an active or last passed level, else an empty state; state in the panel header.
+- Fixed: action gate tests for under_construction (no next module, L05 after L4) and practice_locked, `createAttempt` never called.
+- Fixed: phone button ignored the open-attempt lock; now aria-disabled with the lock reason; phone status placed after the button.
+- Fixed: unknown item now a typed refusal with `attempt.start_refused`; per-reason refusal copy (test_locked reuses the lock line with remaining count).
+- Accepted: a stored Result that no longer matches `resultSchema` is dropped from progress and could hide a passed Test; prod Results all validate today — revisit with any schema version bump.
+- Accepted: phone gating DOM test checks the CSS classes only (jsdom has no media queries); CSS-only gating was the approved approach.
 
 ## Design Notes
 

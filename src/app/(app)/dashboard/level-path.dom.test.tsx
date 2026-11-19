@@ -13,10 +13,13 @@ vi.mock("@/adapters/supabase/attempts", async (importOriginal) => ({
   listProgressAttempts: mocks.listProgressAttempts,
 }));
 
+import { FIXTURE_LEVELS } from "@/core/content/__fixtures__/levels";
 import type { LevelModule } from "@/core/content/level-module";
-import { PRACTICE_85, TEST_72, TEST_88 } from "@/core/grading/__fixtures__/results";
+import { PRACTICE_85, SCORE_79, TEST_72, TEST_88 } from "@/core/grading/__fixtures__/results";
 import { levelProgress, toGradedAttempts } from "@/core/progress";
 import { shellMessages } from "@/messages/id";
+import { V1_END_LINE } from "../levels/level-panel";
+import { BLOCKED_MESSAGE } from "../levels/start-lock";
 import { LevelPath, LevelPathSkeleton, LevelPathView } from "./level-path";
 
 const row = (id: string, itemId: string, result: unknown) => ({
@@ -114,5 +117,39 @@ describe("Level Path", () => {
     const skeleton = container.querySelector('[data-slot="level-path-skeleton"]')!;
     expect(skeleton.getAttribute("aria-hidden")).toBe("true");
     expect(skeleton.children).toHaveLength(10);
+  });
+});
+
+describe("Level Callout (fixture Levels 1–4)", () => {
+  const practices = (level: number, count = 5) =>
+    Array.from({ length: count }, (_, i) => row(`p${level}${i}`, `L0${level}-P${i + 1}`, PRACTICE_85));
+  const view = (rows: ReturnType<typeof row>[], startLock?: { reason: string }) =>
+    render(<LevelPathView progress={levelProgress(toGradedAttempts(rows), FIXTURE_LEVELS)} modules={FIXTURE_LEVELS} startLock={startLock} />);
+  const real = (name: string) => within(nodes()[0]).queryAllByRole("button", { name }).filter((b) => b.closest("form"));
+
+  it("Primary Button follows the gate: Start Practice N, Start Test, Try the Test again", () => {
+    const { unmount } = view(practices(1, 2));
+    expect(real("Start Practice 3")).toHaveLength(1);
+    unmount();
+    const second = view(practices(1));
+    expect(real("Start Test")).toHaveLength(1);
+    second.unmount();
+    view([...practices(1), row("t", "L01-T", SCORE_79)]);
+    expect(real("Try the Test again")).toHaveLength(1);
+  });
+
+  it("an attempt in progress disables the callout's Start with its reason", () => {
+    view(practices(1, 2), { reason: BLOCKED_MESSAGE });
+    expect(real("Start Practice 3")[0].getAttribute("aria-disabled")).toBe("true");
+    expect(nodes()[0].textContent).toContain(BLOCKED_MESSAGE);
+  });
+
+  it("all four Tests passed: Level 4 complete — Level 5 is coming soon, nothing new unlocks", () => {
+    view([1, 2, 3, 4].flatMap((n) => [...practices(n), row(`t${n}`, `L0${n}-T`, TEST_88)]));
+    expect(states()).toEqual(["passed", "passed", "passed", "passed", ...Array(6).fill("under_construction")]);
+    expect(nodes().some((li) => li.hasAttribute("aria-current"))).toBe(false);
+    expect(nodes()[3].textContent).toContain(V1_END_LINE);
+    expect(within(nodes()[3]).getByRole("link", { name: "Practice again" }).getAttribute("href")).toBe("/levels");
+    expect(screen.getAllByText(V1_END_LINE)).toHaveLength(1);
   });
 });

@@ -55,6 +55,7 @@ Progres turunan, streak, rekor, Dashboard, Level Map, Records, tampilan HP. Buka
 
 ## Notes
 
+- Decision: 4.2 done — PR #28 di-merge, migrasi freezes diterapkan ke prod; Streak Hero di Production sesuai menurut user; log bersih (user, 2026-11-19).
 - Decision: 4.1 done — PR #27 di-merge (tanpa migrasi); di Production Level Path di HP dan /levels di laptop sesuai menurut user; log bersih (user, 2026-11-19).
 - Decision: plan 4.1–4.3 — semua asumsi dan rekomendasi disetujui: hanya `graded` dihitung; pesan streak dimulai ulang ditunda ke 4.6; Use freeze tetap tampil redup saat streak 0; tombol HP disembunyikan lewat CSS; Test yang belum ada tampil "unavailable" sampai epic 5 (user, 2026-11-19).
 - Decision: inception epic 4 — 7 tiket (gabungan dari 12 untuk menghemat token): tracer Level Path; streak+freeze+Streak Hero; gerbang Test+Practice again; Records+New record+panel ≥80; Level Map+3D; sapu bersih+tes DOM tertunda; uji Production terakhir (user, 2026-11-19).

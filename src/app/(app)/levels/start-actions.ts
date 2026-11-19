@@ -7,6 +7,7 @@ import {
   createAttempt,
   deleteOpenAttempt,
   findOpenAttemptId,
+  listProgressAttempts,
   uploadGeneratedFile,
   writeSnapshot,
 } from "@/adapters/supabase/attempts";
@@ -24,19 +25,24 @@ import {
   type ExamSnapshot,
   type GeneratedExam,
 } from "@/core/content/level-module";
-import { findItem } from "@/content/levels";
+import { canStart, levelProgress, toGradedAttempts, type StartRefusal } from "@/core/progress";
+import { findItem, levels } from "@/content/levels";
 import type { StartError } from "@/messages/id";
 
 export type StartState =
   | { status: "idle" }
   | { status: "error"; error: StartError }
   /** Another attempt is in progress; `attemptId` links to its exam screen when it could be read. */
-  | { status: "blocked"; attemptId: string | null };
+  | { status: "blocked"; attemptId: string | null }
+  /** The progress gate refuses the item (locked level or Test, Under Construction); nothing was created. */
+  | { status: "refused"; reason: StartRefusal; toGo?: number };
 
 const LEVELS_PATH = "/levels";
 
 /**
- * Start (CAP-2): session → profile → item → seed and scenario → content
+ * Start (CAP-2): session → profile → item → progress gate (CAP-9, `canStart`
+ * over the user's graded attempts; a done item is a Practice again, same
+ * path, AD-5; no device check: phones are gated in the UI) → seed and scenario → content
  * `generate` and snapshot (validated) → token → workbook → session insert →
  * snapshot write on the service role (AD-9: the session has no privilege on
  * the answer key) → upload → the exam screen, which starts the download.
@@ -70,13 +76,27 @@ async function start(formData: FormData): Promise<StartState | { redirectTo: str
   const profile = await requireProfile(supabase, user.id, formData.get("timeZone"));
   if (profile !== "ok") return { status: "error", error: profile };
 
-  const itemId = formData.get("itemId");
-  const found = typeof itemId === "string" ? findItem(itemId) : null;
+  const rawItemId = formData.get("itemId");
+  const found = typeof rawItemId === "string" ? findItem(rawItemId) : null;
   if (!found) {
-    console.error(JSON.stringify({ event: "attempt.start_unknown_item" }));
-    return { status: "error", error: "startFailed" };
+    // Unknown items go through the gate's answer too (an id of a level without content is Under Construction).
+    const read = typeof rawItemId === "string" ? await listProgressAttempts(supabase, user.id) : null;
+    const gate =
+      read?.ok && typeof rawItemId === "string"
+        ? canStart(levelProgress(toGradedAttempts(read.value), levels), levels, rawItemId)
+        : null;
+    const reason = gate && !gate.ok ? gate.reason : "unknown_item";
+    console.error(JSON.stringify({ event: "attempt.start_refused", reason }));
+    return { status: "refused", reason };
   }
   const { level, item } = found;
+  const read = await listProgressAttempts(supabase, user.id);
+  if (!read.ok) return { status: "error", error: "startFailed" };
+  const gate = canStart(levelProgress(toGradedAttempts(read.value), levels), levels, item.id);
+  if (!gate.ok) {
+    console.error(JSON.stringify({ event: "attempt.start_refused", itemId: item.id, reason: gate.reason }));
+    return gate.toGo === undefined ? { status: "refused", reason: gate.reason } : { status: "refused", reason: gate.reason, toGo: gate.toGo };
+  }
   if (level.scenarios.length === 0) {
     console.error(JSON.stringify({ event: "attempt.start_no_scenarios", itemId: item.id }));
     return { status: "error", error: "startFailed" };
