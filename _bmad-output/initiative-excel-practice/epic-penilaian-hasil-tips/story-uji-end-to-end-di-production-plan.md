@@ -113,15 +113,15 @@ Evidence table (fill during the run, times UTC):
 
 | # | Done when | Evidence (time · channel · event/code · attempt) | Deviation |
 |---|-----------|--------------------------------------------------|-----------|
-| 1 | DW1 macro, DW4 | | |
-| 2 | DW1 upload, DW2 diketik | | |
-| 3 | DW2 fungsi salah | | |
+| 1 | DW1 macro, DW4 | 01:55:41 · macro · `received: true` → `grading.done` graded 100 (0.6 s) · A `3a81cea9` | — |
+| 2 | DW1 upload, DW2 diketik | 02:30:31 · upload · `received: true` → `grading.done` graded 80; Q1 "Sel H2 berisi nilai yang diketik, bukan rumus." · B `bc74ebed` | First try `600baabf` uploaded the untouched download (submission 42312 B = generated 42312 B) → 0/100 "masih kosong"; user error, retried |
+| 3 | DW2 fungsi salah | 02:03:54 `bfaaafa8` 45 and 02:33:48 `ca86cac5` 75 · macro graded; Q3 "Hasil di J3 belum sesuai." | Reason names a wrong value, not `SUM`: the hand-made formula gave wrong J values (first try: relative refs, my instruction error; second: likely last row ≠ 13). Value checks run before the function check by design. Pending a clean variant |
 | 4 | DW3 | | |
 | 5 | DW4 gagal | | |
 | 6 | DW4 Try again | | |
 | 7 | DW5 History | | |
 | 8 | DW5 Tips & Tricks | | |
-| 9 | Cek browser | | |
+| 9 | Cek browser | User: title, `<h1>` focus, badge spin, count-up, Tips carousel on A all as expected (2026-11-19) | Phone layout not yet reported |
 | DW6 | all on Production | | |
 
 ## Plan Change Log
