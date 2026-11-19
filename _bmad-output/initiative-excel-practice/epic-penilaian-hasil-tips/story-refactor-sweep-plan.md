@@ -3,13 +3,14 @@ title: 'Refactor sweep'
 type: 'feature'
 ticket: '10'
 created: '2026-11-18'
-status: 'draft'
+status: 'in-progress'
 route: ''
 route_source: ''
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '35ee36766b44a568c5aece017f1a528356ed749c'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md']
 ---
 
@@ -75,6 +76,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given the full verification, then counts of tests are equal or higher and none are skipped.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
