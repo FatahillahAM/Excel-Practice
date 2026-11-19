@@ -1,0 +1,77 @@
+# Breakdown epic-progres-streak-dashboard, urutan build. id tidak pernah dipakai ulang.
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer: progres dari attempt graded → Level Path di Dashboard"
+description = "Fungsi murni `levelProgress()` di core (level terbuka, pips per item) dari daftar attempt `graded` lewat adapter dan registry konten, dirender sebagai Level Path minimal di Dashboard."
+verify = "Di Production, setelah L01-P1 dinilai di laptop, Dashboard di HP menunjukkan pips Level 1 yang sesuai."
+covers = ["CAP-1", "CAP-12", "D1"]
+after = ["3.1"]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "Streak, freeze, migrasi `freezes`, dan Streak Hero"
+description = "Migrasi tabel `freezes` dengan RLS plus penghapusan izin mati P1; jalur server Use freeze (hari ini saja, maks 2 per minggu ISO, ditolak bila hari sudah aman); fungsi murni `streak()` dan `freezesLeft()` atas tanggal lokal; Streak Hero dengan hitung mundur belum aman, tombol freeze, rail, dan tata letak HP yang dirender server."
+verify = "Tes tabel atas zona waktu, DST, tengah malam, reset Senin, freeze ke-3 ditolak; tes kontrak DB menolak freeze mundur; tes DOM keadaan aman/belum aman/freeze."
+covers = ["CAP-10", "CAP-12", "D2", "P1"]
+after = [1]
+hitl = false
+risk = "high"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Gerbang Test, aturan buka level, Practice again, dan pembatasan HP"
+description = "Test terbuka setelah 5 latihan, lulus ≥80 sekali membuka Level N+1, Test gagal bisa langsung diulang, lulus Level 4 menampilkan akhir V1, level berikut yang belum ada tampil Under Construction; Practice again pada item selesai tanpa mengubah pips atau gerbang, terkunci saat ada attempt terbuka; Start dan Practice again di HP menampilkan pesan HP tanpa membuat attempt."
+verify = "Tes core dengan LevelModule fixture untuk tiap aturan gerbang, tes bahwa Practice again tidak mengubah pips/gerbang, dan tes DOM bahwa HP tidak membuat attempt."
+covers = ["CAP-9", "CAP-1", "CAP-19", "D4"]
+after = [1]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Records, \"New record\" di Results, dan panel ≥80"
+description = "Fungsi murni `records()` (durasi terbaik per item, latihan dan Test terpisah, flag newRecord hanya bila mengalahkan rekor sebelumnya), halaman Records menggantikan placeholder, badge \"New record\" di Results, dan polesan panel ≥80 (P2)."
+verify = "Tes core bahwa attempt lebih cepat menggantikan rekor dan ditandai sedangkan attempt pertama tidak, plus tes DOM halaman Records, badge, dan gaya panel ≥80."
+covers = ["CAP-11", "P2"]
+after = [1]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Level Map, Level Detail Panel lengkap, dan adegan 3D"
+description = "Level Map dengan keadaan gerbang per progres, Level Detail Panel dengan Start Test, keadaan lulus Test dan eyebrow asli (P4), serta adegan 3D CSS saja dengan frame statis untuk reduced motion dan Firefox."
+verify = "Tes DOM keadaan gerbang per progres fixture, dan render frame statis saat reduced motion atau tanpa `animation-timeline`."
+covers = ["CAP-1", "CAP-9", "CAP-12", "D3", "P4"]
+after = [3]
+hitl = false
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Sapu bersih refactor dan tes DOM yang tertunda"
+description = "Disposisi entri tertunda epic 4 dan penghapusan kode mati, plus tes DOM yang diparkir dari epic 1–2 (Settings, ExamStatus, Orbit Loader, Dropzone, dialog Abandon) memakai harness yang sudah ada."
+verify = "`deferred-work.md` tanpa entri epic 4 berstatus open, dan tes DOM baru lulus di CI."
+covers = ["P3"]
+after = [2, 3, 4, 5]
+hitl = false
+risk = "low"
+
+[[entry]]
+id = 7
+type = "story"
+title = "Uji end-to-end di Production"
+description = "Run hitl di Production yang membuktikan Done when 1–6 dengan bukti log, setelah konten Test epic 5 tersedia."
+verify = "Setiap Done when epic 4 tercentang dengan bukti log Production di plan."
+covers = ["CAP-1", "CAP-9", "CAP-10", "CAP-11", "CAP-12", "CAP-19"]
+after = [6, "epic-konten-level-1-4"]
+hitl = true
+risk = "medium"

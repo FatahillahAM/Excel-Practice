@@ -20,7 +20,16 @@ El Zavier punya alasan kembali setiap hari dan selalu tahu posisinya; sinyalnya 
 
 ## Requirements
 
-Diisi saat inception: baris dari spec (dan spine bila perlu) sebagai id stabil, dipetakan ke covers.
+Dari SPEC.md (id dipakai apa adanya): CAP-1, CAP-9, CAP-10, CAP-11, CAP-12, CAP-19. Dari spine dan Notes:
+
+- D1 (AD-7): progres diturunkan oleh fungsi murni dari attempt `graded`, tanpa counter tersimpan. → CAP-1, CAP-12
+- D2 (AD-8): hari = tanggal lokal `received_at` di `profiles.time_zone`; baris freeze; maks 2 per minggu ISO. → CAP-10
+- D3 (AD-12): gerak CSS saja dengan frame statis (reduced motion, Firefox). → CAP-12
+- D4: Start dan Practice again di HP menampilkan pesan HP dan tidak memanggil apa pun. → CAP-19
+- P1: hapus izin mati `closed`+result di `attempts_result_only_when_graded` (dari 3.10). → —
+- P2: polesan panel ≥80 di samping "New record" (dari 3.10). → CAP-11
+- P3: tes DOM yang tertunda dari epic 1–2 (harness sudah ada sejak 3.3). → —
+- P4: "Start Test" di Level Detail Panel, keadaan lulus Test, eyebrow asli (dari 2.6). → CAP-9
 
 ## Done when
 
@@ -45,6 +54,12 @@ Progres turunan, streak, rekor, Dashboard, Level Map, Records, tampilan HP. Buka
 - design — _bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/mockups/key-level-map.html
 
 ## Notes
+
+- Decision: inception epic 4 — 7 tiket (gabungan dari 12 untuk menghemat token): tracer Level Path; streak+freeze+Streak Hero; gerbang Test+Practice again; Records+New record+panel ≥80; Level Map+3D; sapu bersih+tes DOM tertunda; uji Production terakhir (user, 2026-11-19).
+- Decision: hari streak = tanggal lokal `received_at` di zona waktu profil (AD-8); streak dihitung dari ≥1 attempt `graded` berapa pun skornya termasuk Practice again; freeze ditolak di hari yang sudah punya attempt graded (user, 2026-11-19).
+- Decision: Records per item (latihan dan Test terpisah), durasi `received_at − started_at`; "New record" hanya bila mengalahkan rekor sebelumnya; satu migrasi saja (tabel `freezes` + P1) di tiket 2 (user, 2026-11-19).
+- Decision: uji Production epic 4 menunggu konten Test dari epic 5; Done when 2 dibuktikan lewat tes fixture sampai itu ada. Cache progres ditunda (AD-7) (user, 2026-11-19).
+- Source conflict: Done when 2 (lulus Test Level 4 → akhir V1) — konten Test belum ada di `src/content/levels` (milik epic 5).
 
 - Waits on epic-penilaian-hasil-tips because: progres dihitung dari percobaan berstatus graded dengan Result tersimpan.
 - Decision: boleh berjalan paralel dengan epic-konten-level-1-4 (user, 2026-10-23).
