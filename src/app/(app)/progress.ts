@@ -1,7 +1,7 @@
 import { unstable_rethrow } from "next/navigation";
 import { listProgressAttempts } from "@/adapters/supabase/attempts";
 import { getSessionUser } from "@/adapters/supabase/auth";
-import { listFreezes } from "@/adapters/supabase/freezes";
+import { listFreezes, listStreakDays } from "@/adapters/supabase/freezes";
 import { readTimeZone } from "@/adapters/supabase/profiles";
 import { createClient } from "@/adapters/supabase/server";
 import { freezesLeft, levelProgress, streak, toGradedAttempts, type LevelProgress, type Streak } from "@/core/progress";
@@ -36,30 +36,31 @@ export interface StreakView extends Streak {
 }
 
 /**
- * Server only: the session user's streak (AD-7, derived per request from the
- * same graded read as the Level Path plus their `freezes`; AD-8, days in
- * `profiles.time_zone` at the server's clock). `null` without a session (the
+ * Server only: the session user's streak (AD-7, derived per request from
+ * `streak_days`, their distinct local graded days, uncapped and with the
+ * database fence's definition of a graded day, plus their `freezes`; AD-8,
+ * days in `profiles.time_zone` at the server's clock). `null` without a session (the
  * proxy sends those to Login). `"failed"` when a read failed (already
  * logged), the profile has no time zone (`streak.time_zone_missing`) or
- * anything threw.
+ * anything threw (an unknown zone included: `streak.load_failed`).
  */
 export async function loadStreak(now: Date = new Date()): Promise<StreakView | null | "failed"> {
   try {
     const user = await getSessionUser();
     if (!user) return null;
     const supabase = await createClient();
-    const [zone, attempts, freezes] = await Promise.all([
+    const [zone, days, freezes] = await Promise.all([
       readTimeZone(supabase, user.id),
-      listProgressAttempts(supabase, user.id),
+      listStreakDays(supabase),
       listFreezes(supabase, user.id),
     ]);
-    if (!zone.ok || !attempts.ok || !freezes.ok) return "failed";
+    if (!zone.ok || !days.ok || !freezes.ok) return "failed";
     if (zone.timeZone === null) {
       console.error(JSON.stringify({ event: "streak.time_zone_missing" }));
       return "failed";
     }
     const input = { freezes: freezes.value, now, zone: zone.timeZone };
-    return { ...streak({ ...input, attempts: toGradedAttempts(attempts.value) }), freezesLeft: freezesLeft(input) };
+    return { ...streak({ ...input, gradedDays: days.value }), freezesLeft: freezesLeft(input) };
   } catch (error) {
     unstable_rethrow(error);
     console.error(JSON.stringify({ event: "streak.load_failed", name: (error as Error)?.name ?? "unknown" }));

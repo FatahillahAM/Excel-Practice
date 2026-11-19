@@ -105,6 +105,7 @@ describe("Dashboard with the Level Path resolved", () => {
     mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt("open"), elapsed: 754 });
     mocks.loadProgress.mockResolvedValue("failed");
     mocks.loadStreak.mockResolvedValue({
+      today: "2026-11-19",
       count: 12,
       todaySafe: true,
       frozenToday: false,

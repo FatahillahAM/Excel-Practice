@@ -37,6 +37,8 @@ export const streakMessages = {
   quotaUsed: "Jatah freeze minggu ini sudah habis. Jatah baru mulai Senin.",
   /** Use freeze refused: today already has a graded attempt. */
   alreadySafe: "Hari ini sudah aman, nggak perlu freeze.",
+  /** Use freeze refused: the day changed (local midnight passed) since the page loaded. */
+  dayChanged: "Harinya sudah ganti. Cek streak-mu lagi, ya.",
   /** Use freeze failed (database or network). */
   freezeFailed: "Freeze belum tersimpan. Coba lagi, ya.",
 } as const;

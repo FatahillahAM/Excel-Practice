@@ -15,7 +15,7 @@ const FREEZES = "freezes";
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** What `use_freeze` answers (see the migration for the order of checks). */
-export const FREEZE_CODES = ["frozen", "already_frozen", "safe", "quota_used", "no_profile", "no_session"] as const;
+export const FREEZE_CODES = ["frozen", "already_frozen", "safe", "quota_used", "day_changed", "no_profile", "no_session"] as const;
 
 export type FreezeCode = (typeof FREEZE_CODES)[number];
 
@@ -44,12 +44,33 @@ export async function listFreezes(supabase: SupabaseClient, userId: string): Pro
 }
 
 /**
- * Freezes today through `use_freeze`. `ok: false` when the database could
+ * The user's distinct local dates with a graded attempt (`streak_days`: their
+ * zone, uncapped); `ok: false` when the database could not answer
+ * (`streak.days_failed`).
+ */
+export async function listStreakDays(supabase: SupabaseClient): Promise<Read<string[]>> {
+  try {
+    const { data, error } = await supabase.rpc("streak_days");
+    if (error) {
+      logError("streak.days_failed", error.code);
+      return { ok: false };
+    }
+    const rows: unknown[] = Array.isArray(data) ? data : [];
+    return { ok: true, value: rows.filter((d): d is string => typeof d === "string" && DATE_RE.test(d)) };
+  } catch (error) {
+    logError("streak.days_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
+/**
+ * Freezes today through `use_freeze`, with the local date the page showed
+ * as today (`day_changed` when the database's today differs). `ok: false` when the database could
  * not answer or answered something unexpected (`freeze.use_failed`).
  */
-export async function spendFreeze(supabase: SupabaseClient): Promise<Read<FreezeAnswer>> {
+export async function spendFreeze(supabase: SupabaseClient, expectedDate: string): Promise<Read<FreezeAnswer>> {
   try {
-    const { data, error } = await supabase.rpc("use_freeze");
+    const { data, error } = await supabase.rpc("use_freeze", { p_expected_date: expectedDate });
     if (error) {
       logError("freeze.use_failed", error.code);
       return { ok: false };

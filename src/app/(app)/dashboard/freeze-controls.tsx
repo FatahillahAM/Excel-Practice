@@ -1,7 +1,7 @@
 "use client";
 
-import { unstable_rethrow } from "next/navigation";
-import { useActionState, useEffect, useState } from "react";
+import { unstable_rethrow, useRouter } from "next/navigation";
+import { useActionState, useEffect, useId, useState } from "react";
 import { cn } from "@/lib/utils";
 import { streakMessages } from "@/messages/id";
 import { freezeToday, type FreezeState } from "./freeze-actions";
@@ -17,29 +17,53 @@ export function timeLeftLabel(ms: number): string {
 
 /**
  * The Streak Risk Pill's text: the server's time left until 00:00 local,
- * then counted down once a minute in place. Not a live region: the countdown
- * is never announced.
+ * then counted down once a minute in place; at 0 (local midnight) the page
+ * is refreshed from the server, which decides the new day. Not a live
+ * region: the countdown is never announced.
  */
 export function RiskCountdown({ msLeft }: { msLeft: number }) {
+  const router = useRouter();
   const [left, setLeft] = useState(msLeft);
   useEffect(() => {
     const started = Date.now();
-    const id = window.setInterval(() => setLeft(Math.max(0, msLeft - (Date.now() - started))), MINUTE);
-    return () => window.clearInterval(id);
-  }, [msLeft]);
+    let refreshed = false;
+    const tick = () => {
+      const next = Math.max(0, msLeft - (Date.now() - started));
+      setLeft(next);
+      if (next === 0 && !refreshed) {
+        refreshed = true;
+        window.clearInterval(interval);
+        router.refresh();
+      }
+    };
+    const interval = window.setInterval(tick, MINUTE);
+    // The last stretch ends exactly at midnight, not at the next whole minute.
+    const rollover = window.setTimeout(tick, msLeft);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(rollover);
+    };
+  }, [msLeft, router]);
   return <>{timeLeftLabel(left)}</>;
 }
 
+const REFUSED: Record<"safe" | "quota_used" | "day_changed", string> = {
+  safe: streakMessages.alreadySafe,
+  quota_used: streakMessages.quotaUsed,
+  day_changed: streakMessages.dayChanged,
+};
+
 /**
- * Use freeze: posts to `freezeToday` (the server decides "today"). While
- * pending: "Freezing…", disabled. With no freeze left this week the button
- * stays focusable but `aria-disabled`, its reason in `aria-describedby`, and
- * posts nothing. `quiet` de-emphasises it (streak 0).
+ * Use freeze: posts to `freezeToday` with the day this page showed as today
+ * (the server decides whether it still is). While pending: "Freezing…",
+ * disabled. With no freeze left this week the button stays focusable but
+ * `aria-disabled`, its reason in `aria-describedby`, and posts nothing.
+ * `quiet` de-emphasises it (streak 0).
  */
-export function UseFreezeButton({ left, quiet = false }: { left: number; quiet?: boolean }) {
-  const [state, formAction, pending] = useActionState(async (): Promise<FreezeState> => {
+export function UseFreezeButton({ left, today, quiet = false }: { left: number; today: string; quiet?: boolean }) {
+  const [state, formAction, pending] = useActionState(async (_previous: FreezeState, formData: FormData): Promise<FreezeState> => {
     try {
-      return await freezeToday();
+      return await freezeToday(formData);
     } catch (error) {
       unstable_rethrow(error);
       return { status: "error" };
@@ -47,18 +71,19 @@ export function UseFreezeButton({ left, quiet = false }: { left: number; quiet?:
   }, INITIAL);
 
   const exhausted = left <= 0;
-  const reasonId = "use-freeze-reason";
+  const reasonId = useId();
   const message =
-    exhausted || (state.status === "refused" && state.reason === "quota_used")
-      ? streakMessages.quotaUsed
-      : state.status === "refused"
-        ? streakMessages.alreadySafe
+    state.status === "refused"
+      ? REFUSED[state.reason]
+      : exhausted
+        ? streakMessages.quotaUsed
         : state.status === "error"
           ? streakMessages.freezeFailed
           : null;
 
   return (
     <form action={formAction} className="flex flex-col gap-1">
+      <input type="hidden" name="expectedDate" value={today} />
       <button
         type={exhausted ? "button" : "submit"}
         disabled={pending}
@@ -74,7 +99,7 @@ export function UseFreezeButton({ left, quiet = false }: { left: number; quiet?:
       >
         {pending ? "Freezing…" : "Use freeze"}
       </button>
-      <p id={reasonId} role={exhausted ? undefined : "alert"} lang="id" className="min-h-4 text-xs leading-[1.4] font-medium text-muted-foreground">
+      <p id={reasonId} role={exhausted && state.status === "idle" ? undefined : "alert"} lang="id" className="min-h-4 text-xs leading-[1.4] font-medium text-muted-foreground">
         {message}
       </p>
     </form>

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 import "@/test/dom";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ loadStreak: vi.fn(), freezeToday: vi.fn() }));
-vi.mock("next/navigation", () => ({ unstable_rethrow: () => {} }));
+const mocks = vi.hoisted(() => ({ loadStreak: vi.fn(), freezeToday: vi.fn(), router: { refresh: vi.fn() } }));
+vi.mock("next/navigation", () => ({ unstable_rethrow: () => {}, useRouter: () => mocks.router }));
 vi.mock("../progress", () => ({ loadStreak: mocks.loadStreak }));
 vi.mock("./freeze-actions", () => ({ freezeToday: mocks.freezeToday }));
 
@@ -26,6 +27,7 @@ const WEEK: DayState[] = [
 ];
 
 const view = (over: Partial<StreakView> = {}): StreakView => ({
+  today: "2026-11-19",
   count: 3,
   todaySafe: false,
   frozenToday: false,
@@ -44,7 +46,10 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.useRealTimers();
   mocks.loadStreak.mockReset();
+  mocks.freezeToday.mockReset();
+  mocks.router.refresh.mockReset();
 });
 
 describe("Streak Hero", () => {
@@ -124,6 +129,55 @@ describe("Streak Hero", () => {
     expect(screen.getByRole("alert").textContent).toContain(shellMessages.firstLoadFailed);
     mocks.loadStreak.mockResolvedValue(null);
     expect(await StreakHero()).toBeNull();
+  });
+
+  it.each([
+    ["safe", streakMessages.alreadySafe],
+    ["quota_used", streakMessages.quotaUsed],
+    ["day_changed", streakMessages.dayChanged],
+  ] as const)("refused %s: the reason in an alert tied to the button", async (reason, text) => {
+    mocks.freezeToday.mockResolvedValue({ status: "refused", reason });
+    render(<StreakHeroView view={view()} />);
+    await userEvent.setup().click(useFreeze()!);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe(text);
+    expect(useFreeze()!.getAttribute("aria-describedby")).toBe(alert.id);
+    const sent = mocks.freezeToday.mock.calls[0][0] as FormData;
+    expect(sent.get("expectedDate")).toBe("2026-11-19");
+  });
+
+  it("error: the failure message in the alert", async () => {
+    mocks.freezeToday.mockResolvedValue({ status: "error" });
+    render(<StreakHeroView view={view()} />);
+    await userEvent.setup().click(useFreeze()!);
+    expect((await screen.findByRole("alert")).textContent).toBe(streakMessages.freezeFailed);
+  });
+
+  it("pending: \"Freezing…\", disabled", async () => {
+    let resolve!: (v: unknown) => void;
+    mocks.freezeToday.mockReturnValue(new Promise((r) => (resolve = r)));
+    render(<StreakHeroView view={view()} />);
+    await userEvent.setup().click(useFreeze()!);
+    const button = await screen.findByRole("button", { name: "Freezing…" });
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => resolve({ status: "done" }));
+    expect(useFreeze()).toBeTruthy();
+  });
+
+  it("countdown: ticks each minute, refreshes the page once at local midnight", async () => {
+    vi.useFakeTimers();
+    render(<StreakHeroView view={view({ msLeft: 2 * 60_000 + 30_000 })} />);
+    const risk = () => hero().querySelector('[data-slot="risk-pill"]')!.textContent;
+    expect(risk()).toBe("0h 2m left");
+    await act(async () => void (await vi.advanceTimersByTimeAsync(60_000)));
+    expect(risk()).toBe("0h 1m left");
+    await act(async () => void (await vi.advanceTimersByTimeAsync(60_000)));
+    expect(risk()).toBe("0h 0m left");
+    expect(mocks.router.refresh).not.toHaveBeenCalled();
+    await act(async () => void (await vi.advanceTimersByTimeAsync(30_000)));
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+    await act(async () => void (await vi.advanceTimersByTimeAsync(5 * 60_000)));
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
   });
 
   it("timeLeftLabel rounds down to the minute", () => {

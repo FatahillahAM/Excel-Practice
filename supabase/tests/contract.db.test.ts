@@ -1347,7 +1347,10 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       await db.query("update public.attempts set status = 'graded', result = $2 where id = $1", [id, JSON.stringify(RESULT)]);
     }
 
-    const useFreeze = (uid: string) => asUser(uid, async (q) => (await q.query("select public.use_freeze() as answer")).rows[0].answer);
+    const useFreeze = async (uid: string, expected?: string) => {
+      const day = expected ?? (await localDay());
+      return asUser(uid, async (q) => (await q.query("select public.use_freeze($1::date) as answer", [day])).rows[0].answer);
+    };
     const days = async (uid: string) =>
       (await db.query("select local_date::text as day from public.freezes where user_id = $1 order by local_date", [uid])).rows.map(
         (r) => r.day,
@@ -1436,8 +1439,64 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect(own.rows).toEqual([{ user_id: owner, day: await localDay() }]);
       expect((await asUser(stranger, (q) => q.query("select id from public.freezes"))).rowCount).toBe(0);
       await expectSqlError(as("anon", null, (q) => q.query("select id from public.freezes")), "42501");
-      await expectSqlError(as("anon", null, (q) => q.query("select public.use_freeze()")), "42501");
-      await expectSqlError(asService((q) => q.query("select public.use_freeze()")), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select public.use_freeze(current_date)")), "42501");
+      await expectSqlError(asService((q) => q.query("select public.use_freeze(current_date)")), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select public.streak_days()")), "42501");
+      await expectSqlError(asService((q) => q.query("select public.streak_days()")), "42501");
+    });
+
+    it("day_changed when the page's today is not the database's today: nothing written", async () => {
+      const uid = await newUser();
+      expect(await useFreeze(uid, await localDay(-1))).toEqual({ code: "day_changed", localDate: await localDay(), left: 0 });
+      expect(await days(uid)).toEqual([]);
+    });
+
+    it("two concurrent calls: one frozen, one already_frozen, one row (the profile row lock)", async () => {
+      const uid = await newUser();
+      const today = await localDay();
+      const clients = [new pg.Client({ connectionString: scratchUrl }), new pg.Client({ connectionString: scratchUrl })];
+      try {
+        for (const c of clients) {
+          await c.connect();
+          await c.query("begin");
+          await c.query("set local role authenticated");
+          await c.query("select set_config('request.jwt.claims', $1, true)", [JSON.stringify({ sub: uid, role: "authenticated" })]);
+        }
+        const first = (await clients[0].query("select public.use_freeze($1::date) as answer", [today])).rows[0].answer;
+        // Blocks on the profile row until the first commits.
+        const second = clients[1].query("select public.use_freeze($1::date) as answer", [today]);
+        await clients[0].query("commit");
+        const answer = (await second).rows[0].answer;
+        await clients[1].query("commit");
+        expect([first.code, answer.code]).toEqual(["frozen", "already_frozen"]);
+        expect(await days(uid)).toEqual([today]);
+      } finally {
+        await Promise.all(clients.map((c) => c.end()));
+      }
+    });
+
+    it("streak_days: the owner's distinct local graded days (Result present), uncapped, nobody else's", async () => {
+      const a = await newUser();
+      const b = await newUser();
+      const graded = async (uid: string, receivedAt: string) => {
+        const id = await start(uid);
+        await db.query("update public.attempts set status = 'received' where id = $1", [id]);
+        await db.query("update public.attempts set status = 'graded', result = $2 where id = $1", [id, JSON.stringify(RESULT)]);
+        await db.query("update public.attempts set received_at = $2 where id = $1", [id, receivedAt]);
+      };
+      // 18:00Z is the next day in Jakarta; two attempts on one local day count once.
+      await graded(a, "2026-11-18T18:00:00Z");
+      await graded(a, "2026-11-19T10:00:00Z");
+      await graded(a, "2026-11-17T01:00:00Z");
+      for (let i = 0; i < 5; i++) await graded(a, `2026-10-${String(10 + i).padStart(2, "0")}T01:00:00Z`);
+      await graded(b, "2026-11-16T01:00:00Z");
+      const pending = await start(a);
+      await db.query("update public.attempts set status = 'received' where id = $1", [pending]);
+      const { rows } = await asUser(a, (q) => q.query("select d::text as day from public.streak_days() d"));
+      expect(rows.map((r) => r.day)).toEqual([
+        "2026-10-10", "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14", "2026-11-17", "2026-11-19",
+      ]);
+      expect((await as("authenticated", null, (q) => q.query("select public.streak_days()"))).rowCount).toBe(0);
     });
   });
 

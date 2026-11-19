@@ -84,7 +84,7 @@ export function StreakHeroView({ view }: { view: StreakView }) {
           {freezeText}
         </span>
       </div>
-      {(atRisk || state === "zero") && <UseFreezeButton left={view.freezesLeft} quiet={state === "zero"} />}
+      {(atRisk || state === "zero") && <UseFreezeButton left={view.freezesLeft} today={view.today} quiet={state === "zero"} />}
       <ol aria-label="This week" className="grid grid-cols-7 gap-1">
         {view.week.map((day, index) => (
           <li key={day.date} data-status={day.status} className="flex flex-col items-center gap-1">

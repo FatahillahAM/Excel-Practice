@@ -6,6 +6,10 @@ const JAKARTA = "Asia/Jakarta"; // UTC+7, no DST
 const NEW_YORK = "America/New_York"; // DST
 
 const at = (receivedAt: string | null, score = 50): GradedAttempt => ({ itemId: "L01-P1", score, startedAt: "2026-11-01T00:00:00Z", receivedAt });
+/** What `streak_days` returns: the distinct local dates of graded attempts with a `received_at`. */
+const days = (attempts: GradedAttempt[], zone: string) => [
+  ...new Set(attempts.flatMap((a) => (a.receivedAt ? [localDate(a.receivedAt, zone)] : []))),
+];
 /** An instant at local `time` on `date` in Jakarta. */
 const jkt = (date: string, time = "12:00:00") => `${date}T${time}+07:00`;
 
@@ -32,11 +36,11 @@ describe("localDate", () => {
 describe("streak", () => {
   const now = new Date(jkt("2026-11-19", "20:00:00"));
   const run = (attempts: GradedAttempt[], freezes: string[] = [], when = now, zone = JAKARTA) =>
-    streak({ attempts, freezes, now: when, zone });
+    streak({ gradedDays: days(attempts, zone), freezes, now: when, zone });
 
   it("safe today: today and the two days before count 3", () => {
     const s = run([at(jkt("2026-11-19")), at(jkt("2026-11-18")), at(jkt("2026-11-17"))]);
-    expect(s).toMatchObject({ count: 3, todaySafe: true, frozenToday: false });
+    expect(s).toMatchObject({ today: "2026-11-19", count: 3, todaySafe: true, frozenToday: false });
   });
 
   it("at risk: yesterday and the day before count 2, with time left until local midnight", () => {
@@ -105,6 +109,10 @@ describe("streak", () => {
     const days = Array.from({ length: 20 }, (_, i) => at(jkt(addDays("2026-11-19", -i))));
     expect(run(days).count).toBe(20);
   });
+});
+
+it("an unknown zone throws (loadStreak turns it into the first-load message)", () => {
+  expect(() => streak({ gradedDays: [], freezes: [], now: new Date(), zone: "Mars/Olympus" })).toThrow(RangeError);
 });
 
 describe("freezesLeft", () => {

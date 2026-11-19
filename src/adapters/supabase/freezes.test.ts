@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listFreezes, spendFreeze } from "./freezes";
+import { listFreezes, listStreakDays, spendFreeze } from "./freezes";
 
 type Answer = { data: unknown; error: { code: string; message: string } | null };
 
@@ -46,23 +46,37 @@ describe("listFreezes", () => {
 });
 
 describe("spendFreeze", () => {
-  it.each(["frozen", "already_frozen", "safe", "quota_used"] as const)("maps %s", async (code) => {
+  it.each(["frozen", "already_frozen", "safe", "quota_used", "day_changed"] as const)("maps %s", async (code) => {
     const answer = { code, localDate: "2026-11-19", left: 1 };
     const { client, rpc } = fakeClient(async () => ({ data: answer, error: null }));
-    expect(await spendFreeze(client)).toEqual({ ok: true, value: answer });
-    expect(rpc).toHaveBeenCalledWith("use_freeze");
+    expect(await spendFreeze(client, "2026-11-19")).toEqual({ ok: true, value: answer });
+    expect(rpc).toHaveBeenCalledWith("use_freeze", { p_expected_date: "2026-11-19" });
   });
 
   it("maps no_profile with a null date", async () => {
     const answer = { code: "no_profile", localDate: null, left: 0 };
-    expect(await spendFreeze(fakeClient(async () => ({ data: answer, error: null })).client)).toEqual({ ok: true, value: answer });
+    expect(await spendFreeze(fakeClient(async () => ({ data: answer, error: null })).client, "2026-11-19")).toEqual({ ok: true, value: answer });
   });
 
   it("is not ok on an error, an unexpected answer or a throw (freeze.use_failed)", async () => {
-    expect(await spendFreeze(fakeClient(async () => ({ data: null, error: { code: "42883", message: "x" } })).client)).toEqual({ ok: false });
+    expect(await spendFreeze(fakeClient(async () => ({ data: null, error: { code: "42883", message: "x" } })).client, "2026-11-19")).toEqual({ ok: false });
     expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "freeze.use_failed", code: "42883" }));
-    expect(await spendFreeze(fakeClient(async () => ({ data: { code: "weird" }, error: null })).client)).toEqual({ ok: false });
+    expect(await spendFreeze(fakeClient(async () => ({ data: { code: "weird" }, error: null })).client, "2026-11-19")).toEqual({ ok: false });
     expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "freeze.use_failed", code: "bad_answer" }));
-    expect(await spendFreeze(fakeClient(async () => Promise.reject(new Error("x"))).client)).toEqual({ ok: false });
+    expect(await spendFreeze(fakeClient(async () => Promise.reject(new Error("x"))).client, "2026-11-19")).toEqual({ ok: false });
+  });
+});
+
+describe("listStreakDays", () => {
+  it("calls streak_days and keeps the dates", async () => {
+    const { client, rpc } = fakeClient(async () => ({ data: ["2026-11-17", "2026-11-19", 3, "bad"], error: null }));
+    expect(await listStreakDays(client)).toEqual({ ok: true, value: ["2026-11-17", "2026-11-19"] });
+    expect(rpc).toHaveBeenCalledWith("streak_days");
+  });
+
+  it("is not ok when the call fails or throws (streak.days_failed)", async () => {
+    expect(await listStreakDays(fakeClient(async () => ({ data: null, error: { code: "42883", message: "x" } })).client)).toEqual({ ok: false });
+    expect(errors).toHaveBeenLastCalledWith(JSON.stringify({ event: "streak.days_failed", code: "42883" }));
+    expect(await listStreakDays(fakeClient(async () => Promise.reject(new Error("x"))).client)).toEqual({ ok: false });
   });
 });

@@ -1,11 +1,10 @@
-import type { GradedAttempt } from "./level-progress";
-
 /**
  * Streak and freezes (CAP-10, AD-7, AD-8): derived per request, never stored.
  * A day is the local date (`YYYY-MM-DD`) of an instant in the user's
  * `profiles.time_zone`; a week is ISO Monday–Sunday in that zone; `now` is
  * the server's clock. A day counts when it has a graded attempt (any score,
- * Practice again included) or a freeze. The database enforces the freeze
+ * Practice again included; the database's `streak_days`, the same definition
+ * as its freeze fence) or a freeze. The database enforces the freeze
  * rules (migration 20261119000001); this is display only, on the same
  * definitions.
  */
@@ -23,6 +22,8 @@ export interface DayState {
 }
 
 export interface Streak {
+  /** Today (`YYYY-MM-DD`) in the user's zone: what Use freeze sends back as the expected day. */
+  today: string;
   /** Consecutive covered days ending today (when covered) or yesterday. */
   count: number;
   /** Today has a graded attempt. */
@@ -99,19 +100,19 @@ function startOfLocalDay(date: string, zone: string): number {
 
 /** Streak, today's state, time left today and the Week Strip. */
 export function streak({
-  attempts,
+  gradedDays,
   freezes,
   now,
   zone,
 }: {
-  attempts: readonly GradedAttempt[];
+  /** Local dates (`YYYY-MM-DD`) with a graded attempt. */
+  gradedDays: readonly string[];
   /** Freeze local dates (`YYYY-MM-DD`). */
   freezes: readonly string[];
   now: Date;
   zone: string;
 }): Streak {
-  const graded = new Set<string>();
-  for (const attempt of attempts) if (attempt.receivedAt) graded.add(localDate(attempt.receivedAt, zone));
+  const graded = new Set(gradedDays);
   const frozen = new Set(freezes);
   const covered = (date: string) => graded.has(date) || frozen.has(date);
 
@@ -136,7 +137,7 @@ export function streak({
     return { date, status };
   });
 
-  return { count, todaySafe, frozenToday, msLeft, week };
+  return { today, count, todaySafe, frozenToday, msLeft, week };
 }
 
 /** Freezes left this ISO week (in `zone`, at `now`). */
