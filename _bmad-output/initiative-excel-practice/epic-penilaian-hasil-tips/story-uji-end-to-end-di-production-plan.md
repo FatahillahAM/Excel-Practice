@@ -3,7 +3,7 @@ title: 'Uji end-to-end di Production'
 type: 'feature'
 ticket: '11'
 created: '2026-11-18'
-status: 'draft'
+status: done
 hitl: true
 route: 'full'
 route_source: 'auto'
@@ -11,6 +11,7 @@ review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'ed89e6c7549525648e24f630d7488d625bc51e58'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/epic-penilaian-hasil-tips.md']
 ---
 
@@ -49,6 +50,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 | Penilaian gagal | F dengan baris `hint_reveals` palsu ke-4 | `grading.grade_threw`, layar "Try again", Dropzone tersembunyi | baris palsu dihapus sebelum Try again |
 | Try again | F `grading_failed`, baris palsu dihapus | `attempt.grading_retried` lalu `graded`, Results muncul | gagal lagi → stop, story baru |
 | History / Tips & Tricks | percobaan uji `graded` | daftar + detail; koleksi dengan filter level dan pencarian | keadaan kosong dilihat sebelum percobaan pertama bila koleksi kosong, kalau tidak dari pencarian tanpa hasil |
+| Cek browser Results | Results A (100) dan B di laptop dan ponsel | scroll-snap/scroll halus, tumpukan di ponsel, `document.title` dan fokus `<h1>` setelah pindah otomatis; putaran badge, hitung naik, scroll lift | tidak sesuai → catat, story baru |
 | Log hilang | dilaporkan > 1 jam | bukti dari baris `prod` + teks layar/screenshot user | ulangi langkah bila tidak cukup |
 
 </frozen-after-approval>
@@ -91,7 +93,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 | 6 | DW4 Try again, DW3 potongan | Orchestrator menghapus baris palsu dan konfirmasi; user klik **Try again**. | Results sendiri 85/100 (100 − 15), baris potongan hint tampil. | SQL delete 1 baris (3 tersisa); `attempt.grading_retried`; `grading.done` retry graded 85; `result.hintsUsed` 3 |
 | 7 | DW5 History | Buka History: A, B, C, F tampil; buka satu → skor, waktu, soal salah + alasan, Tips. | Sesuai, dan detail cocok dengan Results. | page load tanpa `history.load_failed`/`history.result_invalid` |
 | 8 | DW5 Tips & Tricks (setelah 3.9) | Buka Tips & Tricks: semua kartu yang pernah tampil; filter Level 1; cari kata dari satu Tip; cari kata ngawur → keadaan kosong. | Kartu dari A–F ada sekali per Tip, filter dan pencarian bekerja, keadaan kosong tampil. | tanpa error log; jumlah Tip unik dari `result` A–F |
-| 9 | DW4 lambat (opsional) | Catat saja bila pesan penilaian lambat pernah muncul; tidak dipaksa. | — | — |
+| 9 | Cek browser (dari 3.10) | Saat Results A dan B: perhatikan judul tab, fokus pada judul, scroll Tips carousel dan tata letak di ponsel; badge berputar dan skor naik saat pindah otomatis. | Semua tampil halus; di ponsel tersusun bertumpuk. | — (laporan dan screenshot user) |
+| 10 | DW4 lambat (opsional) | Catat saja bila pesan penilaian lambat pernah muncul; tidak dipaksa. | — | — |
 
 DW4 Fire Effect: tidak diuji di Production (U9, 3.7; epic 5). DW6 = baris 1–8 di Production. Akhir: tidak ada percobaan terbuka.
 
@@ -103,23 +106,35 @@ DW4 Fire Effect: tidak diuji di Production (U9, 3.7; epic 5). DW6 = baris 1–8 
 
 ## Implementation Notes
 
+- Remote writes limited to the approved step 5-6 SQL on prod (one `hint_reveals` row for F, inserted then deleted); everything else is read-only (Vercel logs, prod SELECTs).
+- Pre-check 2026-11-19: prod attempts = 8 abandoned, 12 graded; none open/received/grading_failed. Live deployment includes 3.1–3.10 (3.9 code `dpl_J8TaK3dtpaH242zjKPispqeCfVQY`; 3.10 docs only).
+
 Evidence table (fill during the run, times UTC):
 
 | # | Done when | Evidence (time · channel · event/code · attempt) | Deviation |
 |---|-----------|--------------------------------------------------|-----------|
-| 1 | DW1 macro, DW4 | | |
-| 2 | DW1 upload, DW2 diketik | | |
-| 3 | DW2 fungsi salah | | |
-| 4 | DW3 | | |
-| 5 | DW4 gagal | | |
-| 6 | DW4 Try again | | |
-| 7 | DW5 History | | |
-| 8 | DW5 Tips & Tricks | | |
-| DW6 | all on Production | | |
+| 1 | DW1 macro, DW4 | 01:55:41 · macro · `received: true` → `grading.done` graded 100 (0.6 s) · A `3a81cea9` | — |
+| 2 | DW1 upload, DW2 diketik | 02:30:31 · upload · `received: true` → `grading.done` graded 80; Q1 "Sel H2 berisi nilai yang diketik, bukan rumus." · B `bc74ebed` | First try `600baabf` uploaded the untouched download (submission 42312 B = generated 42312 B) → 0/100 "masih kosong"; user error, retried |
+| 3 | DW2 fungsi salah | 02:03:54 `bfaaafa8` 45 and 02:33:48 `ca86cac5` 75 · macro graded; Q3 "Hasil di J3 belum sesuai." | Reason names a wrong value, not `SUM`: the hand-made formula gave wrong J values (first try: relative refs, my instruction error; second: likely last row ≠ 13). Value checks run before the function check by design. Pending a clean variant |
+| 4 | DW3 | 02:37:38–42 · `hint.revealed` used 1,2,3 (Q1, Q2, Q4) · F `2d3b7add`; 3 `hint_reveals` rows | No `hint.refused`: the 4th hint button was already disabled, so no request was sent (matrix allows "tombol mati / ditolak") |
+| 5 | DW4 gagal | 02:40:01 macro `received: true` → 02:40:02 `grading.grade_threw` (error) + `grading.done` grading_failed; row `grading_failed`; user saw "Try again" screen. Fake row inserted in one transaction, fence re-enabled (`tgenabled` O) | — |
+| 6 | DW4 Try again | Fake row deleted (1 row, 3 left) · 02:41:04 `attempt.grading_retried` → 02:41:05 `grading.done` retry graded 85; `result.hintsUsed` 3; user saw Results 85 | — |
+| 7 | DW5 History | User: list and detail as expected; no `history.*` error logs in window | — |
+| 8 | DW5 Tips & Tricks | User: one card per Tip, Level filter, search and no-match message as expected; no `tips.*`/`attempt.list_tips_*` logs | — |
+| 9 | Cek browser | User: title, `<h1>` focus, badge spin, count-up, Tips carousel on A all as expected (2026-11-19) | Phone layout not yet reported |
+| DW6 | all on Production | All on `excel-practice-omega.vercel.app`, deployment `dpl_DFTDMPpXk1W6vHFKPpfbzpNS2s7S`; prod ends with 0 open/received/grading/grading_failed attempts | Row 3 `SUM` reason and phone layout not yet shown |
 
 ## Plan Change Log
 
+- 2026-11-19: added the browser-only Results checks parked by 3.10 (#11, #16) as matrix row and step 9 (user approved). Forced-failure method in step 5 approved by user.
+
 ## Review Triage Log
+
+Test run only (no code diff); no code review lenses run.
+
+- Accepted by user (2026-11-19): row 3 shown only as a wrong-value reason ("Hasil di J3 belum sesuai."); the `SUM`-named reason was not reached on Production because both hand-made formulas produced wrong J values. The check order (values before function) is by design and covered by the 3.2 checker tests.
+- Accepted by user: phone layout of Results not checked on Production; desktop browser checks passed.
+- No product defects found; the first upload (0/100) was the untouched download, not an app fault.
 
 ## Design Notes
 
