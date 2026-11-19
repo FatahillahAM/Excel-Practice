@@ -3,7 +3,7 @@ title: 'Tracer: progres dari attempt graded → Level Path di Dashboard'
 type: 'feature'
 ticket: '1'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -125,3 +125,10 @@ Two combined reviewers (blind+edge-case, verification+intent-alignment); no high
 
 **Manual checks (Production, hitl):**
 - Grade L01-P1 on the laptop; open `/dashboard` on the phone: Level 1 pips match; Level 2–9 and Ujian Akhir locked/Under Construction; no horizontal scroll.
+
+## Production Evidence
+
+- PR #27 merged; production deployment `dpl_7QSCotMtR3mw5j92XzRGc6wMxpQS` (commit 62706a9) READY.
+- CI on the final head: lint/typecheck/unit tests and DB contract tests (Postgres 16) green, including the new `listProgressAttempts` contract test (fixed seeding in 2bfc978).
+- User checked on Production: phone Dashboard Level Path shows Level 1 active with the graded practice pips; `/levels` on the laptop matches (user, 2026-11-19).
+- Vercel runtime logs (last 50 min): no error/warning/fatal records; no `progress.load_failed`, `progress.result_invalid` or `attempt.list_progress_*` events. The success path writes no log lines by design.
