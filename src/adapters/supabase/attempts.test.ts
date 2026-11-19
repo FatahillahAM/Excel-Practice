@@ -16,7 +16,10 @@ import {
   hasValidResult,
   HISTORY_HEADROOM,
   HISTORY_LIMIT,
+  TIPS_MAX_ROWS,
+  TIPS_PAGE,
   listGradedResults,
+  listResultsForTips,
   loadForGrading,
   markReceived,
   readAttempt,
@@ -45,7 +48,7 @@ function fakeClient(result: Result | Result[] | (() => Promise<Result>)) {
       ? result()
       : Promise.resolve(Array.isArray(result) ? result[query++] : result);
   const builder: Record<string, unknown> = {};
-  for (const name of ["select", "insert", "update", "delete", "eq", "in", "is", "not", "order", "limit"]) {
+  for (const name of ["select", "insert", "update", "delete", "eq", "in", "is", "not", "order", "limit", "range"]) {
     builder[name] = (...args: unknown[]) => (calls.push([name, args]), builder);
   }
   for (const name of ["single", "maybeSingle"]) {
@@ -810,6 +813,85 @@ describe("listGradedResults (session)", () => {
     expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([
       { event: "attempt.list_results_failed", code: "42501" },
       { event: "attempt.list_results_failed", code: "TypeError" },
+    ]);
+  });
+});
+
+describe("listResultsForTips (session)", () => {
+  const row = (id: string, result: unknown = { version: 2 }) => ({ id, item_id: "L01-P1", result, started_at: "2026-11-02T01:00:00+00:00" });
+  const page = (n: number, offset = 0) => Array.from({ length: n }, (_, i) => row(`r${offset + i}`));
+  const shape = (from: number, to: number) => [
+    ["select", ["id, item_id, result, started_at"]],
+    ["eq", ["user_id", "user-a"]],
+    ["in", ["status", ["graded", "closed"]]],
+    ["not", ["result", "is", null]],
+    ["order", ["started_at", { ascending: false }]],
+    ["order", ["id", { ascending: false }]],
+    ["range", [from, to]],
+  ];
+
+  it("reads only four columns of the user's graded/closed rows, newest first, one short page", async () => {
+    const { client, from, calls } = fakeClient({ data: [row("a")], error: null });
+    expect(await listResultsForTips(client, "user-a")).toEqual({
+      ok: true,
+      value: [{ id: "a", itemId: "L01-P1", result: { version: 2 }, startedAt: "2026-11-02T01:00:00+00:00" }],
+    });
+    expect(from).toHaveBeenCalledWith("attempts");
+    expect(TIPS_PAGE).toBe(200);
+    expect(calls).toEqual(shape(0, 199));
+  });
+
+  it("pages until a short page (more than 50 rows are all read)", async () => {
+    const { client, calls } = fakeClient([
+      { data: page(200), error: null },
+      { data: page(3, 200), error: null },
+    ]);
+    const read = await listResultsForTips(client, "user-a");
+    expect(read.ok && read.value.length).toBe(203);
+    expect(calls).toEqual([...shape(0, 199), ...shape(200, 399)]);
+  });
+
+  const capped = (extra: number) => {
+    const pages = TIPS_MAX_ROWS / TIPS_PAGE;
+    return Array.from({ length: pages }, (_, i) => ({
+      data: page(i === pages - 1 ? TIPS_PAGE + extra : TIPS_PAGE, i * TIPS_PAGE),
+      error: null,
+    }));
+  };
+  const ranges = (calls: [string, unknown[]][]) => calls.filter(([name]) => name === "range").map(([, args]) => args);
+
+  it("reads exactly TIPS_MAX_ROWS rows without a truncation log (the probe row finds nothing)", async () => {
+    const { client, calls } = fakeClient(capped(0));
+    const read = await listResultsForTips(client, "user-a");
+    expect(read.ok && read.value.length).toBe(TIPS_MAX_ROWS);
+    expect(ranges(calls)).toHaveLength(TIPS_MAX_ROWS / TIPS_PAGE);
+    expect(ranges(calls).at(-1)).toEqual([TIPS_MAX_ROWS - TIPS_PAGE, TIPS_MAX_ROWS]);
+    expect(errors.mock.calls).toEqual([]);
+  });
+
+  it("stops at TIPS_MAX_ROWS and logs the truncation when more rows exist (probe row not returned)", async () => {
+    const { client, calls } = fakeClient(capped(1));
+    const read = await listResultsForTips(client, "user-a");
+    expect(read.ok && read.value.length).toBe(TIPS_MAX_ROWS);
+    expect(ranges(calls)).toHaveLength(TIPS_MAX_ROWS / TIPS_PAGE);
+    expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([{ event: "attempt.list_tips_truncated", code: "5000" }]);
+  });
+
+  it("drops a row whose result is null all the same", async () => {
+    const read = await listResultsForTips(fakeClient({ data: [row("a", null), row("b")], error: null }).client, "user-a");
+    expect(read.ok && read.value.map((r) => r.id)).toEqual(["b"]);
+  });
+
+  it("is not ok on an error (even on a later page) or a throw, and logs", async () => {
+    expect(await listResultsForTips(fakeClient({ data: null, error: { code: "42501", message: "x" } }).client, "user-a")).toEqual({ ok: false });
+    expect(
+      await listResultsForTips(fakeClient([{ data: page(200), error: null }, { data: null, error: { code: "57014", message: "x" } }]).client, "user-a"),
+    ).toEqual({ ok: false });
+    expect(await listResultsForTips(fakeClient(() => Promise.reject(new TypeError("net"))).client, "user-a")).toEqual({ ok: false });
+    expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([
+      { event: "attempt.list_tips_failed", code: "42501" },
+      { event: "attempt.list_tips_failed", code: "57014" },
+      { event: "attempt.list_tips_failed", code: "TypeError" },
     ]);
   });
 });

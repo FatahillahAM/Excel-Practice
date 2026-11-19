@@ -464,7 +464,8 @@ export function defineLevelModule<S extends Scenario>(level: LevelModule<S>): Le
   return level;
 }
 
-function sameTip(a: Tip, b: Tip): boolean {
+/** Whether two Tips are the same: id, title, body and shortcuts in order. */
+export function sameTip(a: Tip, b: Tip): boolean {
   return (
     a.id === b.id &&
     a.title === b.title &&

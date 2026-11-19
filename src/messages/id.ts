@@ -19,6 +19,14 @@ export const shellMessages = {
   firstLoadFailed: "Datanya belum kemuat. Coba lagi, ya.",
   /** History with no graded attempt yet: one line, with a link to Dashboard. */
   historyEmpty: "Belum ada hasil. Mulai latihan dari Dashboard, ya.",
+  /** Tips & Tricks with no Tip yet: one line, with a link to Dashboard (illustrative). */
+  tipsEmpty: "Belum ada Tips. Selesaikan latihan dari Dashboard dulu, ya.",
+  /** Tips & Tricks: the level filter and/or search match no card (illustrative). */
+  tipsNoMatch: (level: number | null, query: string): string => {
+    const q = query.trim();
+    if (q !== "") return level === null ? `Nggak ada Tips yang cocok dengan "${q}".` : `Nggak ada Tips Level ${level} yang cocok dengan "${q}".`;
+    return level === null ? "Belum ada Tips — selesaikan latihan dulu, ya." : `Belum ada Tips untuk Level ${level} — selesaikan latihan dulu, ya.`;
+  },
   /** Settings › Saved / error (illustrative). */
   preferenceSaveFailed: "Pengaturan belum tersimpan. Coba lagi, ya.",
 } as const;

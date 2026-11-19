@@ -1245,6 +1245,32 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       );
       expect(rls.rows.map((r) => r.id).sort()).toEqual([older, tieX, tieY, closed].sort());
     });
+
+    it("Tips (3.9: listResultsForTips): only the user's graded/closed rows with a Result, four columns, paged newest first", async () => {
+      const a = await newUser();
+      const b = await newUser();
+      const graded = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-01T01:00:00Z");
+      const closed = await historyAttempt(a, ["closed"], RESULT, "2026-11-02T01:00:00Z");
+      await historyAttempt(a, ["closed"], null, "2026-11-03T01:00:00Z");
+      await historyAttempt(b, ["received", "graded"], RESULT, "2026-11-04T01:00:00Z");
+      const pending = await historyAttempt(a, [], null, "2026-11-05T01:00:00Z");
+      const read = () =>
+        asUser(a, (q) =>
+          q.query(
+            `select id, item_id, result, started_at from public.attempts
+             where user_id = $1 and status in ('graded', 'closed') and result is not null
+             order by started_at desc, id desc offset 0 limit 200`,
+            [a],
+          ),
+        );
+      const open = await read();
+      expect(open.rows.map((r) => r.id)).toEqual([closed, graded]);
+      expect(Object.keys(open.rows[0]).sort()).toEqual(["id", "item_id", "result", "started_at"]);
+      expect(open.rows[0]).toMatchObject({ item_id: "L01-P1", result: RESULT });
+      await db.query("update public.attempts set status = 'received' where id = $1", [pending]);
+      await db.query("update public.attempts set status = 'grading_failed' where id = $1", [pending]);
+      expect((await read()).rows.map((r) => r.id)).toEqual([closed, graded]);
+    });
   });
 
   describe("anon", () => {

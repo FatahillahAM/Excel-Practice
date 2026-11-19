@@ -120,7 +120,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: Tip ids are unique only within a level (one id, one content across its items × scenarios × seeds); nothing checks that two levels do not reuse an id with different content.
   evidence: 3.4 review; the Tips collection (3.9) keys by id, so add a cross-level check in the registry with it.
-  status: open
+  status: done — the registry throws at load when one Tip id has different content in two levels (`assertTipsAgreeAcrossLevels`, 3.9)
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: `grade()` does not compare `hintsUsed` with the snapshot's `hintQuota`; a count above the quota would still be graded (5 points each).
   evidence: 3.4 review; `hintsUsed` comes from `hint_reveals` in 3.5, whose `reveal_hint` RPC enforces the quota — add the check (or a clamp) there.

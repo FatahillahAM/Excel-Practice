@@ -76,7 +76,7 @@ describe("L01-P1 hints and Tips", () => {
         }
       }
     }
-  });
+  }, 30_000); // exhaustive scenarios × seeds sweep; ~5 s on CI runners
 
   it("keeps each Tip identical across seeds and scenarios (one id, one card)", () => {
     const tips = Object.values(TIPS);
