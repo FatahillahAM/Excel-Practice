@@ -49,6 +49,7 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 | Penilaian gagal | F dengan baris `hint_reveals` palsu ke-4 | `grading.grade_threw`, layar "Try again", Dropzone tersembunyi | baris palsu dihapus sebelum Try again |
 | Try again | F `grading_failed`, baris palsu dihapus | `attempt.grading_retried` lalu `graded`, Results muncul | gagal lagi → stop, story baru |
 | History / Tips & Tricks | percobaan uji `graded` | daftar + detail; koleksi dengan filter level dan pencarian | keadaan kosong dilihat sebelum percobaan pertama bila koleksi kosong, kalau tidak dari pencarian tanpa hasil |
+| Cek browser Results | Results A (100) dan B di laptop dan ponsel | scroll-snap/scroll halus, tumpukan di ponsel, `document.title` dan fokus `<h1>` setelah pindah otomatis; putaran badge, hitung naik, scroll lift | tidak sesuai → catat, story baru |
 | Log hilang | dilaporkan > 1 jam | bukti dari baris `prod` + teks layar/screenshot user | ulangi langkah bila tidak cukup |
 
 </frozen-after-approval>
@@ -91,7 +92,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 | 6 | DW4 Try again, DW3 potongan | Orchestrator menghapus baris palsu dan konfirmasi; user klik **Try again**. | Results sendiri 85/100 (100 − 15), baris potongan hint tampil. | SQL delete 1 baris (3 tersisa); `attempt.grading_retried`; `grading.done` retry graded 85; `result.hintsUsed` 3 |
 | 7 | DW5 History | Buka History: A, B, C, F tampil; buka satu → skor, waktu, soal salah + alasan, Tips. | Sesuai, dan detail cocok dengan Results. | page load tanpa `history.load_failed`/`history.result_invalid` |
 | 8 | DW5 Tips & Tricks (setelah 3.9) | Buka Tips & Tricks: semua kartu yang pernah tampil; filter Level 1; cari kata dari satu Tip; cari kata ngawur → keadaan kosong. | Kartu dari A–F ada sekali per Tip, filter dan pencarian bekerja, keadaan kosong tampil. | tanpa error log; jumlah Tip unik dari `result` A–F |
-| 9 | DW4 lambat (opsional) | Catat saja bila pesan penilaian lambat pernah muncul; tidak dipaksa. | — | — |
+| 9 | Cek browser (dari 3.10) | Saat Results A dan B: perhatikan judul tab, fokus pada judul, scroll Tips carousel dan tata letak di ponsel; badge berputar dan skor naik saat pindah otomatis. | Semua tampil halus; di ponsel tersusun bertumpuk. | — (laporan dan screenshot user) |
+| 10 | DW4 lambat (opsional) | Catat saja bila pesan penilaian lambat pernah muncul; tidak dipaksa. | — | — |
 
 DW4 Fire Effect: tidak diuji di Production (U9, 3.7; epic 5). DW6 = baris 1–8 di Production. Akhir: tidak ada percobaan terbuka.
 
@@ -115,9 +117,12 @@ Evidence table (fill during the run, times UTC):
 | 6 | DW4 Try again | | |
 | 7 | DW5 History | | |
 | 8 | DW5 Tips & Tricks | | |
+| 9 | Cek browser | | |
 | DW6 | all on Production | | |
 
 ## Plan Change Log
+
+- 2026-11-19: added the browser-only Results checks parked by 3.10 (#11, #16) as matrix row and step 9 (user approved). Forced-failure method in step 5 approved by user.
 
 ## Review Triage Log
 
