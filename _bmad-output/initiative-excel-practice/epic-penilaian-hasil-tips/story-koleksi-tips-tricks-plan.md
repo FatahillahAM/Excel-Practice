@@ -3,7 +3,7 @@ title: 'Koleksi Tips & Tricks'
 type: 'feature'
 ticket: '9'
 created: '2026-11-18'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -138,3 +138,10 @@ Four lenses (blind-hunter, edge-case-hunter, verification-gap, intent-alignment)
 
 **Manual checks (Production, after merge):**
 - `/tips` shows each Tip from the graded L01-P1 attempts once with "Level 1"; Level filter and searching "Ctrl" / a title word narrow it; a nonsense query shows the no-results line and "Clear filters" restores; phone width without horizontal scroll.
+
+## Production Evidence
+
+- PR #24 merged; production deployment `dpl_J8TaK3dtpaH242zjKPispqeCfVQY` (commit 1b8207a) READY at 2026-11-19 01:40 UTC.
+- CI on the final head: lint/typecheck/unit tests and DB contract tests (Postgres 16) green; the new `listResultsForTips` contract test ran there.
+- User checked `/tips` on Production: collection without duplicates, level filter, search and "Clear filters" all as expected (user, 2026-11-19).
+- Vercel runtime logs for the deployment (last 30-50 min): no error, warning or fatal records, and no `attempt.list_tips_failed`, `attempt.list_tips_truncated`, `tips.result_invalid` or `tips.load_failed` events. The success path writes no log lines by design.
