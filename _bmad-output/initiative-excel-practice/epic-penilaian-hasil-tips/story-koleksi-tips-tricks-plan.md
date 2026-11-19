@@ -3,7 +3,7 @@ title: 'Koleksi Tips & Tricks'
 type: 'feature'
 ticket: '9'
 created: '2026-11-18'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
