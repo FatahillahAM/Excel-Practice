@@ -3,13 +3,14 @@ title: 'Streak, freeze, migrasi `freezes`, dan Streak Hero'
 type: 'feature'
 ticket: '2'
 created: '2026-11-19'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '62a6cc3c3bc9855e5af17bdfbdf2d273ccce8781'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/DESIGN.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md']
 ---
 
@@ -86,6 +87,8 @@ Adjust once 4.1 lands (names of the shared read and `toGradedAttempts` may diffe
 - Given a phone viewport, when the Dashboard loads, then the streak numeral is in the server HTML (no client fetch).
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
