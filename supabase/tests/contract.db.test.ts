@@ -1274,7 +1274,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
   });
 
   describe("Progress (4.1: listProgressAttempts as the session runs it)", () => {
-    it("returns only the user's graded rows with a Result, five columns, oldest first by received_at then id", async () => {
+    it("returns only the user's graded rows with a Result, five columns, newest first by received_at then id", async () => {
       const a = await newUser();
       const b = await newUser();
       const grade = async (uid: string, receivedAt: string) => {
@@ -1290,6 +1290,9 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       const closed = await start(a);
       await db.query("update public.attempts set status = 'closed' where id = $1", [closed]);
       await db.query("update public.attempts set result = $2 where id = $1", [closed, JSON.stringify(RESULT)]);
+      await start(a); // open
+      const abandoned = await start(a);
+      await db.query("update public.attempts set status = 'abandoned' where id = $1", [abandoned]);
       const pending = await start(a);
       await db.query("update public.attempts set status = 'received' where id = $1", [pending]);
       const read = () =>
@@ -1297,17 +1300,17 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
           q.query(
             `select id, item_id, result, started_at, received_at from public.attempts
              where user_id = $1 and status = 'graded' and result is not null
-             order by received_at asc, id asc offset 0 limit 200`,
+             order by received_at desc, id desc offset 0 limit 200`,
             [a],
           ),
         );
       const first = await read();
-      expect(first.rows.map((r) => r.id)).toEqual([earlier, later]);
+      expect(first.rows.map((r) => r.id)).toEqual([later, earlier]);
       expect(Object.keys(first.rows[0]).sort()).toEqual(["id", "item_id", "received_at", "result", "started_at"]);
       expect(first.rows[0]).toMatchObject({ item_id: "L01-P1", result: RESULT });
       expect(first.rows.every((r) => r.received_at instanceof Date)).toBe(true);
       await db.query("update public.attempts set status = 'grading_failed' where id = $1", [pending]);
-      expect((await read()).rows.map((r) => r.id)).toEqual([earlier, later]);
+      expect((await read()).rows.map((r) => r.id)).toEqual([later, earlier]);
     });
   });
 

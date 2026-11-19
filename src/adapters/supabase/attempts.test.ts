@@ -913,12 +913,12 @@ describe("listProgressAttempts (session)", () => {
     ["eq", ["user_id", "user-a"]],
     ["eq", ["status", "graded"]],
     ["not", ["result", "is", null]],
-    ["order", ["received_at", { ascending: true }]],
-    ["order", ["id", { ascending: true }]],
+    ["order", ["received_at", { ascending: false }]],
+    ["order", ["id", { ascending: false }]],
     ["range", [from, to]],
   ];
 
-  it("reads five columns of the user's graded rows only, oldest first, one short page", async () => {
+  it("reads five columns of the user's graded rows only, newest first, one short page", async () => {
     const { client, from, calls } = fakeClient({ data: [row("a")], error: null });
     expect(await listProgressAttempts(client, "user-a")).toEqual({
       ok: true,
@@ -936,6 +936,8 @@ describe("listProgressAttempts (session)", () => {
     ]);
     const read = await listProgressAttempts(client, "user-a");
     expect(read.ok && read.value.length).toBe(203);
+    // Read newest first, returned oldest first.
+    expect(read.ok && [read.value[0].id, read.value.at(-1)!.id]).toEqual(["r202", "r0"]);
     expect(calls).toEqual([...shape(0, 199), ...shape(200, 399)]);
   });
 
@@ -943,11 +945,17 @@ describe("listProgressAttempts (session)", () => {
     const pages = PROGRESS_MAX_ROWS / PROGRESS_PAGE;
     const capped = (extra: number) =>
       Array.from({ length: pages }, (_, i) => ({ data: page(i === pages - 1 ? PROGRESS_PAGE + extra : PROGRESS_PAGE, i * PROGRESS_PAGE), error: null }));
-    const exact = await listProgressAttempts(fakeClient(capped(0)).client, "user-a");
+    const exactClient = fakeClient(capped(0));
+    const exact = await listProgressAttempts(exactClient.client, "user-a");
     expect(exact.ok && exact.value.length).toBe(PROGRESS_MAX_ROWS);
+    const ranges = exactClient.calls.filter(([name]) => name === "range").map(([, args]) => args);
+    expect(ranges).toHaveLength(pages);
+    expect(ranges.at(-1)).toEqual([PROGRESS_MAX_ROWS - PROGRESS_PAGE, PROGRESS_MAX_ROWS]);
     expect(errors.mock.calls).toEqual([]);
     const over = await listProgressAttempts(fakeClient(capped(1)).client, "user-a");
     expect(over.ok && over.value.length).toBe(PROGRESS_MAX_ROWS);
+    // The newest rows are kept (r0 is the newest), the probe row (the oldest past the cap) is not.
+    expect(over.ok && [over.value[0].id, over.value.at(-1)!.id]).toEqual([`r${PROGRESS_MAX_ROWS - 1}`, "r0"]);
     expect(errors.mock.calls.map((c) => JSON.parse(c[0] as string))).toEqual([{ event: "attempt.list_progress_truncated", code: "5000" }]);
   });
 

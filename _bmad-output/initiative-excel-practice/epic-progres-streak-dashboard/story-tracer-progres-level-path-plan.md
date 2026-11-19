@@ -3,7 +3,7 @@ title: 'Tracer: progres dari attempt graded → Level Path di Dashboard'
 type: 'feature'
 ticket: '1'
 created: '2026-11-19'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -85,13 +85,24 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 - Adapter: `listProgressAttempts` + `ProgressAttemptRow`, `PROGRESS_PAGE` 200 / `PROGRESS_MAX_ROWS` 5000 (probe row, `attempt.list_progress_truncated`); contract DB test added under "Progress (4.1)" (not run locally; CI runs `test:db`).
 - Core: `src/core/progress/level-progress.ts` exports `toGradedAttempts`, `levelProgress`, `CURRICULUM` (Level 1–9 names from `level-curriculum.md`) and `FINAL_EXAM_NAME`; `practicesDone` is `ReadonlySet<number>`. A level whose predecessor is Under Construction stays locked (nothing opens past a `next`/missing level).
-- Shared server loader `src/app/(app)/progress.ts` (`loadProgress`, logs `progress.load_failed` on a throw) feeds both the Dashboard Level Path and `/levels`; `completedItemIds` in `level-panel.ts` maps progress to the panel's `completed`. On `/levels` a failed progress read shows the panel without progress (no extra alert); the Dashboard carries the alert.
+- Shared server loader `src/app/(app)/progress.ts` (`loadProgress`, logs `progress.load_failed` on a throw) feeds both the Dashboard Level Path and `/levels`; `completedItemIds` in `level-panel.ts` maps progress to the panel's `completed`. `/levels` shows the module whose state is `active` (fallback: first V1 level); a failed progress read shows the first-load alert + Try again instead of the panel.
 - Level Path pips come from `levelPanel` (same view model as `/levels`); Ujian Akhir is a static Under Construction node. Dashboard layout: Level Path (own Suspense + skeleton) then the rail; the Attempt Card is unchanged.
+- Review fixes: `listProgressAttempts` reads `received_at desc, id desc` and reverses in memory, so the 5000 cap drops the oldest history (probe/log kept); `activeCallout` has no unreachable branch (`LevelPathView` takes `modules`, default the registry); tests added for /levels done/failed, Dashboard failed progress + open attempt (rendered with `react-dom/static` `prerender`), and open/abandoned rows in the contract test.
 - Note: the registry has no `L01-T` yet, so Level 1 cannot reach "passed" in Production until the Test item ships; covered by fixture modules in tests.
 
 ## Plan Change Log
 
 ## Review Triage Log
+
+Two combined reviewers (blind+edge-case, verification+intent-alignment); no high-severity defects.
+
+- Fixed: 5000-row cap dropped the newest attempts (read was oldest first); now newest first, reversed in memory.
+- Fixed: /levels failed progress read silently showed 0/5 with Start enabled; now shows the first-load alert + "Try again" (intent row "Baca gagal").
+- Fixed: /levels always showed the first v1 level; now the active level, matching the Dashboard.
+- Fixed: tests for /levels progress wiring and failed branch, Dashboard failed read + open attempt (both cards), contract test excludes open/abandoned; final range call asserted.
+- Fixed: removed unreachable `!mod` fallback in `activeCallout` (Level Path takes optional `modules` for fixtures).
+- Deferred: a v1 level with no Test item gives no explanation for staying active; shows "unavailable" per user decision until epic 5 ships Test content.
+- Accepted: "no cache across devices" stays a manual Production check (per-request server read, no `cache`/`revalidate`).
 
 ## Design Notes
 

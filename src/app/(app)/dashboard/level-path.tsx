@@ -1,4 +1,5 @@
 import { Check, Construction, Flag, Flame, Lock } from "lucide-react";
+import type { LevelModule } from "@/core/content/level-module";
 import { FINAL_EXAM_NAME, type LevelProgress, type LevelState } from "@/core/progress";
 import { levels } from "@/content/levels";
 import { cn } from "@/lib/utils";
@@ -25,9 +26,9 @@ const PIP: Record<PipState, string> = {
 };
 
 /** The active level's Practice Pips and count, from the same view model as /levels. */
-function activeCallout(level: LevelProgress): { pips: PipState[]; doneCount: number } {
-  const mod = levels.find((candidate) => candidate.number === level.number);
-  if (!mod) return { pips: Array(PRACTICE_COUNT).fill("pending"), doneCount: level.practicesDone.size };
+function activeCallout(level: LevelProgress, modules: readonly LevelModule[]): { pips: PipState[]; doneCount: number } {
+  // "active" implies a module of the registry `levelProgress` read.
+  const mod = modules.find((candidate) => candidate.number === level.number)!;
   const panel = levelPanel(mod, completedItemIds(mod, [level]));
   return { pips: panel.pips, doneCount: panel.doneCount };
 }
@@ -36,9 +37,10 @@ function activeCallout(level: LevelProgress): { pips: PipState[]; doneCount: num
  * Level Path (DESIGN.md › Dashboard; EXPERIENCE.md): Level 1 → Ujian Akhir as
  * an ordered list, each node passed / active (`aria-current="step"`) /
  * locked / Under Construction; the active node carries Practice Pips and
- * "x/5 practices done". Pure view of `levelProgress`; no motion.
+ * "x/5 practices done". Pure view of `levelProgress` over `modules` (the
+ * registry by default); no motion.
  */
-export function LevelPathView({ progress }: { progress: readonly LevelProgress[] }) {
+export function LevelPathView({ progress, modules = levels }: { progress: readonly LevelProgress[]; modules?: readonly LevelModule[] }) {
   return (
     <nav aria-label="Level path" className="w-full rounded-lg border border-border bg-card p-4 sm:p-[22px]">
       <ol className="flex flex-col gap-2">
@@ -46,7 +48,7 @@ export function LevelPathView({ progress }: { progress: readonly LevelProgress[]
           const Icon = STATE_ICON[level.state];
           const active = level.state === "active";
           const muted = level.state === "locked" || level.state === "under_construction";
-          const callout = active ? activeCallout(level) : null;
+          const callout = active ? activeCallout(level, modules) : null;
           return (
             <li
               key={level.number}

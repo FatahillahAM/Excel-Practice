@@ -85,7 +85,7 @@ describe("Level Path", () => {
     const l1 = { ...l2, id: "01-x", number: 1, name: "Fondasi", items: [{ id: "L01-P1", kind: "practice", number: 1 }, { id: "L01-T", kind: "test", number: 6 }] };
     const l3 = { ...l2, id: "03-x", number: 3, name: "Hitung bersyarat", items: [{ id: "L03-T", kind: "test", number: 6 }] };
     const modules = [l1, l2, l3] as unknown as LevelModule[];
-    render(<LevelPathView progress={levelProgress(toGradedAttempts([row("t", "L01-T", TEST_88)]), modules)} />);
+    render(<LevelPathView progress={levelProgress(toGradedAttempts([row("t", "L01-T", TEST_88)]), modules)} modules={modules} />);
     expect(states().slice(0, 4)).toEqual(["passed", "active", "locked", "under_construction"]);
     expect(nodes()[0].textContent).toContain("Passed");
     expect(nodes()[0].textContent).not.toContain("practices done");

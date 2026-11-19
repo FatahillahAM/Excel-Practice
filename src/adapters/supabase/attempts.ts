@@ -688,11 +688,12 @@ export interface ProgressAttemptRow {
 }
 
 /**
- * Every `graded` attempt of the user with a stored Result, oldest first
- * (`received_at asc, id asc`: streak and records walk forward in time), read
- * in pages of `PROGRESS_PAGE` until a short page, at most `PROGRESS_MAX_ROWS`
- * (one probe row past the cap; `attempt.list_progress_truncated` only when
- * more exist). The one shared read of epic 4 (Level Path, streak, gates,
+ * Every `graded` attempt of the user with a stored Result, returned oldest
+ * first (streak and records walk forward in time). Read newest first
+ * (`received_at desc, id desc`) in pages of `PROGRESS_PAGE` until a short
+ * page, at most `PROGRESS_MAX_ROWS`, then reversed: the cap drops the oldest
+ * history, never the newest (one probe row past the cap;
+ * `attempt.list_progress_truncated` only when more exist). The one shared read of epic 4 (Level Path, streak, gates,
  * records): `closed` is not progress (AD-5). Session read: RLS plus
  * `user_id = userId`; only columns granted to `authenticated`.
  */
@@ -709,8 +710,8 @@ export async function listProgressAttempts(supabase: SupabaseClient, userId: str
         .eq("user_id", userId)
         .eq("status", "graded")
         .not("result", "is", null)
-        .order("received_at", { ascending: true })
-        .order("id", { ascending: true })
+        .order("received_at", { ascending: false })
+        .order("id", { ascending: false })
         .range(from, to);
       if (error) {
         logError("attempt.list_progress_failed", error.code);
@@ -724,9 +725,9 @@ export async function listProgressAttempts(supabase: SupabaseClient, userId: str
       }
       if (last) {
         if (rows.length > kept.length) logError("attempt.list_progress_truncated", String(PROGRESS_MAX_ROWS));
-        return { ok: true, value: out };
+        return { ok: true, value: out.reverse() };
       }
-      if (rows.length < PROGRESS_PAGE) return { ok: true, value: out };
+      if (rows.length < PROGRESS_PAGE) return { ok: true, value: out.reverse() };
     }
   } catch (error) {
     logError("attempt.list_progress_failed", errorName(error));
