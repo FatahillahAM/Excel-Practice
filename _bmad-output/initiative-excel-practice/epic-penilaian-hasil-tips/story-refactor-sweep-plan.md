@@ -64,11 +64,11 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] (first) Re-check scope against `main` after 3.9 merges -- update the disposition table: 3.9 may have closed the Tip-id entry (#6) and changed Tips dedupe (#16); grep epic-3 code for unused exports (`npx tsc --noEmit` + a search for exports with no importer under `src/core/grading`, `src/components/results`, `src/app/(app)/{exam,results,history,tips}`, `src/adapters/supabase`) and add only removals that are dead and behaviour-free.
-- [ ] `src/content/levels/index.ts` + `index.test.ts` -- if 3.9 did not: registry check that one Tip id maps to one content across all levels, with a test on a two-level fixture -- closes #6 without changing live content.
-- [ ] Dead code found in the re-check -- remove, with the test count unchanged.
-- [ ] `deferred-work.md` -- one `status:` line per entry per the table (`done — …`, `moved — <epic/story> (reason)`, or `closed — <evidence>`), suffix `(sweep 3.10, <date>)`.
-- [ ] Target epic files -- Parked Notes for moved entries; `epic-penilaian-hasil-tips.md` gets Decision 3.10 with the counts.
+- [x] (first) Re-check scope against `main` after 3.9 merges -- update the disposition table: 3.9 may have closed the Tip-id entry (#6) and changed Tips dedupe (#16); grep epic-3 code for unused exports (`npx tsc --noEmit` + a search for exports with no importer under `src/core/grading`, `src/components/results`, `src/app/(app)/{exam,results,history,tips}`, `src/adapters/supabase`) and add only removals that are dead and behaviour-free.
+- [x] `src/content/levels/index.ts` + `index.test.ts` -- if 3.9 did not: registry check that one Tip id maps to one content across all levels, with a test on a two-level fixture -- closes #6 without changing live content.
+- [x] Dead code found in the re-check -- remove, with the test count unchanged.
+- [x] `deferred-work.md` -- one `status:` line per entry per the table (`done — …`, `moved — <epic/story> (reason)`, or `closed — <evidence>`), suffix `(sweep 3.10, <date>)`.
+- [x] Target epic files -- Parked Notes for moved entries; `epic-penilaian-hasil-tips.md` gets Decision 3.10 with the counts.
 
 **Acceptance Criteria:**
 - Given `deferred-work.md` after the sweep, when every epic-3 entry and the two `moved — epic 3` entries are read, then none is `open` and each status matches the table.
@@ -78,6 +78,10 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Re-check after 3.9: #6 already fixed by 3.9 (`assertTipsAgreeAcrossLevels` in `src/content/levels/index.ts`, deferred entry already `done`) — not redone. Unused-export scan of the listed dirs found no truly dead code (every flagged export is used in its own file or by tests), so no product code changed.
+- `deferred-work.md`: all epic-3 entries and the two `moved — epic 3` entries have a `status:` line with `(sweep 3.10, 2026-11-19)`; triage-only #22/#23 added as new entries; `status: open` count is 0.
+- Parked Notes: epic 4 (#13, #22), epic 5 (#2, #3, #4, #12, #14, #15), epic Ujian Akhir (#7), initiative Notes post-V1 (#20); browser checks for 3.11 (#11, #16) are a Parked Note in the epic file, not in the 3.11 plan (Never: do not touch plan 3.11). Decision 3.10 counts added to the epic file.
+- Checks (no code changed): lint, `tsc --noEmit`, `npm test` pass; build and `test:db` not run (no code or migration change).
 
 ## Plan Change Log
 

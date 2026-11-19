@@ -56,7 +56,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
   summary: Delete `attempt-files/<id>/` when an attempt row is deleted (compensation path, profile cascade).
   evidence: 2.1 review; no Storage delete policy or cleanup job, files become unreachable.
-  status: moved — epic 3 (needs a Storage delete policy or cleanup job, which is new behaviour; retention of `submission-<n>` — including the orphan `submission-1` from 2.3 review #10 — is decided with grading, its first reader; one user, small volume) (sweep 2.11, 2026-11-09).
+  status: moved — post-V1 backlog (initiative Notes): U7 defers `attempt-files` cleanup and keeps `submission-<n>` for regrading; no V1 epic owns a Storage delete policy (user decision 3.10) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
   summary: ExamStatus polling/auto-download loop and the template trace on the deployed `/levels` function have no automated check.
   evidence: 2.1 verification-gap lens; needs a DOM harness (epic 4) and a post-build trace check.
@@ -64,7 +64,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-siklus-percobaan-ad-5-di-core-dan-tes-kontrak-db-plan.md`
   summary: The database does not fence service-role status writes against AD-5 (only the TS machine does); and abandoning a `received` attempt while grading runs makes the grader's compare-and-set come back `lost`.
   evidence: 2.2 review; decide a check trigger and the grader's `lost` handling with grading (epic 3).
-  status: moved — epic 3 (the grader is the second service-role status writer; the check trigger and its `lost` handling are decided with it) (sweep 2.11, 2026-11-09).
+  status: closed — migration `20261110000001_attempts_status_fence` (status fence trigger) and the `grading_requested_at` compare-and-set handle the grader's `lost` (3.3, live dev + prod, Decision 3.3 done) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-submit-penuh-lima-kode-ad-6-dan-batas-ukuran-plan.md`
   summary: Bounded inflate relies on JSZip's private `ZipObject#internalStream` (jszip 3.10.2 pinned) and checks the budget per chunk; revisit on any jszip upgrade.
   evidence: 2.3 review; a version bump could silently drop the zip-bomb guard.
@@ -104,19 +104,19 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-tracer-l01-p1-dinilai-results-muncul-sendiri-di-production-plan.md`
   summary: No test proves behaviour when migration `20261109000001_attempts_result` is only partly applied (column present without grants or trigger).
   evidence: 3.1 review (low); migrations are applied whole via Supabase MCP, dev then prod.
-  status: open
+  status: closed — migrations are applied whole via Supabase MCP, dev then prod (AD-13); `20261109000001` and `20261110000001` are live in both (Decisions 3.1 done, 3.3 done) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-lima-pemeriksa-alasan-fixture-emas-dan-tes-paritas-plan.md`
   summary: `normalizeFormula` removes every space outside strings, so Excel's intersection operator (`$E$2:$E$13 $E:$E`) merges two references and `uses_reference` fails a valid formula.
   evidence: 3.2 review (low-medium); rare in V1 content.
-  status: open
+  status: moved — epic 5 (changes grading results; decide with content that uses the operator) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-lima-pemeriksa-alasan-fixture-emas-dan-tes-paritas-plan.md`
   summary: `_xludf.` (function unknown to the Excel that saved the file) is not stripped; `uses_functions` then reports a missing function instead of the real `#NAME?` problem.
   evidence: 3.2 review (low); V1 targets Excel 2021, which knows every V1 function.
-  status: open
+  status: moved — epic 5 (changes reason text; V1 targets Excel 2021) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-lima-pemeriksa-alasan-fixture-emas-dan-tes-paritas-plan.md`
   summary: A formula cell with `t="str"` and an empty cached `<v></v>` (written by some non-Excel tools) reads as `""` and gets `wrong_value` instead of `not_calculated`.
   evidence: 3.2 review (low); Excel 2021 does not write this shape.
-  status: open
+  status: moved — epic 5 (changes the reason; only non-Excel writers produce this shape) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: Tip ids are unique only within a level (one id, one content across its items × scenarios × seeds); nothing checks that two levels do not reuse an id with different content.
   evidence: 3.4 review; the Tips collection (3.9) keys by id, so add a cross-level check in the registry with it.
@@ -128,56 +128,64 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: An attempt whose stored snapshot is v1 (written before 3.4) ends `grading_failed` (`snapshot_invalid`), and Try again only repeats that failure.
   evidence: 3.4 review; only attempts open before the deploy have v1 snapshots — the orchestrator checks Production for `open`/`received`/`grading_failed` attempts before the merge and abandons any first.
-  status: open
+  status: closed — Decision 3.4 done: prod had no running attempt before the merge; new attempts write v2 (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-kontrak-hint-dan-tips-snapshot-v2-konten-l01-p1-plan.md`
   summary: Every question needs 1–3 hints even when the level's `hintQuota` is 0 (the Ujian Akhir allows none).
   evidence: 3.4 review; revisit when the Ujian Akhir content is written (hints optional, or not stored, when the quota is 0).
-  status: open
+  status: moved — epic Ujian Akhir (only the final exam has quota 0; decide with its content) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-hint-dari-awal-sampai-akhir-plan.md`
   summary: Deploying the code before migration 20261113000001 breaks grading (`loadForGrading` counts `hint_reveals`: every load fails, U4 restarts, then `grading_failed`) and the hint group; only the AD-13 order (migration first) guards it.
   evidence: 3.5 review; no runtime fallback when the table is missing.
-  status: open
+  status: closed — migration `20261113000001_hint_reveals` is live in dev and prod (Decision 3.5 done); the AD-13 order (migration first) is the standing guard (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-hint-dari-awal-sampai-akhir-plan.md`
   summary: Rows written past the fence (trigger disabled, or a restore) can make `hintsUsed` exceed `hintQuota`; `grade()` throws, the attempt goes `grading_failed`, and Try again repeats the same failure.
   evidence: 3.5 review; the fence makes it unreachable through any role while the trigger is on — fix the data by hand if it ever happens.
-  status: open
+  status: closed — unreachable while the fence trigger is on; restores disable triggers by design (3.3 triage #14) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-hint-dari-awal-sampai-akhir-plan.md`
   summary: A snapshot written outside the app with a fractional `hintQuota` or question `number` (e.g. `3.0`) is read by `reveal_hint` / the fence as invalid (quota 0, `snapshot_invalid`, or no such question), while zod may accept it differently.
   evidence: 3.5 review; the app writes only integers (`examSnapshotSchema`), so this needs a hand-written snapshot.
-  status: open
+  status: closed — the app writes integers only (`examSnapshotSchema`); needs a hand-written snapshot (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: Browser-only behaviour of Results (scroll-snap, CSS smooth scroll, the stacked phone layout, `document.title` and focus on the `<h1>` after the exam screen's `router.replace`) has no automated test; jsdom tests stub the geometry.
   evidence: 3.6 review; there is no browser test layer — these are checked by hand in Production (plan › Verification).
-  status: open
+  status: moved — 3.11 (manual Production checks; no browser test layer) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: Excel terms inside wrong-answer reasons and Tip bodies (`SUMIFS`, `$A$1`) are not wrapped in `<code lang="en">` as in the mockup: the whole text is `lang="id"`.
   evidence: 3.6 review; stored reasons and Tips are plain strings — needs markup in the content contract or a tokenizer at render.
-  status: open
+  status: moved — epic 5 (needs markup in the content contract) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: The mockup's ≥80 panel styling is not built: `glow-soft` radial tint on the Outcome panel, the coin's gradient and inset rings, and the panel's hover `glow` border.
   evidence: 3.6 review; 3.6 has a flat `primary` face with a static glow — assign to 3.7 or a polish entry.
-  status: open
+  status: moved — epic 4 (new visuals, not cleanup; Results polish beside "New record"; user decision 3.10) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: Two questions carrying the same Tip id show as two separate Tips Cards on Results.
   evidence: 3.6 review; one card per question is the frozen rule — revisit if content reuses a Tip within one item (the Tips collection in 3.9 dedupes by id).
-  status: open
+  status: moved — epic 5 (one card per question is the frozen rule; revisit with content that reuses a Tip) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: A Test item later removed from the registry loses its "Test passed / not passed" heading and falls back to "`<itemId>` — S/100": the item kind comes from the live registry, not the stored Result.
   evidence: 3.6 review; store the kind with the attempt/Result, or derive it from the item id, when Test items exist (epic 5).
-  status: open
+  status: moved — epic 5 (Test items exist only in epic 5) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-gerak-results-plan.md`
   summary: Browser-only Results motion has no automated test: the badge turn, the count-up (incl. the `@property` fallback), the Fire Effect's look, the scroll lift, and whether the Tailwind 3D utilities (`perspective-*`, `transform-3d`, `backface-hidden`, `rotate-y-180`) emit the expected CSS.
   evidence: 3.7 review; jsdom runs no CSS animation — tests cover the trigger attributes and `globals.test.ts` string checks; the rest is checked by hand in a browser (plan › Verification).
-  status: open
+  status: moved — 3.11 (manual browser checks, as the 3.6 browser-only entry) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-gerak-results-plan.md`
   summary: Save-Data and `deviceMemory ≤ 4` keep the badge turn, count-up and Fire Effect; only the 3D scroll scene is dropped.
   evidence: 3.7 review; AD-12 limits only scenes on these signals (plan › Design Notes [ASSUMPTION]); revisit if low-end devices show jank.
-  status: open
+  status: closed — AD-12 limits only scenes on these signals; accepted in 3.7 review (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-history-plan.md`
   summary: The `page-enter` drop animation still runs on `/history` and `/history/<id>`, whose Results render static.
   evidence: 3.8 review; `page-enter` is the global page transition (reduced motion already turns it off), not Results motion — `mode="static"` covers turn, count-up, glow, fire and scene only; revisit if the History detail should open fully still.
-  status: open
+  status: closed — global page transition, reduced motion turns it off; accepted in 3.8 review (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-history-plan.md`
   summary: Two attempts started in the same minute show identical dates in the History list; their order comes from the `id desc` tiebreak, which is not visible.
   evidence: 3.8 review; the date format is `dateStyle: medium, timeStyle: short` (no seconds); revisit if users start several attempts per minute.
-  status: open
+  status: closed — accepted date format (`dateStyle: medium, timeStyle: short`); one user; accepted in 3.8 review (sweep 3.10, 2026-11-19).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-penilaian-gagal-try-again-pagar-ad-5-dan-harness-dom-plan.md`
+  summary: Migration 20261109 still allows a `graded → closed` status change that no code path uses; the 20261110 header documents it as dead (3.3 Review Triage Log #11; recorded here by sweep 3.10).
+  evidence: 3.3 review; removing it needs a migration.
+  status: moved — epic 4 (needs a migration; fold into epic 4's first `attempts` migration) (sweep 3.10, 2026-11-19).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-penilaian-gagal-try-again-pagar-ad-5-dan-harness-dom-plan.md`
+  summary: The exam screen's slow-message anchor resets when the page reloads (3.3 Review Triage Log #13; recorded here by sweep 3.10).
+  evidence: 3.3 review; cosmetic.
+  status: closed — cosmetic, accepted in 3.3 review; a fix would change visible timing (sweep 3.10, 2026-11-19).

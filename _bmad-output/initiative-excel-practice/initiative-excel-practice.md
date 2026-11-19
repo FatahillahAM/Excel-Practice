@@ -57,3 +57,4 @@ Seluruh produk dalam spec; epic dipotong per capability. Bukan: multi-user, noti
 - Decision: kontrak `LevelModule` (tipe + satu level tracer) dibuat di epic 2, pemakai paling awal; pemeriksa rumus di epic 3; konten penuh di epic 5 (2026-10-23).
 - Open question: persetujuan penilaian Pivot berlapis (`pivot-grading.md`), menunggu spike sebelum Level 7; epic-level-5-9 menunggu.
 - Waits on: urutan dan kebutuhan antar-epic ada di `tickets.toml` di folder ini.
+- Parked post-V1 (dari epic 3, refactor sweep 3.10, 2026-11-19): file `attempt-files/<id>/` yatim saat baris percobaan dihapus (jalur kompensasi Start, cascade profil) dan `submission-1` yatim (review 2.3 #10); butuh kebijakan hapus Storage atau job pembersih. U7 menunda pembersihan dan menyimpan `submission-<n>` untuk penilaian ulang; tidak ada epic V1 yang memilikinya (keputusan user 3.10).

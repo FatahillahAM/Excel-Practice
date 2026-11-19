@@ -43,3 +43,4 @@ Ujian Akhir saja. Bukan: Level 5–9 (epic 6).
 ## Notes
 
 - Waits on epic-level-5-9 because: butuh Level 9 dan penilaian Pivot.
+- Parked (dari epic 3, refactor sweep 3.10, 2026-11-19): setiap soal wajib punya 1–3 hint walau `hintQuota` level 0 (3.4); putuskan saat konten Ujian Akhir ditulis (hint opsional, atau tidak disimpan, bila jatah 0).

@@ -45,3 +45,10 @@ Konten Level 1–4 sebagai modul plug-in. Bukan: mesin, penilaian, atau UI (epic
 
 - Waits on epic-penilaian-hasil-tips because: butuh pemeriksa rumus di core dan penilaian dengan poin per soal.
 - Decision: boleh berjalan paralel dengan epic-progres-streak-dashboard (user, 2026-10-23).
+- Parked (dari epic 3, refactor sweep 3.10, 2026-11-19), diputuskan bersama konten yang pertama memakai bentuk itu:
+  - `normalizeFormula` menghapus spasi di luar string, sehingga operator intersection (`$E$2:$E$13 $E:$E`) menggabung dua referensi dan `uses_reference` menggagalkan rumus yang sah (3.2); mengubah hasil penilaian.
+  - Prefiks `_xludf.` tidak dibuang; `uses_functions` melaporkan fungsi hilang, bukan masalah `#NAME?` (3.2); mengubah teks alasan.
+  - Sel rumus `t="str"` dengan cache kosong dibaca `""` dan mendapat `wrong_value`, bukan `not_calculated` (3.2; hanya penulis non-Excel); mengubah alasan.
+  - Istilah Excel di alasan dan isi Tip belum dibungkus `<code lang="en">` (3.6); butuh markup di kontrak konten.
+  - Dua soal dengan id Tip sama tampil sebagai dua Tips Card di Results (3.6); aturan satu kartu per soal dibekukan, tinjau ulang bila konten memakai ulang Tip.
+  - Item Test yang dihapus dari registry kehilangan judul "Test passed / not passed" di Results/History (3.6); simpan jenis item bersama attempt/Result atau turunkan dari id saat item Test ada.
