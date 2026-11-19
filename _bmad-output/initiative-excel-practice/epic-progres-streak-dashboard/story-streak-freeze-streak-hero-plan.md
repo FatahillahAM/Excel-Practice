@@ -73,14 +73,14 @@ Adjust once 4.1 lands (names of the shared read and `toGradedAttempts` may diffe
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `supabase/migrations/2026112xxxxxx_freezes.sql` -- `freezes` table (uuid id, user_id → profiles, local_date date, created_at), unique (user_id, local_date), RLS owner select, no direct insert/update/delete for `authenticated`; `use_freeze()` security definer computing today in the user's zone and enforcing today-only / not-safe / ≤2 per ISO week under a row lock; drop and re-add `attempts_result_only_when_graded` as `result is null or status = 'graded'`.
-- [ ] `src/adapters/supabase/freezes.ts` (+test) -- `listFreezes(supabase, userId)`, `useFreeze(supabase)` mapping refusals to typed reasons.
-- [ ] contract DB tests -- backdated/3rd/safe-day freeze refused for every role; owner-only reads; P1 check refuses `closed`+result.
-- [ ] `src/core/progress/streak.ts` (+`.test.ts`) -- `localDate(instant, zone)`, `streak({attempts, freezes, now, zone})` → `{count, todaySafe, frozenToday, msLeft, week: DayState[7]}`, `freezesLeft({freezes, now, zone})`; table tests for the matrix.
-- [ ] `src/app/(app)/dashboard/freeze-actions.ts` (+test) -- Server Action: session, call adapter, revalidate.
-- [ ] `src/app/(app)/dashboard/streak-hero.tsx` -- numeral, Freeze Pill / Use freeze, Week Strip with full day names, Risk Pill; static countdown text from server `msLeft` [ASSUMPTION: minute-level client tick without announcements].
-- [ ] `src/app/(app)/dashboard/page.tsx` -- rail order desktop/phone.
-- [ ] `src/app/(app)/dashboard/streak-hero.dom.test.tsx` -- safe / at risk / frozen / zero / quota used.
+- [x] `supabase/migrations/2026112xxxxxx_freezes.sql` -- `freezes` table (uuid id, user_id → profiles, local_date date, created_at), unique (user_id, local_date), RLS owner select, no direct insert/update/delete for `authenticated`; `use_freeze()` security definer computing today in the user's zone and enforcing today-only / not-safe / ≤2 per ISO week under a row lock; drop and re-add `attempts_result_only_when_graded` as `result is null or status = 'graded'`.
+- [x] `src/adapters/supabase/freezes.ts` (+test) -- `listFreezes(supabase, userId)`, `useFreeze(supabase)` mapping refusals to typed reasons.
+- [x] contract DB tests -- backdated/3rd/safe-day freeze refused for every role; owner-only reads; P1 check refuses `closed`+result.
+- [x] `src/core/progress/streak.ts` (+`.test.ts`) -- `localDate(instant, zone)`, `streak({attempts, freezes, now, zone})` → `{count, todaySafe, frozenToday, msLeft, week: DayState[7]}`, `freezesLeft({freezes, now, zone})`; table tests for the matrix.
+- [x] `src/app/(app)/dashboard/freeze-actions.ts` (+test) -- Server Action: session, call adapter, revalidate.
+- [x] `src/app/(app)/dashboard/streak-hero.tsx` -- numeral, Freeze Pill / Use freeze, Week Strip with full day names, Risk Pill; static countdown text from server `msLeft` [ASSUMPTION: minute-level client tick without announcements].
+- [x] `src/app/(app)/dashboard/page.tsx` -- rail order desktop/phone.
+- [x] `src/app/(app)/dashboard/streak-hero.dom.test.tsx` -- safe / at risk / frozen / zero / quota used.
 
 **Acceptance Criteria:**
 - Given the migration applied to dev then prod, when deployed, then `migrations.test.ts` and `test:db` pass and the Production Dashboard shows Streak Hero.
@@ -89,6 +89,11 @@ Adjust once 4.1 lands (names of the shared read and `toGradedAttempts` may diffe
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Migration `20261119000001_freezes.sql` (not applied anywhere): `freezes` + owner-select RLS, no insert/update/delete grants; `freezes_fence` trigger (every role, profile row lock) raises 23514 `freezes_today_only` / `freezes_not_safe` / `freezes_week_quota`, unique `freezes_user_day` (23505); `use_freeze()` security definer for `authenticated` acting on `auth.uid()`, returns `{code, localDate, left}`. P1 check re-added as `result is null or status = 'graded'` (fails loudly if a `closed`+result row exists).
+- Code Map adjustments: adapter function is `spendFreeze` (not `useFreeze`: the `use*` name trips rules-of-hooks) and the action is `freezeToday`; streak read is `loadStreak()` in `src/app/(app)/progress.ts` next to 4.1's `loadProgress` (reuses `listProgressAttempts` + `toGradedAttempts`; plus `readTimeZone`, `listFreezes`); client bits (Use freeze form, minute countdown) in `dashboard/freeze-controls.tsx`.
+- Existing History/Tips/Progress contract tests seeded `closed`+result rows; updated for P1 (closed rows carry no Result; the Progress test now asserts the refusal).
+- Rail: on the phone the whole rail (Streak Hero, then Attempt Card) is ordered above the Level Path (DESIGN.md › phone first screen); desktop keeps Attempt Card then Streak Hero. Streak Hero sits in its own Suspense boundary (streamed in the server HTML, no client fetch).
+- Frozen-today counts as a covered day in the count; "Use freeze" shown at risk and (de-emphasised) at zero; quota used → `aria-disabled` + reason. "Streak restarted" deferred to 4.6.
 
 ## Plan Change Log
 

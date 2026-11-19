@@ -2,13 +2,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { prerender } from "react-dom/static";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn(), loadProgress: vi.fn() }));
+const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn(), loadProgress: vi.fn(), loadStreak: vi.fn() }));
 vi.mock("./abandon-actions", () => ({ abandonAttempt: vi.fn() }));
 vi.mock("../open-attempt", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../open-attempt")>();
   return { ...actual, loadOpenAttempt: mocks.loadOpenAttempt };
 });
-vi.mock("../progress", () => ({ loadProgress: mocks.loadProgress }));
+vi.mock("../progress", () => ({ loadProgress: mocks.loadProgress, loadStreak: mocks.loadStreak }));
+vi.mock("./freeze-actions", () => ({ freezeToday: vi.fn() }));
 // `open-attempt` imports the session adapters; never reached with `loadOpenAttempt` mocked.
 vi.mock("@/adapters/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: vi.fn() }));
@@ -98,5 +99,24 @@ describe("Dashboard with the Level Path resolved", () => {
     expect(html).toMatch(new RegExp(`<p role="alert" lang="id">${shellMessages.firstLoadFailed}</p>`));
     expect(html).not.toContain('aria-label="Level path"');
     mocks.loadProgress.mockReset();
+  });
+
+  it("the Streak Hero's final numeral is in the server HTML; on the phone the rail (hero first) leads", async () => {
+    mocks.loadOpenAttempt.mockResolvedValue({ attempt: attempt("open"), elapsed: 754 });
+    mocks.loadProgress.mockResolvedValue("failed");
+    mocks.loadStreak.mockResolvedValue({
+      count: 12,
+      todaySafe: true,
+      frozenToday: false,
+      msLeft: 0,
+      week: [],
+      freezesLeft: 2,
+    });
+    const html = await renderAll();
+    expect(html).toMatch(/data-slot="streak-numeral"[^>]*>12<\/span>/);
+    expect(html).toMatch(/<div class="order-first flex w-full flex-col[^"]*lg:order-none/);
+    expect(html).toMatch(/<div class="order-first flex flex-col lg:order-none">[\s\S]*streak-numeral/);
+    mocks.loadProgress.mockReset();
+    mocks.loadStreak.mockReset();
   });
 });

@@ -31,6 +31,16 @@ export const shellMessages = {
   preferenceSaveFailed: "Pengaturan belum tersimpan. Coba lagi, ya.",
 } as const;
 
+/** Streak Hero and Use freeze (4.2; illustrative). */
+export const streakMessages = {
+  /** Why Use freeze is unavailable: this week's 2 freezes are used. */
+  quotaUsed: "Jatah freeze minggu ini sudah habis. Jatah baru mulai Senin.",
+  /** Use freeze refused: today already has a graded attempt. */
+  alreadySafe: "Hari ini sudah aman, nggak perlu freeze.",
+  /** Use freeze failed (database or network). */
+  freezeFailed: "Freeze belum tersimpan. Coba lagi, ya.",
+} as const;
+
 /** Start's inline error slot (Level 1 · Practice 1 on /levels). */
 export const startMessages = {
   /** No `profiles` row and the browser sent no zone the database accepts (illustrative, like `preferenceSaveFailed`). */

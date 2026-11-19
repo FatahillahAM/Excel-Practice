@@ -388,7 +388,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect((await db.query("select result from public.attempts where id = $1", [id])).rows[0].result).toEqual(RESULT);
     });
 
-    it("exists only on a graded (or later closed) attempt, and every new graded attempt has one", async () => {
+    it("exists only on a graded attempt, and every new graded attempt has one", async () => {
       const { id } = await attemptIn("received");
       await expectSqlError(
         asService((q) => q.query("update public.attempts set result = $2 where id = $1", [id, JSON.stringify(RESULT)])),
@@ -1195,7 +1195,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
   });
 
   describe("History list (3.8: listGradedResults as the session runs it)", () => {
-    /** One of `uid`'s attempts moved along AD-5 `steps` (superuser; `graded` carries `result`, kept by `closed`), `started_at` set. */
+    /** One of `uid`'s attempts moved along AD-5 `steps` (superuser; `graded` carries `result`), `started_at` set. */
     async function historyAttempt(uid: string, steps: string[], result: unknown, startedAt: string): Promise<string> {
       const id = await start(uid);
       for (const next of steps) {
@@ -1204,10 +1204,6 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
         } else {
           await db.query("update public.attempts set status = $2 where id = $1", [id, next]);
         }
-      }
-      // A `closed` row (time limit, from open) carrying a Result, as the list must also accept.
-      if (steps.at(-1) === "closed" && result !== null) {
-        await db.query("update public.attempts set result = $2 where id = $1", [id, JSON.stringify(result)]);
       }
       await db.query("update public.attempts set started_at = $2 where id = $1", [id, startedAt]);
       return id;
@@ -1219,7 +1215,7 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       const older = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-01T01:00:00Z");
       const tieX = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-02T01:00:00Z");
       const tieY = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-02T01:00:00Z");
-      const closed = await historyAttempt(a, ["closed"], RESULT, "2026-11-03T01:00:00Z");
+      // A `closed` row (time limit) has no Result (P1, migration 20261119000001): never listed.
       await historyAttempt(a, ["closed"], null, "2026-11-04T01:00:00Z");
       await historyAttempt(a, ["abandoned"], null, "2026-11-05T01:00:00Z");
       await historyAttempt(a, ["received"], null, "2026-11-06T01:00:00Z");
@@ -1234,23 +1230,22 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
         ),
       );
       const [tieFirst, tieSecond] = [tieX, tieY].sort().reverse();
-      expect(rows.map((r) => r.id)).toEqual([closed, tieFirst, tieSecond, older]);
-      expect(rows[0]).toMatchObject({ item_id: "L01-P1", status: "closed", result: RESULT });
+      expect(rows.map((r) => r.id)).toEqual([tieFirst, tieSecond, older]);
+      expect(rows[0]).toMatchObject({ item_id: "L01-P1", status: "graded", result: RESULT });
       expect(rows.every((r) => r.started_at instanceof Date)).toBe(true);
-      expect(rows.map((r) => r.received_at instanceof Date)).toEqual([false, true, true, true]);
+      expect(rows.map((r) => r.received_at instanceof Date)).toEqual([true, true, true]);
 
       // Without the explicit user filter RLS still keeps B's rows out.
       const rls = await asUser(a, (q) =>
         q.query("select id from public.attempts where status in ('graded', 'closed') and result is not null"),
       );
-      expect(rls.rows.map((r) => r.id).sort()).toEqual([older, tieX, tieY, closed].sort());
+      expect(rls.rows.map((r) => r.id).sort()).toEqual([older, tieX, tieY].sort());
     });
 
     it("Tips (3.9: listResultsForTips): only the user's graded/closed rows with a Result, four columns, paged newest first", async () => {
       const a = await newUser();
       const b = await newUser();
       const graded = await historyAttempt(a, ["received", "graded"], RESULT, "2026-11-01T01:00:00Z");
-      const closed = await historyAttempt(a, ["closed"], RESULT, "2026-11-02T01:00:00Z");
       await historyAttempt(a, ["closed"], null, "2026-11-03T01:00:00Z");
       await historyAttempt(b, ["received", "graded"], RESULT, "2026-11-04T01:00:00Z");
       const pending = await historyAttempt(a, [], null, "2026-11-05T01:00:00Z");
@@ -1264,12 +1259,12 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
           ),
         );
       const open = await read();
-      expect(open.rows.map((r) => r.id)).toEqual([closed, graded]);
+      expect(open.rows.map((r) => r.id)).toEqual([graded]);
       expect(Object.keys(open.rows[0]).sort()).toEqual(["id", "item_id", "result", "started_at"]);
       expect(open.rows[0]).toMatchObject({ item_id: "L01-P1", result: RESULT });
       await db.query("update public.attempts set status = 'received' where id = $1", [pending]);
       await db.query("update public.attempts set status = 'grading_failed' where id = $1", [pending]);
-      expect((await read()).rows.map((r) => r.id)).toEqual([closed, graded]);
+      expect((await read()).rows.map((r) => r.id)).toEqual([graded]);
     });
   });
 
@@ -1289,7 +1284,11 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       await grade(b, "2026-11-02T01:00:00Z");
       const closed = await start(a);
       await db.query("update public.attempts set status = 'closed' where id = $1", [closed]);
-      await db.query("update public.attempts set result = $2 where id = $1", [closed, JSON.stringify(RESULT)]);
+      await expectSqlError(
+        db.query("update public.attempts set result = $2 where id = $1", [closed, JSON.stringify(RESULT)]),
+        "23514",
+        "attempts_result_only_when_graded",
+      );
       const abandoned = await start(a);
       await db.query("update public.attempts set status = 'abandoned' where id = $1", [abandoned]);
       // In-progress rows (one at a time, `attempts_one_in_progress_idx`): open, then received, then grading_failed.
@@ -1312,6 +1311,133 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect((await read()).rows.map((r) => r.id)).toEqual([later, earlier]);
       await db.query("update public.attempts set status = 'grading_failed' where id = $1", [pending]);
       expect((await read()).rows.map((r) => r.id)).toEqual([later, earlier]);
+    });
+  });
+
+  describe("freezes + use_freeze (4.2: CAP-10, AD-7, AD-8; every role)", () => {
+    /** A date in the user's zone (`Asia/Jakarta`, see `newUser`), `offset` days from today, as `YYYY-MM-DD`. */
+    async function localDay(offset = 0): Promise<string> {
+      const { rows } = await db.query("select ((now() at time zone 'Asia/Jakarta')::date + $1::integer)::text as day", [offset]);
+      return rows[0].day as string;
+    }
+
+    /** The days of this ISO week (Monday first), as `YYYY-MM-DD`. */
+    async function thisWeek(): Promise<string[]> {
+      const { rows } = await db.query(
+        `select (date_trunc('week', (now() at time zone 'Asia/Jakarta')::date)::date + d)::text as day
+         from generate_series(0, 6) d order by d`,
+      );
+      return rows.map((r) => r.day as string);
+    }
+
+    /** Seeds a freeze row on any day, past the fence (superuser, trigger off): only for fixtures. */
+    async function seedFreeze(uid: string, day: string) {
+      await db.query("alter table public.freezes disable trigger freezes_fence");
+      try {
+        await db.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, day]);
+      } finally {
+        await db.query("alter table public.freezes enable trigger freezes_fence");
+      }
+    }
+
+    /** A graded attempt received now (the database stamps `received_at`). */
+    async function gradedNow(uid: string) {
+      const id = await start(uid);
+      await db.query("update public.attempts set status = 'received' where id = $1", [id]);
+      await db.query("update public.attempts set status = 'graded', result = $2 where id = $1", [id, JSON.stringify(RESULT)]);
+    }
+
+    const useFreeze = (uid: string) => asUser(uid, async (q) => (await q.query("select public.use_freeze() as answer")).rows[0].answer);
+    const days = async (uid: string) =>
+      (await db.query("select local_date::text as day from public.freezes where user_id = $1 order by local_date", [uid])).rows.map(
+        (r) => r.day,
+      );
+
+    it("freezes today for the session user; a second call is already_frozen and writes nothing", async () => {
+      const uid = await newUser();
+      const today = await localDay();
+      expect(await useFreeze(uid)).toEqual({ code: "frozen", localDate: today, left: 1 });
+      expect(await useFreeze(uid)).toEqual({ code: "already_frozen", localDate: today, left: 1 });
+      expect(await days(uid)).toEqual([today]);
+      // The fence passes, the unique key refuses a second row of the day.
+      await expectSqlError(
+        db.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, today]),
+        "23505",
+        "freezes_user_day",
+      );
+    });
+
+    it("is refused when today already has a graded attempt (safe), for every role", async () => {
+      const uid = await newUser();
+      await gradedNow(uid);
+      expect(await useFreeze(uid)).toMatchObject({ code: "safe", localDate: await localDay() });
+      await expectSqlError(
+        db.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, await localDay()]),
+        "23514",
+        "freezes_not_safe",
+      );
+      expect(await days(uid)).toEqual([]);
+    });
+
+    it("allows at most 2 per ISO week (a third is refused for every role)", async () => {
+      const uid = await newUser();
+      const today = await localDay();
+      const others = (await thisWeek()).filter((day) => day !== today);
+      await seedFreeze(uid, others[0]);
+      await seedFreeze(uid, others[1]);
+      expect(await useFreeze(uid)).toEqual({ code: "quota_used", localDate: today, left: 0 });
+      await expectSqlError(
+        db.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, today]),
+        "23514",
+        "freezes_week_quota",
+      );
+      expect(await days(uid)).toEqual([others[0], others[1]].sort());
+    });
+
+    it("starts each ISO week with 2 again (last week's freezes do not count)", async () => {
+      const uid = await newUser();
+      const monday = (await thisWeek())[0];
+      const { rows } = await db.query("select ($1::date - 1)::text as sun, ($1::date - 2)::text as sat", [monday]);
+      await seedFreeze(uid, rows[0].sun);
+      await seedFreeze(uid, rows[0].sat);
+      expect(await useFreeze(uid)).toEqual({ code: "frozen", localDate: await localDay(), left: 1 });
+    });
+
+    it("refuses a backdated or future day for every role, and any direct write by the session or the service role", async () => {
+      const uid = await newUser();
+      for (const offset of [-1, 1]) {
+        await expectSqlError(
+          db.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, await localDay(offset)]),
+          "23514",
+          "freezes_today_only",
+        );
+      }
+      const today = await localDay();
+      await expectSqlError(
+        asUser(uid, (q) => q.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, today])),
+        "42501",
+      );
+      await expectSqlError(
+        asService((q) => q.query("insert into public.freezes (user_id, local_date) values ($1, $2)", [uid, today])),
+        "42501",
+      );
+      expect((await useFreeze(uid)).code).toBe("frozen");
+      await expectSqlError(asUser(uid, (q) => q.query("update public.freezes set local_date = local_date - 1")), "42501");
+      await expectSqlError(asUser(uid, (q) => q.query("delete from public.freezes")), "42501");
+      await expectSqlError(asService((q) => q.query("delete from public.freezes")), "42501");
+      expect(await days(uid)).toEqual([today]);
+    });
+
+    it("is read by its owner only; anon and the service role cannot call use_freeze", async () => {
+      const owner = await newUser();
+      const stranger = await newUser();
+      await useFreeze(owner);
+      const own = await asUser(owner, (q) => q.query("select user_id, local_date::text as day from public.freezes"));
+      expect(own.rows).toEqual([{ user_id: owner, day: await localDay() }]);
+      expect((await asUser(stranger, (q) => q.query("select id from public.freezes"))).rowCount).toBe(0);
+      await expectSqlError(as("anon", null, (q) => q.query("select id from public.freezes")), "42501");
+      await expectSqlError(as("anon", null, (q) => q.query("select public.use_freeze()")), "42501");
+      await expectSqlError(asService((q) => q.query("select public.use_freeze()")), "42501");
     });
   });
 
