@@ -3,7 +3,7 @@ title: 'Uji end-to-end di Production'
 type: 'feature'
 ticket: '11'
 created: '2026-11-18'
-status: 'in-progress'
+status: 'built'
 hitl: true
 route: 'full'
 route_source: 'auto'
@@ -129,6 +129,12 @@ Evidence table (fill during the run, times UTC):
 - 2026-11-19: added the browser-only Results checks parked by 3.10 (#11, #16) as matrix row and step 9 (user approved). Forced-failure method in step 5 approved by user.
 
 ## Review Triage Log
+
+Test run only (no code diff); no code review lenses run.
+
+- Accepted by user (2026-11-19): row 3 shown only as a wrong-value reason ("Hasil di J3 belum sesuai."); the `SUM`-named reason was not reached on Production because both hand-made formulas produced wrong J values. The check order (values before function) is by design and covered by the 3.2 checker tests.
+- Accepted by user: phone layout of Results not checked on Production; desktop browser checks passed.
+- No product defects found; the first upload (0/100) was the untouched download, not an app fault.
 
 ## Design Notes
 
