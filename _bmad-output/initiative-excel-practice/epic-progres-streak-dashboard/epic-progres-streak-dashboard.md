@@ -55,6 +55,7 @@ Progres turunan, streak, rekor, Dashboard, Level Map, Records, tampilan HP. Buka
 
 ## Notes
 
+- Decision: plan 4.1–4.3 — semua asumsi dan rekomendasi disetujui: hanya `graded` dihitung; pesan streak dimulai ulang ditunda ke 4.6; Use freeze tetap tampil redup saat streak 0; tombol HP disembunyikan lewat CSS; Test yang belum ada tampil "unavailable" sampai epic 5 (user, 2026-11-19).
 - Decision: inception epic 4 — 7 tiket (gabungan dari 12 untuk menghemat token): tracer Level Path; streak+freeze+Streak Hero; gerbang Test+Practice again; Records+New record+panel ≥80; Level Map+3D; sapu bersih+tes DOM tertunda; uji Production terakhir (user, 2026-11-19).
 - Decision: hari streak = tanggal lokal `received_at` di zona waktu profil (AD-8); streak dihitung dari ≥1 attempt `graded` berapa pun skornya termasuk Practice again; freeze ditolak di hari yang sudah punya attempt graded (user, 2026-11-19).
 - Decision: Records per item (latihan dan Test terpisah), durasi `received_at − started_at`; "New record" hanya bila mengalahkan rekor sebelumnya; satu migrasi saja (tabel `freezes` + P1) di tiket 2 (user, 2026-11-19).
