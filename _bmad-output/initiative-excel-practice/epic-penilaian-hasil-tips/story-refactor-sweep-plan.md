@@ -3,7 +3,7 @@ title: 'Refactor sweep'
 type: 'feature'
 ticket: '10'
 created: '2026-11-18'
-status: 'in-review'
+status: 'built'
 route: ''
 route_source: ''
 review: 'thorough'
@@ -86,6 +86,13 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Plan Change Log
 
 ## Review Triage Log
+
+Docs-only change; one combined reviewer (intent-alignment, verification, blind). No blocking findings; dispositions and counts (25) verified, all cited migrations/Decisions/code exist.
+
+- Fixed: #22 wording said 20261109 still allows `graded → closed`; the 20261110 fence already refuses it — reworded to the dead `attempts_result_only_when_graded` allowance (deferred-work, epic 4 note).
+- Fixed: the two epic-2 Parked notes in the epic file now carry their resolution (post-V1; done in 3.3).
+- Accepted: closure of the partial-migration entry rests on whole-migration apply plus both migrations live (user accepted prior-acceptance basis).
+- Noted: the 3.11 browser checks live as a Parked note in the epic file; carry them into plan 3.11 when it starts (plan 3.11 is out of scope here).
 
 ## Design Notes
 

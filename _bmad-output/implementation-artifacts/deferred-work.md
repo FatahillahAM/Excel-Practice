@@ -182,7 +182,7 @@
   evidence: 3.8 review; the date format is `dateStyle: medium, timeStyle: short` (no seconds); revisit if users start several attempts per minute.
   status: closed — accepted date format (`dateStyle: medium, timeStyle: short`); one user; accepted in 3.8 review (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-penilaian-gagal-try-again-pagar-ad-5-dan-harness-dom-plan.md`
-  summary: Migration 20261109 still allows a `graded → closed` status change that no code path uses; the 20261110 header documents it as dead (3.3 Review Triage Log #11; recorded here by sweep 3.10).
+  summary: The `attempts_result_only_when_graded` check (migration 20261109) still accepts `closed` with a result, though the 20261110 status fence already refuses `graded → closed`; the 20261110 header documents it as dead (3.3 Review Triage Log #11; recorded here by sweep 3.10).
   evidence: 3.3 review; removing it needs a migration.
   status: moved — epic 4 (needs a migration; fold into epic 4's first `attempts` migration) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-penilaian-gagal-try-again-pagar-ad-5-dan-harness-dom-plan.md`
