@@ -135,7 +135,7 @@ Two combined reviewers (blind+edge-case incl. migration security, verification+i
 ## Deploy Notes
 
 - 2026-11-19: PR #28 was merged before the migration was applied (deviation from AD-13 migration-first). CI on the head was green, including the migration contract tests. Migration `20261119000001_freezes` applied to **prod** right after (prod had 0 `closed` rows with a Result); `schema_migrations` version aligned. Production ran the new code without the `freezes` table for a few minutes; the Streak Hero shows its first-load message in that state.
-- Dev (`krfkxropldheqhbqtkfo`) is ACTIVE_HEALTHY but SQL connections time out; migration to dev pending, to retry.
+- Dev (`krfkxropldheqhbqtkfo`): SQL timed out at first; migration applied to dev later the same day (0 `closed` rows with a Result), `schema_migrations` version aligned.
 
 ## Production Evidence
 
@@ -143,4 +143,4 @@ Two combined reviewers (blind+edge-case incl. migration security, verification+i
 - CI on the final head: lint/typecheck/unit tests and DB contract tests (Postgres 16) green.
 - User checked on Production: Streak Hero on the phone and its states as expected (user, 2026-11-19).
 - Vercel runtime logs (last 50 min): no records at all — no error/warning/fatal, no `streak.load_failed` or freeze action errors. Prod `freezes` table has 0 rows (no freeze was spent during the check).
-- Dev migration still pending (SQL connections to dev time out).
+- Dev migration applied afterwards (see Deploy Notes).
