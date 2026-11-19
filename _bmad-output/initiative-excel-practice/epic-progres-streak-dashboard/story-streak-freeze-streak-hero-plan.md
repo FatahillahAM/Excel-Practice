@@ -131,3 +131,8 @@ Two combined reviewers (blind+edge-case incl. migration security, verification+i
 
 **Manual checks:**
 - Orchestrator applies the migration to `dev` then `prod` before merge-deploy; Production Dashboard: at-risk state with time left, Use freeze works on the phone, third freeze refused.
+
+## Deploy Notes
+
+- 2026-11-19: PR #28 was merged before the migration was applied (deviation from AD-13 migration-first). CI on the head was green, including the migration contract tests. Migration `20261119000001_freezes` applied to **prod** right after (prod had 0 `closed` rows with a Result); `schema_migrations` version aligned. Production ran the new code without the `freezes` table for a few minutes; the Streak Hero shows its first-load message in that state.
+- Dev (`krfkxropldheqhbqtkfo`) is ACTIVE_HEALTHY but SQL connections time out; migration to dev pending, to retry.
