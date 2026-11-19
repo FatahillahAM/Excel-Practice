@@ -1290,11 +1290,10 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       const closed = await start(a);
       await db.query("update public.attempts set status = 'closed' where id = $1", [closed]);
       await db.query("update public.attempts set result = $2 where id = $1", [closed, JSON.stringify(RESULT)]);
-      await start(a); // open
       const abandoned = await start(a);
       await db.query("update public.attempts set status = 'abandoned' where id = $1", [abandoned]);
-      const pending = await start(a);
-      await db.query("update public.attempts set status = 'received' where id = $1", [pending]);
+      // In-progress rows (one at a time, `attempts_one_in_progress_idx`): open, then received, then grading_failed.
+      const pending = await start(a); // open
       const read = () =>
         asUser(a, (q) =>
           q.query(
@@ -1309,6 +1308,8 @@ describe.skipIf(!DATABASE_URL)("supabase migrations contract (Postgres)", () => 
       expect(Object.keys(first.rows[0]).sort()).toEqual(["id", "item_id", "received_at", "result", "started_at"]);
       expect(first.rows[0]).toMatchObject({ item_id: "L01-P1", result: RESULT });
       expect(first.rows.every((r) => r.received_at instanceof Date)).toBe(true);
+      await db.query("update public.attempts set status = 'received' where id = $1", [pending]);
+      expect((await read()).rows.map((r) => r.id)).toEqual([later, earlier]);
       await db.query("update public.attempts set status = 'grading_failed' where id = $1", [pending]);
       expect((await read()).rows.map((r) => r.id)).toEqual([later, earlier]);
     });
