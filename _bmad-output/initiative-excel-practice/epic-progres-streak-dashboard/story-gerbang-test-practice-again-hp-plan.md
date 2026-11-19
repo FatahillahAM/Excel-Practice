@@ -3,13 +3,14 @@ title: 'Gerbang Test, aturan buka level, Practice again, dan pembatasan HP'
 type: 'feature'
 ticket: '3'
 created: '2026-11-19'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'bc3c2a352b0873eef27db81df5ba6e5ad097c876'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md']
 ---
 
@@ -82,6 +83,8 @@ Adjust once 4.1 lands (`levelProgress` shape).
 - Given the phone media query matches, when Start or Practice again is tapped, then no Server Action or download is triggered.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
