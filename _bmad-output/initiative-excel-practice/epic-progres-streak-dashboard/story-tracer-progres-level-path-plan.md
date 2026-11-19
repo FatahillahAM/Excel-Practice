@@ -3,7 +3,7 @@ title: 'Tracer: progres dari attempt graded → Level Path di Dashboard'
 type: 'feature'
 ticket: '1'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
