@@ -106,7 +106,8 @@ DW4 Fire Effect: tidak diuji di Production (U9, 3.7; epic 5). DW6 = baris 1–8 
 
 ## Implementation Notes
 
-- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Remote writes limited to the approved step 5-6 SQL on prod (one `hint_reveals` row for F, inserted then deleted); everything else is read-only (Vercel logs, prod SELECTs).
+- Pre-check 2026-11-19: prod attempts = 8 abandoned, 12 graded; none open/received/grading_failed. Live deployment includes 3.1–3.10 (3.9 code `dpl_J8TaK3dtpaH242zjKPispqeCfVQY`; 3.10 docs only).
 
 Evidence table (fill during the run, times UTC):
 
