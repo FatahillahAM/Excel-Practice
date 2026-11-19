@@ -133,3 +133,10 @@ Two combined reviewers (blind+edge-case incl. server gate bypass, verification+i
 
 **Manual checks:**
 - Production on the phone: tapping Start Practice shows the phone message and no attempt appears on the laptop Dashboard; Practice again on L01-P1 from the laptop leaves pips unchanged.
+
+## Production Evidence
+
+- PR #29 merged; production deployment `dpl_APZB1aWuxnRVys4BuykS5NvMZoUm`. CI on the final head green (lint/typecheck/unit, DB contract tests).
+- Practice again: 08:11:18 `attempt.started` L01-P1 (`897a2b62`) passed the gate → 08:12:31 macro `received: true` → `grading.done` graded 100. Pips unchanged per user.
+- User checked /levels (Start / Practice again labels, L01 Test "unavailable") and phone gating (message, no attempt — no `attempt.started` from the phone in the log) (user, 2026-11-19).
+- No error/warning logs; no `attempt.start_refused` during the check.
