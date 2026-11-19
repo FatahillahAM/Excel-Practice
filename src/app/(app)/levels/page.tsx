@@ -14,7 +14,8 @@ export const metadata: Metadata = { title: surfaceTitle("Level Map") };
 /**
  * Level Map: the Level Detail Panel of the active level (`loadProgress`, the
  * same read as the Dashboard's Level Path, so both agree; the last passed
- * level when none is active, e.g. after Level 4; else the first V1 level), inline, with its practices done. A failed progress
+ * level when none is active, e.g. after Level 4; with neither, an empty
+ * state), inline, with its practices done. A failed progress
  * read shows the first-load message with Try again instead of the panel, as
  * the Dashboard does. The Level Map around the panel and its `Sheet` come
  * later in epic 4. While an attempt is in progress
@@ -43,18 +44,20 @@ export default async function Page() {
     );
   }
   const shown = progress.find((entry) => entry.state === "active") ?? progress.findLast((entry) => entry.state === "passed");
-  const level =
-    (shown && levels.find((candidate) => candidate.number === shown.number)) ?? levels.find((candidate) => candidate.phase === "v1");
+  const level = shown && levels.find((candidate) => candidate.number === shown.number);
   return (
     <div className="flex flex-col gap-6">
       <PageTitle>Level Map</PageTitle>
-      {level && (
+      {shown && level ? (
         <LevelDetailPanel
           level={level}
+          state={shown.state === "passed" ? "passed" : "active"}
           completed={completedItemIds(level, progress)}
           result={testResult(level, progress)}
           startLock={startLock}
         />
+      ) : (
+        <p className="rounded-lg border border-border bg-card p-4 text-muted-foreground">No level is open yet.</p>
       )}
     </div>
   );

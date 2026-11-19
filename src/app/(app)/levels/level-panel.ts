@@ -67,9 +67,8 @@ export function levelPanel(
   const testItem = level.items.find((item) => item.kind === "test");
 
   const doneCount = practiceItems.filter((item) => item && completed.has(item.id)).length;
-  // The first practice not done; when it has no content yet, nothing is next (no skipping ahead).
-  const firstOpen = practiceItems.findIndex((item) => !item || !completed.has(item.id));
-  const nextIndex = firstOpen !== -1 && practiceItems[firstOpen] ? firstOpen : -1;
+  // The first practice with content not done (no skipping past it; `canStart` enforces the same order).
+  const nextIndex = practiceItems.findIndex((item) => item !== undefined && !completed.has(item.id));
 
   const practices: PanelPractice[] = practiceItems.map((item, index) => {
     const number = index + 1;
@@ -84,11 +83,9 @@ export function levelPanel(
   );
 
   const toGo = PRACTICE_COUNT - doneCount;
-  const hasContent = level.items.length > 0;
+  // A level without Test content shows "unavailable" from the start (until epic 5).
   const testStatus: TestStatus = !testItem
-    ? toGo > 0 && hasContent
-      ? "locked"
-      : "unavailable"
+    ? "unavailable"
     : result.passed
       ? "passed"
       : toGo > 0

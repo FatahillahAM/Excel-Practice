@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   createAttempt: vi.fn(),
   listProgressAttempts: vi.fn(),
   generateExamWorkbook: vi.fn(),
+  registry: null as null | import("@/core/content/level-module").LevelModule[],
 }));
 const SUPABASE = { session: true };
 const ID = "0b9e0d6c-3f1a-4c2e-9d55-8a7b6c5d4e3f";
@@ -37,10 +38,12 @@ vi.mock("@/adapters/supabase/service", () => ({ createServiceClient: () => ({ se
 vi.mock("@/adapters/workbook/generate", () => ({ generateExamWorkbook: mocks.generateExamWorkbook }));
 vi.mock("@/content/levels", async () => {
   const { FIXTURE_LEVELS } = await import("@/core/content/__fixtures__/levels");
+  mocks.registry = [...FIXTURE_LEVELS];
   return {
-    levels: FIXTURE_LEVELS,
+    // Mutated in place per test (`setRegistry`), so the action reads the current list.
+    levels: mocks.registry,
     findItem: (itemId: string) => {
-      for (const level of FIXTURE_LEVELS) {
+      for (const level of mocks.registry!) {
         const item = level.items.find((candidate) => candidate.id === itemId);
         if (item) return { level, item };
       }
@@ -49,6 +52,8 @@ vi.mock("@/content/levels", async () => {
   };
 });
 
+import { FIXTURE_LEVELS, fixtureLevel } from "@/core/content/__fixtures__/levels";
+import type { LevelModule } from "@/core/content/level-module";
 import { SCORE_79, SCORE_80 } from "@/core/grading/__fixtures__/results";
 import { startAttempt } from "./start-actions";
 
@@ -72,8 +77,13 @@ async function start(itemId: string) {
   }
 }
 
+function setRegistry(modules: readonly LevelModule[]) {
+  mocks.registry!.splice(0, mocks.registry!.length, ...modules);
+}
+
 let errors: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
+  setRegistry(FIXTURE_LEVELS);
   mocks.createAttempt.mockResolvedValue({ ok: true, id: ID });
   mocks.generateExamWorkbook.mockResolvedValue({ bytes: new Uint8Array([1]), templateVersion: 1 });
   mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [] });
@@ -90,7 +100,7 @@ afterEach(() => {
 describe("startAttempt gate", () => {
   it("refuses a locked Test (4 practices) with a typed reason and creates nothing", async () => {
     mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: fivePractices().slice(0, 4) });
-    expect(await start("L01-T")).toEqual({ status: "refused", reason: "test_locked" });
+    expect(await start("L01-T")).toEqual({ status: "refused", reason: "test_locked", toGo: 1 });
     expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
     expect(mocks.createAttempt).not.toHaveBeenCalled();
     expect(errors.mock.calls.map((c: unknown[]) => JSON.parse(String(c[0])))).toEqual([
@@ -118,6 +128,27 @@ describe("startAttempt gate", () => {
   it("retakes a failed Test at once", async () => {
     mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [...fivePractices(), graded("L01-T", SCORE_79)] });
     expect(await start("L01-T")).toEqual({ redirected: `/exam/${ID}?download=1` });
+  });
+
+  it("L1 passed with a registry lacking L2: L02-P1 refused as Under Construction", async () => {
+    setRegistry([FIXTURE_LEVELS[0]]);
+    mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [...fivePractices(), graded("L01-T", SCORE_80)] });
+    expect(await start("L02-P1")).toEqual({ status: "refused", reason: "under_construction" });
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it("L4 passed: L05-P1 refused (V1 ends), even with a Level 5 module", async () => {
+    setRegistry([...FIXTURE_LEVELS, fixtureLevel(5)]);
+    const value = [1, 2, 3, 4].flatMap((n) => [...fivePractices(n), graded(`L0${n}-T`, SCORE_80)]);
+    mocks.listProgressAttempts.mockResolvedValue({ ok: true, value });
+    expect(await start("L05-P1")).toEqual({ status: "refused", reason: "under_construction" });
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it("a crafted L01-P5 on a new account is refused (practice order)", async () => {
+    expect(await start("L01-P5")).toEqual({ status: "refused", reason: "practice_locked" });
+    expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
   });
 
   it("starts a done practice again (Practice again) through the same path", async () => {

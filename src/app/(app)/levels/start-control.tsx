@@ -3,7 +3,8 @@
 import { Play, RotateCcw } from "lucide-react";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { phoneStartMessage, startMessages, startRefusedMessage } from "@/messages/id";
+import { phoneStartMessage, startMessages, startRefusedMessages } from "@/messages/id";
+import { PRACTICE_COUNT, testLockLine } from "./level-panel";
 import { startAttempt, type StartState } from "./start-actions";
 import { BLOCKED_MESSAGE, type StartLock } from "./start-lock";
 
@@ -32,7 +33,8 @@ const ON_PHONE_SHOWN = "hidden [@media(pointer:coarse)_and_(max-width:1023px)]:f
  * quieter row button; `reasonId` points at a lock caption rendered elsewhere
  * (the panel shows it once) instead of this control's own. On a phone
  * (`PHONE_QUERY`) the form is hidden by CSS and a look-alike button shows
- * the phone message inline (polite) and calls nothing.
+ * the phone message inline (polite) and calls nothing; with `lock` it is
+ * `aria-disabled` and described by the lock reason instead.
  */
 export function StartControl({
   itemId,
@@ -75,7 +77,7 @@ export function StartControl({
   );
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-2">
       <form
         action={lock ? undefined : formAction}
         onSubmit={lock ? (event) => event.preventDefault() : undefined}
@@ -103,54 +105,62 @@ export function StartControl({
           <Icon aria-hidden="true" className={cn("size-4", variant === "primary" && "fill-current stroke-none")} />
           {pending ? "Starting…" : caption}
         </button>
-        {lock && !reasonId && (
-          <p id={lockId} className="text-xs leading-[1.4] font-medium text-muted-foreground">
-            {lock.reason}
-            {lock.attemptId && (
-              <>
-                {" "}
-                <AttemptLink attemptId={lock.attemptId} />
-              </>
-            )}
-          </p>
-        )}
-        <div id={messageId} role="alert" className="min-h-5 text-xs leading-[1.4] font-medium">
-          {state.status === "error" && (
-            <span lang="id" className="text-destructive">
-              {startMessages[state.error]}
-            </span>
-          )}
-          {state.status === "refused" && (
-            <span lang="id" className="text-destructive">
-              {startRefusedMessage}
-            </span>
-          )}
-          {!lock && state.status === "blocked" && (
-            <span>
-              {BLOCKED_MESSAGE}
-              {state.attemptId && (
-                <>
-                  {" "}
-                  <AttemptLink attemptId={state.attemptId} />
-                </>
-              )}
-            </span>
-          )}
-        </div>
       </form>
       <div data-slot="phone-start" className={cn("flex-col gap-2", ON_PHONE_SHOWN)}>
-        <div id={phoneId} role="status" aria-live="polite" lang="id" className="text-xs leading-[1.4] font-medium empty:hidden">
-          {phoneTapped ? phoneStartMessage : null}
-        </div>
         <button
           type="button"
-          onClick={() => setPhoneTapped(true)}
-          aria-describedby={phoneId}
-          className={cn(look, width, "min-h-11 bg-muted text-muted-foreground")}
+          onClick={lock ? undefined : () => setPhoneTapped(true)}
+          aria-disabled={lock ? true : undefined}
+          aria-describedby={lock ? lockId : phoneId}
+          className={cn(
+            look,
+            width,
+            "min-h-11",
+            lock ? "cursor-not-allowed bg-muted text-muted-foreground" : "border border-border bg-card text-foreground",
+          )}
         >
           <Icon aria-hidden="true" className={cn("size-4", variant === "primary" && "fill-current stroke-none")} />
           {caption}
         </button>
+        <div id={phoneId} role="status" aria-live="polite" lang="id" className="text-xs leading-[1.4] font-medium empty:hidden">
+          {phoneTapped ? phoneStartMessage : null}
+        </div>
+      </div>
+      {lock && !reasonId && (
+        <p id={lockId} className="text-xs leading-[1.4] font-medium text-muted-foreground">
+          {lock.reason}
+          {lock.attemptId && (
+            <>
+              {" "}
+              <AttemptLink attemptId={lock.attemptId} />
+            </>
+          )}
+        </p>
+      )}
+      <div id={messageId} role="alert" className="min-h-5 text-xs leading-[1.4] font-medium">
+        {state.status === "error" && (
+          <span lang="id" className="text-destructive">
+            {startMessages[state.error]}
+          </span>
+        )}
+        {state.status === "refused" && (
+          <span lang="id" className="text-destructive">
+            {state.reason === "test_locked"
+              ? testLockLine(state.toGo ?? PRACTICE_COUNT)
+              : startRefusedMessages[state.reason]}
+          </span>
+        )}
+        {!lock && state.status === "blocked" && (
+          <span>
+            {BLOCKED_MESSAGE}
+            {state.attemptId && (
+              <>
+                {" "}
+                <AttemptLink attemptId={state.attemptId} />
+              </>
+            )}
+          </span>
+        )}
       </div>
     </div>
   );

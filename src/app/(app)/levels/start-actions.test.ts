@@ -393,7 +393,13 @@ describe("startAttempt", () => {
   });
 
   it("refuses an unknown item", async () => {
-    expect(await start(form({ itemId: "L09-P5", timeZone: "Asia/Jakarta" }))).toEqual({ status: "error", error: "startFailed" });
+    expect(await start(form({ itemId: "L09-P5", timeZone: "Asia/Jakarta" }))).toEqual({ status: "refused", reason: "under_construction" });
+    expect(await start(form({ itemId: "nope", timeZone: "Asia/Jakarta" }))).toEqual({ status: "refused", reason: "unknown_item" });
+    const lines = errors.mock.calls.map((args) => JSON.parse(String(args[0])));
+    expect(lines).toEqual([
+      { event: "attempt.start_refused", reason: "under_construction" },
+      { event: "attempt.start_refused", reason: "unknown_item" },
+    ]);
     expect(mocks.generateExamWorkbook).not.toHaveBeenCalled();
     expect(mocks.createAttempt).not.toHaveBeenCalled();
   });

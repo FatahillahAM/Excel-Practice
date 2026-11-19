@@ -47,16 +47,19 @@ export function LevelDetailPanel({
   level,
   completed = new Set<string>(),
   result,
+  state = "active",
   startLock,
 }: {
   level: LevelModule;
   completed?: ReadonlySet<string>;
   result?: TestResult;
+  /** The level's progress state (`levelProgress`): only an active or passed level shows its panel. */
+  state?: "active" | "passed";
   startLock?: StartLock;
 }) {
   const panel = levelPanel(level, completed, result);
   const headingId = `level-${level.id}-heading`;
-  const passed = panel.test.status === "passed";
+  const passed = state === "passed";
   // The lock reason is shown once: under the Primary Button, else in its own line.
   const lockLineId = panel.primary ? `start-${panel.primary.itemId}-lock` : `level-${level.id}-lock`;
   const again = (itemId: string) => (
@@ -171,7 +174,9 @@ export function LevelDetailPanel({
         </table>
       </div>
 
-      {level.number === V1_LAST_LEVEL && passed && <p className="font-bold text-primary">{V1_END_LINE}</p>}
+      {level.number === V1_LAST_LEVEL && panel.test.status === "passed" && (
+        <p className="font-bold text-primary">{V1_END_LINE}</p>
+      )}
 
       {panel.primary ? (
         <div className="pt-1">

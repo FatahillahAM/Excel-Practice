@@ -128,16 +128,22 @@ export function v1Complete(progress: readonly Pick<LevelProgress, "number" | "st
 }
 
 /** Why Start refuses an item (no attempt is created). */
-export type StartRefusal = "unknown_item" | "under_construction" | "level_locked" | "test_locked";
+export type StartRefusal = "unknown_item" | "under_construction" | "level_locked" | "test_locked" | "practice_locked";
 
-export type StartCheck = { ok: true; practiceAgain: boolean } | { ok: false; reason: StartRefusal };
+export type StartCheck =
+  | { ok: true; practiceAgain: boolean }
+  /** `toGo`: practices still to do, with `test_locked`. */
+  | { ok: false; reason: StartRefusal; toGo?: number };
 
 /**
  * Whether `itemId` may be started now (the server Start gate, CAP-9): the
  * item is in `modules`, its level is active or passed, and a Test needs
- * `PRACTICES_FOR_TEST` practices done. A done practice or a passed Test is a
- * Practice again; a failed Test can be retaken at once. An open attempt is
- * not checked here (the database allows one at a time).
+ * `PRACTICES_FOR_TEST` practices done. Practices go in order: practice N
+ * needs every earlier practice with content done (as the panel's "next");
+ * a done practice or a passed Test is a Practice again; a failed Test can be
+ * retaken at once. An item id of a curriculum level without content is
+ * Under Construction; anything else unknown is `unknown_item`. An open
+ * attempt is not checked here (the database allows one at a time).
  */
 export function canStart(progress: readonly LevelProgress[], modules: readonly LevelModule[], itemId: string): StartCheck {
   for (const mod of modules) {
@@ -146,9 +152,20 @@ export function canStart(progress: readonly LevelProgress[], modules: readonly L
     const level = progress.find((entry) => entry.number === mod.number);
     if (!level || level.state === "under_construction") return { ok: false, reason: "under_construction" };
     if (level.state === "locked") return { ok: false, reason: "level_locked" };
-    if (item.kind === "practice") return { ok: true, practiceAgain: level.practicesDone.has(item.number) };
-    if (level.practicesDone.size < PRACTICES_FOR_TEST) return { ok: false, reason: "test_locked" };
+    if (item.kind === "practice") {
+      if (level.practicesDone.has(item.number)) return { ok: true, practiceAgain: true };
+      const skipped = mod.items.some(
+        (other) => other.kind === "practice" && other.number < item.number && !level.practicesDone.has(other.number),
+      );
+      return skipped ? { ok: false, reason: "practice_locked" } : { ok: true, practiceAgain: false };
+    }
+    if (level.practicesDone.size < PRACTICES_FOR_TEST) {
+      return { ok: false, reason: "test_locked", toGo: PRACTICES_FOR_TEST - level.practicesDone.size };
+    }
     return { ok: true, practiceAgain: level.testPassed };
   }
+  const match = /^L(\d{2})-(P[1-5]|T)$/.exec(itemId);
+  const level = match ? progress.find((entry) => entry.number === Number(match[1])) : undefined;
+  if (level?.state === "under_construction") return { ok: false, reason: "under_construction" };
   return { ok: false, reason: "unknown_item" };
 }

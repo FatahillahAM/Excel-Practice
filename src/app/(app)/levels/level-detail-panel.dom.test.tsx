@@ -52,8 +52,9 @@ describe("LevelDetailPanel labels (fixture Level 1)", () => {
     expect(realButtons("Practice again")).toHaveLength(6);
     expect(screen.queryByText(V1_END_LINE)).toBeNull();
     unmount();
-    render(<LevelDetailPanel level={L4} completed={ids(4)} result={{ passed: true, attempted: true }} />);
+    render(<LevelDetailPanel level={L4} completed={ids(4)} result={{ passed: true, attempted: true }} state="passed" />);
     expect(screen.getByText(V1_END_LINE)).toBeTruthy();
+    expect(screen.getByText(/Level 4 · Passed/)).toBeTruthy();
   });
 });
 
@@ -104,5 +105,24 @@ describe("phone gating", () => {
     await user.click(phoneButtons("Practice again")[0]);
     expect(screen.getAllByText(phoneStartMessage)).toHaveLength(2);
     expect(mocks.startAttempt).not.toHaveBeenCalled();
+  });
+
+  it("with a lock the phone buttons are aria-disabled, described by the reason, and show no phone message", async () => {
+    const user = userEvent.setup();
+    render(<LevelDetailPanel level={L1} completed={ids(1, 2)} startLock={{ reason: BLOCKED_MESSAGE }} />);
+    for (const button of [...phoneButtons("Start Practice 3"), ...phoneButtons("Practice again")]) {
+      expect(button.getAttribute("aria-disabled")).toBe("true");
+      const describedBy = button.getAttribute("aria-describedby")!;
+      expect(document.getElementById(describedBy)?.textContent).toBe(BLOCKED_MESSAGE);
+      await user.click(button);
+    }
+    expect(screen.queryByText(phoneStartMessage)).toBeNull();
+    expect(mocks.startAttempt).not.toHaveBeenCalled();
+  });
+
+  it("the phone status comes after the button", () => {
+    render(<LevelDetailPanel level={L1} completed={ids(1, 2)} />);
+    const slot = phoneButtons("Start Practice 3")[0].closest('[data-slot="phone-start"]')!;
+    expect(slot.lastElementChild?.getAttribute("role")).toBe("status");
   });
 });

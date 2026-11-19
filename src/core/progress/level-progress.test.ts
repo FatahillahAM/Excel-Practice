@@ -81,12 +81,12 @@ describe("gates on fixture Levels 1–4 (matrix)", () => {
   it("Test locked with 4 practices: server refuses, 1 to go", () => {
     const attempts = practices(1, 4);
     expect(levelProgress(attempts, FIXTURE_LEVELS)[0].practicesDone.size).toBe(4);
-    expect(check(attempts, "L01-T")).toEqual({ ok: false, reason: "test_locked" });
+    expect(check(attempts, "L01-T")).toEqual({ ok: false, reason: "test_locked", toGo: 1 });
   });
 
   it("Test opens after 5 distinct practices, any score (0 counts)", () => {
     expect(check([...practices(1, 4), at("L01-P5", 0)], "L01-T")).toEqual({ ok: true, practiceAgain: false });
-    expect(check([...practices(1, 4), at("L01-P4", 90)], "L01-T")).toEqual({ ok: false, reason: "test_locked" });
+    expect(check([...practices(1, 4), at("L01-P4", 90)], "L01-T")).toEqual({ ok: false, reason: "test_locked", toGo: 1 });
   });
 
   it("Test 80 passes: Level 1 passed, Level 2 active and startable", () => {
@@ -123,7 +123,7 @@ describe("gates on fixture Levels 1–4 (matrix)", () => {
     const modules = [FIXTURE_LEVELS[0]];
     const attempts = [...practices(1), at("L01-T", 90)];
     expect(levelProgress(attempts, modules)[1].state).toBe("under_construction");
-    expect(check(attempts, "L02-P1", modules)).toEqual({ ok: false, reason: "unknown_item" });
+    expect(check(attempts, "L02-P1", modules)).toEqual({ ok: false, reason: "under_construction" });
     expect(check(attempts, "L02-P1", [FIXTURE_LEVELS[0], fixtureLevel(2, { phase: "next" })])).toEqual({ ok: false, reason: "under_construction" });
   });
 
@@ -134,11 +134,25 @@ describe("gates on fixture Levels 1–4 (matrix)", () => {
     const [a, b] = [levelProgress(before, FIXTURE_LEVELS)[0], levelProgress(after, FIXTURE_LEVELS)[0]];
     expect([...b.practicesDone].sort()).toEqual([...a.practicesDone].sort());
     expect(b.state).toBe(a.state);
-    expect(check(after, "L01-T")).toEqual({ ok: false, reason: "test_locked" });
+    expect(check(after, "L01-T")).toEqual({ ok: false, reason: "test_locked", toGo: 2 });
   });
 
-  it("unknown item L09-P1 is refused", () => {
-    expect(check([], "L09-P1")).toEqual({ ok: false, reason: "unknown_item" });
+  it("unknown items are refused: L09-P1 (no content) Under Construction, a malformed id unknown", () => {
+    expect(check([], "L09-P1")).toEqual({ ok: false, reason: "under_construction" });
+    expect(check([], "X-1")).toEqual({ ok: false, reason: "unknown_item" });
+  });
+
+  it("practices go in order: P5 on a new account refused, P2 after P1 allowed, a done one is Practice again", () => {
+    expect(check([], "L01-P5")).toEqual({ ok: false, reason: "practice_locked" });
+    expect(check([], "L01-P1")).toEqual({ ok: true, practiceAgain: false });
+    expect(check([at("L01-P1", 0)], "L01-P2")).toEqual({ ok: true, practiceAgain: false });
+    expect(check([at("L01-P1", 0)], "L01-P3")).toEqual({ ok: false, reason: "practice_locked" });
+  });
+
+  it("a practice without content does not block the next one (same as the panel's next)", () => {
+    const gappy = { ...FIXTURE_LEVELS[0], items: FIXTURE_LEVELS[0].items.filter((item) => item.id !== "L01-P2") };
+    expect(check([at("L01-P1", 0)], "L01-P3", [gappy])).toEqual({ ok: true, practiceAgain: false });
+    expect(check([], "L01-P3", [gappy])).toEqual({ ok: false, reason: "practice_locked" });
   });
 
   it("a practice of a locked level is refused", () => {

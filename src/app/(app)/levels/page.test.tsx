@@ -55,11 +55,11 @@ describe("/levels — Level Detail Panel Level 1", () => {
     expect(html).toContain("$ references · Excel Table (Ctrl+T) · Sort &amp; Filter");
   });
 
-  it("shows five practice rows and the Test row with their statuses", () => {
+  it("shows five practice rows and the Test row with their statuses (no Test content: unavailable)", () => {
     expect(body.match(/<tr\b/g)).toHaveLength(6);
-    expect(body.match(/Not available yet/g)).toHaveLength(4);
+    expect(body.match(/Not available yet/g)).toHaveLength(5);
     expect(body).toContain("Next");
-    expect(body).toContain("Test opens after 5 practices — 5 to go.");
+    expect(body).not.toContain("Test opens after 5 practices");
     for (const header of ["Item", "Best", "Record"]) {
       expect(html).toMatch(new RegExp(`<th scope="col"[^>]*>${header}</th>`));
     }
@@ -161,6 +161,19 @@ describe("/levels — progress (the Dashboard's read)", () => {
     expect(markup).toContain("✓ Done");
     expect(markup.match(/data-pip="done"/g)).toHaveLength(1);
     expect(markup).not.toContain("Start Practice 1");
+  });
+
+  it("no active or passed level (nothing open): an empty state, no panel or Start", async () => {
+    mocks.loadProgress.mockResolvedValue(NO_PROGRESS.map((entry) => ({ ...entry, state: "locked" })));
+    const markup = await renderPage();
+    expect(markup).toContain("No level is open yet.");
+    expect(markup).not.toContain("practices done");
+    expect(markup).not.toContain('type="submit"');
+  });
+
+  it("a passed level with nothing active: its panel, header Passed", async () => {
+    mocks.loadProgress.mockResolvedValue(NO_PROGRESS.map((entry) => (entry.number === 1 ? { ...entry, state: "passed" } : entry)));
+    expect(await renderPage()).toContain("Level 1 · Passed");
   });
 
   it("a failed read: the first-load message with Try again, no panel, counts or Start", async () => {
