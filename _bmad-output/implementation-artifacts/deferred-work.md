@@ -204,7 +204,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-streak-freeze-streak-hero-plan.md`
   summary: The "Streak restarted" message (EXPERIENCE.md › Streak Hero states) was deferred from 4.2 because a one-time message seemed to need storage.
   evidence: 4.2 Implementation Notes and Open Questions; AD-7 allows no stored state but freezes.
-  status: done — derived, nothing stored: `streak().restarted` is true only on the day after a reset (today and yesterday not covered, the day before covered) and Streak Hero shows `streakMessages.restarted` at zero; tests in `streak.test.ts` and `streak-hero.dom.test.tsx` (sweep 4.6, 2026-11-20).
+  status: done — derived, nothing stored: `streak().restarted` is true on the first visit after a reset (today and yesterday not covered, a covered day 2–7 days back; a freeze today ends it) and Streak Hero shows `streakMessages.restarted` at zero; tests in `streak.test.ts` and `streak-hero.dom.test.tsx` (sweep 4.6, 2026-11-20).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-gerbang-test-practice-again-hp-plan.md`
   summary: A stored Result that no longer matches `resultSchema` is dropped from progress and could hide a passed Test (4.3 Review Triage Log, accepted).
   evidence: 4.3 review; prod Results all validate today.
@@ -221,3 +221,27 @@
   summary: Manual checks after the Level Map merge: Chrome scene plays, Firefox / reduced motion static frame, phone sheet (4.5 Review Triage Log).
   evidence: 4.5 Production Follow-up and Production Evidence.
   status: done — user checked on Production: timed intro playing (Firefox too, after the switch from the scroll timeline), static under reduced motion, phone sheet (user, 2026-11-20) (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-streak-freeze-streak-hero-plan.md`
+  summary: A freeze used at streak 0 yields a 1-day streak (4.2 Review Triage Log, accepted).
+  evidence: 4.2 review; Use freeze is shown de-emphasised at zero by approved decision.
+  status: accepted — consistent with the approved "Use freeze shown de-emphasised at 0"; a frozen day counts as covered. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-streak-freeze-streak-hero-plan.md`
+  summary: Streak Hero streams in its own Suspense boundary (4.2 Review Triage Log, accepted).
+  evidence: 4.2 review; the numeral is in the server HTML (no client fetch), `page.test.tsx` checks it.
+  status: accepted — the Level Path and the hero load independently; the final numeral still arrives in the server HTML. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-records-new-record-panel-80-plan.md`
+  summary: Records runs three parallel reads: records, capped progress for `canStart`, time zone (4.4 Review Triage Log, accepted).
+  evidence: 4.4 review.
+  status: accepted — the reads run in parallel and the narrow records read is uncapped; merging them would bring back the 5000-row cap. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-records-new-record-panel-80-plan.md`
+  summary: Records rows validate only an integer score 0–100, not the full Result (4.4 Review Triage Log, accepted).
+  evidence: 4.4 review; `listRecordAttempts` reads `result->score`.
+  status: accepted — keeps the read narrow; a non-integer or out-of-range score drops the row. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-records-new-record-panel-80-plan.md`
+  summary: The "New record" badge shows only on live Results, not on History detail; the ≥80 tint also shows on History (static) (4.4 Review Triage Log, accepted).
+  evidence: 4.4 review.
+  status: accepted — "New record" is a moment of the attempt just finished; History shows the past result. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-level-map-detail-panel-3d-plan.md`
+  summary: The phone sheet's hidden dialog title repeats the level name for screen readers (4.5 Review Triage Log, accepted).
+  evidence: 4.5 review; the dialog library warns without a title.
+  status: accepted — the dialog needs an accessible name; the repeat is one short heading. No code (sweep 4.6, 2026-11-20).

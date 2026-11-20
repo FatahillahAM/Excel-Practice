@@ -12,6 +12,9 @@
 /** Freezes per ISO week; unused ones do not carry over. */
 export const FREEZES_PER_WEEK = 2;
 
+/** How far back (days) a covered day still makes today's zero a "restarted" streak. */
+export const RESTARTED_WINDOW_DAYS = 7;
+
 /** One day of the Week Strip (Monday first). */
 export type DayStatus = "done" | "frozen" | "missed" | "pending" | "future";
 
@@ -31,9 +34,10 @@ export interface Streak {
   /** Today has a freeze. */
   frozenToday: boolean;
   /**
-   * The streak ended yesterday: today and yesterday are not covered, the day
-   * before yesterday is. Derived, nothing stored: true on the one day after a
-   * reset, until today is covered ("Streak restarted", EXPERIENCE.md).
+   * The streak was reset: today and yesterday are not covered, and a day 2–7
+   * days back is. Derived, nothing stored: shown on the first visit after a
+   * reset, also when the user returns days later, until today is covered
+   * (a freeze included) ("Streak restarted", EXPERIENCE.md).
    */
   restarted: boolean;
   /** Milliseconds until 00:00 of the next local day. */
@@ -130,7 +134,10 @@ export function streak({
   for (let day = covered(today) ? today : addDays(today, -1); covered(day); day = addDays(day, -1)) count++;
 
   const yesterday = addDays(today, -1);
-  const restarted = !covered(today) && !covered(yesterday) && covered(addDays(today, -2));
+  let restarted = false;
+  if (!covered(today) && !covered(yesterday)) {
+    for (let back = 2; back <= RESTARTED_WINDOW_DAYS && !restarted; back++) restarted = covered(addDays(today, -back));
+  }
 
   const msLeft = Math.max(0, startOfLocalDay(addDays(today, 1), zone) - now.getTime());
 

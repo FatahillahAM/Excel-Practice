@@ -109,17 +109,32 @@ describe("Abandon dialog in the DOM", () => {
     expect(slot().textContent).toBe(attemptMessages.abandonFailed);
   });
 
-  it("done: the dialog closes and focus moves to the page title, also when the card unmounts", async () => {
+  it("done: the dialog closes and focus moves to the page title", async () => {
     mocks.abandonAttempt.mockResolvedValue({ status: "done" });
     const user = userEvent.setup();
-    const { rerender } = render(<Page />);
+    render(<Page />);
     await user.click(trigger());
     await user.click(confirm());
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Dashboard" }));
+  });
 
-    rerender(<Page card={false} />);
+  it("done while the card unmounts in the same update: focus still lands on the page title", async () => {
+    let resolve!: (s: unknown) => void;
+    mocks.abandonAttempt.mockReturnValue(new Promise((r) => (resolve = r)));
+    const user = userEvent.setup();
+    const { rerender } = render(<Page />);
+    await user.click(trigger());
+    await user.click(confirm());
+    expect(confirm().textContent).toBe("Abandoning…");
+
+    await act(async () => {
+      resolve({ status: "done" });
+      rerender(<Page card={false} />);
+    });
     await act(async () => new Promise((r) => setTimeout(r, 0)));
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Abandon" })).toBeNull();
     expect(document.activeElement).toBe(screen.getByRole("heading", { name: "Dashboard" }));
   });
 });

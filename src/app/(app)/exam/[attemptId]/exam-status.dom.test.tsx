@@ -150,9 +150,16 @@ describe("ExamStatus in the DOM", () => {
 
     queue = [answer("received")];
     fallback = answer("received");
+    const clearInterval = vi.spyOn(window, "clearInterval");
     await pass(POLL_MS);
     expect(statusLineText()).toBe("File received — grading…");
     expect(screen.queryByText(/^\d{2}:\d{2}$/)).toBeNull();
+    // The one-second interval is cleared, not just hidden.
+    expect(clearInterval).toHaveBeenCalled();
+    const timers = vi.getTimerCount();
+    await pass(1000);
+    expect(vi.getTimerCount()).toBeLessThanOrEqual(timers);
+    clearInterval.mockRestore();
   });
 
   it("(f) tick: a poll's elapsedSeconds re-anchors the time to the server's", async () => {
