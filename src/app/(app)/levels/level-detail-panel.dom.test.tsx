@@ -126,3 +126,43 @@ describe("phone gating", () => {
     expect(slot.lastElementChild?.getAttribute("role")).toBe("status");
   });
 });
+
+describe("LevelDetailPanel eyebrow, read-only states and records", () => {
+  const eyebrow = () => document.querySelector('[data-slot="panel-eyebrow"]')?.textContent;
+
+  it.each([
+    ["active", "Level 1 · Active"],
+    ["passed", "Level 1 · Passed"],
+    ["locked", "Level 1 · Locked"],
+    ["under_construction", "Level 1 · Under Construction"],
+  ] as const)("state %s: eyebrow %s", (state, text) => {
+    render(<LevelDetailPanel level={L1} state={state} />);
+    expect(eyebrow()).toBe(text);
+  });
+
+  it("locked: the reason, no Start or Practice again, no rows", () => {
+    render(<LevelDetailPanel level={L4} state="locked" completed={ids(4)} />);
+    expect(screen.getByText("Pass Test Level 3 to unlock.")).toBeTruthy();
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+    expect(screen.queryByRole("table")).toBeNull();
+  });
+
+  it("Under Construction: the Tag, no Start", () => {
+    render(<LevelDetailPanel level={L4} state="under_construction" />);
+    expect(document.querySelector('[data-slot="under-construction-tag"]')?.textContent).toBe("Under Construction");
+    expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("the heading takes programmatic focus (tabIndex -1)", () => {
+    render(<LevelDetailPanel level={L1} />);
+    expect(screen.getByRole("heading", { level: 2 }).getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("record time and best score per row, the phone caption too; — without an attempt", () => {
+    const rec = { itemId: "L01-P2", attemptId: "a", seconds: 3725, receivedAt: "2026-11-02T01:10:00Z", score: 60 };
+    render(<LevelDetailPanel level={L1} completed={ids(1, 2)} records={new Map([["L01-P2", rec]])} bestScores={new Map([["L01-P2", 85]])} />);
+    const times = [...document.querySelectorAll('[data-slot="record-time"]')].map((cell) => cell.textContent);
+    expect(times).toEqual(["—", "1:02:05", "—", "—", "—", "—"]);
+    expect(screen.getByText("Best 85 · 1:02:05")).toBeTruthy();
+  });
+});

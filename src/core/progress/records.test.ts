@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GradedAttempt } from "./level-progress";
-import { isNewRecord, records } from "./records";
+import { bestScores, isNewRecord, records } from "./records";
 
 const START = Date.parse("2026-11-02T01:00:00Z");
 let seq = 0;
@@ -84,5 +84,22 @@ describe("records", () => {
 
   it("empty: no records", () => {
     expect(records([]).size).toBe(0);
+  });
+});
+
+describe("bestScores", () => {
+  it("keeps the highest score per item, timed or not", () => {
+    const a = (id: string, itemId: string, score: number, receivedAt: string | null): GradedAttempt => ({
+      id,
+      itemId,
+      score,
+      startedAt: "2026-11-02T01:00:00Z",
+      receivedAt,
+    });
+    const best = bestScores([a("1", "L01-P1", 70, "2026-11-02T01:10:00Z"), a("2", "L01-P1", 95, null), a("3", "L01-T", 40, null)]);
+    expect([...best]).toEqual([
+      ["L01-P1", 95],
+      ["L01-T", 40],
+    ]);
   });
 });

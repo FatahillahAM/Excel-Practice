@@ -4,7 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn(), loadProgress: vi.fn() }));
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
 vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
-vi.mock("../progress", () => ({ loadProgress: mocks.loadProgress }));
+// The page reads `loadRecords`; these tests drive its progress (no records).
+vi.mock("../progress", () => ({
+  loadRecords: async () => {
+    const progress = await mocks.loadProgress();
+    return progress === "failed" ? "failed" : { records: new Map(), bestScores: new Map(), progress, timeZone: "Asia/Jakarta" };
+  },
+}));
 
 import { levels } from "@/content/levels";
 import { levelProgress } from "@/core/progress";
@@ -119,7 +125,7 @@ describe("/levels — Start lock from the attempt in progress", () => {
   it("an attempt in progress: Start aria-disabled, focusable, the reason in aria-describedby, and a link to it", async () => {
     mocks.loadOpenAttempt.mockResolvedValue(OPEN);
     const markup = await renderPage();
-    const button = markup.match(/<button[^>]*>/)?.[0] ?? "";
+    const button = markup.match(/<button type="submit"[^>]*>/)?.[0] ?? "";
     expect(button).toContain('aria-disabled="true"');
     expect(button).not.toMatch(/\sdisabled=""/);
     expect(button).toContain('aria-describedby="start-L01-P1-lock start-L01-P1-message"');
@@ -184,5 +190,38 @@ describe("/levels — progress (the Dashboard's read)", () => {
     expect(markup).not.toContain("practices done");
     expect(markup).not.toContain('type="submit"');
     expect(markup).toContain("Level Map</h1>");
+  });
+});
+
+describe("/levels — Level Map, Skip intro and the Scroll Scene", () => {
+  afterEach(() => mocks.loadProgress.mockResolvedValue(NO_PROGRESS));
+
+  it("'Skip intro' is the first focusable element and jumps to the real Level Path", () => {
+    const first = html.match(/<(a|button|input|select|textarea)\b[^>]*>/)?.[0] ?? "";
+    expect(first).toContain('href="#level-path"');
+    expect(html).toMatch(/<a href="#level-path"[^>]*>Skip intro<\/a>/);
+    expect(html).toMatch(/<nav id="level-path" tabindex="-1" aria-label="Level path"/i);
+  });
+
+  it("the scene is a decorative copy (aria-hidden, inert) in its static end frame markup, nodes lit to the active level", async () => {
+    const at = (itemId: string, score = 90) => ({ id: itemId, itemId, score, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
+    mocks.loadProgress.mockResolvedValue(levelProgress([at("L01-P1")], levels));
+    const markup = await renderPage();
+    const scene = markup.match(/<div aria-hidden="true" inert="" data-scene="level-map"[\s\S]*?<\/svg>[\s\S]*?<\/div><\/div><\/div><\/div>/)?.[0] ?? "";
+    expect(scene).not.toBe("");
+    expect(scene).not.toMatch(/<(a|button|input)\b/);
+    expect(scene.match(/data-lit="true"/g)).toHaveLength(1);
+    expect(scene.match(/data-lit="false"/g)).toHaveLength(8);
+    for (const part of ["laptop", "lid", "xl", "board", "trail", "nodes"]) expect(scene).toContain(`data-lm="${part}"`);
+    // The scene comes before the map; the map, counts and panel are always in the DOM.
+    expect(markup.indexOf('data-scene="level-map"')).toBeLessThan(markup.indexOf('aria-label="Level path"'));
+    expect(markup).toContain("1/5 practices done");
+  });
+
+  it("a failed read: no scene and no Skip intro", async () => {
+    mocks.loadProgress.mockResolvedValue("failed");
+    const markup = await renderPage();
+    expect(markup).not.toContain("data-scene");
+    expect(markup).not.toContain("Skip intro");
   });
 });

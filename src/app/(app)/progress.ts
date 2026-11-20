@@ -5,6 +5,7 @@ import { listFreezes, listStreakDays } from "@/adapters/supabase/freezes";
 import { readTimeZone } from "@/adapters/supabase/profiles";
 import { createClient } from "@/adapters/supabase/server";
 import {
+  bestScores,
   freezesLeft,
   isNewRecord,
   levelProgress,
@@ -58,6 +59,8 @@ export const RECORDS_FALLBACK_ZONE = "Asia/Jakarta";
 /** What /records shows: the best time per item, the progress its Practice again checks (`canStart`), and the date zone. */
 export interface RecordsView {
   records: Map<string, ItemRecord>;
+  /** The best score per item (the Level Detail Panel's "Best" column). */
+  bestScores: Map<string, number>;
   progress: LevelProgress[];
   timeZone: string;
 }
@@ -77,7 +80,7 @@ const validScore = (score: unknown): score is number => typeof score === "number
 export async function loadRecords(): Promise<RecordsView | "failed"> {
   try {
     const user = await getSessionUser();
-    if (!user) return { records: new Map(), progress: levelProgress([], levels), timeZone: RECORDS_FALLBACK_ZONE };
+    if (!user) return { records: new Map(), bestScores: new Map(), progress: levelProgress([], levels), timeZone: RECORDS_FALLBACK_ZONE };
     const supabase = await createClient();
     const [read, progress, zone] = await Promise.all([listRecordAttempts(supabase, user.id), loadProgress(), readTimeZone(supabase, user.id)]);
     if (!read.ok || progress === "failed") return "failed";
@@ -88,7 +91,7 @@ export async function loadRecords(): Promise<RecordsView | "failed"> {
     const orphans = [...best.keys()].filter((itemId) => findItem(itemId) === null);
     if (orphans.length > 0) console.error(JSON.stringify({ event: "records.orphan_items", itemIds: orphans }));
     const timeZone = zone.ok && zone.timeZone !== null ? zone.timeZone : RECORDS_FALLBACK_ZONE;
-    return { records: best, progress, timeZone };
+    return { records: best, bestScores: bestScores(attempts), progress, timeZone };
   } catch (error) {
     unstable_rethrow(error);
     console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));

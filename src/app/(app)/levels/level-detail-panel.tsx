@@ -1,9 +1,12 @@
-import { Check, Flame, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
+import { STATE_ICON, STATE_LABEL } from "@/components/levels/level-node";
 import type { LevelModule } from "@/core/content/level-module";
-import { V1_LAST_LEVEL } from "@/core/progress";
+import { V1_LAST_LEVEL, type ItemRecord, type LevelState } from "@/core/progress";
+import { formatElapsed } from "@/core/services/attempts/elapsed";
 import { cn } from "@/lib/utils";
 import {
   levelPanel,
+  lockedReason,
   PRACTICE_COUNT,
   testLockLine,
   V1_END_LINE,
@@ -17,8 +20,72 @@ import type { StartLock } from "./start-lock";
 const LABEL = "font-mono text-[11px] leading-[1.2] font-bold tracking-[0.1em] uppercase";
 const CAPTION = "text-xs leading-[1.4] font-medium";
 const VALUE = "font-mono text-[15px] font-semibold text-muted-foreground tabular-nums";
-/** Best score and record time wait for the progress model (epic 4). */
+/** An item without a graded (or timed) attempt yet. */
 const NO_VALUE = "—";
+const PANEL = "flex w-full max-w-[430px] flex-col gap-[14px] rounded-lg border border-border bg-card p-4 sm:p-[22px]";
+const HEADING = "text-[32px] leading-[1.1] font-[850] tracking-[-0.025em] outline-none";
+
+/** The eyebrow: the state icon, "Level N · <state>" (or the state alone without a number). */
+function Eyebrow({ number, state }: { number: number | null; state: LevelState }) {
+  const Icon = STATE_ICON[state];
+  const open = state === "active" || state === "passed";
+  return (
+    <p data-slot="panel-eyebrow" className={cn(LABEL, "flex items-center gap-1.5", open ? "text-primary" : "text-muted-foreground")}>
+      <Icon aria-hidden="true" className={cn("size-3.5", state === "locked" && "text-warning")} />
+      {number !== null ? `Level ${number} · ${STATE_LABEL[state]}` : STATE_LABEL[state]}
+    </p>
+  );
+}
+
+/**
+ * The read-only Level Detail Panel of a locked or Under Construction level,
+ * Ujian Akhir or the side track: eyebrow, name, functions when known, and
+ * the reason (locked: "Pass Test Level N-1 to unlock.") or the Under
+ * Construction Tag. No Start anywhere (CAP-1, CAP-15).
+ */
+export function ReadOnlyLevelPanel({
+  idBase,
+  number,
+  name,
+  state,
+  functions,
+}: {
+  idBase: string;
+  number: number | null;
+  name: string;
+  state: "locked" | "under_construction";
+  functions?: readonly string[];
+}) {
+  const headingId = `${idBase}-heading`;
+  return (
+    <section aria-labelledby={headingId} data-readonly="true" className={PANEL}>
+      <div className="flex flex-col gap-1">
+        <Eyebrow number={number} state={state} />
+        <h2 id={headingId} lang="id" className={HEADING} tabIndex={-1}>
+          {name}
+        </h2>
+        {functions && functions.length > 0 && (
+          <p className="font-mono text-xs leading-[1.4] text-muted-foreground">{functions.join(" · ")}</p>
+        )}
+      </div>
+      {state === "locked" && number !== null ? (
+        <p id={`${idBase}-reason`} className="flex items-center gap-1.5 font-medium text-muted-foreground">
+          <Lock aria-hidden="true" className="size-4 shrink-0 text-warning" />
+          {lockedReason(number)}
+        </p>
+      ) : (
+        <p>
+          <span
+            data-slot="under-construction-tag"
+            className={cn(LABEL, "inline-block rounded-[6px] border border-dashed border-border px-2 py-1 text-muted-foreground")}
+          >
+            {STATE_LABEL.under_construction}
+          </span>
+        </p>
+      )}
+    </section>
+  );
+}
 
 const PIP: Record<PipState, string> = {
   done: "bg-primary",
@@ -34,8 +101,9 @@ const PRACTICE_STATUS: Record<PracticeStatus, string> = {
 };
 
 /**
- * Level Detail Panel (DESIGN.md, EXPERIENCE.md; `key-level-map.html`), inline
- * on /levels until the Level Map (epic 4) wraps it in a `Sheet`. Header,
+ * Level Detail Panel (DESIGN.md, EXPERIENCE.md; `key-level-map.html`), opened
+ * from a Level Map node (side panel; bottom sheet on a phone). Eyebrow per
+ * state, best score and record time per row (`records()`, 4.4). Header,
  * Practice Pips with "x/5 practices done", one row per practice and the
  * Test, and one Primary Button in the foot for the next item ("Start
  * Practice N", "Start Test", "Try the Test again"). Done practices and a
@@ -49,14 +117,31 @@ export function LevelDetailPanel({
   result,
   state = "active",
   startLock,
+  records,
+  bestScores,
 }: {
   level: LevelModule;
   completed?: ReadonlySet<string>;
   result?: TestResult;
-  /** The level's progress state (`levelProgress`): only an active or passed level shows its panel. */
-  state?: "active" | "passed";
+  /** The level's progress state (`levelProgress`); locked / Under Construction show the read-only panel. */
+  state?: LevelState;
   startLock?: StartLock;
+  /** Record time per item (`records()`, 4.4). */
+  records?: ReadonlyMap<string, ItemRecord>;
+  /** Best score per item (`bestScores()`). */
+  bestScores?: ReadonlyMap<string, number>;
 }) {
+  if (state === "locked" || state === "under_construction") {
+    return <ReadOnlyLevelPanel idBase={`level-${level.id}`} number={level.number} name={level.name} state={state} functions={level.functions} />;
+  }
+  const best = (itemId: string | null) => {
+    const score = itemId ? bestScores?.get(itemId) : undefined;
+    return score === undefined ? NO_VALUE : String(score);
+  };
+  const time = (itemId: string | null) => {
+    const record = itemId ? records?.get(itemId) : undefined;
+    return record ? formatElapsed(record.seconds) : NO_VALUE;
+  };
   const panel = levelPanel(level, completed, result);
   const headingId = `level-${level.id}-heading`;
   const passed = state === "passed";
@@ -69,16 +154,10 @@ export function LevelDetailPanel({
   );
 
   return (
-    <section
-      aria-labelledby={headingId}
-      className="flex w-full max-w-[430px] flex-col gap-[14px] rounded-lg border border-border bg-card p-4 sm:p-[22px]"
-    >
+    <section aria-labelledby={headingId} className={PANEL}>
       <div className="flex flex-col gap-1">
-        <p className={cn(LABEL, "flex items-center gap-1.5 text-primary")}>
-          {passed ? <Check aria-hidden="true" className="size-3.5" /> : <Flame aria-hidden="true" className="size-3.5" />}
-          Level {level.number} · {passed ? "Passed" : "Active"}
-        </p>
-        <h2 id={headingId} lang="id" className="text-[32px] leading-[1.1] font-[850] tracking-[-0.025em]">
+        <Eyebrow number={level.number} state={passed ? "passed" : "active"} />
+        <h2 id={headingId} lang="id" className={HEADING} tabIndex={-1}>
           {level.name}
         </h2>
         <p className="font-mono text-xs leading-[1.4] text-muted-foreground">{level.functions.join(" · ")}</p>
@@ -128,13 +207,15 @@ export function LevelDetailPanel({
                     </span>
                     {!muted && (
                       <span className={cn(CAPTION, "block text-muted-foreground sm:hidden")}>
-                        Best {NO_VALUE} · {NO_VALUE}
+                        Best {best(practice.itemId)} · {time(practice.itemId)}
                       </span>
                     )}
                     {practice.practiceAgain && practice.itemId && again(practice.itemId)}
                   </td>
-                  <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{NO_VALUE}</td>
-                  <td className={cn(VALUE, "hidden px-3 sm:table-cell")}>{NO_VALUE}</td>
+                  <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{best(practice.itemId)}</td>
+                  <td data-slot="record-time" className={cn(VALUE, "hidden px-3 sm:table-cell")}>
+                    {time(practice.itemId)}
+                  </td>
                 </tr>
               );
             })}
@@ -163,12 +244,14 @@ export function LevelDetailPanel({
                   <span className={cn(CAPTION, "block text-muted-foreground")}>{PRACTICE_STATUS.unavailable}</span>
                 )}
                 <span className={cn(CAPTION, "block text-muted-foreground sm:hidden")}>
-                  Best {NO_VALUE} · {NO_VALUE}
+                  Best {best(panel.test.itemId)} · {time(panel.test.itemId)}
                 </span>
                 {panel.test.practiceAgain && panel.test.itemId && again(panel.test.itemId)}
               </td>
-              <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{NO_VALUE}</td>
-              <td className={cn(VALUE, "hidden px-3 sm:table-cell")}>{NO_VALUE}</td>
+              <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{best(panel.test.itemId)}</td>
+              <td data-slot="record-time" className={cn(VALUE, "hidden px-3 sm:table-cell")}>
+                {time(panel.test.itemId)}
+              </td>
             </tr>
           </tbody>
         </table>

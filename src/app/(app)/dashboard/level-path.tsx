@@ -1,6 +1,7 @@
-import { Check, Construction, Flag, Flame, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
+import { LevelNodeRow } from "@/components/levels/level-node";
 import type { LevelModule } from "@/core/content/level-module";
-import { FINAL_EXAM_NAME, V1_LAST_LEVEL, v1Complete, type LevelProgress, type LevelState } from "@/core/progress";
+import { FINAL_EXAM_NAME, V1_LAST_LEVEL, v1Complete, type LevelProgress } from "@/core/progress";
 import { levels } from "@/content/levels";
 import { cn } from "@/lib/utils";
 import { shellMessages } from "@/messages/id";
@@ -19,16 +20,6 @@ import type { StartLock } from "../levels/start-lock";
 import { loadProgress } from "../progress";
 
 const CARD = "flex w-full flex-col gap-2 rounded-lg border border-border bg-card p-4";
-const LABEL = "font-mono text-[10.5px] leading-[1.2] font-bold tracking-[0.1em] uppercase";
-
-const STATE_LABEL: Record<LevelState, string> = {
-  passed: "Passed",
-  active: "Active",
-  locked: "Locked",
-  under_construction: "Under Construction",
-};
-
-const STATE_ICON = { passed: Check, active: Flame, locked: Lock, under_construction: Construction } as const;
 
 const PIP: Record<PipState, string> = {
   done: "bg-primary",
@@ -67,7 +58,6 @@ export function LevelPathView({
     <nav aria-label="Level path" className="w-full rounded-lg border border-border bg-card p-4 sm:p-[22px]">
       <ol className="flex flex-col gap-2">
         {progress.map((level) => {
-          const Icon = STATE_ICON[level.state];
           const active = level.state === "active";
           const muted = level.state === "locked" || level.state === "under_construction";
           const callout = active ? activeCallout(level, modules) : null;
@@ -82,13 +72,7 @@ export function LevelPathView({
                 muted && "text-muted-foreground",
               )}
             >
-              <div className="flex min-w-0 items-center gap-3">
-                <Icon aria-hidden="true" className={cn("size-4 shrink-0", !muted && "text-primary")} />
-                <span className="min-w-0 flex-1 truncate">
-                  <span className="font-bold">Level {level.number}</span> <span lang="id">{level.name}</span>
-                </span>
-                <span className={cn(LABEL, "shrink-0")}>{STATE_LABEL[level.state]}</span>
-              </div>
+              <LevelNodeRow node={{ key: String(level.number), number: level.number, name: level.name, state: level.state }} />
               {callout && (
                 <div className="flex items-center gap-3">
                   <div aria-hidden="true" className="flex flex-1 gap-1">
@@ -124,12 +108,8 @@ export function LevelPathView({
             </li>
           );
         })}
-        <li data-state="under_construction" className="flex items-center gap-3 rounded-md px-3 py-2 text-muted-foreground">
-          <Flag aria-hidden="true" className="size-4 shrink-0" />
-          <span lang="id" className="min-w-0 flex-1 truncate font-bold">
-            {FINAL_EXAM_NAME}
-          </span>
-          <span className={cn(LABEL, "shrink-0")}>{STATE_LABEL.under_construction}</span>
+        <li data-state="under_construction" className="rounded-md px-3 py-2 text-muted-foreground">
+          <LevelNodeRow node={{ key: "final", number: null, name: FINAL_EXAM_NAME, state: "under_construction", final: true }} />
         </li>
       </ol>
     </nav>

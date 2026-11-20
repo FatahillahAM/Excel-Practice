@@ -142,3 +142,8 @@ export function testResult(
 
 /** EXPERIENCE.md › Level Callout: the line after Level 4's Test passes. */
 export const V1_END_LINE = "Level 4 complete — Level 5 is coming soon";
+
+/** EXPERIENCE.md › Level Node: why a locked level cannot start (its panel and node `aria-describedby`). */
+export function lockedReason(levelNumber: number): string {
+  return `Pass Test Level ${levelNumber - 1} to unlock.`;
+}

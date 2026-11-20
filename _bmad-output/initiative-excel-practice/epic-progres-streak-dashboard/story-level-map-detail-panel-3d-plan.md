@@ -65,12 +65,12 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/components/levels/level-node.tsx` -- shared node (states, aria) used by Level Path and Level Map -- one implementation.
-- [ ] `src/app/(app)/levels/level-map.tsx` (+DOM test) -- full path incl. Ujian Akhir and side-track UC; node opens panel; fixtures for each gate state.
-- [ ] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` (+tests) -- real eyebrow, read-only locked/UC reason, record time per row, focus management, phone bottom sheet -- P4 leftovers.
-- [ ] `src/app/(app)/levels/scroll-scene.tsx`, `globals.css` (+CSS/DOM test) -- decorative scene, Skip intro, static frame under reduced motion / no `animation-timeline` -- D3/AD-12.
-- [ ] `src/app/(app)/levels/page.tsx` (+test) -- wire map, skeleton, failed read.
-- [ ] `deferred-work.md` -- close the 2.6 Level Detail Panel entry (line 83) -- disposition.
+- [x] `src/components/levels/level-node.tsx` -- shared node (states, aria) used by Level Path and Level Map -- one implementation.
+- [x] `src/app/(app)/levels/level-map.tsx` (+DOM test) -- full path incl. Ujian Akhir and side-track UC; node opens panel; fixtures for each gate state.
+- [x] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` (+tests) -- real eyebrow, read-only locked/UC reason, record time per row, focus management, phone bottom sheet -- P4 leftovers.
+- [x] `src/app/(app)/levels/scroll-scene.tsx`, `globals.css` (+CSS/DOM test) -- decorative scene, Skip intro, static frame under reduced motion / no `animation-timeline` -- D3/AD-12.
+- [x] `src/app/(app)/levels/page.tsx` (+test) -- wire map, skeleton, failed read.
+- [x] `deferred-work.md` -- close the 2.6 Level Detail Panel entry (line 83) -- disposition.
 
 **Acceptance Criteria:**
 - Given fixture progress, when /levels renders, then every node shows its state and only the active node has `aria-current="step"`.
@@ -80,6 +80,13 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Approved choices: /levels is replaced by the map; the active level's panel is open on arrival (focus not moved), Start one click away; the scene replays every visit, "Skip intro" (first focusable, `#level-path`), no remembered skip.
+- Shared node: `src/components/levels/level-node.tsx` (`LevelNodeRow` on the Dashboard Level Path, `LevelNode` button on the map). The map is split into a server builder (`level-map.tsx`, renders every node's panel) and a client shell (`level-map-client.tsx`: open state, focus to the panel heading on open, back to the node on Close / `Escape`, phone bottom sheet via the same coarse ≤1023px query as the Start gating).
+- Locked / Under Construction / Ujian Akhir / side track open `ReadOnlyLevelPanel` (reason or Under Construction Tag, no Start). Locked reason via `lockedReason(n)`; node `aria-describedby` points at a `sr-only` copy of it.
+- Records: /levels now reads `loadRecords()` (progress + `records()`); added pure `bestScores()` (records.ts) and `RecordsView.bestScores` for the "Best" column. Record time uses `formatElapsed`.
+- Scene: `scroll-scene.tsx` (`aria-hidden`, `inert`) + `globals.css` › Level Map scene; base styles are the static end frame, animations only inside `@supports (animation-timeline: scroll())` + `prefers-reduced-motion: no-preference`, timeline `scroll()` (nearest scroller). Skeleton: `levels/loading.tsx` reusing `LevelPathSkeleton`.
+- Deferred to 4.6: sidebar level count / "levels passed of 9" (the sidebar does not read progress today; not trivial here).
+- New copy for approval: side-track name "Co-authoring" (from the mockup), "Close" on the panel/sheet.
 
 ## Plan Change Log
 
