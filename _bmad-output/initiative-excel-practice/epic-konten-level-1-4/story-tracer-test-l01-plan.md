@@ -3,13 +3,14 @@ title: 'Tracer: Test L01 dan perlengkapan Test'
 type: 'feature'
 ticket: '1'
 created: '2026-11-20'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '4113f4eac261e8a0c46c7d9ea44d499c6d44efb3'
 context: ['{project-root}/_bmad-output/specs/spec-excel-practice/content-generation.md', '{project-root}/_bmad-output/specs/spec-excel-practice/level-curriculum.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md']
 ---
 
@@ -82,6 +83,8 @@ context: ['{project-root}/_bmad-output/specs/spec-excel-practice/content-generat
 - Given any user, when the sidebar renders, then it shows the active level and "n of 9 levels passed" matching `levelProgress`.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
