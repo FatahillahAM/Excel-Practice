@@ -3,13 +3,14 @@ title: 'Records, "New record" di Results, dan panel ≥80'
 type: 'feature'
 ticket: '4'
 created: '2026-11-19'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: ''
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: 'be8f65a668f943b5ae7204b42255fef262ef78df'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md']
 ---
 
@@ -80,6 +81,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given score ≥80, when Results renders, then the Outcome panel has the glow-soft tint, coin gradient/ring and hover glow border; in static mode nothing animates.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
