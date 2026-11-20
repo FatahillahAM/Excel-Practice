@@ -3,13 +3,14 @@ title: 'Level Map, Level Detail Panel lengkap, dan adegan 3D'
 type: 'feature'
 ticket: '5'
 created: '2026-11-19'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: ''
 review: ''
 review_source: ''
 lenses_ran: []
 review_loop_iteration: 0
+baseline_revision: '9e839eddb43ea0183fbe4cd5d14a3fc65b6f38bc'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-gerbang-test-practice-again-hp-plan.md']
 ---
 
@@ -77,6 +78,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 - Given the panel open from a node, when it closes, then focus returns to that node.
 
 ## Implementation Notes
+
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 
 ## Plan Change Log
 
