@@ -257,6 +257,8 @@ export function ExamStatus({
           // Results counts the score up only after this client move (3.7).
           markResultsCountUp(results);
           router.replace(results);
+          // The shared (app) layout does not re-render on a client move: refresh so the sidebar count follows the grade.
+          router.refresh();
           return;
         }
         const seconds = body.data?.elapsedSeconds;

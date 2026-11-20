@@ -20,6 +20,7 @@ import {
   type ExcelFixture,
   type Variant,
 } from "./__fixtures__/l01-p1";
+import { fondasi } from ".";
 import * as l01t from "./__fixtures__/l01-t";
 
 // Golden fixtures of L01-P1 (spine › fixtures): every code-built variant is
@@ -49,7 +50,7 @@ function decidingChecks(reading: WorkbookReading): CheckName[] {
 
 describe("L01-P1 golden fixtures (code-built)", () => {
   it("the snapshot is seed 7, baut-sinar-presisi, with the plan's keys", () => {
-    expect(snapshot).toMatchObject({ version: 2, contentVersion: 3, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
+    expect(snapshot).toMatchObject({ version: 2, contentVersion: fondasi.contentVersion, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
     expect(snapshot.questions.map((q) => q.range)).toEqual(["H2:H13", "I2:I13", "J2:J13", "O2:R5"]);
     const [q1, q2, q3, q4] = snapshot.questions;
     expect(q1.key.H2).toBeCloseTo(1302148.09, 6);
@@ -194,7 +195,7 @@ describe("L01-T golden fixtures (code-built)", () => {
   const testSnapshot = l01t.fixtureSnapshot();
 
   it("the snapshot is seed 7, baut-sinar-presisi, with six questions and the plan's keys", () => {
-    expect(testSnapshot).toMatchObject({ version: 2, contentVersion: 3, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
+    expect(testSnapshot).toMatchObject({ version: 2, contentVersion: fondasi.contentVersion, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
     expect(testSnapshot.questions.map((q) => q.range)).toEqual(["H2:H13", "I2:I13", "J2:J13", "K2:K13", "R2:U5", "N4"]);
     const [q1, q2, q3, q4, q5, q6] = testSnapshot.questions;
     expect(q1.key.H2).toBe(688);

@@ -52,6 +52,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   fetchMock.mockClear();
   mocks.router.replace.mockReset();
+  mocks.router.refresh.mockReset();
   mocks.retryGrading.mockReset();
 });
 
@@ -126,6 +127,9 @@ describe("ExamStatus in the DOM", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(mocks.router.replace).toHaveBeenCalledTimes(1);
     expect(mocks.router.replace).toHaveBeenCalledWith(`/results/${ID}`);
+    // The layout (sidebar "n of 9 levels passed") is refreshed after the move, once.
+    expect(mocks.router.refresh).toHaveBeenCalledTimes(1);
+    expect(mocks.router.refresh.mock.invocationCallOrder[0]).toBeGreaterThan(mocks.router.replace.mock.invocationCallOrder[0]);
 
     // Leaving: the screen keeps its last state and nothing polls while Results loads.
     await pass(POLL_MS * 5);

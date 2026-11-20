@@ -89,12 +89,22 @@ context: ['{project-root}/_bmad-output/specs/spec-excel-practice/content-generat
 - Deviation: template v1 contract allowed at most 4 questions (`INSTRUCTIONS_CELLS.lines` B6:B10). Extended to B6:B12 (`MAX_QUESTIONS` 6, Finish line B12); B11:B12 are plain (unwrapped) cells in template v1, the template file and VBA are unchanged. Result/snapshot schemas follow the constant (only loosened).
 - Kind without registry: `itemFromId` / `kindFromItemId` in `level-module.ts`; `itemView(itemId)` in `src/content/levels/index.ts` falls back to the id + `CURRICULUM` name, used by Results, History (list + detail), Exam.
 - Sidebar: `curriculumSummary(progress)` in core; `(app)/layout.tsx` calls `loadProgress()` and passes it to AppSidebar and HeaderBar → MobileDrawer → SidebarContent (badge "L{n}", footer "{n} of 9 levels passed" + progressbar; hidden when progress fails). Adds one progress read per signed-in page render (not cached across the page's own read).
+- Review fixes: exam-status calls `router.refresh()` after `router.replace(results)` so the shared layout's sidebar count follows the grade (grading runs in API routes with no client to revalidate, so no `revalidatePath` there); `loadGradedAttempts` wrapped in React `cache()` (layout + page share one read per request); layout uses `loadCurriculumSummary()` (try/catch → `null`, logs `progress.load_failed`); P1 golden asserts `fondasi.contentVersion`.
 - Real-L01-T progress tests live in `01-fondasi/test.test.ts` (lint AD-1 forbids core tests importing content); gate tests with the real registry in `start-actions.gate.test.ts`.
 - Fixtures: code-built `blank/correct/typed-values/wrong-function` variants run now; the Excel 2021 suite `describe.skipIf` until `l01-t-{correct,typed-values,wrong-function}.xlsm` exist (reason in the suite name + console warning). Blank file built to the scratchpad, not committed. Wrong-function = N4 `=LARGE(H2:H13,1)` (85); typed-values = H2:H13 pasted as values (85).
 
 ## Plan Change Log
 
 ## Review Triage Log
+
+One combined reviewer (bugs/edge cases, verification, intent); L01-T keys, points (100) and hints verified across scenarios × seeds.
+
+- Fixed (high): sidebar count stayed stale after grading (shared layout not re-rendered on client navigation); exam-status calls `router.refresh()` after `router.replace(results)`.
+- Fixed: attempts read twice per request; `loadGradedAttempts` wrapped in React `cache()`.
+- Fixed: a throw in the layout's progress derivation could break every page; `loadCurriculumSummary()` catches and hides the summary.
+- Fixed: P1 golden test asserts `fondasi.contentVersion` instead of a hard-coded number.
+- Accepted: template B11:B12 prompt lines are unwrapped (still readable; style in a later template version).
+- Pending (hitl): L01-T Excel 2021 fixtures (correct, typed-values, wrong-function); golden tests skip until the user commits them.
 
 ## Design Notes
 
