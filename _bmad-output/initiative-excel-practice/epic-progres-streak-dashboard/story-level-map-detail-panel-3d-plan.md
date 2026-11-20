@@ -3,7 +3,7 @@ title: 'Level Map, Level Detail Panel lengkap, dan adegan 3D'
 type: 'feature'
 ticket: '5'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: ''
 review: 'thorough'
