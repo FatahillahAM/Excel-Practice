@@ -3,7 +3,7 @@ title: 'Records, "New record" di Results, dan panel ≥80'
 type: 'feature'
 ticket: '4'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: ''
 review: 'thorough'
