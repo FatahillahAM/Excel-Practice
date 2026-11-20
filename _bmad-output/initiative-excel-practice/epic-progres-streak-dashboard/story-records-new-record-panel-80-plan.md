@@ -3,7 +3,7 @@ title: 'Records, "New record" di Results, dan panel ≥80'
 type: 'feature'
 ticket: '4'
 created: '2026-11-19'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: ''
 review: 'thorough'
@@ -84,7 +84,8 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
 - `GradedAttempt` gained `id` (tie-break for "earlier"); test literals in progress/levels tests updated accordingly.
-- `progress.ts`: one private `loadGradedAttempts()` behind `loadProgress`, `loadRecords` and `loadNewRecord` (no extra query); a failed read hides the badge.
+- `progress.ts`: private `loadGradedAttempts()` behind `loadProgress`. Review fix: Records and the badge use narrow uncapped reads instead (`listRecordAttempts`: id/item/times/`result->score`, score validated as an integer 0–100 instead of the full `resultSchema`; `listItemDurations`: one item's id/times, no Result). This replaces the planned "no extra query" so the 5000-row progress cap never hides a best time. `loadNewRecord(itemId, attemptId)` runs only after `loadResult` succeeds; a failed read hides the badge.
+- Records dates use the profile time zone (`readTimeZone`, fallback Asia/Jakarta, also for an unknown zone); a failed open-attempt read locks Practice again with a generic reason (fail closed); record items missing from the registry log `records.orphan_items` (ids only).
 - Records rows in curriculum order; Practice again via `StartControl` + `canStart` ("Try the Test again" for a failed Test), locked by an open attempt as on /levels; no button when `canStart` refuses. No Dashboard Records Card.
 - "New record" shown on live Results only (History detail passes nothing); only beside a time.
 - ≥80 polish: `PASS_PANEL` (tint + `hover:border-glow`, both modes; border transition only live, `motion-reduce:transition-none`) and `COIN` face on the glowing (live pass) badge; static badge stays flat. New copy `shellMessages.recordsEmpty` (illustrative).
@@ -92,6 +93,18 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Plan Change Log
 
 ## Review Triage Log
+
+Two combined reviewers (blind+edge-case, verification+intent-alignment); no high-severity defects; record/badge logic correct on all listed edge cases.
+
+- Fixed: every Results view ran the full capped progress read for one badge; new narrow `listItemDurations` (one item, id/started_at/received_at, uncapped), run only after `loadResult` succeeds.
+- Fixed: records computed from the 5000-capped read; new narrow uncapped `listRecordAttempts` (score via `result->score`).
+- Fixed: Records dates hard-coded to Asia/Jakarta; now the profile time zone with Jakarta fallback.
+- Fixed: failed open-attempt read left Practice again active on Records; now locked with a generic reason (fail closed).
+- Fixed: orphan record item ids logged (`records.orphan_items`); tests for `progress.load_failed` and no-session paths.
+- Accepted: Records runs three parallel reads (records, capped progress for `canStart`, time zone).
+- Accepted: Records rows validate only an integer score 0–100, not the full Result (keeps the narrow read).
+- Accepted: badge only on live Results, not History detail; ≥80 tint also on History (static).
+- Copy to confirm: `recordsEmpty` (illustrative) and `OPEN_ATTEMPT_UNKNOWN` ("Couldn't check for an attempt in progress. Reload the page to try again.").
 
 ## Verification
 

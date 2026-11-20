@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   realFindItem: (() => null) as (itemId: string) => unknown,
   getSessionUser: vi.fn(),
   readResult: vi.fn(),
-  listProgressAttempts: vi.fn(),
+  listItemDurations: vi.fn(),
   notFound: vi.fn(() => {
     throw Object.assign(new Error("NEXT_HTTP_ERROR_FALLBACK;404"), { notFound: true });
   }),
@@ -25,7 +25,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => SUPABASE }));
-vi.mock("@/adapters/supabase/attempts", () => ({ readResult: mocks.readResult, listProgressAttempts: mocks.listProgressAttempts }));
+vi.mock("@/adapters/supabase/attempts", () => ({ readResult: mocks.readResult, listItemDurations: mocks.listItemDurations }));
 vi.mock("@/content/levels", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/content/levels")>();
   mocks.realFindItem = actual.findItem;
@@ -76,7 +76,7 @@ let errors: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   mocks.getSessionUser.mockResolvedValue({ id: "user-1", email: null });
   mocks.findItem.mockImplementation(mocks.realFindItem);
-  mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [] });
+  mocks.listItemDurations.mockResolvedValue({ ok: true, value: [] });
   errors = vi.spyOn(console, "error").mockImplementation(() => {});
 });
 
@@ -84,7 +84,7 @@ afterEach(() => {
   vi.restoreAllMocks();
   mocks.getSessionUser.mockReset();
   mocks.readResult.mockReset();
-  mocks.listProgressAttempts.mockReset();
+  mocks.listItemDurations.mockReset();
   mocks.notFound.mockClear();
   mocks.redirect.mockClear();
 });
@@ -107,23 +107,29 @@ describe("Results page", () => {
     expect(mocks.readResult).toHaveBeenCalledWith(SUPABASE, ID);
   });
 
-  it("shows New record when this attempt beats every earlier one of the item (shared progress read)", async () => {
+  it("shows New record when this attempt beats every earlier one of the item (that item's times)", async () => {
     mocks.readResult.mockResolvedValue(stored(PRACTICE_64));
-    const earlier = { id: "older", itemId: "L01-P1", result: PRACTICE_64, startedAt: "2026-11-01T01:00:00+00:00", receivedAt: "2026-11-01T01:10:00+00:00" };
-    const self = { id: ID, itemId: "L01-P1", result: PRACTICE_64, startedAt: STARTED, receivedAt: RECEIVED };
-    mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [earlier, self] });
+    const earlier = { id: "older", startedAt: "2026-11-01T01:00:00+00:00", receivedAt: "2026-11-01T01:10:00+00:00" };
+    const self = { id: ID, startedAt: STARTED, receivedAt: RECEIVED };
+    mocks.listItemDurations.mockResolvedValue({ ok: true, value: [earlier, self] });
     expect(await render()).toMatch(/data-slot="new-record"[^>]*>New record<\/span>/);
-    expect(mocks.listProgressAttempts).toHaveBeenCalledWith(SUPABASE, "user-1");
+    expect(mocks.listItemDurations).toHaveBeenCalledWith(SUPABASE, "user-1", "L01-P1");
   });
 
   it("no New record for the first attempt, and none (Results still render) when the progress read fails", async () => {
     mocks.readResult.mockResolvedValue(stored(PRACTICE_64));
-    mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [{ id: ID, itemId: "L01-P1", result: PRACTICE_64, startedAt: STARTED, receivedAt: RECEIVED }] });
+    mocks.listItemDurations.mockResolvedValue({ ok: true, value: [{ id: ID, startedAt: STARTED, receivedAt: RECEIVED }] });
     expect(await render()).not.toContain("New record");
-    mocks.listProgressAttempts.mockResolvedValue({ ok: false });
+    mocks.listItemDurations.mockResolvedValue({ ok: false });
     const html = await render();
     expect(html).not.toContain("New record");
     expect(html).toContain("Practice 1 — 64/100");
+  });
+
+  it("reads the item's times only after the Result loaded (not for a 404)", async () => {
+    mocks.readResult.mockResolvedValue({ ok: true, value: null });
+    await expect(render()).rejects.toThrow();
+    expect(mocks.listItemDurations).not.toHaveBeenCalled();
   });
 
   it("lists the wrong answers with their reasons and a See tip anchor", async () => {

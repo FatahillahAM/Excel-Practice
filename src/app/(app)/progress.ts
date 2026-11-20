@@ -1,5 +1,5 @@
 import { unstable_rethrow } from "next/navigation";
-import { listProgressAttempts } from "@/adapters/supabase/attempts";
+import { listItemDurations, listProgressAttempts, listRecordAttempts } from "@/adapters/supabase/attempts";
 import { getSessionUser } from "@/adapters/supabase/auth";
 import { listFreezes, listStreakDays } from "@/adapters/supabase/freezes";
 import { readTimeZone } from "@/adapters/supabase/profiles";
@@ -16,7 +16,7 @@ import {
   type LevelProgress,
   type Streak,
 } from "@/core/progress";
-import { levels } from "@/content/levels";
+import { findItem, levels } from "@/content/levels";
 
 /**
  * Server only: the session user's graded attempts (`listProgressAttempts`,
@@ -52,27 +52,69 @@ export async function loadProgress(): Promise<LevelProgress[] | "failed"> {
   return levelProgress(attempts, levels);
 }
 
-/** What /records shows: the best time per item and the progress its Practice again checks (`canStart`). */
+/** The zone Records dates fall back to without a profile zone (as History). */
+export const RECORDS_FALLBACK_ZONE = "Asia/Jakarta";
+
+/** What /records shows: the best time per item, the progress its Practice again checks (`canStart`), and the date zone. */
 export interface RecordsView {
   records: Map<string, ItemRecord>;
   progress: LevelProgress[];
+  timeZone: string;
 }
 
-/** Server only: records and progress from the same one read (no extra query). */
+const validScore = (score: unknown): score is number => typeof score === "number" && Number.isInteger(score) && score >= 0 && score <= 100;
+
+/**
+ * Server only: Records from an uncapped narrow read (`listRecordAttempts`:
+ * times and `result->score`, so the progress read's cap never hides a best
+ * time; a row whose score is not an integer 0–100 is dropped), the progress
+ * for `canStart` (`loadProgress`) and the profile's time zone (fallback
+ * `RECORDS_FALLBACK_ZONE`). Record items the registry does not know are
+ * logged (`records.orphan_items`, ids only). Without a session, no records.
+ * `"failed"` when a read failed (already logged) or anything threw
+ * (`progress.load_failed`).
+ */
 export async function loadRecords(): Promise<RecordsView | "failed"> {
-  const attempts = await loadGradedAttempts();
-  if (attempts === "failed") return "failed";
-  return { records: records(attempts), progress: levelProgress(attempts, levels) };
+  try {
+    const user = await getSessionUser();
+    if (!user) return { records: new Map(), progress: levelProgress([], levels), timeZone: RECORDS_FALLBACK_ZONE };
+    const supabase = await createClient();
+    const [read, progress, zone] = await Promise.all([listRecordAttempts(supabase, user.id), loadProgress(), readTimeZone(supabase, user.id)]);
+    if (!read.ok || progress === "failed") return "failed";
+    const attempts: GradedAttempt[] = read.value.flatMap((row) =>
+      validScore(row.score) ? [{ id: row.id, itemId: row.itemId, score: row.score, startedAt: row.startedAt, receivedAt: row.receivedAt }] : [],
+    );
+    const best = records(attempts);
+    const orphans = [...best.keys()].filter((itemId) => findItem(itemId) === null);
+    if (orphans.length > 0) console.error(JSON.stringify({ event: "records.orphan_items", itemIds: orphans }));
+    const timeZone = zone.ok && zone.timeZone !== null ? zone.timeZone : RECORDS_FALLBACK_ZONE;
+    return { records: best, progress, timeZone };
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
+    return "failed";
+  }
 }
 
 /**
- * Server only: whether Results shows "New record" for `attemptId`
- * (`isNewRecord`). A failed read hides the badge (`false`): Results still
+ * Server only: whether Results shows "New record" for `attemptId` of
+ * `itemId` (`isNewRecord`), from a narrow uncapped read of that item's graded
+ * attempts (`listItemDurations`: ids and times only). Call it after the
+ * Result loaded. A failed read hides the badge (`false`): Results still
  * renders.
  */
-export async function loadNewRecord(attemptId: string): Promise<boolean> {
-  const attempts = await loadGradedAttempts();
-  return attempts !== "failed" && isNewRecord(attempts, attemptId);
+export async function loadNewRecord(itemId: string, attemptId: string): Promise<boolean> {
+  try {
+    const user = await getSessionUser();
+    if (!user) return false;
+    const read = await listItemDurations(await createClient(), user.id, itemId);
+    if (!read.ok) return false;
+    return isNewRecord(read.value.map((row) => ({ ...row, itemId, score: 0 })), attemptId);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
+    return false;
+  }
 }
 
 /** The Streak Hero's view: the streak and this week's freezes left, at the server's `now`. */

@@ -17,7 +17,7 @@ import { FIXTURE_LEVELS } from "@/core/content/__fixtures__/levels";
 import { levelProgress, records, type GradedAttempt } from "@/core/progress";
 import { shellMessages } from "@/messages/id";
 import { BLOCKED_MESSAGE } from "../levels/start-lock";
-import { RecordsList, RecordsSkeleton, RecordsView } from "./records-list";
+import { OPEN_ATTEMPT_UNKNOWN, RecordsList, RecordsSkeleton, RecordsView } from "./records-list";
 
 const at = (id: string, itemId: string, seconds: number, day = 0, score = 85): GradedAttempt => {
   const start = Date.parse("2026-11-02T01:00:00Z") + day * 86_400_000;
@@ -75,6 +75,20 @@ describe("RecordsView", () => {
     expect(real(rows()[0])).toHaveLength(0);
   });
 
+  it("formats the date in the given zone", () => {
+    // Received 2 Nov 23:30 UTC: 3 Nov in Jakarta, 2 Nov in New York.
+    const late = { id: "z", itemId: "L01-P1", score: 85, startedAt: "2026-11-02T23:25:00Z", receivedAt: "2026-11-02T23:30:00Z" };
+    const date = (zone: string) => {
+      const { unmount } = render(<RecordsView records={records([late])} progress={levelProgress([late], FIXTURE_LEVELS)} modules={FIXTURE_LEVELS} timeZone={zone} />);
+      const text = document.querySelector('[data-slot="record-date"]')!.textContent;
+      unmount();
+      return text;
+    };
+    expect(date("Asia/Jakarta")).toMatch(/^3 /);
+    expect(date("America/New_York")).toMatch(/^2 /);
+    expect(date("Not/AZone")).toMatch(/^3 /);
+  });
+
   it("empty: one line with a link to Dashboard", () => {
     show([]);
     const empty = document.querySelector('[data-slot="records-empty"]')!;
@@ -99,10 +113,20 @@ describe("RecordsList", () => {
 
   it("renders the loaded records", async () => {
     const attempts = [at("a", "L01-P1", 300)];
-    mocks.loadRecords.mockResolvedValue({ records: records(attempts), progress: levelProgress(attempts, FIXTURE_LEVELS) });
-    mocks.loadOpenAttempt.mockResolvedValue("failed");
+    mocks.loadRecords.mockResolvedValue({ records: records(attempts), progress: levelProgress(attempts, FIXTURE_LEVELS), timeZone: "Asia/Jakarta" });
+    mocks.loadOpenAttempt.mockResolvedValue(null);
     render((await RecordsList()) as ReactElement);
     // The real registry: L01-P1 is in Level 1.
     expect(rows().map((row) => row.dataset.item)).toEqual(["L01-P1"]);
+    expect(real(rows()[0])[0].getAttribute("aria-disabled")).toBeNull();
+  });
+
+  it("a failed open-attempt read locks Practice again (fail closed)", async () => {
+    const attempts = [at("a", "L01-P1", 300)];
+    mocks.loadRecords.mockResolvedValue({ records: records(attempts), progress: levelProgress(attempts, FIXTURE_LEVELS), timeZone: "Asia/Jakarta" });
+    mocks.loadOpenAttempt.mockResolvedValue("failed");
+    render((await RecordsList()) as ReactElement);
+    expect(real(rows()[0])[0].getAttribute("aria-disabled")).toBe("true");
+    expect(screen.getByText(OPEN_ATTEMPT_UNKNOWN)).toBeTruthy();
   });
 });

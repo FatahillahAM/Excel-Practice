@@ -9,12 +9,11 @@ const mocks = vi.hoisted(() => ({
 vi.mock("next/navigation", () => ({ unstable_rethrow: () => {} }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => ({ session: true }) }));
-vi.mock("@/adapters/supabase/attempts", () => ({ listProgressAttempts: vi.fn() }));
+vi.mock("@/adapters/supabase/attempts", () => ({ listProgressAttempts: vi.fn(), listRecordAttempts: vi.fn(), listItemDurations: vi.fn() }));
 vi.mock("@/adapters/supabase/freezes", () => ({ listFreezes: mocks.listFreezes, listStreakDays: mocks.listStreakDays }));
 vi.mock("@/adapters/supabase/profiles", () => ({ readTimeZone: mocks.readTimeZone }));
 
-import { listProgressAttempts } from "@/adapters/supabase/attempts";
-import { PRACTICE_85 } from "@/core/grading/__fixtures__/results";
+import { listItemDurations, listProgressAttempts, listRecordAttempts } from "@/adapters/supabase/attempts";
 import { loadNewRecord, loadRecords, loadStreak } from "./progress";
 
 const NOW = new Date("2026-11-19T13:00:00Z"); // 20:00 in Jakarta, Thursday
@@ -66,24 +65,78 @@ describe("loadStreak", () => {
   });
 });
 
-describe("loadRecords / loadNewRecord", () => {
-  const row = (id: string, startedAt: string, receivedAt: string) => ({ id, itemId: "L01-P1", result: PRACTICE_85, startedAt, receivedAt });
-  const rows = [row("a", "2026-11-01T01:00:00Z", "2026-11-01T01:05:00Z"), row("b", "2026-11-02T01:00:00Z", "2026-11-02T01:04:00Z")];
+describe("loadRecords", () => {
+  const row = (id: string, itemId: string, score: unknown, startedAt: string, receivedAt: string) => ({ id, itemId, score, startedAt, receivedAt });
 
-  it("derive records, progress and the badge from the one progress read", async () => {
-    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: true, value: rows });
-    const view = await loadRecords();
-    expect(view).not.toBe("failed");
-    if (view === "failed") return;
-    expect(view.records.get("L01-P1")).toMatchObject({ attemptId: "b", seconds: 240 });
-    expect(view.progress[0].practicesDone.has(1)).toBe(true);
-    expect(await loadNewRecord("b")).toBe(true);
-    expect(await loadNewRecord("a")).toBe(false);
+  beforeEach(() => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: true, value: [] });
+    vi.mocked(listRecordAttempts).mockReset();
   });
 
-  it("a failed read: records failed, the badge hidden", async () => {
-    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: false });
+  it("derives records from the narrow read, in the profile's zone; drops a bad score; logs orphan items", async () => {
+    vi.mocked(listRecordAttempts).mockResolvedValue({
+      ok: true,
+      value: [
+        row("a", "L01-P1", 85, "2026-11-01T01:00:00Z", "2026-11-01T01:05:00Z"),
+        row("b", "L01-P1", 70, "2026-11-02T01:00:00Z", "2026-11-02T01:04:00Z"),
+        row("c", "L01-P1", "x", "2026-11-03T01:00:00Z", "2026-11-03T01:01:00Z"),
+        row("o", "L99-P1", 50, "2026-11-03T01:00:00Z", "2026-11-03T01:01:00Z"),
+      ],
+    });
+    const view = await loadRecords();
+    if (view === "failed") throw new Error("failed");
+    expect(view.records.get("L01-P1")).toMatchObject({ attemptId: "b", seconds: 240, score: 70 });
+    expect(view.timeZone).toBe("Asia/Jakarta");
+    expect(view.progress).toHaveLength(9);
+    expect(logged()).toContainEqual({ event: "records.orphan_items", itemIds: ["L99-P1"] });
+    expect(listRecordAttempts).toHaveBeenCalledWith({ session: true }, "user-1");
+  });
+
+  it("falls back to Asia/Jakarta without a profile zone", async () => {
+    vi.mocked(listRecordAttempts).mockResolvedValue({ ok: true, value: [] });
+    mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: null });
+    expect(await loadRecords()).toMatchObject({ timeZone: "Asia/Jakarta" });
+    mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: "Asia/Makassar" });
+    expect(await loadRecords()).toMatchObject({ timeZone: "Asia/Makassar" });
+  });
+
+  it("no session: empty records, nothing read", async () => {
+    mocks.getSessionUser.mockResolvedValue(null);
+    const view = await loadRecords();
+    if (view === "failed") throw new Error("failed");
+    expect(view.records.size).toBe(0);
+    expect(listRecordAttempts).not.toHaveBeenCalled();
+  });
+
+  it("failed on a failed read; a thrown read logs progress.load_failed", async () => {
+    vi.mocked(listRecordAttempts).mockResolvedValue({ ok: false });
     expect(await loadRecords()).toBe("failed");
-    expect(await loadNewRecord("b")).toBe(false);
+    vi.mocked(listRecordAttempts).mockRejectedValue(new TypeError("x"));
+    expect(await loadRecords()).toBe("failed");
+    expect(logged().at(-1)).toEqual({ event: "progress.load_failed", name: "TypeError" });
+  });
+});
+
+describe("loadNewRecord", () => {
+  const rows = [
+    { id: "a", startedAt: "2026-11-01T01:00:00Z", receivedAt: "2026-11-01T01:05:00Z" },
+    { id: "b", startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:04:00Z" },
+  ];
+
+  it("reads only that item's times and compares", async () => {
+    vi.mocked(listItemDurations).mockResolvedValue({ ok: true, value: rows });
+    expect(await loadNewRecord("L01-P1", "b")).toBe(true);
+    expect(await loadNewRecord("L01-P1", "a")).toBe(false);
+    expect(listItemDurations).toHaveBeenCalledWith({ session: true }, "user-1", "L01-P1");
+  });
+
+  it("false without a session, on a failed read, and on a thrown one (logged)", async () => {
+    vi.mocked(listItemDurations).mockResolvedValue({ ok: false });
+    expect(await loadNewRecord("L01-P1", "b")).toBe(false);
+    vi.mocked(listItemDurations).mockRejectedValue(new TypeError("x"));
+    expect(await loadNewRecord("L01-P1", "b")).toBe(false);
+    expect(logged().at(-1)).toEqual({ event: "progress.load_failed", name: "TypeError" });
+    mocks.getSessionUser.mockResolvedValue(null);
+    expect(await loadNewRecord("L01-P1", "b")).toBe(false);
   });
 });

@@ -10,9 +10,24 @@ import { BLOCKED_MESSAGE, type StartLock } from "../levels/start-lock";
 
 const CARD = "flex flex-col gap-2 rounded-lg border border-border bg-card p-4";
 const LINK = "font-bold text-primary underline-offset-4 hover:underline";
-const DATE = new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium" });
 
-/** Server part of `/records`: the one progress read, the open attempt (Start lock), and the failed state. */
+/** Start lock when the open-attempt read failed: fail closed (the database would refuse a second attempt anyway). */
+export const OPEN_ATTEMPT_UNKNOWN = "Couldn't check for an attempt in progress. Reload the page to try again.";
+
+function dateFormat(timeZone: string): Intl.DateTimeFormat {
+  try {
+    return new Intl.DateTimeFormat("id-ID", { timeZone, dateStyle: "medium" });
+  } catch {
+    // An unknown zone: the History zone.
+    return new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", dateStyle: "medium" });
+  }
+}
+
+/**
+ * Server part of `/records`: the records read, the open attempt (Start lock;
+ * a failed read locks with `OPEN_ATTEMPT_UNKNOWN`, fail closed), and the
+ * failed state.
+ */
 export async function RecordsList() {
   const [loaded, open] = await Promise.all([loadRecords(), loadOpenAttempt()]);
   if (loaded === "failed") {
@@ -28,8 +43,9 @@ export async function RecordsList() {
       </div>
     );
   }
-  const startLock: StartLock | undefined = open !== null && open !== "failed" ? { reason: BLOCKED_MESSAGE, attemptId: open.attempt.id } : undefined;
-  return <RecordsView records={loaded.records} progress={loaded.progress} modules={levels} startLock={startLock} />;
+  const startLock: StartLock | undefined =
+    open === "failed" ? { reason: OPEN_ATTEMPT_UNKNOWN } : open !== null ? { reason: BLOCKED_MESSAGE, attemptId: open.attempt.id } : undefined;
+  return <RecordsView records={loaded.records} progress={loaded.progress} modules={levels} startLock={startLock} timeZone={loaded.timeZone} />;
 }
 
 /**
@@ -44,12 +60,16 @@ export function RecordsView({
   progress,
   modules,
   startLock,
+  timeZone = "Asia/Jakarta",
 }: {
   records: ReadonlyMap<string, ItemRecord>;
   progress: readonly LevelProgress[];
   modules: readonly LevelModule[];
   startLock?: StartLock;
+  /** The profile's zone for the dates (fallback Asia/Jakarta). */
+  timeZone?: string;
 }) {
+  const date = dateFormat(timeZone);
   const groups = modules
     .map((mod) => ({ mod, rows: mod.items.flatMap((item) => (records.has(item.id) ? [{ item, record: records.get(item.id)! }] : [])) }))
     .filter((group) => group.rows.length > 0);
@@ -87,7 +107,7 @@ export function RecordsView({
                       {formatElapsed(record.seconds)}
                     </span>
                     <span data-slot="record-date" className="text-[12px] text-muted-foreground">
-                      {DATE.format(new Date(record.receivedAt))}
+                      {date.format(new Date(record.receivedAt))}
                     </span>
                     <span data-slot="record-score" className="text-[13px] text-muted-foreground">{`${record.score}/100`}</span>
                   </div>

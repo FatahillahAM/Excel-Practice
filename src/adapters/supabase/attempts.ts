@@ -735,6 +735,100 @@ export async function listProgressAttempts(supabase: SupabaseClient, userId: str
   }
 }
 
+/** One graded attempt's times: what "New record" on Results compares (4.4). */
+export interface ItemDurationRow {
+  id: string;
+  startedAt: string;
+  receivedAt: string | null;
+}
+
+/** One graded attempt for Records (4.4): times and the stored score (`result->score`, unvalidated). */
+export interface RecordAttemptRow extends ItemDurationRow {
+  itemId: string;
+  score: unknown;
+}
+
+/**
+ * Reads every page of `select` (oldest first: `received_at asc, id asc`) until
+ * a short page. Uncapped on purpose: records need the whole history, and the
+ * rows are a few narrow columns. `null` after logging `event` on an error.
+ */
+async function readAllPages<T>(
+  build: () => { range: (from: number, to: number) => PromiseLike<{ data: unknown; error: { code?: string } | null }> },
+  event: string,
+): Promise<T[] | null> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PROGRESS_PAGE) {
+    const { data, error } = await build().range(from, from + PROGRESS_PAGE - 1);
+    if (error) {
+      logError(event, error.code);
+      return null;
+    }
+    const rows = (data ?? []) as T[];
+    out.push(...rows);
+    if (rows.length < PROGRESS_PAGE) return out;
+  }
+}
+
+/**
+ * The user's `graded` attempts of one item with a stored Result, oldest
+ * first: id and times only (no Result). Session read: RLS plus `user_id =
+ * userId`. For the Results "New record" badge.
+ */
+export async function listItemDurations(supabase: SupabaseClient, userId: string, itemId: string): Promise<Read<ItemDurationRow[]>> {
+  try {
+    const rows = await readAllPages<{ id: string; started_at: string; received_at: string | null }>(
+      () =>
+        supabase
+          .from(TABLE)
+          .select("id, started_at, received_at")
+          .eq("user_id", userId)
+          .eq("item_id", itemId)
+          .eq("status", "graded")
+          .not("result", "is", null)
+          .order("received_at", { ascending: true })
+          .order("id", { ascending: true }),
+      "attempt.list_item_durations_failed",
+    );
+    if (rows === null) return { ok: false };
+    return { ok: true, value: rows.map((row) => ({ id: row.id, startedAt: row.started_at, receivedAt: row.received_at ?? null })) };
+  } catch (error) {
+    logError("attempt.list_item_durations_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
+/**
+ * Every `graded` attempt of the user with a stored Result, oldest first, for
+ * Records: id, item, times and only the Result's score (`result->score`).
+ * Uncapped (unlike `listProgressAttempts`), so the cap never hides a best
+ * time. Session read: RLS plus `user_id = userId`.
+ */
+export async function listRecordAttempts(supabase: SupabaseClient, userId: string): Promise<Read<RecordAttemptRow[]>> {
+  try {
+    const rows = await readAllPages<{ id: string; item_id: string; score: unknown; started_at: string; received_at: string | null }>(
+      () =>
+        supabase
+          .from(TABLE)
+          .select("id, item_id, score:result->score, started_at, received_at")
+          .eq("user_id", userId)
+          .eq("status", "graded")
+          .not("result", "is", null)
+          .order("received_at", { ascending: true })
+          .order("id", { ascending: true }),
+      "attempt.list_records_failed",
+    );
+    if (rows === null) return { ok: false };
+    return {
+      ok: true,
+      value: rows.map((row) => ({ id: row.id, itemId: row.item_id, score: row.score, startedAt: row.started_at, receivedAt: row.received_at ?? null })),
+    };
+  } catch (error) {
+    logError("attempt.list_records_failed", errorName(error));
+    return { ok: false };
+  }
+}
+
 /**
  * Whether the attempt has a stored Result that passes `resultSchema` (read
  * validated, not trusted): what the status endpoint and the exam page ask
