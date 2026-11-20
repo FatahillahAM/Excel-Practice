@@ -26,11 +26,11 @@ const without = (object: object, ...keys: string[]) => Object.fromEntries(Object
 const SEEDS = Array.from({ length: 50 }, (_, i) => i + 1);
 
 describe("level registry", () => {
-  it("lists Level 1 Fondasi (V1, 3 hints, content version 2) with Practice 1", () => {
+  it("lists Level 1 Fondasi (V1, 3 hints, content version 3) with Practice 1 and the Test", () => {
     expect(levels.map((level) => level.id)).toEqual(["01-fondasi"]);
     const [level] = levels;
-    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 2 });
-    expect(level.items.map((item) => item.id)).toEqual(["L01-P1"]);
+    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 3 });
+    expect(level.items.map((item) => item.id)).toEqual(["L01-P1", "L01-T"]);
     expect(level.functions).toEqual(["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"]);
     for (const candidate of levels) expect(levelModuleSchema.safeParse(candidate).success).toBe(true);
   });
@@ -265,24 +265,27 @@ describe("defineLevelModule (load-time checks)", () => {
     ["VSTACK in the level functions", { functions: ["VSTACK"] }, /Microsoft 365-only function VSTACK/],
     ["DROP in a Data cell", { items: [brokenItem((e) => (e.cells.Data.A2 = "DROP"))] }, /Microsoft 365-only function DROP/],
     [
-      "a fifth question (B10 is the Finish line)",
+      "a seventh question (B12 is the Finish line)",
       {
         items: [
           brokenItem((e) => {
-            e.questions[3].points = 10;
-            e.questions.push({ ...e.questions[3], number: 5, points: 20, key: { Z2: 1 }, range: "Z2" } as (typeof e.questions)[number]);
-            e.cells.Instructions.B10 = `5. ${e.questions[4].prompt}`;
+            e.questions[3].points = 12;
+            for (const number of [5, 6, 7]) {
+              const ref = `Z${number}`;
+              e.questions.push({ ...e.questions[3], number, points: 6, key: { [ref]: 1 }, range: ref } as (typeof e.questions)[number]);
+              e.cells.Instructions[`B${number + 5}`] = `${number}. ${e.questions[number - 1].prompt}`;
+            }
           }),
         ],
       },
-      /Too big: expected array to have <=4 items/,
+      /Too big: expected array to have <=6 items/,
     ],
     ["a key missing one cell", { items: [brokenItem((e) => delete e.questions[0].key.H2)] }, /missing H2/],
     ["a key with an extra cell", { items: [brokenItem((e) => (e.questions[0].key.Z99 = 1))] }, /extra Z99/],
     ["an answer cell that is written", { items: [brokenItem((e) => (e.cells.Data.H2 = 1))] }, /Answer cell Data!H2 is written/],
     ["questions numbered out of order", { items: [brokenItem((e) => (e.questions[1].number = 3))] }, /must be number 2/],
     ["a question without value_equals_key", { items: [brokenItem((e) => (e.questions[0].checks = [{ name: "formula_present" }]))] }, /value_equals_key/],
-    ["an Instructions cell outside layout v1", { items: [brokenItem((e) => (e.cells.Instructions.B12 = "x"))] }, /no Instructions!B12/],
+    ["an Instructions cell outside layout v1", { items: [brokenItem((e) => (e.cells.Instructions.B13 = "x"))] }, /no Instructions!B13/],
     ["a sheet the template does not have", { items: [brokenItem((e) => (e.cells.Hasil = { A1: "x" }))] }, /no sheet Hasil/],
     ["a question without hints", { items: [brokenItem((e) => (e.questions[0].hints = []))] }, /questions\[0\]\.hints/],
     ["a question with 4 hints", { items: [brokenItem((e) => e.questions[1].hints.push("Satu lagi."))] }, /questions\[1\]\.hints/],

@@ -9,7 +9,7 @@ import { RESULTS_HEADING_ID } from "@/components/results/results-view";
 import { PageTitle } from "@/components/shell/page-title";
 import { resultSchema, type Result } from "@/core/grading";
 import type { AttemptStatus } from "@/core/services/attempts";
-import { findItem } from "@/content/levels";
+import { itemView } from "@/content/levels";
 import { shellMessages } from "@/messages/id";
 
 /**
@@ -37,9 +37,8 @@ export type LoadState = { status: "login" } | { status: "missing" } | { status: 
 const CARD = "flex flex-col gap-2 rounded-lg border border-border bg-card p-4";
 
 export function outcomeOf(loaded: Loaded) {
-  const found = findItem(loaded.itemId);
   return resultsOutcome({
-    item: found ? { kind: found.item.kind, number: found.item.number } : null,
+    item: itemView(loaded.itemId).item,
     itemId: loaded.itemId,
     result: loaded.result,
   });

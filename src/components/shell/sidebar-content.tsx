@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LogOut } from "lucide-react";
+import type { CurriculumSummary } from "@/core/progress";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
 import { GENERAL_ITEMS, MENU_ITEMS, activeNavItem, type NavItem } from "./nav-items";
@@ -28,11 +29,14 @@ function NavLink({
   item,
   active,
   touch,
+  badge,
   onNavigate,
 }: {
   item: NavItem;
   active: boolean;
   touch: boolean;
+  /** A short count after the label ("L1" on Level Map). */
+  badge?: { text: string; label: string };
   onNavigate?: () => void;
 }) {
   const Icon = item.icon;
@@ -46,6 +50,18 @@ function NavLink({
       >
         <Icon aria-hidden="true" className="size-[18px] shrink-0" strokeWidth={1.9} />
         {item.label}
+        {badge && (
+          <span
+            data-slot="nav-badge"
+            className={cn(
+              "ml-auto rounded-sm px-1.5 py-0.5 font-mono text-[11px] leading-none font-bold",
+              active ? "bg-primary-foreground/20" : "bg-muted text-foreground",
+            )}
+          >
+            <span aria-hidden="true">{badge.text}</span>
+            <span className="sr-only">{badge.label}</span>
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -54,17 +70,21 @@ function NavLink({
 /**
  * App Sidebar contents, shared by the desktop sidebar and the Mobile Drawer
  * (DESIGN.md › App Sidebar): brand block, "Menu" and "General" groups, the
- * active item marked with `aria-current="page"`.
+ * active item marked with `aria-current="page"`; with `summary`, the Level
+ * Map badge "L{active level}" and the footer "{passed} of 9 levels passed".
  */
 export function SidebarContent({
   idPrefix,
   touch = false,
+  summary = null,
   onNavigate,
 }: {
   /** Keeps label ids unique between the sidebar and the drawer. */
   idPrefix: string;
   /** Mobile Drawer: 44px rows. */
   touch?: boolean;
+  /** From `levelProgress` (`curriculumSummary`); `null` hides the badge and footer. */
+  summary?: CurriculumSummary | null;
   onNavigate?: () => void;
 }) {
   const active = activeNavItem(usePathname());
@@ -77,8 +97,14 @@ export function SidebarContent({
       <nav aria-labelledby={menuId}>
         <ul className="flex flex-col gap-0.5">
           {MENU_ITEMS.map((item) => (
-            // Level Map's "L3" count: moved to epic 5 (4.6 sweep).
-            <NavLink key={item.href} item={item} active={active === item} touch={touch} onNavigate={onNavigate} />
+            <NavLink
+              key={item.href}
+              item={item}
+              active={active === item}
+              touch={touch}
+              badge={item.href === "/levels" && summary ? { text: `L${summary.activeLevel}`, label: `, Level ${summary.activeLevel}` } : undefined}
+              onNavigate={onNavigate}
+            />
           ))}
         </ul>
       </nav>
@@ -99,7 +125,21 @@ export function SidebarContent({
           </li>
         </ul>
       </nav>
-      {/* Footer slot: the curriculum progress bar ("levels passed of 9"), moved to epic 5 (4.6 sweep). */}
+      {summary && (
+        <div data-slot="curriculum-progress" className="mx-3 mt-auto pt-6">
+          <p className="text-[13px] font-[550] text-muted-foreground">{`${summary.passed} of ${summary.total} levels passed`}</p>
+          <div
+            role="progressbar"
+            aria-label="Levels passed"
+            aria-valuemin={0}
+            aria-valuemax={summary.total}
+            aria-valuenow={summary.passed}
+            className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
+          >
+            <div className="h-full rounded-full bg-primary" style={{ width: `${(summary.passed / summary.total) * 100}%` }} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

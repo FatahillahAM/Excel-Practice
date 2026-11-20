@@ -101,12 +101,6 @@ describe("History detail", () => {
     ["TEST_88", TEST_88, "L01-T", 88],
     ["V1_NO_TIPS", V1_NO_TIPS, "L01-P1", V1_NO_TIPS.score],
   ] as [string, Result, string, number][])("%s: same content as live Results, static, no motion", async (_n, result, itemId, score) => {
-    if (itemId === "L01-T") {
-      mocks.findItem.mockImplementation(() => ({
-        level: { number: 1, name: "Fondasi" },
-        item: { id: "L01-T", kind: "test", number: 6 },
-      }));
-    }
     mocks.readResult.mockResolvedValue(stored(result, itemId));
     // The live page's markup for the same stored Result.
     const live = document.createElement("div");

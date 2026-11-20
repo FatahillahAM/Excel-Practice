@@ -61,11 +61,12 @@ describe("/levels — Level Detail Panel Level 1", () => {
     expect(html).toContain("$ references · Excel Table (Ctrl+T) · Sort &amp; Filter");
   });
 
-  it("shows five practice rows and the Test row with their statuses (no Test content: unavailable)", () => {
+  it("shows five practice rows and the Test row with their statuses (real L01-T: locked, 5 to go)", () => {
     expect(body.match(/<tr\b/g)).toHaveLength(6);
-    expect(body.match(/Not available yet/g)).toHaveLength(5);
+    expect(body.match(/Not available yet/g)).toHaveLength(4);
     expect(body).toContain("Next");
-    expect(body).not.toContain("Test opens after 5 practices");
+    expect(body).toContain("Test opens after 5 practices — 5 to go.");
+    expect(body).not.toContain("The Test for this level isn&#x27;t ready yet.");
     for (const header of ["Item", "Best", "Record"]) {
       expect(html).toMatch(new RegExp(`<th scope="col"[^>]*>${header}</th>`));
     }

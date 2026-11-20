@@ -10,7 +10,7 @@ const TEST: LevelItem = { id: "L01-T", kind: "test", number: 6, generate };
 const NONE: ReadonlySet<string> = new Set();
 
 describe("levelPanel", () => {
-  it("default registry (L01-P1 only): P1 next, P2–P5 unavailable, Test unavailable (no content)", () => {
+  it("default registry (L01-P1 + L01-T): P1 next, P2–P5 unavailable, Test locked 5 to go", () => {
     const panel = levelPanel(levels[0], NONE);
     expect(panel.doneCount).toBe(0);
     expect(panel.pips).toEqual(["next", "pending", "pending", "pending", "pending"]);
@@ -21,7 +21,7 @@ describe("levelPanel", () => {
       ["Practice 4", null, "unavailable"],
       ["Practice 5", null, "unavailable"],
     ]);
-    expect(panel.test).toMatchObject({ label: "Test", status: "unavailable", toGo: 5 });
+    expect(panel.test).toMatchObject({ label: "Test", itemId: "L01-T", status: "locked", toGo: 5 });
     expect(panel.next).toEqual({ itemId: "L01-P1", label: "Practice 1" });
   });
 
@@ -40,12 +40,13 @@ describe("levelPanel", () => {
     expect(panel.next).toBeNull();
   });
 
-  it("completed = {P1}: one done pip, Test unavailable, nothing next (no other content)", () => {
+  it("completed = {P1}: one done pip, Test locked 4 to go, nothing next (no other content)", () => {
     const panel = levelPanel(levels[0], new Set(["L01-P1"]));
     expect(panel.doneCount).toBe(1);
     expect(panel.pips).toEqual(["done", "pending", "pending", "pending", "pending"]);
     expect(panel.practices[0].status).toBe("done");
-    expect(panel.test).toMatchObject({ status: "unavailable", toGo: 4 });
+    expect(panel.test).toMatchObject({ status: "locked", toGo: 4 });
+    expect(testLockLine(panel.test.toGo)).toBe("Test opens after 5 practices — 4 to go.");
     expect(panel.next).toBeNull();
   });
 

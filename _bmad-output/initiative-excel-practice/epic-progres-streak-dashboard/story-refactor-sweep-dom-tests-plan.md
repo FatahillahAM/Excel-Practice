@@ -3,7 +3,7 @@ title: 'Sapu bersih refactor dan tes DOM yang tertunda'
 type: 'feature'
 ticket: '6'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: ''
 review: 'thorough'

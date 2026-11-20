@@ -6,7 +6,7 @@ import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
 import { ResultsView } from "@/components/results/results-view";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { attemptDurationSeconds } from "@/core/services/attempts";
-import { findItem } from "@/content/levels";
+import { itemView } from "@/content/levels";
 import { isListable } from "../history-rows";
 import { loadResult, outcomeOf, ResultsLoadFailed, ResultsSkeleton, type LoadState } from "../../results/load-result";
 
@@ -60,13 +60,13 @@ async function HistoryDetail({ params }: Params) {
   if (loaded.status === "missing" || loaded.status === "invalid") notFound();
   if (loaded.status === "failed") return <ResultsLoadFailed path={path} focus={false} title="History" />;
 
-  const found = findItem(loaded.itemId);
+  const view = itemView(loaded.itemId);
   return (
     <ResultsView
       mode="static"
       itemId={loaded.itemId}
-      item={found ? { kind: found.item.kind, number: found.item.number } : null}
-      level={found ? { number: found.level.number, name: found.level.name } : null}
+      item={view.item}
+      level={view.level}
       result={loaded.result}
       durationSeconds={attemptDurationSeconds(loaded.startedAt, loaded.receivedAt)}
     />

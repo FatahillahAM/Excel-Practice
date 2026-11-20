@@ -5,7 +5,7 @@ import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
 import { ResultsView } from "@/components/results/results-view";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { attemptDurationSeconds } from "@/core/services/attempts";
-import { findItem } from "@/content/levels";
+import { itemView } from "@/content/levels";
 import { loadNewRecord } from "../../progress";
 import { loadResult, outcomeOf, ResultsLoadFailed, ResultsSkeleton } from "../load-result";
 
@@ -54,13 +54,13 @@ async function Results({ params }: Params) {
   if (loaded.status === "failed" || loaded.status === "invalid") return <ResultsLoadFailed path={path} focus />;
 
   const newRecord = await loadNewRecord(loaded.itemId, attemptId);
-  const found = findItem(loaded.itemId);
+  const view = itemView(loaded.itemId);
   return (
     <ResultsView
       mode="live"
       itemId={loaded.itemId}
-      item={found ? { kind: found.item.kind, number: found.item.number } : null}
-      level={found ? { number: found.level.number, name: found.level.name } : null}
+      item={view.item}
+      level={view.level}
       result={loaded.result}
       durationSeconds={attemptDurationSeconds(loaded.startedAt, loaded.receivedAt)}
       newRecord={newRecord}

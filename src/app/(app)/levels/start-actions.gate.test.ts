@@ -157,3 +157,24 @@ describe("startAttempt gate", () => {
     expect(mocks.createAttempt).toHaveBeenCalledWith(SUPABASE, expect.objectContaining({ itemId: "L01-P1" }));
   });
 });
+
+// The real Level 1 (P1 + L01-T, 5.1): the registry has only P1, so the Test stays locked.
+describe("startAttempt gate on the real L01-T", () => {
+  beforeEach(async () => {
+    const { fondasi } = await vi.importActual<typeof import("@/content/levels/01-fondasi")>("@/content/levels/01-fondasi");
+    setRegistry([fondasi]);
+  });
+
+  it("new account: L01-T refused, 5 to go; after P1, still refused with 4 to go", async () => {
+    expect(await start("L01-T")).toEqual({ status: "refused", reason: "test_locked", toGo: 5 });
+    mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [graded("L01-P1", SCORE_80)] });
+    expect(await start("L01-T")).toEqual({ status: "refused", reason: "test_locked", toGo: 4 });
+    expect(mocks.createAttempt).not.toHaveBeenCalled();
+  });
+
+  it("P1 played again many times still counts once: 4 to go", async () => {
+    const value = [0, 1, 2, 3, 4].map((i) => graded("L01-P1", SCORE_79, i));
+    mocks.listProgressAttempts.mockResolvedValue({ ok: true, value });
+    expect(await start("L01-T")).toEqual({ status: "refused", reason: "test_locked", toGo: 4 });
+  });
+});

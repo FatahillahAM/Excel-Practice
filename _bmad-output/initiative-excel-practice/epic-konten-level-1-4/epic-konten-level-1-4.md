@@ -20,7 +20,16 @@ El Zavier bisa berlatih seluruh V1 dengan soal yang selalu baru; sinyalnya CAP-6
 
 ## Requirements
 
-Diisi saat inception: baris dari spec (dan spine bila perlu) sebagai id stabil, dipetakan ke covers.
+Dari SPEC.md CAP-6, content-generation.md dan level-curriculum.md:
+
+- R1: dua attempt berturut-turut memakai data berbeda.
+- R2: kunci jawaban sama dengan hitung ulang dari data.
+- R3: instruksi hanya merujuk kolom dan entitas yang ada di data.
+- R4: minimal 10 skenario per level.
+- R5: 5 latihan + 1 Test per level, 100 poin per attempt.
+- R6: hanya Office 2021 (tanpa LAMBDA, TEXTSPLIT, VSTACK/HSTACK, TAKE/DROP, GROUPBY/PIVOTBY).
+- R7: teks Indonesia santai dengan nama Excel dalam bahasa Inggris, domain manufaktur saja.
+- R8: fixture correct dan typed-values dinilai sesuai harapan di CI.
 
 ## Done when
 
@@ -42,6 +51,11 @@ Konten Level 1–4 sebagai modul plug-in. Bukan: mesin, penilaian, atau UI (epic
 - architecture — _bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md, sections AD-2, AD-3, AD-10; Consistency Conventions › Validation dan Testing
 
 ## Notes
+
+- Decision: plan 5.1–5.5 — semua asumsi dan rekomendasi disetujui: L01-T 6 soal; Table dinilai mulai 5.2; sidebar tampil 0 of 9 sejak sekarang; 4.7 dijalankan setelah 5.2; jatah hint L1–L4 = 3/2/1/0; fallback SMALL/LARGE/INDEX bila spill SORT/FILTER tidak tersimpan; aturan string kosong diputuskan dari fixture L02-P1; lint istilah Excel dengan allowlist (user, 2026-11-20).
+- Decision: inception epic 5 — 6 tiket: tracer L01-T + perlengkapan Test (status Test tersimpan, hitungan level sidebar, penjelasan level tanpa Test); L01-P2..P5 + pemeriksa Excel Table/Sort-Filter; Level 2 + edge case penilaian; Level 3 + perbaikan operator spasi; Level 4 + akhir V1 + `<code lang="en">` + aturan Tip dobel; sapu bersih + CI semua item. Uji Production lewat 4.7 (user, 2026-11-20).
+- Decision: fixture Excel hanya untuk tiap Test + 1 latihan per level (~8 item), sisanya dibuat kode; Test 6–8 soal gabungan keterampilan level, tanpa batas waktu, lulus ≥80; Table diperiksa strukturnya, Sort/Filter lewat hasil rumus; satu tiket per level; pekerjaan UI sidebar/status Test di 5.1; 4.7 jalan setelah 5.1 (user, 2026-11-20).
+- Source conflict: Level 1 mencakup Excel Table dan Sort & Filter, tetapi `src/core/grading/checkers.ts` hanya punya pemeriksa sel, rumus dan nilai.
 
 - Waits on epic-penilaian-hasil-tips because: butuh pemeriksa rumus di core dan penilaian dengan poin per soal.
 - Decision: boleh berjalan paralel dengan epic-progres-streak-dashboard (user, 2026-10-23).

@@ -1,4 +1,5 @@
-import { LOAD_CHECK_SEED, sameTip, type LevelItem, type LevelModule, type Tip } from "@/core/content/level-module";
+import { LOAD_CHECK_SEED, itemFromId, sameTip, type LevelItem, type LevelItemKind, type LevelModule, type Tip } from "@/core/content/level-module";
+import { CURRICULUM } from "@/core/progress/level-progress";
 import { fondasi } from "./01-fondasi";
 
 /**
@@ -43,4 +44,26 @@ export function findItem(itemId: string): FoundItem | null {
     if (item) return { level, item };
   }
   return null;
+}
+
+/** What Results, History and Exam show about an item: its kind and number, and its level. */
+export interface ItemView {
+  item: { kind: LevelItemKind; number: number } | null;
+  level: { number: number; name: string } | null;
+}
+
+/**
+ * The item and level of `itemId` from the registry; for an id the registry
+ * no longer has (`L03-T` of a removed item), from the id itself (`itemFromId`)
+ * and the curriculum's level name, so a Test still reads "Test passed" (no
+ * stored kind, no migration). Both `null` for an id that is neither.
+ */
+export function itemView(itemId: string): ItemView {
+  const found = findItem(itemId);
+  if (found) {
+    return { item: { kind: found.item.kind, number: found.item.number }, level: { number: found.level.number, name: found.level.name } };
+  }
+  const item = itemFromId(itemId);
+  const level = item === null ? undefined : CURRICULUM.find((entry) => entry.number === Number(itemId.slice(1, 3)));
+  return { item, level: level ? { number: level.number, name: level.name } : null };
 }

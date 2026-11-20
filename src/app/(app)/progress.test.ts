@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   listFreezes: vi.fn(),
   readTimeZone: vi.fn(),
   throwBestScores: false,
+  throwSummary: false,
 }));
 vi.mock("@/core/progress", async (importOriginal) => {
   const real = await importOriginal<typeof import("@/core/progress")>();
@@ -14,6 +15,10 @@ vi.mock("@/core/progress", async (importOriginal) => {
     bestScores: (...args: Parameters<typeof real.bestScores>) => {
       if (mocks.throwBestScores) throw new RangeError("x");
       return real.bestScores(...args);
+    },
+    curriculumSummary: (...args: Parameters<typeof real.curriculumSummary>) => {
+      if (mocks.throwSummary) throw new RangeError("x");
+      return real.curriculumSummary(...args);
     },
   };
 });
@@ -26,7 +31,7 @@ vi.mock("@/adapters/supabase/profiles", () => ({ readTimeZone: mocks.readTimeZon
 
 import { listItemDurations, listProgressAttempts, listRecordAttempts } from "@/adapters/supabase/attempts";
 import { PRACTICE_85, SCORE_79 } from "@/core/grading/__fixtures__/results";
-import { loadLevelMap, loadNewRecord, loadRecords, loadStreak } from "./progress";
+import { loadCurriculumSummary, loadLevelMap, loadNewRecord, loadRecords, loadStreak } from "./progress";
 
 const NOW = new Date("2026-11-19T13:00:00Z"); // 20:00 in Jakarta, Thursday
 const logged = () => vi.mocked(console.error).mock.calls.map((c) => JSON.parse(c[0] as string));
@@ -202,5 +207,28 @@ describe("loadLevelMap", () => {
     expect(view.records.size).toBe(0);
     expect(view.bestScores.size).toBe(0);
     expect(logged().at(-1)).toEqual({ event: "progress.load_failed", name: "RangeError" });
+  });
+});
+
+describe("loadCurriculumSummary (the shell's sidebar count)", () => {
+  afterEach(() => {
+    mocks.throwSummary = false;
+  });
+
+  it("derives L1 and 0 of 9 for a new user", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: true, value: [] });
+    expect(await loadCurriculumSummary()).toEqual({ activeLevel: 1, passed: 0, total: 9 });
+  });
+
+  it("null when the progress read fails: the shell still renders", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: false } as never);
+    expect(await loadCurriculumSummary()).toBeNull();
+  });
+
+  it("null and progress.load_failed when the derivation throws, never a throw", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: true, value: [] });
+    mocks.throwSummary = true;
+    expect(await loadCurriculumSummary()).toBeNull();
+    expect(logged()).toContainEqual({ event: "progress.load_failed", name: "RangeError" });
   });
 });

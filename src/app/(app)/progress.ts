@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { listItemDurations, listProgressAttempts, listRecordAttempts } from "@/adapters/supabase/attempts";
 import { getSessionUser } from "@/adapters/supabase/auth";
@@ -6,12 +7,14 @@ import { readTimeZone } from "@/adapters/supabase/profiles";
 import { createClient } from "@/adapters/supabase/server";
 import {
   bestScores,
+  curriculumSummary,
   freezesLeft,
   isNewRecord,
   levelProgress,
   records,
   streak,
   toGradedAttempts,
+  type CurriculumSummary,
   type GradedAttempt,
   type ItemRecord,
   type LevelProgress,
@@ -24,9 +27,10 @@ import { findItem, levels } from "@/content/levels";
  * RLS, AD-9; AD-7, nothing stored), the one read progress, gates and
  * records derive from. `[]` without a session (the proxy sends those to
  * Login). `"failed"` when the database could not answer (already logged) or
- * anything threw (`progress.load_failed`).
+ * anything threw (`progress.load_failed`). `cache()`: the layout and the page
+ * of one request share one read.
  */
-async function loadGradedAttempts(): Promise<GradedAttempt[] | "failed"> {
+const loadGradedAttempts = cache(async (): Promise<GradedAttempt[] | "failed"> => {
   try {
     const user = await getSessionUser();
     if (!user) return [];
@@ -39,7 +43,7 @@ async function loadGradedAttempts(): Promise<GradedAttempt[] | "failed"> {
     console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
     return "failed";
   }
-}
+});
 
 /**
  * Server only: the session user's progress per curriculum level, derived per
@@ -51,6 +55,22 @@ export async function loadProgress(): Promise<LevelProgress[] | "failed"> {
   const attempts = await loadGradedAttempts();
   if (attempts === "failed") return "failed";
   return levelProgress(attempts, levels);
+}
+
+/**
+ * Server only: the sidebar's curriculum count for the (app) layout, `null`
+ * when progress failed or deriving it threw (logged `progress.load_failed`):
+ * the shell always renders.
+ */
+export async function loadCurriculumSummary(): Promise<CurriculumSummary | null> {
+  try {
+    const progress = await loadProgress();
+    return progress === "failed" ? null : curriculumSummary(progress);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
+    return null;
+  }
 }
 
 /** What /levels shows: progress, and the record time and best score per item. */

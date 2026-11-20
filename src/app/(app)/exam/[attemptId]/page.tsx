@@ -12,7 +12,7 @@ import { createServiceClient } from "@/adapters/supabase/service";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { itemLabel } from "@/core/content/level-module";
 import { elapsedSeconds, type HintState } from "@/core/services/attempts";
-import { findItem } from "@/content/levels";
+import { itemView } from "@/content/levels";
 import { shellMessages } from "@/messages/id";
 import { ExamStatus } from "./exam-status";
 
@@ -56,9 +56,9 @@ async function Exam({ params }: { params: Promise<{ attemptId: string }> }) {
   if (loaded === null) notFound();
   const { attempt, elapsed, receivedSeconds, hints } = loaded;
 
-  const found = findItem(attempt.itemId);
-  const label = found ? itemLabel(found.item) : attempt.itemId;
-  const title = found ? `Level ${found.level.number} · ${label}` : label;
+  const { item, level } = itemView(attempt.itemId);
+  const label = item ? itemLabel(item) : attempt.itemId;
+  const title = level ? `Level ${level.number} · ${label}` : label;
 
   return (
     <>
