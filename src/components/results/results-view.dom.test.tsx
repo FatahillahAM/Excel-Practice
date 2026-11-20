@@ -230,6 +230,47 @@ describe("ResultsView variants", () => {
   });
 });
 
+describe("New record and the ≥ 80 panel (4.4)", () => {
+  const panel = () => slot("outcome-panel")!;
+  const face = () => badge().querySelector<HTMLElement>('[data-slot="score-badge-face"]')!;
+
+  it("New record sits inside the time, after it", () => {
+    view(PRACTICE_64, { newRecord: true });
+    const time = slot("time")!;
+    expect(time.textContent).toBe("06:48 time New record");
+    expect(within(time).getByText("New record").dataset.slot).toBe("new-record");
+  });
+
+  it("no badge by default, and none without a time", () => {
+    view(PRACTICE_85);
+    expect(slot("new-record")).toBeNull();
+    view(PRACTICE_85, { newRecord: true, durationSeconds: null });
+    expect(slot("new-record")).toBeNull();
+  });
+
+  it("≥ 80 live: glow-soft tint, hover glow border, coin gradient and inset rings", () => {
+    view(SCORE_80);
+    expect(panel().className).toContain("var(--glow-soft)");
+    expect(panel().className).toContain("hover:border-glow");
+    expect(panel().className).toContain("motion-reduce:transition-none");
+    expect(face().className).toContain("radial-gradient");
+    expect(face().className).toContain("inset_0_0_0_10px_var(--glow-soft)");
+  });
+
+  it("below 80: plain panel and flat coin", () => {
+    view(SCORE_79);
+    expect(panel().className).not.toContain("glow");
+    expect(face().className).not.toContain("radial-gradient");
+  });
+
+  it("≥ 80 static: tint and hover border stay, nothing eases, flat coin", () => {
+    view(PRACTICE_85, { mode: "static" });
+    expect(panel().className).toContain("hover:border-glow");
+    expect(panel().className).not.toContain("transition");
+    expect(face().className).not.toContain("radial-gradient");
+  });
+});
+
 describe("Tips Card", () => {
   it("has the level tag, the question and its status in text, and Indonesian title and body", () => {
     view(PRACTICE_64);

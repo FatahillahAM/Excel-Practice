@@ -13,7 +13,9 @@ vi.mock("@/adapters/supabase/attempts", () => ({ listProgressAttempts: vi.fn() }
 vi.mock("@/adapters/supabase/freezes", () => ({ listFreezes: mocks.listFreezes, listStreakDays: mocks.listStreakDays }));
 vi.mock("@/adapters/supabase/profiles", () => ({ readTimeZone: mocks.readTimeZone }));
 
-import { loadStreak } from "./progress";
+import { listProgressAttempts } from "@/adapters/supabase/attempts";
+import { PRACTICE_85 } from "@/core/grading/__fixtures__/results";
+import { loadNewRecord, loadRecords, loadStreak } from "./progress";
 
 const NOW = new Date("2026-11-19T13:00:00Z"); // 20:00 in Jakarta, Thursday
 const logged = () => vi.mocked(console.error).mock.calls.map((c) => JSON.parse(c[0] as string));
@@ -61,5 +63,27 @@ describe("loadStreak", () => {
     mocks.readTimeZone.mockResolvedValue({ ok: true, timeZone: "Mars/Olympus" });
     expect(await loadStreak(NOW)).toBe("failed");
     expect(logged().at(-1)).toEqual({ event: "streak.load_failed", name: "RangeError" });
+  });
+});
+
+describe("loadRecords / loadNewRecord", () => {
+  const row = (id: string, startedAt: string, receivedAt: string) => ({ id, itemId: "L01-P1", result: PRACTICE_85, startedAt, receivedAt });
+  const rows = [row("a", "2026-11-01T01:00:00Z", "2026-11-01T01:05:00Z"), row("b", "2026-11-02T01:00:00Z", "2026-11-02T01:04:00Z")];
+
+  it("derive records, progress and the badge from the one progress read", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: true, value: rows });
+    const view = await loadRecords();
+    expect(view).not.toBe("failed");
+    if (view === "failed") return;
+    expect(view.records.get("L01-P1")).toMatchObject({ attemptId: "b", seconds: 240 });
+    expect(view.progress[0].practicesDone.has(1)).toBe(true);
+    expect(await loadNewRecord("b")).toBe(true);
+    expect(await loadNewRecord("a")).toBe(false);
+  });
+
+  it("a failed read: records failed, the badge hidden", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: false });
+    expect(await loadRecords()).toBe("failed");
+    expect(await loadNewRecord("b")).toBe(false);
   });
 });

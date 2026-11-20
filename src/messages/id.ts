@@ -19,6 +19,8 @@ export const shellMessages = {
   firstLoadFailed: "Datanya belum kemuat. Coba lagi, ya.",
   /** History with no graded attempt yet: one line, with a link to Dashboard. */
   historyEmpty: "Belum ada hasil. Mulai latihan dari Dashboard, ya.",
+  /** Records with no graded attempt yet: one line, with a link to Dashboard (illustrative). */
+  recordsEmpty: "Belum ada rekor. Selesaikan latihan dari Dashboard dulu, ya.",
   /** Tips & Tricks with no Tip yet: one line, with a link to Dashboard (illustrative). */
   tipsEmpty: "Belum ada Tips. Selesaikan latihan dari Dashboard dulu, ya.",
   /** Tips & Tricks: the level filter and/or search match no card (illustrative). */

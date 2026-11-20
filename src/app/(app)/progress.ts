@@ -4,30 +4,75 @@ import { getSessionUser } from "@/adapters/supabase/auth";
 import { listFreezes, listStreakDays } from "@/adapters/supabase/freezes";
 import { readTimeZone } from "@/adapters/supabase/profiles";
 import { createClient } from "@/adapters/supabase/server";
-import { freezesLeft, levelProgress, streak, toGradedAttempts, type LevelProgress, type Streak } from "@/core/progress";
+import {
+  freezesLeft,
+  isNewRecord,
+  levelProgress,
+  records,
+  streak,
+  toGradedAttempts,
+  type GradedAttempt,
+  type ItemRecord,
+  type LevelProgress,
+  type Streak,
+} from "@/core/progress";
 import { levels } from "@/content/levels";
 
 /**
- * Server only: the session user's progress per curriculum level, derived per
- * request from their graded attempts (`listProgressAttempts`, RLS, AD-9;
- * AD-7, nothing stored) — what the Dashboard's Level Path and /levels share.
- * Without a session, the empty progress (the proxy sends those to Login).
- * `"failed"` when the database could not answer (already logged) or anything
- * threw.
+ * Server only: the session user's graded attempts (`listProgressAttempts`,
+ * RLS, AD-9; AD-7, nothing stored), the one read progress, gates and
+ * records derive from. `[]` without a session (the proxy sends those to
+ * Login). `"failed"` when the database could not answer (already logged) or
+ * anything threw (`progress.load_failed`).
  */
-export async function loadProgress(): Promise<LevelProgress[] | "failed"> {
+async function loadGradedAttempts(): Promise<GradedAttempt[] | "failed"> {
   try {
     const user = await getSessionUser();
-    if (!user) return levelProgress([], levels);
+    if (!user) return [];
     const read = await listProgressAttempts(await createClient(), user.id);
     if (!read.ok) return "failed";
-    return levelProgress(toGradedAttempts(read.value), levels);
+    return toGradedAttempts(read.value);
   } catch (error) {
     // Next's own interrupts (prerender, redirect) are not failures.
     unstable_rethrow(error);
     console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
     return "failed";
   }
+}
+
+/**
+ * Server only: the session user's progress per curriculum level, derived per
+ * request from their graded attempts — what the Dashboard's Level Path and
+ * /levels share. Without a session, the empty progress. `"failed"` as
+ * `loadGradedAttempts`.
+ */
+export async function loadProgress(): Promise<LevelProgress[] | "failed"> {
+  const attempts = await loadGradedAttempts();
+  if (attempts === "failed") return "failed";
+  return levelProgress(attempts, levels);
+}
+
+/** What /records shows: the best time per item and the progress its Practice again checks (`canStart`). */
+export interface RecordsView {
+  records: Map<string, ItemRecord>;
+  progress: LevelProgress[];
+}
+
+/** Server only: records and progress from the same one read (no extra query). */
+export async function loadRecords(): Promise<RecordsView | "failed"> {
+  const attempts = await loadGradedAttempts();
+  if (attempts === "failed") return "failed";
+  return { records: records(attempts), progress: levelProgress(attempts, levels) };
+}
+
+/**
+ * Server only: whether Results shows "New record" for `attemptId`
+ * (`isNewRecord`). A failed read hides the badge (`false`): Results still
+ * renders.
+ */
+export async function loadNewRecord(attemptId: string): Promise<boolean> {
+  const attempts = await loadGradedAttempts();
+  return attempts !== "failed" && isNewRecord(attempts, attemptId);
 }
 
 /** The Streak Hero's view: the streak and this week's freezes left, at the server's `now`. */

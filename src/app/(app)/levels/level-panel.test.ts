@@ -62,7 +62,7 @@ describe("levelPanel", () => {
     expect(panel.pips).toEqual(["done", "pending", "next", "pending", "pending"]);
     expect(panel.next).toEqual({ itemId: "L01-P3", label: "Practice 3" });
     const mods = [{ ...levels[0], items }];
-    const progress = levelProgress([{ itemId: "L01-P1", score: 0, startedAt: "2026-11-02T01:00:00Z", receivedAt: null }], mods);
+    const progress = levelProgress([{ id: "a", itemId: "L01-P1", score: 0, startedAt: "2026-11-02T01:00:00Z", receivedAt: null }], mods);
     expect(canStart(progress, mods, "L01-P3")).toEqual({ ok: true, practiceAgain: false });
     expect(canStart(levelProgress([], mods), mods, "L01-P3")).toEqual({ ok: false, reason: "practice_locked" });
   });
@@ -110,7 +110,7 @@ describe("levelPanel: Test outcome, Primary Button and Practice again", () => {
   });
 
   it("testResult reads levelProgress", () => {
-    const at = (itemId: string, score: number) => ({ itemId, score, startedAt: "2026-11-02T01:00:00Z", receivedAt: null });
+    const at = (itemId: string, score: number) => ({ id: itemId, itemId, score, startedAt: "2026-11-02T01:00:00Z", receivedAt: null });
     expect(testResult({ number: 1 }, levelProgress([], levels))).toEqual({ passed: false, attempted: false });
     expect(testResult({ number: 7 }, [])).toEqual({ passed: false, attempted: false });
     const mods = [{ ...levels[0], items: [...levels[0].items, TEST] }];
@@ -126,7 +126,7 @@ describe("testLockLine", () => {
 });
 
 describe("completedItemIds", () => {
-  const at = (itemId: string) => ({ itemId, score: 40, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
+  const at = (itemId: string) => ({ id: itemId, itemId, score: 40, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
 
   it("maps levelProgress practices to the level's item ids (repeats and the Test add nothing)", () => {
     const progress = levelProgress([at("L01-P1"), at("L01-P1"), at("L01-T")], levels);

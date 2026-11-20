@@ -11,6 +11,8 @@ import { isPassingScore, resultSchema } from "@/core/grading";
 
 /** A graded attempt with a valid stored Result: what every progress derivation reads. */
 export interface GradedAttempt {
+  /** The attempt id (the tie-break after `receivedAt` for records, 4.4). */
+  id: string;
   itemId: string;
   score: number;
   startedAt: string;
@@ -39,7 +41,7 @@ export function toGradedAttempts(rows: readonly GradedAttemptSource[]): GradedAt
       console.error(JSON.stringify({ event: "progress.result_invalid", attemptId: row.id }));
       continue;
     }
-    out.push({ itemId: row.itemId, score: parsed.data.score, startedAt: row.startedAt, receivedAt: row.receivedAt });
+    out.push({ id: row.id, itemId: row.itemId, score: parsed.data.score, startedAt: row.startedAt, receivedAt: row.receivedAt });
   }
   return out;
 }

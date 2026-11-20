@@ -68,12 +68,12 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/progress/records.ts` (+test) -- pure `records(attempts)` → best per item; `isNewRecord(attempts, attemptId)` (strictly faster than every earlier graded attempt of the item) -- single derivation for both surfaces; table tests cover the matrix.
-- [ ] `src/app/(app)/progress.ts` -- `loadRecords()` reusing the same read -- one source, no extra query.
-- [ ] `src/app/(app)/records/page.tsx` (+ `records-list.tsx`, DOM test) -- list per level, Practice again, empty/loading/failed -- replaces placeholder.
-- [ ] `src/app/(app)/results/load-result.tsx` / `results-view.tsx` (+DOM test) -- "New record" badge next to time; failed progress read hides the badge silently [ASSUMPTION] -- Results must still render.
-- [ ] `src/components/results/*`, `globals.css` (+DOM/CSS test) -- ≥80 panel polish (P2) -- deferred-work line 159.
-- [ ] `_bmad-output/implementation-artifacts/deferred-work.md` -- mark P2 entry done -- disposition.
+- [x] `src/core/progress/records.ts` (+test) -- pure `records(attempts)` → best per item; `isNewRecord(attempts, attemptId)` (strictly faster than every earlier graded attempt of the item) -- single derivation for both surfaces; table tests cover the matrix.
+- [x] `src/app/(app)/progress.ts` -- `loadRecords()` reusing the same read -- one source, no extra query.
+- [x] `src/app/(app)/records/page.tsx` (+ `records-list.tsx`, DOM test) -- list per level, Practice again, empty/loading/failed -- replaces placeholder.
+- [x] `src/app/(app)/results/load-result.tsx` / `results-view.tsx` (+DOM test) -- "New record" badge next to time; failed progress read hides the badge silently [ASSUMPTION] -- Results must still render.
+- [x] `src/components/results/*`, `globals.css` (+DOM/CSS test) -- ≥80 panel polish (P2) -- deferred-work line 159.
+- [x] `_bmad-output/implementation-artifacts/deferred-work.md` -- mark P2 entry done -- disposition.
 
 **Acceptance Criteria:**
 - Given a graded attempt faster than the previous best, when its Results opens, then "New record" sits next to the time; given the first attempt of an item, then no badge.
@@ -83,6 +83,11 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- `GradedAttempt` gained `id` (tie-break for "earlier"); test literals in progress/levels tests updated accordingly.
+- `progress.ts`: one private `loadGradedAttempts()` behind `loadProgress`, `loadRecords` and `loadNewRecord` (no extra query); a failed read hides the badge.
+- Records rows in curriculum order; Practice again via `StartControl` + `canStart` ("Try the Test again" for a failed Test), locked by an open attempt as on /levels; no button when `canStart` refuses. No Dashboard Records Card.
+- "New record" shown on live Results only (History detail passes nothing); only beside a time.
+- ≥80 polish: `PASS_PANEL` (tint + `hover:border-glow`, both modes; border transition only live, `motion-reduce:transition-none`) and `COIN` face on the glowing (live pass) badge; static badge stays flat. New copy `shellMessages.recordsEmpty` (illustrative).
 
 ## Plan Change Log
 

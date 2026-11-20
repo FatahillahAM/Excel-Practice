@@ -6,6 +6,7 @@ import { ResultsView } from "@/components/results/results-view";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { attemptDurationSeconds } from "@/core/services/attempts";
 import { findItem } from "@/content/levels";
+import { loadNewRecord } from "../../progress";
 import { loadResult, outcomeOf, ResultsLoadFailed, ResultsSkeleton } from "../load-result";
 
 type Params = { params: Promise<{ attemptId: string }> };
@@ -30,6 +31,8 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
  * or graded by SQL before results existed) → 404; invalid or unreadable → the
  * first-load alert. The exam screen navigates here by itself: focus moves to
  * the `<h1>` (`ResultsFocus`), of the outcome and of the alert alike.
+ * "New record" (4.4) comes from the shared progress read (`loadNewRecord`);
+ * a failed read hides the badge and nothing else.
  */
 export default function ResultsPage({ params }: Params) {
   return (
@@ -45,7 +48,7 @@ async function Results({ params }: Params) {
   const { attemptId } = await params;
   const path = `/results/${encodeURIComponent(attemptId)}`;
 
-  const loaded = await loadResult(attemptId);
+  const [loaded, newRecord] = await Promise.all([loadResult(attemptId), loadNewRecord(attemptId)]);
   if (loaded.status === "login") redirect(loginRedirectPath(path, ""));
   if (loaded.status === "missing") notFound();
   if (loaded.status === "failed" || loaded.status === "invalid") return <ResultsLoadFailed path={path} focus />;
@@ -59,6 +62,7 @@ async function Results({ params }: Params) {
       level={found ? { number: found.level.number, name: found.level.name } : null}
       result={loaded.result}
       durationSeconds={attemptDurationSeconds(loaded.startedAt, loaded.receivedAt)}
+      newRecord={newRecord}
     />
   );
 }
