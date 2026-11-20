@@ -69,3 +69,13 @@ export function isNewRecord(attempts: readonly GradedAttempt[], attemptId: strin
   if (before.length === 0) return false;
   return before.every((entry) => target.seconds < entry.seconds);
 }
+
+/** The best score per item over graded attempts (any score, timed or not): the panel's "Best" column. */
+export function bestScores(attempts: readonly GradedAttempt[]): Map<string, number> {
+  const best = new Map<string, number>();
+  for (const attempt of attempts) {
+    const current = best.get(attempt.itemId);
+    if (current === undefined || attempt.score > current) best.set(attempt.itemId, attempt.score);
+  }
+  return best;
+}

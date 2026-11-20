@@ -5,6 +5,7 @@ import { listFreezes, listStreakDays } from "@/adapters/supabase/freezes";
 import { readTimeZone } from "@/adapters/supabase/profiles";
 import { createClient } from "@/adapters/supabase/server";
 import {
+  bestScores,
   freezesLeft,
   isNewRecord,
   levelProgress,
@@ -50,6 +51,32 @@ export async function loadProgress(): Promise<LevelProgress[] | "failed"> {
   const attempts = await loadGradedAttempts();
   if (attempts === "failed") return "failed";
   return levelProgress(attempts, levels);
+}
+
+/** What /levels shows: progress, and the record time and best score per item. */
+export interface LevelMapData {
+  progress: LevelProgress[];
+  records: Map<string, ItemRecord>;
+  bestScores: Map<string, number>;
+}
+
+/**
+ * Server only: the Level Map's data from ONE graded-attempts read
+ * (`loadGradedAttempts`, the progress read; no time-zone read): progress,
+ * `records()` and `bestScores()`. `"failed"` only when progress cannot be
+ * built (the first-load alert); if deriving records or best scores throws,
+ * it is logged (`progress.load_failed`) and the panel shows "—" cells.
+ */
+export async function loadLevelMap(): Promise<LevelMapData | "failed"> {
+  const attempts = await loadGradedAttempts();
+  if (attempts === "failed") return "failed";
+  const progress = levelProgress(attempts, levels);
+  try {
+    return { progress, records: records(attempts), bestScores: bestScores(attempts) };
+  } catch (error) {
+    console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
+    return { progress, records: new Map(), bestScores: new Map() };
+  }
 }
 
 /** The zone Records dates fall back to without a profile zone (as History). */

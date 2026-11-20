@@ -79,3 +79,52 @@ describe("globals.css Results motion", () => {
     expect(keyframes("score-turn")).toMatch(/to\s*\{\s*transform:\s*rotateY\(360deg\);\s*\}/);
   });
 });
+
+describe("globals.css Level Map scene", () => {
+  const from = css.indexOf("/* ---- Level Map scene");
+  const to = css.indexOf("/* ---- end Level Map scene ---- */");
+  const scene = css.slice(from, to);
+  const guard = "@supports (animation-timeline: scroll()) {";
+
+  it("has the Level Map scene block", () => {
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+  });
+
+  it("animates only inside @supports (animation-timeline: scroll()) and prefers-reduced-motion: no-preference", () => {
+    const open = scene.indexOf(guard);
+    expect(open).toBeGreaterThan(-1);
+    const inner = scene.slice(open);
+    const media = inner.indexOf("@media (prefers-reduced-motion: no-preference) {");
+    expect(media).toBeGreaterThan(-1);
+    const outside = scene.slice(0, open);
+    // Outside the guard: the static end frame only (no animation, no timeline).
+    expect(outside).not.toMatch(/animation(-name|-timeline|-range)?\s*:/);
+    const uses = [...inner.matchAll(/animation-name:\s*lm-/g)].map((m) => m.index);
+    expect(uses.length).toBe(6);
+    for (const at of uses) expect(at).toBeGreaterThan(media);
+    expect(inner).toMatch(/animation-timeline:\s*scroll\(\)/);
+    expect(css.replace(scene, "")).not.toMatch(/lm-(lap|lid|xl|board|trail|nodes)\b/);
+  });
+
+  it("the static frame is the end state: lid open, board flat, trail drawn", () => {
+    expect(scene).toMatch(/\.lm-lid \{[^}]*transform: rotateX\(8deg\)/);
+    expect(scene).toMatch(/\.lm-trail \{[^}]*stroke-dashoffset: 0/);
+    expect(scene).not.toMatch(/\.lm-board \{[^}]*transform/);
+  });
+
+  it("keyframes move transform, opacity or the trail's dash offset only; tilt ≤25°, no Z spin", () => {
+    for (const m of scene.matchAll(/@keyframes lm-[a-z]+ \{((?:[^{}]*\{[^{}]*\})*[^{}]*)\}/g)) {
+      for (const p of m[1].matchAll(/([a-z-]+)\s*:/g)) expect(["transform", "opacity", "stroke-dashoffset"]).toContain(p[1]);
+    }
+    expect(scene).not.toMatch(/rotateZ|rotate\(/);
+    for (const m of scene.matchAll(/rotate[XY]\((-?\d+)deg\)/g)) {
+      if (Math.abs(Number(m[1])) > 25) expect(m[0]).toBe("rotateX(-88deg)"); // the lid hinge, not a tilt
+    }
+  });
+
+  it("is also stopped by the global reduced-motion rules (OS and the Settings switch)", () => {
+    expect(css).toMatch(/@media \(prefers-reduced-motion: reduce\) \{\s*\*,/);
+    expect(css).toContain(':root[data-motion="reduce"] *');
+  });
+});

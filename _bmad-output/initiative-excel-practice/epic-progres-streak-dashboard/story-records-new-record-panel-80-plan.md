@@ -3,7 +3,7 @@ title: 'Records, "New record" di Results, dan panel ≥80'
 type: 'feature'
 ticket: '4'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: ''
 review: 'thorough'
@@ -119,3 +119,9 @@ Two combined reviewers (blind+edge-case, verification+intent-alignment); no high
 - Records Card on the Dashboard rail (EXPERIENCE › Dashboard): add here or leave to a later ticket? Recommendation: leave out; tiket 4 lists only the page, badge and panel — add a small card only if the user wants it in 4.4.
 - Should a Test that failed count for a record? Recommendation: yes (EXPERIENCE J4: "the time still counts for Records").
 - Records sort order within a level. Recommendation: curriculum order (P1–P5, then Test), not by time.
+
+## Production Evidence
+
+- PR #30 merged (no migration); CI on the final head green (lint/typecheck/unit, DB contract tests).
+- User checked on Production: Records page, "New record" badge behaviour and the ≥80 panel as expected; copy for `recordsEmpty` and `OPEN_ATTEMPT_UNKNOWN` approved (user, 2026-11-20).
+- Vercel runtime logs (last 50 min): no records at all — no errors, no `progress.load_failed`, no `records.orphan_items`; no new attempt was started in that window, so the badge check relied on existing history.

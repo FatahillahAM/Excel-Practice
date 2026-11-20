@@ -4,5 +4,5 @@ export { canStart, CURRICULUM, FINAL_EXAM_NAME, levelProgress, PRACTICES_FOR_TES
 export type { GradedAttempt, GradedAttemptSource, LevelProgress, LevelState, StartCheck, StartRefusal } from "./level-progress";
 export { addDays, FREEZES_PER_WEEK, freezesLeft, isoWeekStart, localDate, streak } from "./streak";
 export type { DayState, DayStatus, Streak } from "./streak";
-export { isNewRecord, records } from "./records";
+export { bestScores, isNewRecord, records } from "./records";
 export type { ItemRecord } from "./records";

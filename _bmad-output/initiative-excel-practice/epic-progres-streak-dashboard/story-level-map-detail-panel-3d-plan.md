@@ -3,13 +3,14 @@ title: 'Level Map, Level Detail Panel lengkap, dan adegan 3D'
 type: 'feature'
 ticket: '5'
 created: '2026-11-19'
-status: 'draft'
+status: 'built'
 route: 'full'
 route_source: ''
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
+baseline_revision: '9e839eddb43ea0183fbe4cd5d14a3fc65b6f38bc'
 context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architecture-excel-practice-2026-10-22/ARCHITECTURE-SPINE.md', '{project-root}/_bmad-output/planning-artifacts/ux-designs/ux-excel-practice-2026-10-22/EXPERIENCE.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-gerbang-test-practice-again-hp-plan.md']
 ---
 
@@ -64,12 +65,12 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/components/levels/level-node.tsx` -- shared node (states, aria) used by Level Path and Level Map -- one implementation.
-- [ ] `src/app/(app)/levels/level-map.tsx` (+DOM test) -- full path incl. Ujian Akhir and side-track UC; node opens panel; fixtures for each gate state.
-- [ ] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` (+tests) -- real eyebrow, read-only locked/UC reason, record time per row, focus management, phone bottom sheet -- P4 leftovers.
-- [ ] `src/app/(app)/levels/scroll-scene.tsx`, `globals.css` (+CSS/DOM test) -- decorative scene, Skip intro, static frame under reduced motion / no `animation-timeline` -- D3/AD-12.
-- [ ] `src/app/(app)/levels/page.tsx` (+test) -- wire map, skeleton, failed read.
-- [ ] `deferred-work.md` -- close the 2.6 Level Detail Panel entry (line 83) -- disposition.
+- [x] `src/components/levels/level-node.tsx` -- shared node (states, aria) used by Level Path and Level Map -- one implementation.
+- [x] `src/app/(app)/levels/level-map.tsx` (+DOM test) -- full path incl. Ujian Akhir and side-track UC; node opens panel; fixtures for each gate state.
+- [x] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` (+tests) -- real eyebrow, read-only locked/UC reason, record time per row, focus management, phone bottom sheet -- P4 leftovers.
+- [x] `src/app/(app)/levels/scroll-scene.tsx`, `globals.css` (+CSS/DOM test) -- decorative scene, Skip intro, static frame under reduced motion / no `animation-timeline` -- D3/AD-12.
+- [x] `src/app/(app)/levels/page.tsx` (+test) -- wire map, skeleton, failed read.
+- [x] `deferred-work.md` -- close the 2.6 Level Detail Panel entry (line 83) -- disposition.
 
 **Acceptance Criteria:**
 - Given fixture progress, when /levels renders, then every node shows its state and only the active node has `aria-current="step"`.
@@ -78,9 +79,32 @@ context: ['{project-root}/_bmad-output/planning-artifacts/architecture/architect
 
 ## Implementation Notes
 
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Approved choices: /levels is replaced by the map; the active level's panel is open on arrival (focus not moved), Start one click away; the scene replays every visit, "Skip intro" (first focusable, `#level-path`), no remembered skip.
+- Shared node: `src/components/levels/level-node.tsx` (`LevelNodeRow` on the Dashboard Level Path, `LevelNode` button on the map). The map is split into a server builder (`level-map.tsx`, renders every node's panel) and a client shell (`level-map-client.tsx`: open state, focus to the panel heading on open, back to the node on Close / `Escape`, phone bottom sheet via the same coarse ≤1023px query as the Start gating).
+- Locked / Under Construction / Ujian Akhir / side track open `ReadOnlyLevelPanel` (reason or Under Construction Tag, no Start). Locked reason via `lockedReason(n)`; node `aria-describedby` points at a `sr-only` copy of it.
+- Records: /levels reads `loadLevelMap()` (progress.ts): ONE graded-attempts read → `levelProgress`, `records()`, `bestScores()` (new pure fn in records.ts), no time-zone read. Only a failed progress read shows the first-load alert; a records/best-score derivation throw is logged (`progress.load_failed`) and leaves "—" cells. Record time uses `formatElapsed`.
+- Review fixes: on a phone (`PHONE_QUERY` via matchMedia) nothing opens on arrival; a tapped node opens its panel in a bottom sheet built on the shell's Sheet (radix Dialog: dialog role, focus trap, scrim, Escape, rest inert; `SheetPortal`/`SheetOverlay` now exported); the inline column is CSS-hidden on phones and the sheet's panel is not duplicated inline. Escape on the inline panel is handled at document level. Focus targets use `MapNode.headingId`. Side track is the last `li` (DOM/tab order) but placed in Level 8's grid row, column 2 (from `sm`). "No level is open yet." only when no active/passed level; no locked reason for Level 1.
+- Scene: `scroll-scene.tsx` (`aria-hidden`, `inert`) + `globals.css` › Level Map scene; base styles are the static end frame, animations only inside `@supports (animation-timeline: scroll())` + `prefers-reduced-motion: no-preference`, timeline `scroll()` (nearest scroller). Skeleton: `levels/loading.tsx` reusing `LevelPathSkeleton`.
+- Deferred to 4.6: sidebar level count / "levels passed of 9" (the sidebar does not read progress today; not trivial here).
+- New copy for approval: side-track name "Co-authoring" (from the mockup), "Close" on the panel/sheet.
+
 ## Plan Change Log
 
 ## Review Triage Log
+
+Two combined reviewers (blind+edge-case+a11y, verification+intent-alignment); no 4.3 regressions (Start lock, Practice again, phone gating intact).
+
+- Fixed (high): on phones the active panel opened on arrival as a fixed sheet covering ~85% of the screen (and the Skip-intro target); now nothing opens on arrival on phones, a tapped node opens a Sheet dialog (focus trap, backdrop, Escape, inert background).
+- Fixed: Escape only worked with focus inside the panel; now handled at document level while a panel is open.
+- Fixed: /levels did two full attempt scans plus a time-zone read and a records failure blanked the page; `loadLevelMap` does one read, records failure degrades to "—".
+- Fixed: focus target via known `headingId`, not the first `h2`.
+- Fixed: tests for replay-every-visit / no storage, scene DOM hooks matching globals.css selectors, Start inside the phone sheet.
+- Fixed: side track placed beside Level 8 from `sm` up while staying last in DOM/tab order; "No level is open yet." guarded.
+- Accepted: the sheet's hidden dialog title repeats the level name for screen readers (avoids the dialog library warning).
+- Deferred to 4.6: sidebar level count and "levels passed of 9" (sidebar does not read progress yet).
+- Manual checks after merge: Chrome scene plays, Firefox / reduced motion static frame, phone sheet.
+- Copy to confirm: side track "Co-authoring", "Close".
 
 ## Verification
 

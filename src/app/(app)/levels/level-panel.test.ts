@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LevelItem } from "@/core/content/level-module";
 import { levels } from "@/content/levels";
 import { canStart, levelProgress } from "@/core/progress";
-import { completedItemIds, levelPanel, testLockLine, testResult } from "./level-panel";
+import { completedItemIds, levelPanel, lockedReason, testLockLine, testResult } from "./level-panel";
 
 const generate = () => ({ cells: { Data: { A1: "x" } }, questions: [] });
 const practice = (number: number): LevelItem => ({ id: `L01-P${number}`, kind: "practice", number, generate });
@@ -142,5 +142,11 @@ describe("completedItemIds", () => {
   it("is empty without progress for the level", () => {
     expect(completedItemIds(levels[0], []).size).toBe(0);
     expect(completedItemIds({ number: 1, items: [practice(1)] }, levelProgress([], levels)).size).toBe(0);
+  });
+});
+
+describe("lockedReason", () => {
+  it("names the Test of the level before", () => {
+    expect(lockedReason(3)).toBe("Pass Test Level 2 to unlock.");
   });
 });
