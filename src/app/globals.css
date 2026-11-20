@@ -428,9 +428,10 @@
 
 /* ---- Level Map scene (D3, AD-12) ----
  * The markup's own styles are the static end frame: laptop open, board flat,
- * trail drawn, nodes lit to the active level. Only with scroll timelines and
- * no reduced-motion preference does the scene scrub with the page scroll;
- * Firefox and older browsers (no `animation-timeline`) keep the static frame.
+ * trail drawn, nodes lit to the active level. With no reduced-motion
+ * preference the scene plays once as a ~2.6 s timed intro on every visit
+ * (user decision 2026-11-20: the page rarely scrolls enough to scrub);
+ * reduced motion (OS or the Settings switch) keeps the static frame.
  * Transform and opacity (and the trail's dash offset) only; tilt ≤25°, no Z spin.
  */
 .lm-scene { position: relative; height: 220px; overflow: hidden; border-radius: 16px; border: 1px solid var(--border); background: var(--card); }
@@ -451,16 +452,14 @@
 @keyframes lm-board { from { transform: translateY(120px) rotateX(25deg); } to { transform: none; } }
 @keyframes lm-trail { from { stroke-dashoffset: 100; } to { stroke-dashoffset: 0; } }
 @keyframes lm-nodes { from { opacity: 0.3; transform: scale(0.92); } to { opacity: 1; transform: none; } }
-@supports (animation-timeline: scroll()) {
-  @media (prefers-reduced-motion: no-preference) {
-    [data-scene="level-map"] [data-lm] { animation-timing-function: linear; animation-fill-mode: both; animation-timeline: scroll(); }
-    [data-scene="level-map"] [data-lm="laptop"] { animation-name: lm-lap; animation-range: 0% 35%; }
-    [data-scene="level-map"] [data-lm="lid"] { animation-name: lm-lid; animation-range: 5% 38%; }
-    [data-scene="level-map"] [data-lm="xl"] { animation-name: lm-xl; animation-range: 0% 60%; }
-    [data-scene="level-map"] [data-lm="board"] { animation-name: lm-board; animation-range: 35% 72%; }
-    [data-scene="level-map"] [data-lm="trail"] { animation-name: lm-trail; animation-range: 60% 88%; }
-    [data-scene="level-map"] [data-lm="nodes"] { animation-name: lm-nodes; animation-range: 80% 100%; }
-  }
+@media (prefers-reduced-motion: no-preference) {
+  [data-scene="level-map"] [data-lm] { animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1); animation-fill-mode: both; animation-duration: 900ms; }
+  [data-scene="level-map"] [data-lm="laptop"] { animation-name: lm-lap; animation-delay: 0ms; }
+  [data-scene="level-map"] [data-lm="lid"] { animation-name: lm-lid; animation-delay: 150ms; }
+  [data-scene="level-map"] [data-lm="xl"] { animation-name: lm-xl; animation-delay: 0ms; animation-duration: 1500ms; }
+  [data-scene="level-map"] [data-lm="board"] { animation-name: lm-board; animation-delay: 900ms; }
+  [data-scene="level-map"] [data-lm="trail"] { animation-name: lm-trail; animation-delay: 1500ms; }
+  [data-scene="level-map"] [data-lm="nodes"] { animation-name: lm-nodes; animation-delay: 2000ms; animation-duration: 600ms; }
 }
 /* ---- end Level Map scene ---- */
 

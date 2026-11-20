@@ -84,26 +84,26 @@ describe("globals.css Level Map scene", () => {
   const from = css.indexOf("/* ---- Level Map scene");
   const to = css.indexOf("/* ---- end Level Map scene ---- */");
   const scene = css.slice(from, to);
-  const guard = "@supports (animation-timeline: scroll()) {";
+  const guard = "@media (prefers-reduced-motion: no-preference) {";
 
   it("has the Level Map scene block", () => {
     expect(from).toBeGreaterThan(-1);
     expect(to).toBeGreaterThan(from);
   });
 
-  it("animates only inside @supports (animation-timeline: scroll()) and prefers-reduced-motion: no-preference", () => {
+  it("animates only inside prefers-reduced-motion: no-preference, as a timed intro", () => {
     const open = scene.indexOf(guard);
     expect(open).toBeGreaterThan(-1);
     const inner = scene.slice(open);
-    const media = inner.indexOf("@media (prefers-reduced-motion: no-preference) {");
-    expect(media).toBeGreaterThan(-1);
+    const media = 0;
     const outside = scene.slice(0, open);
     // Outside the guard: the static end frame only (no animation, no timeline).
     expect(outside).not.toMatch(/animation(-name|-timeline|-range)?\s*:/);
     const uses = [...inner.matchAll(/animation-name:\s*lm-/g)].map((m) => m.index);
     expect(uses.length).toBe(6);
     for (const at of uses) expect(at).toBeGreaterThan(media);
-    expect(inner).toMatch(/animation-timeline:\s*scroll\(\)/);
+    expect(inner).not.toMatch(/animation-timeline/);
+    expect(inner).toMatch(/animation-duration:\s*\d+ms/);
     expect(css.replace(scene, "")).not.toMatch(/lm-(lap|lid|xl|board|trail|nodes)\b/);
   });
 
