@@ -3,7 +3,7 @@ title: 'Tracer: Test L01 dan perlengkapan Test'
 type: 'feature'
 ticket: '1'
 created: '2026-11-20'
-status: 'in-review'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
@@ -104,7 +104,7 @@ One combined reviewer (bugs/edge cases, verification, intent); L01-T keys, point
 - Fixed: a throw in the layout's progress derivation could break every page; `loadCurriculumSummary()` catches and hides the summary.
 - Fixed: P1 golden test asserts `fondasi.contentVersion` instead of a hard-coded number.
 - Accepted: template B11:B12 prompt lines are unwrapped (still readable; style in a later template version).
-- Pending (hitl): L01-T Excel 2021 fixtures (correct, typed-values, wrong-function); golden tests skip until the user commits them.
+- Done (hitl): L01-T Excel 2021 fixtures committed by the user (wrong-function re-saved from the correct file); golden tests pass (correct 100, typed-values 85, wrong-function 85).
 
 ## Design Notes
 
