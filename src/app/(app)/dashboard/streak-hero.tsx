@@ -48,7 +48,7 @@ export function StreakHeroView({ view }: { view: StreakView }) {
   const atRisk = state === "at_risk";
   const freezeText = `${view.freezesLeft} of ${FREEZES_PER_WEEK} freezes left`;
   return (
-    <section aria-labelledby="streak-hero-title" data-state={state} className={CARD}>
+    <section aria-labelledby="streak-hero-title" data-state={state} className={cn(CARD, "glow-orbit")}>
       <h2 id="streak-hero-title" className={cn(LABEL, "text-muted-foreground")}>
         Streak
       </h2>

@@ -69,6 +69,7 @@ export function LevelPathView({
               className={cn(
                 "flex flex-col gap-2 rounded-md px-3 py-2",
                 active && "bg-muted shadow-[inset_0_0_0_1.5px_var(--primary)]",
+                (active || level.state === "passed") && "glow-orbit",
                 muted && "text-muted-foreground",
               )}
             >
