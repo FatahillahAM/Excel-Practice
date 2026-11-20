@@ -8,9 +8,16 @@ import type { ResultsVariant } from "./outcome";
 import { usePlayOnce } from "./use-play-once";
 
 /**
+ * The glowing coin's face (mockup, P2): a light-to-edge `primary` gradient
+ * and two inset rings. Paint only, nothing animates.
+ */
+export const COIN =
+  "bg-[radial-gradient(circle_at_35%_28%,color-mix(in_oklab,var(--primary)_65%,white),var(--primary)_55%,var(--primary-edge))] shadow-[inset_0_0_0_3px_rgba(255,255,255,0.22),inset_0_0_0_10px_var(--glow-soft)]";
+
+/**
  * Score Badge (DESIGN.md › Score Badge): a 168px disc with the score in
  * `display-lg` and "/100" in `label`. Static: `pass` in `live` mode has the
- * `primary` face with a `glow-strong` shadow; `calm`, and any score in
+ * `primary` face (`COIN`: gradient and inset rings) with a `glow-strong` shadow; `calm`, and any score in
  * `static` mode (History), is flat `muted` with a 2px `input-border` ring.
  * Decorative (`aria-hidden`): the score is in the page's `<h1>`.
  *
@@ -61,7 +68,7 @@ export function ScoreBadge({
           data-slot="score-badge-face"
           className={cn(
             "absolute inset-0 grid place-items-center rounded-full backface-hidden",
-            glowing ? "bg-primary text-primary-foreground" : "bg-muted text-foreground shadow-[inset_0_0_0_2px_var(--input-border)]",
+            glowing ? cn("bg-primary text-primary-foreground", COIN) : "bg-muted text-foreground shadow-[inset_0_0_0_2px_var(--input-border)]",
           )}
         >
           <div className="text-center">

@@ -5,7 +5,7 @@ import { addDays, freezesLeft, isoWeekStart, localDate, streak } from "./streak"
 const JAKARTA = "Asia/Jakarta"; // UTC+7, no DST
 const NEW_YORK = "America/New_York"; // DST
 
-const at = (receivedAt: string | null, score = 50): GradedAttempt => ({ itemId: "L01-P1", score, startedAt: "2026-11-01T00:00:00Z", receivedAt });
+const at = (receivedAt: string | null, score = 50): GradedAttempt => ({ id: `a-${receivedAt}`, itemId: "L01-P1", score, startedAt: "2026-11-01T00:00:00Z", receivedAt });
 /** What `streak_days` returns: the distinct local dates of graded attempts with a `received_at`. */
 const days = (attempts: GradedAttempt[], zone: string) => [
   ...new Set(attempts.flatMap((a) => (a.receivedAt ? [localDate(a.receivedAt, zone)] : []))),

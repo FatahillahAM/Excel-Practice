@@ -152,7 +152,7 @@ describe("StartControl lock without attemptId (the { reason } shape)", () => {
 
 describe("/levels — progress (the Dashboard's read)", () => {
   afterEach(() => mocks.loadProgress.mockResolvedValue(NO_PROGRESS));
-  const at = (itemId: string) => ({ itemId, score: 40, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
+  const at = (itemId: string) => ({ id: itemId, itemId, score: 40, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
 
   it("marks a practice done in the progress as done (1/5, no Start for it)", async () => {
     mocks.loadProgress.mockResolvedValue(levelProgress([at("L01-P1")], levels));

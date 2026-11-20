@@ -156,7 +156,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: The mockup's ≥80 panel styling is not built: `glow-soft` radial tint on the Outcome panel, the coin's gradient and inset rings, and the panel's hover `glow` border.
   evidence: 3.6 review; 3.6 has a flat `primary` face with a static glow — assign to 3.7 or a polish entry.
-  status: moved — epic 4 (new visuals, not cleanup; Results polish beside "New record"; user decision 3.10) (sweep 3.10, 2026-11-19).
+  status: done — 4.4 (`PASS_PANEL` tint and hover border, `COIN` gradient and rings) (2026-11-20); was: moved — epic 4 (new visuals, not cleanup; Results polish beside "New record"; user decision 3.10) (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-layar-results-isi-dan-varian-plan.md`
   summary: Two questions carrying the same Tip id show as two separate Tips Cards on Results.
   evidence: 3.6 review; one card per question is the frozen rule — revisit if content reuses a Tip within one item (the Tips collection in 3.9 dedupes by id).

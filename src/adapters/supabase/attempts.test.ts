@@ -21,7 +21,9 @@ import {
   TIPS_MAX_ROWS,
   TIPS_PAGE,
   listGradedResults,
+  listItemDurations,
   listProgressAttempts,
+  listRecordAttempts,
   listResultsForTips,
   loadForGrading,
   markReceived,
@@ -971,5 +973,56 @@ describe("listProgressAttempts (session)", () => {
       { event: "attempt.list_progress_failed", code: "42501" },
       { event: "attempt.list_progress_failed", code: "TypeError" },
     ]);
+  });
+});
+
+describe("listItemDurations / listRecordAttempts (session, uncapped)", () => {
+  const times = (id: string) => ({ id, started_at: "2026-11-02T01:00:00+00:00", received_at: "2026-11-02T01:10:00+00:00" });
+
+  it("one item: id and times only, the user's graded rows, oldest first", async () => {
+    const { client, from, calls } = fakeClient({ data: [{ ...times("a"), received_at: null }], error: null });
+    expect(await listItemDurations(client, "user-a", "L01-P1")).toEqual({
+      ok: true,
+      value: [{ id: "a", startedAt: "2026-11-02T01:00:00+00:00", receivedAt: null }],
+    });
+    expect(from).toHaveBeenCalledWith("attempts");
+    expect(calls).toEqual([
+      ["select", ["id, started_at, received_at"]],
+      ["eq", ["user_id", "user-a"]],
+      ["eq", ["item_id", "L01-P1"]],
+      ["eq", ["status", "graded"]],
+      ["not", ["result", "is", null]],
+      ["order", ["received_at", { ascending: true }]],
+      ["order", ["id", { ascending: true }]],
+      ["range", [0, 199]],
+    ]);
+  });
+
+  it("records: the score only from the Result, pages past the progress cap", async () => {
+    const pages = Array.from({ length: 26 }, (_, p) => ({
+      data: Array.from({ length: p < 25 ? 200 : 3 }, (_, i) => ({ ...times(`r${p}-${i}`), item_id: "L01-P1", score: 85 })),
+      error: null,
+    }));
+    const { client, calls } = fakeClient(pages);
+    const read = await listRecordAttempts(client, "user-a");
+    expect(read.ok && read.value.length).toBe(5003);
+    expect(read.ok && read.value[0]).toEqual({ id: "r0-0", itemId: "L01-P1", score: 85, startedAt: "2026-11-02T01:00:00+00:00", receivedAt: "2026-11-02T01:10:00+00:00" });
+    expect(calls.slice(0, 7)).toEqual([
+      ["select", ["id, item_id, score:result->score, started_at, received_at"]],
+      ["eq", ["user_id", "user-a"]],
+      ["eq", ["status", "graded"]],
+      ["not", ["result", "is", null]],
+      ["order", ["received_at", { ascending: true }]],
+      ["order", ["id", { ascending: true }]],
+      ["range", [0, 199]],
+    ]);
+    expect(calls.at(-1)).toEqual(["range", [5000, 5199]]);
+  });
+
+  it("logs and fails on an error or a throw", async () => {
+    expect(await listItemDurations(fakeClient({ data: null, error: { code: "57014", message: "x" } }).client, "u", "L01-P1")).toEqual({ ok: false });
+    expect(await listRecordAttempts(fakeClient(() => Promise.reject(new TypeError("net"))).client, "u")).toEqual({ ok: false });
+    const events = errors.mock.calls.map((c) => JSON.parse(String(c[0])).event);
+    expect(events).toEqual(["attempt.list_item_durations_failed", "attempt.list_records_failed"]);
   });
 });

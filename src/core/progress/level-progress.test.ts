@@ -14,7 +14,7 @@ function fixtureModule(number: number, phase: LevelPhase = "v1", practices = 5, 
 
 const L1 = fixtureModule(1);
 const L2 = fixtureModule(2);
-const at = (itemId: string, score: number): GradedAttempt => ({ itemId, score, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
+const at = (itemId: string, score: number): GradedAttempt => ({ id: `${itemId}-${score}`, itemId, score, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" });
 const states = (progress: ReturnType<typeof levelProgress>) => progress.map((level) => level.state);
 
 describe("levelProgress", () => {
@@ -171,7 +171,7 @@ describe("toGradedAttempts", () => {
 
   it("keeps valid Results in order with their score", () => {
     expect(toGradedAttempts([row("a", PRACTICE_85), row("b", PRACTICE_64, "L01-P2"), row("c", TEST_88, "L01-T")])).toEqual([
-      { itemId: "L01-P1", score: PRACTICE_85.score, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" },
+      { id: "a", itemId: "L01-P1", score: PRACTICE_85.score, startedAt: "2026-11-02T01:00:00Z", receivedAt: "2026-11-02T01:10:00Z" },
       expect.objectContaining({ itemId: "L01-P2", score: PRACTICE_64.score }),
       expect.objectContaining({ itemId: "L01-T", score: TEST_88.score }),
     ]);
