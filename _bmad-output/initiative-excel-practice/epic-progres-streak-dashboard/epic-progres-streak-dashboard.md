@@ -55,6 +55,7 @@ Progres turunan, streak, rekor, Dashboard, Level Map, Records, tampilan HP. Buka
 
 ## Notes
 
+- Decision: 4.7 ditunda sampai konten Test epic 5 tersedia; epic 5 dimulai lebih dulu (user, 2026-11-20).
 - Decision: 4.6 done — PR #34 di-merge; hitungan level sidebar dipindah ke epic 5; teks pesan streak dimulai ulang disetujui (user, 2026-11-20).
 - Decision: 4.5 done — PR #31, #32 (intro berbasis waktu) dan #33 (glow Dashboard atas permintaan user) di-merge; sesuai di Production; log bersih (user, 2026-11-20).
 - Decision: 4.5 — adegan 3D diubah dari scroll-driven menjadi intro berbasis waktu ~2,6 detik tiap kunjungan (halaman jarang bisa di-scroll); tetap diam saat reduced motion; teks Co-authoring dan Close disetujui (user, 2026-11-20).
