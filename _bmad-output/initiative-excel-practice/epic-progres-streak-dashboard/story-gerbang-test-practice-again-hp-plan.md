@@ -3,7 +3,7 @@ title: 'Gerbang Test, aturan buka level, Practice again, dan pembatasan HP'
 type: 'feature'
 ticket: '3'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'
