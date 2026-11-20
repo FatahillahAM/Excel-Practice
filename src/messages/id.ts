@@ -41,6 +41,8 @@ export const streakMessages = {
   alreadySafe: "Hari ini sudah aman, nggak perlu freeze.",
   /** Use freeze refused: the day changed (local midnight passed) since the page loaded. */
   dayChanged: "Harinya sudah ganti. Cek streak-mu lagi, ya.",
+  /** Streak Hero the day after a reset (EXPERIENCE.md › System message set › Streak restarted). */
+  restarted: "Streak mulai lagi dari 0 — yuk, latihan hari ini.",
   /** Use freeze failed (database or network). */
   freezeFailed: "Freeze belum tersimpan. Coba lagi, ya.",
 } as const;

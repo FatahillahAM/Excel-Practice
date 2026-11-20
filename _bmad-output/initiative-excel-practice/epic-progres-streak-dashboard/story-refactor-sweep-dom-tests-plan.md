@@ -3,13 +3,14 @@ title: 'Sapu bersih refactor dan tes DOM yang tertunda'
 type: 'feature'
 ticket: '6'
 created: '2026-11-19'
-status: 'draft'
+status: 'built'
 route: 'full'
 route_source: ''
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
+baseline_revision: 'b1dd25c86760f9b0f74840a75da5cdb7cfea00d1'
 context: ['{project-root}/_bmad-output/implementation-artifacts/deferred-work.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/epic-progres-streak-dashboard.md']
 ---
 
@@ -58,11 +59,11 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/deferred-work.md
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `deferred-work.md` -- disposition every epic-4 entry and 4.1–4.5 deferrals -- ticket verify.
-- [ ] dead code removal found during the sweep (grep unused exports, e.g. `PHONE_QUERY` if unreferenced) -- cleanup.
-- [ ] `settings/*.dom.test.tsx`, `orbit-loader.dom.test.tsx`, `upload-dropzone.dom.test.tsx`, `abandon-dialog.dom.test.tsx`, extend `exam-status.dom.test.tsx` -- parked DOM tests (P3).
-- [ ] "Streak restarted" message -- implement or move per Open Question.
-- [ ] 4.5 leftovers -- TBD after 4.5 lands.
+- [x] `deferred-work.md` -- disposition every epic-4 entry and 4.1–4.5 deferrals -- ticket verify.
+- [x] dead code removal found during the sweep (grep unused exports, e.g. `PHONE_QUERY` if unreferenced) -- cleanup.
+- [x] `settings/*.dom.test.tsx`, `orbit-loader.dom.test.tsx`, `upload-dropzone.dom.test.tsx`, `abandon-dialog.dom.test.tsx`, extend `exam-status.dom.test.tsx` -- parked DOM tests (P3).
+- [x] "Streak restarted" message -- implement or move per Open Question.
+- [x] 4.5 leftovers -- TBD after 4.5 lands.
 
 **Acceptance Criteria:**
 - Given `deferred-work.md`, when grepped for epic 4, then no entry is open or "moved — epic 4".
@@ -70,9 +71,26 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/deferred-work.md
 
 ## Implementation Notes
 
+- Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Dispositions in `deferred-work.md` (sweep 4.6): done — ExamStatus loop/tick, Orbit toggle, Dropzone, Abandon, the dead `closed` allowance (4.2's freezes migration), "Streak restarted", 4.5 manual checks; accepted — no cache across devices (4.1), freeze vs grading race (4.2), stale Result dropped (4.3), phone gating CSS-only test (4.3); moved to epic 5 (konten-level-1-4, Notes) — v1 level without a Test (4.1) and the sidebar "L3" / "levels passed of 9" (4.5). No epic-4 entry stays open.
+- Sidebar count not built: 4.6's frozen Never allows no visible UI besides "Streak restarted", and with no Test item no level can be passed (0 of 9 for everyone), so it moves to epic 5 with the first Test.
+- "Streak restarted": `streak().restarted` (today and yesterday uncovered, a covered day 2–7 days back, `RESTARTED_WINDOW_DAYS`) — derived, nothing stored; Streak Hero renders `streakMessages.restarted` (EXPERIENCE.md copy verbatim) at zero, muted.
+- Dead code: none found. Unused-export scan of epic-4 code (`PHONE_QUERY`, `LevelMapData`, `RECORDS_FALLBACK_ZONE`, `streakHeroState`, …) — all used (`PHONE_QUERY` by the Level Map sheet). Only stale comments updated (`upload.ts`, `sidebar-content.tsx`).
+- New DOM tests: `settings/page.dom.test.tsx` (prerendered page: zone, "Not set", first-load failure, zone read failure), `components/exam/orbit-loader.dom.test.tsx`, `exam/[attemptId]/upload-dropzone.dom.test.tsx`, `dashboard/abandon-button.dom.test.tsx` (Code Map named `abandon-dialog`; the component is `AbandonButton`), two "(f) tick" tests in `exam-status.dom.test.tsx` (fake timers).
+- Review fixes: `restarted` follows EXPERIENCE.md "first visit after a reset" (returning 3–7 days later still sees it; today frozen ends it), tests for 3/7/8 days, today frozen, 00:00:30 Jakarta and New York DST; Abandon unmount test resolves the pending action and unmounts the card in one `act`; the tick test asserts the interval is cleared on received; remaining accepted items from 4.2, 4.4 and 4.5 recorded in `deferred-work.md`.
+
 ## Plan Change Log
 
 ## Review Triage Log
+
+One combined reviewer (bugs/edge cases, verification, sweep accuracy); no blocking defects; new tests stable across 3 runs; sweep evidence checked.
+
+- Fixed: `restarted` only showed on the single day after a reset; now "first visit after a reset" (EXPERIENCE.md l.161): today and yesterday uncovered, a covered day 2–7 days back; today frozen → false. Tests for 3/7/8 days, frozen today, Jakarta midnight, New York DST.
+- Fixed: Abandon unmount test proved nothing; now resolves the action and unmounts the card in one act.
+- Fixed: ExamStatus tick test now asserts the interval is cleared after "received".
+- Fixed: remaining accepted items from 4.2/4.4/4.5 triage logs recorded as `accepted` in deferred-work.md.
+- Accepted: a freeze-only streak that lapses still shows "Streak mulai lagi dari 0" (consistent with the 4.2 decision).
+- Open for user: sidebar level count moved to epic 5 (plan's Never forbids other UI; would read "0 of 9" until Test content); `streakMessages.restarted` copy from EXPERIENCE.md.
 
 ## Verification
 

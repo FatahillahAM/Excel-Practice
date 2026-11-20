@@ -77,7 +77,7 @@ export function SidebarContent({
       <nav aria-labelledby={menuId}>
         <ul className="flex flex-col gap-0.5">
           {MENU_ITEMS.map((item) => (
-            // Level Map's "L3" count is hidden until the progress epic.
+            // Level Map's "L3" count: moved to epic 5 (4.6 sweep).
             <NavLink key={item.href} item={item} active={active === item} touch={touch} onNavigate={onNavigate} />
           ))}
         </ul>
@@ -99,7 +99,7 @@ export function SidebarContent({
           </li>
         </ul>
       </nav>
-      {/* Footer slot: the curriculum progress bar lands with the progress epic. */}
+      {/* Footer slot: the curriculum progress bar ("levels passed of 9"), moved to epic 5 (4.6 sweep). */}
     </>
   );
 }

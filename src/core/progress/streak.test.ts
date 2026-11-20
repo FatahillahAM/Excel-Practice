@@ -52,6 +52,30 @@ describe("streak", () => {
     expect(run([at(jkt("2026-11-16"))]).count).toBe(0);
   });
 
+  it("restarted: today and yesterday not covered, a covered day 2–7 days back; not after today is covered", () => {
+    expect(run([at(jkt("2026-11-17"))]).restarted).toBe(true); // the day after the reset
+    expect(run([], ["2026-11-17"]).restarted).toBe(true); // a freeze counts as covered
+    expect(run([at(jkt("2026-11-16"))]).restarted).toBe(true); // 3 days later
+    expect(run([at(jkt("2026-11-12"))]).restarted).toBe(true); // 7 days back
+    expect(run([at(jkt("2026-11-11"))]).restarted).toBe(false); // 8 days later
+    expect(run([at(jkt("2026-11-18"))]).restarted).toBe(false); // at risk, not reset
+    expect(run([at(jkt("2026-11-17")), at(jkt("2026-11-19"))]).restarted).toBe(false); // practised today
+    expect(run([at(jkt("2026-11-17"))], ["2026-11-19"]).restarted).toBe(false); // today frozen
+    expect(run([]).restarted).toBe(false); // first run
+  });
+
+  it("restarted at midnight: 00:00:30 local is already the new day", () => {
+    const early = new Date(jkt("2026-11-19", "00:00:30"));
+    expect(run([at(jkt("2026-11-17", "23:59:00"))], [], early).restarted).toBe(true);
+    expect(run([at(jkt("2026-11-18", "23:59:00"))], [], early).restarted).toBe(false); // yesterday covered
+  });
+
+  it("restarted across DST (New York, 1 Nov 2026): local days, not 24-hour steps", () => {
+    const now = new Date("2026-11-02T12:00:00-05:00");
+    expect(run([at("2026-10-31T12:00:00-04:00")], [], now, NEW_YORK).restarted).toBe(true);
+    expect(run([at("2026-11-01T12:00:00-05:00")], [], now, NEW_YORK).restarted).toBe(false);
+  });
+
   it("counts any score (Practice again included) and ignores attempts without received_at", () => {
     expect(run([at(jkt("2026-11-19"), 0), at(null)]).count).toBe(1);
   });

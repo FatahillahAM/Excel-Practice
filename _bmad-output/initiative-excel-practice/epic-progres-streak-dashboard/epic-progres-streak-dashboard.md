@@ -55,6 +55,7 @@ Progres turunan, streak, rekor, Dashboard, Level Map, Records, tampilan HP. Buka
 
 ## Notes
 
+- Decision: 4.5 done — PR #31, #32 (intro berbasis waktu) dan #33 (glow Dashboard atas permintaan user) di-merge; sesuai di Production; log bersih (user, 2026-11-20).
 - Decision: 4.5 — adegan 3D diubah dari scroll-driven menjadi intro berbasis waktu ~2,6 detik tiap kunjungan (halaman jarang bisa di-scroll); tetap diam saat reduced motion; teks Co-authoring dan Close disetujui (user, 2026-11-20).
 - Decision: 4.4 done — PR #30 di-merge (tanpa migrasi); Records, badge New record dan panel ≥80 sesuai di Production; teks recordsEmpty dan OPEN_ATTEMPT_UNKNOWN disetujui (user, 2026-11-20).
 - Decision: 4.3 done — PR #29 di-merge (tanpa migrasi); Practice again, label, Test unavailable dan pembatasan HP sesuai di Production menurut user (user, 2026-11-20).

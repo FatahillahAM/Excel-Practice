@@ -109,6 +109,7 @@ describe("Dashboard with the Level Path resolved", () => {
       count: 12,
       todaySafe: true,
       frozenToday: false,
+      restarted: false,
       msLeft: 0,
       week: [],
       freezesLeft: 2,

@@ -3,7 +3,7 @@ title: 'Level Map, Level Detail Panel lengkap, dan adegan 3D'
 type: 'feature'
 ticket: '5'
 created: '2026-11-19'
-status: 'built'
+status: done
 route: 'full'
 route_source: ''
 review: 'thorough'
@@ -123,3 +123,9 @@ Two combined reviewers (blind+edge-case+a11y, verification+intent-alignment); no
 ## Production Follow-up
 
 - 2026-11-20: on Production the scroll-scrubbed scene showed only its static end frame — /levels barely scrolls, so the `scroll()` timeline had no range (Motion setting was not "reduce"). User chose option 1: the scene is now a ~2.6 s timed CSS intro on every visit, still static under reduced motion (OS or Settings switch); Firefox now plays it too. "Co-authoring" and "Close" copy approved (user, 2026-11-20).
+
+## Production Evidence
+
+- PRs #31 (Level Map), #32 (timed intro) and #33 (Dashboard glow orbit, user-requested addition) merged; no migration. CI green on the feature heads.
+- User checked on Production: Level Map with the active panel, timed 3D intro playing without scrolling, phone sheet, and the Dashboard glow around Level 1 and Streak Hero (user, 2026-11-20).
+- Vercel runtime logs (last 50 min): no records — no errors, no `progress.load_failed`.
