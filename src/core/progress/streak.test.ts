@@ -52,6 +52,15 @@ describe("streak", () => {
     expect(run([at(jkt("2026-11-16"))]).count).toBe(0);
   });
 
+  it("restarted: only the day after a reset (yesterday missed, the day before covered), until today is covered", () => {
+    expect(run([at(jkt("2026-11-17"))]).restarted).toBe(true);
+    expect(run([], ["2026-11-17"]).restarted).toBe(true);
+    expect(run([at(jkt("2026-11-16"))]).restarted).toBe(false); // two days after: plain zero
+    expect(run([at(jkt("2026-11-18"))]).restarted).toBe(false); // at risk, not reset
+    expect(run([at(jkt("2026-11-17")), at(jkt("2026-11-19"))]).restarted).toBe(false); // practised today
+    expect(run([]).restarted).toBe(false); // first run
+  });
+
   it("counts any score (Practice again included) and ignores attempts without received_at", () => {
     expect(run([at(jkt("2026-11-19"), 0), at(null)]).count).toBe(1);
   });

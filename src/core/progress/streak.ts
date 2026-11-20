@@ -30,6 +30,12 @@ export interface Streak {
   todaySafe: boolean;
   /** Today has a freeze. */
   frozenToday: boolean;
+  /**
+   * The streak ended yesterday: today and yesterday are not covered, the day
+   * before yesterday is. Derived, nothing stored: true on the one day after a
+   * reset, until today is covered ("Streak restarted", EXPERIENCE.md).
+   */
+  restarted: boolean;
   /** Milliseconds until 00:00 of the next local day. */
   msLeft: number;
   /** This ISO week, Monday → Sunday. */
@@ -123,6 +129,9 @@ export function streak({
   let count = 0;
   for (let day = covered(today) ? today : addDays(today, -1); covered(day); day = addDays(day, -1)) count++;
 
+  const yesterday = addDays(today, -1);
+  const restarted = !covered(today) && !covered(yesterday) && covered(addDays(today, -2));
+
   const msLeft = Math.max(0, startOfLocalDay(addDays(today, 1), zone) - now.getTime());
 
   const monday = isoWeekStart(today);
@@ -137,7 +146,7 @@ export function streak({
     return { date, status };
   });
 
-  return { today, count, todaySafe, frozenToday, msLeft, week };
+  return { today, count, todaySafe, frozenToday, restarted, msLeft, week };
 }
 
 /** Freezes left this ISO week (in `zone`, at `now`). */

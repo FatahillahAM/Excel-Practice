@@ -3,7 +3,8 @@ import { MAX_SUBMISSION_BYTES, REJECTION_CODES } from "@/core/submission";
 import { uploadMessages } from "@/messages/id";
 
 /**
- * The Upload Dropzone's logic without the DOM (no DOM harness until epic 4):
+ * The Upload Dropzone's logic without the DOM (its DOM behaviour is in
+ * `upload-dropzone.dom.test.tsx`):
  * which file to send, the size check before sending, and what the answer of
  * `POST /api/submissions/upload` means for the screen.
  */

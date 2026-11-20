@@ -1,7 +1,7 @@
 import { Flame, Snowflake } from "lucide-react";
 import { FREEZES_PER_WEEK, type DayStatus } from "@/core/progress";
 import { cn } from "@/lib/utils";
-import { shellMessages } from "@/messages/id";
+import { shellMessages, streakMessages } from "@/messages/id";
 import { loadStreak, type StreakView } from "../progress";
 import { RiskCountdown, UseFreezeButton } from "./freeze-controls";
 
@@ -40,7 +40,8 @@ export function streakHeroState(view: StreakView): StreakHeroState {
  * Freeze Pill (or Use freeze when today is not safe), the Streak Risk Pill
  * with the time left until 00:00 local, and the Week Strip (Monday →
  * Sunday). Safe / at risk (numeral desaturated) / frozen today / zero (Use
- * freeze stays, de-emphasised). The final numeral is in the server HTML; no
+ * freeze stays, de-emphasised; the day after a reset also the one-line
+ * "Streak restarted" message, derived from history). The final numeral is in the server HTML; no
  * count-up.
  */
 export function StreakHeroView({ view }: { view: StreakView }) {
@@ -84,6 +85,11 @@ export function StreakHeroView({ view }: { view: StreakView }) {
           {freezeText}
         </span>
       </div>
+      {state === "zero" && view.restarted && (
+        <p data-slot="restarted" lang="id" className="text-muted-foreground">
+          {streakMessages.restarted}
+        </p>
+      )}
       {(atRisk || state === "zero") && <UseFreezeButton left={view.freezesLeft} today={view.today} quiet={state === "zero"} />}
       <ol aria-label="This week" className="grid grid-cols-7 gap-1">
         {view.week.map((day, index) => (

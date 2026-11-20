@@ -52,3 +52,6 @@ Konten Level 1–4 sebagai modul plug-in. Bukan: mesin, penilaian, atau UI (epic
   - Istilah Excel di alasan dan isi Tip belum dibungkus `<code lang="en">` (3.6); butuh markup di kontrak konten.
   - Dua soal dengan id Tip sama tampil sebagai dua Tips Card di Results (3.6); aturan satu kartu per soal dibekukan, tinjau ulang bila konten memakai ulang Tip.
   - Item Test yang dihapus dari registry kehilangan judul "Test passed / not passed" di Results/History (3.6); simpan jenis item bersama attempt/Result atau turunkan dari id saat item Test ada.
+- Parked (dari epic 4, refactor sweep 4.6, 2026-11-20), dibangun bersama item Test pertama:
+  - Level v1 tanpa item Test tetap aktif dengan Test "unavailable" tanpa penjelasan (4.1); hilang sendiri begitu tiap level punya Test.
+  - App Sidebar: hitungan level di item Level Map ("L3") dan footer "levels passed of 9" (EXPERIENCE.md › App Sidebar; ditunda dari 4.5). Tanpa item Test belum ada level yang bisa lulus, jadi angkanya 0 of 9 untuk semua user sampai konten Test ada; ini UI di shell, bukan konten, tetapi baru bermakna setelah Test ada.

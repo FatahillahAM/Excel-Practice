@@ -31,6 +31,7 @@ const view = (over: Partial<StreakView> = {}): StreakView => ({
   count: 3,
   todaySafe: false,
   frozenToday: false,
+  restarted: false,
   msLeft: (4 * 60 + 30) * 60_000 + 59_000,
   week: WEEK,
   freezesLeft: 1,
@@ -97,6 +98,15 @@ describe("Streak Hero", () => {
     expect(within(hero()).getByText("0 of 2 freezes left")).toBeTruthy();
     expect(useFreeze()).toBeNull();
     expect(hero().querySelector('[data-slot="risk-pill"]')).toBeNull();
+  });
+
+  it("restarted: the one-line message at zero the day after a reset, not otherwise", () => {
+    const { unmount } = render(<StreakHeroView view={view({ count: 0, restarted: true })} />);
+    expect(hero().getAttribute("data-state")).toBe("zero");
+    expect(within(hero()).getByText(streakMessages.restarted).getAttribute("lang")).toBe("id");
+    unmount();
+    render(<StreakHeroView view={view({ count: 0 })} />);
+    expect(screen.queryByText(streakMessages.restarted)).toBeNull();
   });
 
   it("zero: 0, no risk pill, Use freeze still offered but de-emphasised", () => {

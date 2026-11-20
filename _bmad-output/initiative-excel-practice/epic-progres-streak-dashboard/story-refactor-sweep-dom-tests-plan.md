@@ -59,11 +59,11 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/deferred-work.md
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `deferred-work.md` -- disposition every epic-4 entry and 4.1–4.5 deferrals -- ticket verify.
-- [ ] dead code removal found during the sweep (grep unused exports, e.g. `PHONE_QUERY` if unreferenced) -- cleanup.
-- [ ] `settings/*.dom.test.tsx`, `orbit-loader.dom.test.tsx`, `upload-dropzone.dom.test.tsx`, `abandon-dialog.dom.test.tsx`, extend `exam-status.dom.test.tsx` -- parked DOM tests (P3).
-- [ ] "Streak restarted" message -- implement or move per Open Question.
-- [ ] 4.5 leftovers -- TBD after 4.5 lands.
+- [x] `deferred-work.md` -- disposition every epic-4 entry and 4.1–4.5 deferrals -- ticket verify.
+- [x] dead code removal found during the sweep (grep unused exports, e.g. `PHONE_QUERY` if unreferenced) -- cleanup.
+- [x] `settings/*.dom.test.tsx`, `orbit-loader.dom.test.tsx`, `upload-dropzone.dom.test.tsx`, `abandon-dialog.dom.test.tsx`, extend `exam-status.dom.test.tsx` -- parked DOM tests (P3).
+- [x] "Streak restarted" message -- implement or move per Open Question.
+- [x] 4.5 leftovers -- TBD after 4.5 lands.
 
 **Acceptance Criteria:**
 - Given `deferred-work.md`, when grepped for epic 4, then no entry is open or "moved — epic 4".
@@ -72,6 +72,11 @@ context: ['{project-root}/_bmad-output/implementation-artifacts/deferred-work.md
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- Dispositions in `deferred-work.md` (sweep 4.6): done — ExamStatus loop/tick, Orbit toggle, Dropzone, Abandon, the dead `closed` allowance (4.2's freezes migration), "Streak restarted", 4.5 manual checks; accepted — no cache across devices (4.1), freeze vs grading race (4.2), stale Result dropped (4.3), phone gating CSS-only test (4.3); moved to epic 5 (konten-level-1-4, Notes) — v1 level without a Test (4.1) and the sidebar "L3" / "levels passed of 9" (4.5). No epic-4 entry stays open.
+- Sidebar count not built: 4.6's frozen Never allows no visible UI besides "Streak restarted", and with no Test item no level can be passed (0 of 9 for everyone), so it moves to epic 5 with the first Test.
+- "Streak restarted": `streak().restarted` (today and yesterday uncovered, the day before covered) — shown once, on the day after a reset, derived, nothing stored; Streak Hero renders `streakMessages.restarted` (EXPERIENCE.md copy verbatim) at zero, muted.
+- Dead code: none found. Unused-export scan of epic-4 code (`PHONE_QUERY`, `LevelMapData`, `RECORDS_FALLBACK_ZONE`, `streakHeroState`, …) — all used (`PHONE_QUERY` by the Level Map sheet). Only stale comments updated (`upload.ts`, `sidebar-content.tsx`).
+- New DOM tests: `settings/page.dom.test.tsx` (prerendered page: zone, "Not set", first-load failure, zone read failure), `components/exam/orbit-loader.dom.test.tsx`, `exam/[attemptId]/upload-dropzone.dom.test.tsx`, `dashboard/abandon-button.dom.test.tsx` (Code Map named `abandon-dialog`; the component is `AbandonButton`), two "(f) tick" tests in `exam-status.dom.test.tsx` (fake timers).
 
 ## Plan Change Log
 

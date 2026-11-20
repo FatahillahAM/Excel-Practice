@@ -60,7 +60,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-tracer-start-l1-p1-unduh-finish-file-received-plan.md`
   summary: ExamStatus polling/auto-download loop and the template trace on the deployed `/levels` function have no automated check.
   evidence: 2.1 verification-gap lens; needs a DOM harness (epic 4) and a post-build trace check.
-  status: moved — epic 4 for the loop (needs the DOM harness); trace done — `next.config.test.ts` checks `outputFileTracingIncludes["/levels"]`, and Start downloaded the file in Production (2.1) and Preview (2.9) (sweep 2.11, 2026-11-09).
+  status: done — loop: `exam-status.dom.test.tsx` covers poll, redirect and slow timer (3.3) and the elapsed tick (4.6, "(f) tick" tests) (sweep 4.6, 2026-11-20); trace done — `next.config.test.ts` checks `outputFileTracingIncludes["/levels"]`, and Start downloaded the file in Production (2.1) and Preview (2.9) (sweep 2.11, 2026-11-09).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-siklus-percobaan-ad-5-di-core-dan-tes-kontrak-db-plan.md`
   summary: The database does not fence service-role status writes against AD-5 (only the TS machine does); and abandoning a `received` attempt while grading runs makes the grader's compare-and-set come back `lost`.
   evidence: 2.2 review; decide a check trigger and the grader's `lost` handling with grading (epic 3).
@@ -72,11 +72,11 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-layar-exam-lengkap-plan.md`
   summary: The Orbit Loader pause/play toggle (`data-paused`, label switch) and the button's absence under reduced motion after hydration have no automated test; neither have the ExamStatus tick/poll/slow-timer effects.
   evidence: 2.4 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
-  status: moved — epic 4 (DOM test harness) (sweep 2.11, 2026-11-09). The ExamStatus poll and slow-timer effects are covered by 3.3 (`exam-status.dom.test.tsx`); the tick and the Orbit toggle stay with epic 4.
+  status: done — `orbit-loader.dom.test.tsx` (pause/play `data-paused` and label, no button under OS reduced motion, the Settings switch or in the server render) and the ExamStatus tick in `exam-status.dom.test.tsx` (sweep 4.6, 2026-11-20); was: moved — epic 4 (sweep 2.11, 2026-11-09).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-upload-dropzone-dan-route-upload-plan.md`
   summary: Upload Dropzone interaction (focus return after a rejection, alert/status announcements, drag-over, keyboard activation, disabled input while uploading) has no automated test.
   evidence: 2.5 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
-  status: moved — epic 4 (DOM test harness) (sweep 2.11, 2026-11-09).
+  status: done — `upload-dropzone.dom.test.tsx` (focus back after a rejection or failure, alert and polite Uploading… status, drag-over label/border, Tab to the input, input disabled while uploading, one send per drop) (sweep 4.6, 2026-11-20); was: moved — epic 4 (sweep 2.11, 2026-11-09).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-level-detail-panel-level-1-plan.md`
   summary: Level Detail Panel has no "Start Test" once all practices are done, and no done state for a passed Test; the "Active" eyebrow is hard-coded.
   evidence: 2.6 review; unreachable until Test content and graded progress exist (epics 3–4) — add with them.
@@ -88,7 +88,7 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-attempt-card-resume-abandon-dan-kunci-start-plan.md`
   summary: Abandon dialog behaviour (error slot, stale-error hiding, close on done, pending lock, focus trap and return) has no automated test.
   evidence: 2.7 review (medium if wrong, unverified); add with the DOM test harness in epic 4.
-  status: moved — epic 4 (DOM test harness) (sweep 2.11, 2026-11-09).
+  status: done — `abandon-button.dom.test.tsx` (error slot, stale error hidden on reopen, close and focus to the `<h1>` on done incl. unmount, pending lock incl. Esc, focus trap and return) (sweep 4.6, 2026-11-20); was: moved — epic 4 (sweep 2.11, 2026-11-09).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-percobaan-kiriman-file/story-modfinish-pesan-per-kode-dan-tutup-workbook-plan.md`
   summary: The new macro messages (NOT_EXCEL, tlsFailed, tempFailed, saveFailed) are [ASSUMPTION] in `src/messages/id.ts` but have no row in EXPERIENCE.md › Message set.
   evidence: 2.9 review; add the rows with the next UX doc revision.
@@ -184,8 +184,40 @@
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-penilaian-gagal-try-again-pagar-ad-5-dan-harness-dom-plan.md`
   summary: The `attempts_result_only_when_graded` check (migration 20261109) still accepts `closed` with a result, though the 20261110 status fence already refuses `graded → closed`; the 20261110 header documents it as dead (3.3 Review Triage Log #11; recorded here by sweep 3.10).
   evidence: 3.3 review; removing it needs a migration.
-  status: moved — epic 4 (needs a migration; fold into epic 4's first `attempts` migration) (sweep 3.10, 2026-11-19).
+  status: done — 4.2's migration `20261119000001_freezes.sql` replaces the check with `result is null or status = 'graded'` (live in dev and prod with 4.2) (sweep 4.6, 2026-11-20); was: moved — epic 4 (sweep 3.10, 2026-11-19).
 - source_plan: `_bmad-output/initiative-excel-practice/epic-penilaian-hasil-tips/story-penilaian-gagal-try-again-pagar-ad-5-dan-harness-dom-plan.md`
   summary: The exam screen's slow-message anchor resets when the page reloads (3.3 Review Triage Log #13; recorded here by sweep 3.10).
   evidence: 3.3 review; cosmetic.
   status: closed — cosmetic, accepted in 3.3 review; a fix would change visible timing (sweep 3.10, 2026-11-19).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md`
+  summary: A v1 level with no Test item stays active with the Test shown "unavailable", and no explanation why (4.1 Review Triage Log, deferred).
+  evidence: 4.1 review; the registry has no `L01-T` yet, so no level can be passed in Production until Test content ships.
+  status: moved — epic 5 (konten-level-1-4): needs the Test items; the explanation goes away once each level has its Test (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-tracer-progres-level-path-plan.md`
+  summary: "No cache across devices" for progress is checked by hand only (4.1 Review Triage Log, accepted).
+  evidence: 4.1 review; progress is a per-request server read with no `cache`/`revalidate`.
+  status: accepted — nothing caches the read, so a second device sees the same state on its next load; no test layer spans two browsers (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-streak-freeze-streak-hero-plan.md`
+  summary: A freeze committing while an attempt for the same day is being graded can waste one freeze (4.2 Review Triage Log, accepted).
+  evidence: 4.2 review; grading does not lock the profile row the freeze fence locks.
+  status: accepted — rare race with a bounded cost (one of two weekly freezes, the streak itself is unharmed); locking the profile during grading would slow every grade for it. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-streak-freeze-streak-hero-plan.md`
+  summary: The "Streak restarted" message (EXPERIENCE.md › Streak Hero states) was deferred from 4.2 because a one-time message seemed to need storage.
+  evidence: 4.2 Implementation Notes and Open Questions; AD-7 allows no stored state but freezes.
+  status: done — derived, nothing stored: `streak().restarted` is true only on the day after a reset (today and yesterday not covered, the day before covered) and Streak Hero shows `streakMessages.restarted` at zero; tests in `streak.test.ts` and `streak-hero.dom.test.tsx` (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-gerbang-test-practice-again-hp-plan.md`
+  summary: A stored Result that no longer matches `resultSchema` is dropped from progress and could hide a passed Test (4.3 Review Triage Log, accepted).
+  evidence: 4.3 review; prod Results all validate today.
+  status: accepted — every stored Result validates; only a future schema change could drop one, so revisit with any `resultSchema` version bump. No code (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-gerbang-test-practice-again-hp-plan.md`
+  summary: The phone Start gating DOM test checks the CSS classes only (4.3 Review Triage Log, accepted).
+  evidence: 4.3 review; jsdom has no media queries and CSS-only gating was the approved approach.
+  status: accepted — `PHONE_QUERY` is still used by the Level Map's bottom sheet (not dead); the gating was checked by hand on a phone in Production (4.3, 4.5) (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-level-map-detail-panel-3d-plan.md`
+  summary: App Sidebar's Level Map count ("L3") and footer "levels passed of 9" (EXPERIENCE.md › App Sidebar) are not built (deferred from 4.5).
+  evidence: 4.5 Review Triage Log; the sidebar lives in the shared layout and reads no progress today; 4.6's frozen boundaries allow no new visible UI besides "Streak restarted".
+  status: moved — epic 5 (konten-level-1-4): with no Test item in the registry no level can be passed, so the count would read 0 of 9 for every user until Test content ships; build it with the first Test (sweep 4.6, 2026-11-20).
+- source_plan: `_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/story-level-map-detail-panel-3d-plan.md`
+  summary: Manual checks after the Level Map merge: Chrome scene plays, Firefox / reduced motion static frame, phone sheet (4.5 Review Triage Log).
+  evidence: 4.5 Production Follow-up and Production Evidence.
+  status: done — user checked on Production: timed intro playing (Firefox too, after the switch from the scroll timeline), static under reduced motion, phone sheet (user, 2026-11-20) (sweep 4.6, 2026-11-20).
