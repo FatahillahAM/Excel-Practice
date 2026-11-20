@@ -155,20 +155,26 @@ describe("Results page", () => {
     expect(html).not.toContain('aria-roledescription="carousel"');
   });
 
-  it("shows a Test with the Test heading, label and document title", async () => {
-    const real = mocks.realFindItem("L01-P1") as { level: object; item: object };
-    mocks.findItem.mockReturnValue({ level: real.level, item: { ...real.item, id: "L01-T", kind: "test", number: 1 } });
+  it("shows a Test with the Test heading, label and document title (the real L01-T)", async () => {
     mocks.readResult.mockResolvedValue(stored(TEST_88, "L01-T"));
     const passed = await render();
     expect(passed).toMatch(/<h1[^>]*>Test passed — 88\/100<\/h1>/);
     expect(passed).toContain('Test · Level 1 — <span lang="id">Fondasi</span>');
     expect(passed).toContain('data-kind="test"');
     expect(await title()).toBe("Test passed — 88/100 · WORKING HARD with EXCEL");
-    expect(mocks.findItem).toHaveBeenCalledWith("L01-T");
 
     mocks.readResult.mockResolvedValue(stored(TEST_72, "L01-T"));
     expect(await render()).toMatch(/<h1[^>]*>Test not passed — 72\/100, needs 80<\/h1>/);
     expect(await title()).toBe("Test not passed — 72/100, needs 80 · WORKING HARD with EXCEL");
+  });
+
+  it("keeps the Test heading for a Test id the registry does not have (L03-T)", async () => {
+    mocks.readResult.mockResolvedValue(stored(TEST_88, "L03-T"));
+    const passed = await render();
+    expect(passed).toMatch(/<h1[^>]*>Test passed — 88\/100<\/h1>/);
+    expect(passed).toContain('Test · Level 3 — <span lang="id">Hitung bersyarat</span>');
+    mocks.readResult.mockResolvedValue(stored(TEST_72, "L03-T"));
+    expect(await render()).toMatch(/<h1[^>]*>Test not passed — 72\/100, needs 80<\/h1>/);
   });
 
   it("server-renders the static frame for a ≥ 80 Result: no motion trigger and no fire", async () => {
@@ -179,8 +185,6 @@ describe("Results page", () => {
     expect(practice).not.toContain("data-scene");
     expect(practice).not.toContain("fire-effect");
 
-    const real = mocks.realFindItem("L01-P1") as { level: object; item: object };
-    mocks.findItem.mockReturnValue({ level: real.level, item: { ...real.item, id: "L01-T", kind: "test", number: 1 } });
     mocks.readResult.mockResolvedValue(stored(TEST_88, "L01-T"));
     const test = await render();
     expect(test).not.toContain("data-animate");

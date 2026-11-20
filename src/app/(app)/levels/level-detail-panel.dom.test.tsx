@@ -10,7 +10,7 @@ vi.mock("./start-actions", () => ({ startAttempt: mocks.startAttempt }));
 import { FIXTURE_LEVELS } from "@/core/content/__fixtures__/levels";
 import { phoneStartMessage } from "@/messages/id";
 import { LevelDetailPanel } from "./level-detail-panel";
-import { V1_END_LINE } from "./level-panel";
+import { TEST_UNAVAILABLE_LINE, V1_END_LINE } from "./level-panel";
 import { BLOCKED_MESSAGE } from "./start-lock";
 import { PHONE_QUERY } from "./start-control";
 
@@ -164,5 +164,21 @@ describe("LevelDetailPanel eyebrow, read-only states and records", () => {
     const times = [...document.querySelectorAll('[data-slot="record-time"]')].map((cell) => cell.textContent);
     expect(times).toEqual(["—", "1:02:05", "—", "—", "—", "—"]);
     expect(screen.getByText("Best 85 · 1:02:05")).toBeTruthy();
+  });
+});
+
+describe("LevelDetailPanel Test row with the real Level 1 and without a Test", () => {
+  it("real L01 (P1 + L01-T), P1 done: Test locked, 4 to go, no unavailable line", async () => {
+    const { fondasi } = await import("@/content/levels/01-fondasi");
+    render(<LevelDetailPanel level={fondasi} completed={new Set(["L01-P1"])} />);
+    expect(screen.getByText("Test opens after 5 practices — 4 to go.")).toBeTruthy();
+    expect(screen.queryByText(TEST_UNAVAILABLE_LINE)).toBeNull();
+  });
+
+  it("a V1 level without a Test explains why the Test is unavailable", () => {
+    const noTest = { ...L1, items: L1.items.filter((item) => item.kind !== "test") };
+    render(<LevelDetailPanel level={noTest} completed={ids(1, 1)} />);
+    expect(screen.getByText(TEST_UNAVAILABLE_LINE)).toBeTruthy();
+    expect(screen.getByText("The Test for this level isn't ready yet.")).toBeTruthy();
   });
 });

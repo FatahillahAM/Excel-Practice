@@ -124,6 +124,25 @@ export function levelProgress(attempts: readonly GradedAttempt[], modules: reado
   });
 }
 
+/** The sidebar's curriculum count (parked 4.5): the active level and passed levels of the 9. */
+export interface CurriculumSummary {
+  /** The first active level; the last passed one when none is active (after V1 ends); else 1. */
+  activeLevel: number;
+  passed: number;
+  total: number;
+}
+
+/** `levelProgress` → the sidebar's "L{n}" badge and "{passed} of 9 levels passed" (AD-7, nothing stored). */
+export function curriculumSummary(progress: readonly Pick<LevelProgress, "number" | "state">[]): CurriculumSummary {
+  const passed = progress.filter((level) => level.state === "passed");
+  const active = progress.find((level) => level.state === "active");
+  return {
+    activeLevel: active?.number ?? passed.at(-1)?.number ?? 1,
+    passed: passed.length,
+    total: CURRICULUM.length,
+  };
+}
+
 /** Level 4's Test is passed: V1 is complete and nothing new opens. */
 export function v1Complete(progress: readonly Pick<LevelProgress, "number" | "state">[]): boolean {
   return progress.find((level) => level.number === V1_LAST_LEVEL)?.state === "passed";

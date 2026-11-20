@@ -685,3 +685,16 @@ describe("Tips Carousel scrolling", () => {
     expect(observed).toEqual([]);
   });
 });
+
+describe("ResultsView for a Test the registry no longer has (kind from the id)", () => {
+  it("L03-T passed / not passed keeps the Test heading and the level label from the id", async () => {
+    const { itemView } = await import("@/content/levels");
+    const { item, level } = itemView("L03-T");
+    const { unmount } = view(TEST_88, { itemId: "L03-T", item, level });
+    expect(heading().textContent).toBe("Test passed — 88/100");
+    expect(slot("level-label")!.textContent).toBe("Test · Level 3 — Hitung bersyarat");
+    unmount();
+    view(TEST_72, { itemId: "L03-T", item, level });
+    expect(heading().textContent).toBe("Test not passed — 72/100, needs 80");
+  });
+});

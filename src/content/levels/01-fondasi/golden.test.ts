@@ -20,6 +20,7 @@ import {
   type ExcelFixture,
   type Variant,
 } from "./__fixtures__/l01-p1";
+import * as l01t from "./__fixtures__/l01-t";
 
 // Golden fixtures of L01-P1 (spine › fixtures): every code-built variant is
 // written into template v1 as Excel saves it, read back with readWorkbook and
@@ -48,7 +49,7 @@ function decidingChecks(reading: WorkbookReading): CheckName[] {
 
 describe("L01-P1 golden fixtures (code-built)", () => {
   it("the snapshot is seed 7, baut-sinar-presisi, with the plan's keys", () => {
-    expect(snapshot).toMatchObject({ version: 2, contentVersion: 2, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
+    expect(snapshot).toMatchObject({ version: 2, contentVersion: 3, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
     expect(snapshot.questions.map((q) => q.range)).toEqual(["H2:H13", "I2:I13", "J2:J13", "O2:R5"]);
     const [q1, q2, q3, q4] = snapshot.questions;
     expect(q1.key.H2).toBeCloseTo(1302148.09, 6);
@@ -182,6 +183,79 @@ describe("L01-P1 golden fixtures (saved by Excel 2021)", () => {
       expect(data[ref], `${name} Data!${ref}`).toEqual({ formula: null, value, type: typeof value === "number" ? "number" : "string" });
     }
     expect(reading.properties.WHE_AttemptToken).toBe(FIXTURE_TOKEN);
+    expect(reading.properties.WHE_TemplateVersion).toBe(String(CURRENT_TEMPLATE_VERSION));
+    expect(matchesTemplate(reading.vbaModuleHashes, 1)).toBe(true);
+  });
+});
+
+// L01-T (README.md › L01-T): the code-built variants run now; the three
+// Excel 2021 files skip until the user commits them (hitl), then must pass.
+describe("L01-T golden fixtures (code-built)", () => {
+  const testSnapshot = l01t.fixtureSnapshot();
+
+  it("the snapshot is seed 7, baut-sinar-presisi, with six questions and the plan's keys", () => {
+    expect(testSnapshot).toMatchObject({ version: 2, contentVersion: 3, hintQuota: 3, scenarioId: "baut-sinar-presisi", seed: 7 });
+    expect(testSnapshot.questions.map((q) => q.range)).toEqual(["H2:H13", "I2:I13", "J2:J13", "K2:K13", "R2:U5", "N4"]);
+    const [q1, q2, q3, q4, q5, q6] = testSnapshot.questions;
+    expect(q1.key.H2).toBe(688);
+    expect(q2.key.I2).toBe(-272);
+    expect(q3.key.J2).toBeCloseTo(0.059707, 6);
+    expect(q4.key.K2).toBe(11);
+    expect(q5.key.R2).toBeCloseTo(1168.4504, 9);
+    expect(q5.key.U5).toBeCloseTo(1426.2626, 9);
+    expect(q6.key.N4).toBe(1505);
+  });
+
+  it.each(l01t.VARIANTS)("%s grades to its expected score and reasons", async (variant) => {
+    const result = grade(testSnapshot, await readWorkbook(await l01t.buildFixture(variant)), 0);
+    expect({
+      score: result.score,
+      correctCount: result.correctCount,
+      questions: result.questions.map(({ correct, reasonText }) => ({ correct, reasonText })),
+    }).toEqual(l01t.EXPECTED[variant]);
+    expect(result).toEqual(l01t.resultOf(l01t.EXPECTED[variant], testSnapshot));
+  });
+});
+
+const L01T_SKIP_REASON =
+  "L01-T Excel 2021 fixtures (l01-t-correct/typed-values/wrong-function.xlsm) are not committed yet: see __fixtures__/README.md › L01-T";
+const l01tExcelPresent = l01t.excelFixturesPresent();
+if (!l01tExcelPresent) console.warn(`skipped: ${L01T_SKIP_REASON}`);
+
+describe.skipIf(!l01tExcelPresent)(`L01-T golden fixtures (saved by Excel 2021)${l01tExcelPresent ? "" : ` — skipped: ${L01T_SKIP_REASON}`}`, () => {
+  const testSnapshot = l01t.fixtureSnapshot();
+  const testReadings = new Map<l01t.ExcelFixture, WorkbookReading>();
+
+  beforeAll(async () => {
+    for (const name of l01t.EXCEL_FIXTURES) testReadings.set(name, await readWorkbook(await l01t.readExcelFixture(name)));
+  });
+
+  it.each(l01t.EXCEL_FIXTURES)("%s grades to its expected score and reasons", (name) => {
+    const result = grade(testSnapshot, testReadings.get(name)!, 0);
+    expect({
+      score: result.score,
+      correctCount: result.correctCount,
+      questions: result.questions.map(({ correct, reasonText }) => ({ correct, reasonText })),
+    }).toEqual(l01t.EXPECTED_EXCEL[name]);
+    expect(result).toEqual(l01t.resultOf(l01t.EXPECTED_EXCEL[name], testSnapshot));
+  });
+
+  it("Excel saved the answers as the README asks", () => {
+    const correct = testReadings.get("l01-t-correct")!.sheets.Data;
+    expect(correct.H13.formula).toBe("E13-F13");
+    expect(correct.I13.formula).toBe("H13-$N$2");
+    expect(correct.J13.formula).toBe("H13/SUM($H$2:$H$13)");
+    expect(correct.U5.formula).toBe("$Q5*(1+U$1)");
+    expect(testReadings.get("l01-t-typed-values")!.sheets.Data.H2.formula).toBeNull();
+  });
+
+  // Drift guard: fix fixtureSnapshot(), never the files.
+  it.each(l01t.EXCEL_FIXTURES)("%s still holds the generated Data cells and template v1's fingerprint", (name) => {
+    const reading = testReadings.get(name)!;
+    for (const [ref, value] of Object.entries(l01t.driftGuardCells())) {
+      expect(reading.sheets.Data[ref], `${name} Data!${ref}`).toEqual({ formula: null, value, type: typeof value === "number" ? "number" : "string" });
+    }
+    expect(reading.properties.WHE_AttemptToken).toBe(l01t.FIXTURE_TOKEN);
     expect(reading.properties.WHE_TemplateVersion).toBe(String(CURRENT_TEMPLATE_VERSION));
     expect(matchesTemplate(reading.vbaModuleHashes, 1)).toBe(true);
   });

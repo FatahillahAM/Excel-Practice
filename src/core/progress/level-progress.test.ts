@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LevelModule, LevelPhase } from "@/core/content/level-module";
 import { PRACTICE_64, PRACTICE_85, SCORE_79, SCORE_80, TEST_72, TEST_88 } from "@/core/grading/__fixtures__/results";
 import { FIXTURE_LEVELS, fixtureLevel } from "@/core/content/__fixtures__/levels";
-import { canStart, levelProgress, toGradedAttempts, v1Complete, type GradedAttempt } from "./level-progress";
+import { canStart, curriculumSummary, levelProgress, toGradedAttempts, v1Complete, type GradedAttempt } from "./level-progress";
 
 /** A registry module with only what progress reads: number, name, phase and item ids. */
 function fixtureModule(number: number, phase: LevelPhase = "v1", practices = 5, test = true): LevelModule {
@@ -189,5 +189,17 @@ describe("toGradedAttempts", () => {
     const level = levelProgress(attempts, [L1])[0];
     expect([...level.practicesDone]).toEqual([1]);
     expect(level.state).toBe("active");
+  });
+});
+
+describe("curriculumSummary", () => {
+  it("new user: L1, 0 of 9", () => {
+    expect(curriculumSummary(levelProgress([], [L1]))).toEqual({ activeLevel: 1, passed: 0, total: 9 });
+  });
+
+  it("Test 1 passed: 1 of 9; active level 2 when Level 2 has a module, else the last passed level", () => {
+    expect(curriculumSummary(levelProgress([at("L01-T", 80)], [L1, L2]))).toEqual({ activeLevel: 2, passed: 1, total: 9 });
+    expect(curriculumSummary(levelProgress([at("L01-T", 80)], [L1]))).toEqual({ activeLevel: 1, passed: 1, total: 9 });
+    expect(curriculumSummary(levelProgress([at("L01-T", 79)], [L1, L2]))).toEqual({ activeLevel: 1, passed: 0, total: 9 });
   });
 });

@@ -109,17 +109,19 @@ export const TEMPLATE_SHEETS: readonly string[] = [INSTRUCTIONS_SHEET, DATA_SHEE
 
 /**
  * The Instructions cells of template v1, the content ↔ template contract:
- * B2 title, B4 scenario, B6:B10 lines (the prompts "1. …", then e.g. the
- * Finish line). A v2 layout changes this together with the template.
+ * B2 title, B4 scenario, B6:B12 lines (the prompts "1. …", then e.g. the
+ * Finish line). B6:B10 are wrapped in template v1; B11:B12 (added for the
+ * six questions of a Test) are written as plain cells into the same column.
+ * A v2 layout changes this together with the template.
  */
 export const INSTRUCTIONS_CELLS = {
   title: "B2",
   scenario: "B4",
-  lines: ["B6", "B7", "B8", "B9", "B10"],
+  lines: ["B6", "B7", "B8", "B9", "B10", "B11", "B12"],
 } as const;
 
 /**
- * At most 4 questions: prompts take lines B6:B9, and the last line (B10) is
+ * At most 6 questions: prompts take lines B6:B11, and the last line (B12) is
  * kept for the Finish line, so no item can write past `INSTRUCTIONS_CELLS.lines`.
  */
 export const MAX_QUESTIONS = INSTRUCTIONS_CELLS.lines.length - 1;
@@ -473,6 +475,23 @@ export function sameTip(a: Tip, b: Tip): boolean {
     a.shortcuts.length === b.shortcuts.length &&
     a.shortcuts.every((shortcut, i) => shortcut === b.shortcuts[i])
   );
+}
+
+/**
+ * An item's kind and number from its id alone (`L01-T` → test 6, `L01-P3` →
+ * practice 3), `null` for any other id (`UA`, malformed). `defineLevelModule`
+ * pins `LNN-T` ↔ `kind: "test"`, so this agrees with the registry and still
+ * answers for an item the registry no longer has (no stored `kind`, no migration).
+ */
+export function itemFromId(id: string): { kind: LevelItemKind; number: number } | null {
+  const match = /^L\d{2}-(?:P([1-5])|(T))$/.exec(id);
+  if (match === null) return null;
+  return match[2] === "T" ? { kind: "test", number: 6 } : { kind: "practice", number: Number(match[1]) };
+}
+
+/** `test` for `LNN-T`, `practice` for `LNN-Pn`, else `null` (`itemFromId`). */
+export function kindFromItemId(id: string): LevelItemKind | null {
+  return itemFromId(id)?.kind ?? null;
 }
 
 /** UI label of an item: "Practice 1", "Test". */

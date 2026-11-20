@@ -9,6 +9,7 @@ import {
   lockedReason,
   PRACTICE_COUNT,
   testLockLine,
+  TEST_UNAVAILABLE_LINE,
   V1_END_LINE,
   type PipState,
   type PracticeStatus,
@@ -241,7 +242,12 @@ export function LevelDetailPanel({
                   <span className={cn(CAPTION, "block text-muted-foreground")}>Not passed yet</span>
                 )}
                 {panel.test.status === "unavailable" && (
-                  <span className={cn(CAPTION, "block text-muted-foreground")}>{PRACTICE_STATUS.unavailable}</span>
+                  <>
+                    <span className={cn(CAPTION, "block text-muted-foreground")}>{PRACTICE_STATUS.unavailable}</span>
+                    <span data-slot="test-unavailable" className={cn(CAPTION, "block text-muted-foreground")}>
+                      {TEST_UNAVAILABLE_LINE}
+                    </span>
+                  </>
                 )}
                 <span className={cn(CAPTION, "block text-muted-foreground sm:hidden")}>
                   Best {best(panel.test.itemId)} · {time(panel.test.itemId)}

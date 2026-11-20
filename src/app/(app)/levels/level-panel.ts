@@ -119,6 +119,9 @@ export function testLockLine(toGo: number): string {
   return `Test opens after ${PRACTICE_COUNT} practices — ${toGo} to go.`;
 }
 
+/** Parked 4.1: why a V1 level without Test content shows the Test as "unavailable" (one muted line). */
+export const TEST_UNAVAILABLE_LINE = "The Test for this level isn't ready yet.";
+
 /** The level's practice item ids done in `progress` (`levelProgress`): the panel's `completed`. */
 export function completedItemIds(
   level: Pick<LevelModule, "number" | "items">,

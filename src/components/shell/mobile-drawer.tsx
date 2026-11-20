@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import type { CurriculumSummary } from "@/core/progress";
 import { SidebarContent } from "./sidebar-content";
 
 /**
@@ -11,7 +12,7 @@ import { SidebarContent } from "./sidebar-content";
  * Sheet (286px). Closes on scrim, `Esc` or navigation; focus goes to the
  * first item on open and back to the menu button on close, trapped while open.
  */
-export function MobileDrawer() {
+export function MobileDrawer({ summary = null }: { summary?: CurriculumSummary | null }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const [shownPath, setShownPath] = useState(pathname);
@@ -55,7 +56,7 @@ export function MobileDrawer() {
         <SheetTitle className="sr-only">Menu</SheetTitle>
         {/* Scrolls inside, so the panel itself does not clip its overshoot strip. */}
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-[22px]">
-          <SidebarContent idPrefix="drawer" touch onNavigate={() => setOpen(false)} />
+          <SidebarContent idPrefix="drawer" touch summary={summary} onNavigate={() => setOpen(false)} />
         </div>
       </SheetContent>
     </Sheet>

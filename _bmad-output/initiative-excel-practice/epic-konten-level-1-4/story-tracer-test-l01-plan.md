@@ -66,16 +66,16 @@ context: ['{project-root}/_bmad-output/specs/spec-excel-practice/content-generat
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/content/levels/01-fondasi/test.ts` (+`test.test.ts`) -- `L01-T`: 6–8 questions mixing `$` absolute/mixed refs, fill-down/right, and Sort/Filter-style results via formulas over the existing scenario data; points sum 100; hints + Tips per question -- the first real Test.
-- [ ] `src/content/levels/01-fondasi/index.ts` -- add `test` to `items`, bump `contentVersion` -- registers the Test.
-- [ ] `src/content/levels/01-fondasi/__fixtures__/l01-t.ts`, `README.md` -- `buildFixture` for L01-T blank file + Excel steps section (below) + expected score table -- hitl workflow.
-- [ ] `src/content/levels/01-fondasi/golden.test.ts` -- golden tests for the three `l01-t-*.xlsm` fixtures (R8).
-- [ ] `src/core/content/level-module.ts` (+test) -- export `kindFromItemId(id)` (`test` for `LNN-T`, `practice` for `LNN-Pn`, else `null`) -- kind without registry or migration.
-- [ ] `src/components/results/outcome.ts`, history rows/detail, exam page -- fall back to `kindFromItemId` when `findItem` is `null` -- keeps Test headings for removed items.
-- [ ] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` -- copy for v1 level without Test (e.g. "The Test for this level isn't ready yet.") -- parked 4.1.
-- [ ] `src/components/shell/sidebar-content.tsx` (+ shell layout passing data) -- Level Map item badge "L{active level}" and footer "{passed} of 9 levels passed" from `levelProgress` -- parked 4.5.
-- [ ] `src/core/progress/level-progress.test.ts`, `src/app/(app)/levels/start-actions.gate.test.ts` -- gate tests with real `L01-T` (locked until 5 practices; registry has only P1 → stays locked with "4 to go") -- verify line.
-- [ ] `src/components/shell/*.dom.test.tsx` -- sidebar count DOM test (0, 1 passed; active level).
+- [x] `src/content/levels/01-fondasi/test.ts` (+`test.test.ts`) -- `L01-T`: 6–8 questions mixing `$` absolute/mixed refs, fill-down/right, and Sort/Filter-style results via formulas over the existing scenario data; points sum 100; hints + Tips per question -- the first real Test.
+- [x] `src/content/levels/01-fondasi/index.ts` -- add `test` to `items`, bump `contentVersion` -- registers the Test.
+- [x] `src/content/levels/01-fondasi/__fixtures__/l01-t.ts`, `README.md` -- `buildFixture` for L01-T blank file + Excel steps section (below) + expected score table -- hitl workflow.
+- [x] `src/content/levels/01-fondasi/golden.test.ts` -- golden tests for the three `l01-t-*.xlsm` fixtures (R8).
+- [x] `src/core/content/level-module.ts` (+test) -- export `kindFromItemId(id)` (`test` for `LNN-T`, `practice` for `LNN-Pn`, else `null`) -- kind without registry or migration.
+- [x] `src/components/results/outcome.ts`, history rows/detail, exam page -- fall back to `kindFromItemId` when `findItem` is `null` -- keeps Test headings for removed items.
+- [x] `src/app/(app)/levels/level-panel.ts`, `level-detail-panel.tsx` -- copy for v1 level without Test (e.g. "The Test for this level isn't ready yet.") -- parked 4.1.
+- [x] `src/components/shell/sidebar-content.tsx` (+ shell layout passing data) -- Level Map item badge "L{active level}" and footer "{passed} of 9 levels passed" from `levelProgress` -- parked 4.5.
+- [x] `src/core/progress/level-progress.test.ts`, `src/app/(app)/levels/start-actions.gate.test.ts` -- gate tests with real `L01-T` (locked until 5 practices; registry has only P1 → stays locked with "4 to go") -- verify line.
+- [x] `src/components/shell/*.dom.test.tsx` -- sidebar count DOM test (0, 1 passed; active level).
 
 **Acceptance Criteria:**
 - Given the three L01-T fixtures, when golden tests run in CI, then each gets its expected score and reasons.
@@ -85,6 +85,12 @@ context: ['{project-root}/_bmad-output/specs/spec-excel-practice/content-generat
 ## Implementation Notes
 
 - Implementation makes no remote changes (no push, no Supabase or Vercel writes).
+- L01-T (`test.ts`, export `levelTest`): 6 questions 15/15/15/20/20/15 — H Unit Baik `=E2-F2`, I Selisih Target `=H2-$N$2`, J Porsi `=H2/SUM($H$2:$H$n)`, K Peringkat `=RANK.EQ(H2,$H$2:$H$n)` (formula form of Sort), R2:U{p+1} grid `=$Q2*(1+R$1)`, N4 `=MAX(H2:H{n})`; target N2 = mean Unit Baik rounded to tens. Tips: four shared with P1 (same ids) + `l01-urutan-tanpa-sort`, `l01-autosum-cepat`. `contentVersion` 2 → 3.
+- Deviation: template v1 contract allowed at most 4 questions (`INSTRUCTIONS_CELLS.lines` B6:B10). Extended to B6:B12 (`MAX_QUESTIONS` 6, Finish line B12); B11:B12 are plain (unwrapped) cells in template v1, the template file and VBA are unchanged. Result/snapshot schemas follow the constant (only loosened).
+- Kind without registry: `itemFromId` / `kindFromItemId` in `level-module.ts`; `itemView(itemId)` in `src/content/levels/index.ts` falls back to the id + `CURRICULUM` name, used by Results, History (list + detail), Exam.
+- Sidebar: `curriculumSummary(progress)` in core; `(app)/layout.tsx` calls `loadProgress()` and passes it to AppSidebar and HeaderBar → MobileDrawer → SidebarContent (badge "L{n}", footer "{n} of 9 levels passed" + progressbar; hidden when progress fails). Adds one progress read per signed-in page render (not cached across the page's own read).
+- Real-L01-T progress tests live in `01-fondasi/test.test.ts` (lint AD-1 forbids core tests importing content); gate tests with the real registry in `start-actions.gate.test.ts`.
+- Fixtures: code-built `blank/correct/typed-values/wrong-function` variants run now; the Excel 2021 suite `describe.skipIf` until `l01-t-{correct,typed-values,wrong-function}.xlsm` exist (reason in the suite name + console warning). Blank file built to the scratchpad, not committed. Wrong-function = N4 `=LARGE(H2:H13,1)` (85); typed-values = H2:H13 pasted as values (85).
 
 ## Plan Change Log
 
