@@ -3,12 +3,12 @@ title: 'Sapu bersih refactor dan tes DOM yang tertunda'
 type: 'feature'
 ticket: '6'
 created: '2026-11-19'
-status: 'in-progress'
+status: 'in-review'
 route: 'full'
 route_source: ''
-review: ''
-review_source: ''
-lenses_ran: []
+review: 'thorough'
+review_source: 'auto'
+lenses_ran: ['blind-hunter', 'edge-case-hunter', 'verification-gap', 'intent-alignment']
 review_loop_iteration: 0
 baseline_revision: 'b1dd25c86760f9b0f74840a75da5cdb7cfea00d1'
 context: ['{project-root}/_bmad-output/implementation-artifacts/deferred-work.md', '{project-root}/_bmad-output/initiative-excel-practice/epic-progres-streak-dashboard/epic-progres-streak-dashboard.md']
