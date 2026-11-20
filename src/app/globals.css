@@ -463,6 +463,36 @@
 }
 /* ---- end Level Map scene ---- */
 
+/* ---- Glow orbit (Dashboard: active/passed level rows, Streak Hero) ----
+ * A thin primary glow travels around the box's border. Decorative only
+ * (a pseudo-element, no content). `@property` lets the angle animate; where it
+ * is unsupported the border stays a still gradient. Reduced motion (OS or the
+ * Settings switch) stops it via the global rule below.
+ */
+@property --glow-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes glow-orbit { to { --glow-angle: 360deg; } }
+.glow-orbit { position: relative; isolation: isolate; }
+.glow-orbit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  padding: 1.5px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--glow-angle), transparent 0deg, transparent 250deg, var(--primary) 320deg, transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  filter: drop-shadow(0 0 4px var(--primary));
+  pointer-events: none;
+  animation: glow-orbit 4s linear infinite;
+}
+/* ---- end Glow orbit ---- */
+
 /*
  * Reduced motion (AD-12): off when the OS asks, or when the Settings switch
  * writes `data-motion="reduce"` on <html>. The switch only adds reduction.
