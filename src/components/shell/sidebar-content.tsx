@@ -126,7 +126,7 @@ export function SidebarContent({
         </ul>
       </nav>
       {summary && (
-        <div data-slot="curriculum-progress" className="mx-3 mt-auto pt-6">
+        <div data-slot="curriculum-progress" className="sticky bottom-0 mx-3 mt-auto bg-card pt-6">
           <p className="text-[13px] font-[550] text-muted-foreground">{`${summary.passed} of ${summary.total} levels passed`}</p>
           <div
             role="progressbar"
