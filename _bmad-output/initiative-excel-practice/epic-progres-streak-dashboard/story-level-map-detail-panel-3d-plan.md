@@ -119,3 +119,7 @@ Two combined reviewers (blind+edge-case+a11y, verification+intent-alignment); no
 - Does the Level Map replace the single-panel /levels or sit above it? Recommendation: replace; the panel opens from the node (desktop side panel, phone bottom sheet), default-open on the active level so today's flow keeps one click to Start.
 - Should the 3D scene replay on every visit? Recommendation: yes, it is scroll-driven (no state); "Skip intro" covers repeat visits — no remembered skip.
 - Sidebar "L3" count and footer "levels passed of 9" (EXPERIENCE › App Sidebar): include here? Recommendation: include if trivial from `levelProgress`, else defer to 4.6.
+
+## Production Follow-up
+
+- 2026-11-20: on Production the scroll-scrubbed scene showed only its static end frame — /levels barely scrolls, so the `scroll()` timeline had no range (Motion setting was not "reduce"). User chose option 1: the scene is now a ~2.6 s timed CSS intro on every visit, still static under reduced motion (OS or Settings switch); Firefox now plays it too. "Co-authoring" and "Close" copy approved (user, 2026-11-20).

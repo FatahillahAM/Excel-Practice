@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
  * decorative copy of the map (`aria-hidden`, `inert`) — a laptop opening, the
  * Excel mark turning, the board laying flat, the trail drawing and the nodes
  * lighting up to the active level. CSS only (`globals.css` › Level Map
- * scene): it plays only under `@supports (animation-timeline: scroll())`
- * and `prefers-reduced-motion: no-preference`; otherwise its markup already
+ * scene): a ~2.6 s timed intro on every visit, only under
+ * `prefers-reduced-motion: no-preference`; otherwise its markup already
  * is the static end frame (lid open, board flat, nodes lit). Rendered after
  * the progress read, so it never blocks the data; the real map stays in the
  * DOM after it ("Skip intro" jumps there).
