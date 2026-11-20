@@ -52,6 +52,7 @@ Konten Level 1–4 sebagai modul plug-in. Bukan: mesin, penilaian, atau UI (epic
 
 ## Notes
 
+- Decision: plan 5.1–5.5 — semua asumsi dan rekomendasi disetujui: L01-T 6 soal; Table dinilai mulai 5.2; sidebar tampil 0 of 9 sejak sekarang; 4.7 dijalankan setelah 5.2; jatah hint L1–L4 = 3/2/1/0; fallback SMALL/LARGE/INDEX bila spill SORT/FILTER tidak tersimpan; aturan string kosong diputuskan dari fixture L02-P1; lint istilah Excel dengan allowlist (user, 2026-11-20).
 - Decision: inception epic 5 — 6 tiket: tracer L01-T + perlengkapan Test (status Test tersimpan, hitungan level sidebar, penjelasan level tanpa Test); L01-P2..P5 + pemeriksa Excel Table/Sort-Filter; Level 2 + edge case penilaian; Level 3 + perbaikan operator spasi; Level 4 + akhir V1 + `<code lang="en">` + aturan Tip dobel; sapu bersih + CI semua item. Uji Production lewat 4.7 (user, 2026-11-20).
 - Decision: fixture Excel hanya untuk tiap Test + 1 latihan per level (~8 item), sisanya dibuat kode; Test 6–8 soal gabungan keterampilan level, tanpa batas waktu, lulus ≥80; Table diperiksa strukturnya, Sort/Filter lewat hasil rumus; satu tiket per level; pekerjaan UI sidebar/status Test di 5.1; 4.7 jalan setelah 5.1 (user, 2026-11-20).
 - Source conflict: Level 1 mencakup Excel Table dan Sort & Filter, tetapi `src/core/grading/checkers.ts` hanya punya pemeriksa sel, rumus dan nilai.
