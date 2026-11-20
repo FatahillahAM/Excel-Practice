@@ -40,12 +40,14 @@ export function LevelMapView({
   for (const level of progress) {
     const key = String(level.number);
     const mod = modules.find((candidate) => candidate.number === level.number);
-    const locked = level.state === "locked";
+    // Level 1 is never locked by a Test; no reason without a level before it.
+    const locked = level.state === "locked" && level.number > 1;
     nodes.push({
       key,
       number: level.number,
       name: level.name,
       state: level.state,
+      headingId: mod ? `level-${mod.id}-heading` : `level-${key}-heading`,
       detail: level.state === "active" ? `${level.practicesDone.size}/${PRACTICE_COUNT} practices done` : undefined,
       reasonId: locked ? `level-node-${key}-reason` : undefined,
       reason: locked ? lockedReason(level.number) : undefined,
@@ -69,9 +71,9 @@ export function LevelMapView({
       />
     );
   }
-  nodes.push({ key: "final", number: null, name: FINAL_EXAM_NAME, state: "under_construction", final: true });
+  nodes.push({ key: "final", number: null, name: FINAL_EXAM_NAME, state: "under_construction", final: true, headingId: "level-final-heading" });
   panels.final = <ReadOnlyLevelPanel idBase="level-final" number={null} name={FINAL_EXAM_NAME} state="under_construction" />;
-  nodes.push({ key: "side", number: null, name: SIDE_TRACK_NAME, state: "under_construction" });
+  nodes.push({ key: "side", number: null, name: SIDE_TRACK_NAME, state: "under_construction", headingId: "level-side-heading" });
   panels.side = <ReadOnlyLevelPanel idBase="level-side" number={null} name={SIDE_TRACK_NAME} state="under_construction" />;
 
   const open = defaultOpenLevel(progress);

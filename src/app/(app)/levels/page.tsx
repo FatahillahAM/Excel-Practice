@@ -3,7 +3,7 @@ import { surfaceTitle } from "@/components/shell/nav-items";
 import { PageTitle } from "@/components/shell/page-title";
 import { shellMessages } from "@/messages/id";
 import { loadOpenAttempt } from "../open-attempt";
-import { loadRecords } from "../progress";
+import { loadLevelMap } from "../progress";
 import { defaultOpenLevel, LevelMapView } from "./level-map";
 import { ScrollScene } from "./scroll-scene";
 import { BLOCKED_MESSAGE, type StartLock } from "./start-lock";
@@ -14,8 +14,8 @@ export const metadata: Metadata = { title: surfaceTitle("Level Map") };
  * Level Map: "Skip intro" first, the 3D Scroll Scene (decorative), then the
  * Level Map with the active level's Level Detail Panel open (the last passed
  * level when none is active; with neither, an empty line above the map).
- * Progress, best scores and record times come from `loadRecords` (the
- * progress read the Dashboard shares, AD-7). A failed read shows the
+ * Progress, best scores and record times come from `loadLevelMap` (one read
+ * of the graded attempts the Dashboard shares, AD-7). A failed read shows the
  * first-load message with Try again and no scene. While an attempt is in
  * progress (`loadOpenAttempt`, read per request) Start is locked with
  * `BLOCKED_MESSAGE` and a link to that attempt. A failed read locks nothing:
@@ -23,7 +23,7 @@ export const metadata: Metadata = { title: surfaceTitle("Level Map") };
  * is the backstop.
  */
 export default async function Page() {
-  const [loaded, view] = await Promise.all([loadOpenAttempt(), loadRecords()]);
+  const [loaded, view] = await Promise.all([loadOpenAttempt(), loadLevelMap()]);
   const startLock: StartLock | undefined =
     loaded !== null && loaded !== "failed" ? { reason: BLOCKED_MESSAGE, attemptId: loaded.attempt.id } : undefined;
   if (view === "failed") {
@@ -53,6 +53,7 @@ export default async function Page() {
       </a>
       <PageTitle>Level Map</PageTitle>
       <ScrollScene progress={progress} />
+      {/* Only when no level is open (active or passed) to explain the state. */}
       {!defaultOpenLevel(progress) && (
         <p className="rounded-lg border border-border bg-card p-4 text-muted-foreground">No level is open yet.</p>
       )}

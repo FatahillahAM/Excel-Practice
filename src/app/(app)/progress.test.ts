@@ -5,7 +5,18 @@ const mocks = vi.hoisted(() => ({
   listStreakDays: vi.fn(),
   listFreezes: vi.fn(),
   readTimeZone: vi.fn(),
+  throwBestScores: false,
 }));
+vi.mock("@/core/progress", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/core/progress")>();
+  return {
+    ...real,
+    bestScores: (...args: Parameters<typeof real.bestScores>) => {
+      if (mocks.throwBestScores) throw new RangeError("x");
+      return real.bestScores(...args);
+    },
+  };
+});
 vi.mock("next/navigation", () => ({ unstable_rethrow: () => {} }));
 vi.mock("@/adapters/supabase/auth", () => ({ getSessionUser: mocks.getSessionUser }));
 vi.mock("@/adapters/supabase/server", () => ({ createClient: async () => ({ session: true }) }));
@@ -14,7 +25,8 @@ vi.mock("@/adapters/supabase/freezes", () => ({ listFreezes: mocks.listFreezes, 
 vi.mock("@/adapters/supabase/profiles", () => ({ readTimeZone: mocks.readTimeZone }));
 
 import { listItemDurations, listProgressAttempts, listRecordAttempts } from "@/adapters/supabase/attempts";
-import { loadNewRecord, loadRecords, loadStreak } from "./progress";
+import { PRACTICE_85, SCORE_79 } from "@/core/grading/__fixtures__/results";
+import { loadLevelMap, loadNewRecord, loadRecords, loadStreak } from "./progress";
 
 const NOW = new Date("2026-11-19T13:00:00Z"); // 20:00 in Jakarta, Thursday
 const logged = () => vi.mocked(console.error).mock.calls.map((c) => JSON.parse(c[0] as string));
@@ -138,5 +150,57 @@ describe("loadNewRecord", () => {
     expect(logged().at(-1)).toEqual({ event: "progress.load_failed", name: "TypeError" });
     mocks.getSessionUser.mockResolvedValue(null);
     expect(await loadNewRecord("L01-P1", "b")).toBe(false);
+  });
+});
+
+describe("loadLevelMap", () => {
+  const row = (id: string, itemId: string, result: unknown, startedAt: string, receivedAt: string) => ({ id, itemId, result, startedAt, receivedAt });
+
+  beforeEach(() => {
+    vi.mocked(listProgressAttempts).mockReset();
+    vi.mocked(listRecordAttempts).mockReset();
+    mocks.readTimeZone.mockClear();
+    mocks.throwBestScores = false;
+  });
+
+  it("one graded-attempts read gives progress, records and bestScores; no time-zone or records read", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({
+      ok: true,
+      value: [
+        row("a", "L01-P1", PRACTICE_85, "2026-11-01T01:00:00Z", "2026-11-01T01:05:00Z"),
+        row("b", "L01-P1", SCORE_79, "2026-11-02T01:00:00Z", "2026-11-02T01:04:00Z"),
+      ],
+    });
+    const view = await loadLevelMap();
+    if (view === "failed") throw new Error("failed");
+    expect(view.progress).toHaveLength(9);
+    expect(view.progress[0].practicesDone.has(1)).toBe(true);
+    expect(view.records.get("L01-P1")).toMatchObject({ attemptId: "b", seconds: 240 });
+    expect(view.bestScores.get("L01-P1")).toBe(85);
+    expect(listProgressAttempts).toHaveBeenCalledTimes(1);
+    expect(listRecordAttempts).not.toHaveBeenCalled();
+    expect(mocks.readTimeZone).not.toHaveBeenCalled();
+  });
+
+  it("a failed or thrown progress read is failed (progress.load_failed logged on a throw)", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({ ok: false });
+    expect(await loadLevelMap()).toBe("failed");
+    vi.mocked(listProgressAttempts).mockRejectedValue(new TypeError("x"));
+    expect(await loadLevelMap()).toBe("failed");
+    expect(logged().at(-1)).toEqual({ event: "progress.load_failed", name: "TypeError" });
+  });
+
+  it("a records-derived failure keeps the progress, with empty records and scores, and is logged", async () => {
+    vi.mocked(listProgressAttempts).mockResolvedValue({
+      ok: true,
+      value: [row("a", "L01-P1", PRACTICE_85, "2026-11-01T01:00:00Z", "2026-11-01T01:05:00Z")],
+    });
+    mocks.throwBestScores = true;
+    const view = await loadLevelMap();
+    if (view === "failed") throw new Error("failed");
+    expect(view.progress[0].practicesDone.has(1)).toBe(true);
+    expect(view.records.size).toBe(0);
+    expect(view.bestScores.size).toBe(0);
+    expect(logged().at(-1)).toEqual({ event: "progress.load_failed", name: "RangeError" });
   });
 });

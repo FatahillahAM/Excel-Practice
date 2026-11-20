@@ -1,35 +1,57 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Dialog } from "radix-ui";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LevelNode, type LevelNodeData } from "@/components/levels/level-node";
+import { Sheet, SheetOverlay, SheetPortal } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+import { PHONE_QUERY } from "./start-control";
 
 /** A Level Map node with what the server worked out for it. */
 export interface MapNode extends LevelNodeData {
+  /** The id of the node's panel heading (focus target on open). */
+  headingId: string;
   /** The id of the node's reason (locked), for `aria-describedby`. */
   reasonId?: string;
   reason?: string;
 }
 
-/** The phone (coarse pointer below lg, as the Start gating) turns the panel into a bottom sheet. */
+/** The phone (coarse pointer below lg, as the Start gating). */
 const PHONE = "[@media(pointer:coarse)_and_(max-width:1023px)]";
-export const SHEET_CLASS = cn(
-  "flex flex-col gap-2 lg:sticky lg:top-4",
-  `${PHONE}:fixed ${PHONE}:inset-x-0 ${PHONE}:bottom-0 ${PHONE}:z-40 ${PHONE}:max-h-[85dvh] ${PHONE}:overflow-y-auto`,
-  `${PHONE}:rounded-t-2xl ${PHONE}:border-t ${PHONE}:border-border ${PHONE}:bg-background ${PHONE}:p-3 ${PHONE}:shadow-lg`,
-);
+/** The inline (desktop) panel column; hidden on a phone, where the bottom sheet takes over. */
+export const INLINE_CLASS = cn("flex flex-col gap-2 lg:sticky lg:top-4", `${PHONE}:hidden`);
+/** The phone bottom sheet (Sheet / radix Dialog: dialog role, focus trap, scrim, Escape, the rest inert). */
+export const SHEET_CLASS =
+  "fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col gap-2 overflow-y-auto rounded-t-2xl border-t border-border bg-background p-3 text-foreground shadow-lg outline-none";
 
 export const panelId = (key: string) => `level-panel-${key}`;
 const nodeIdBase = (key: string) => `level-node-${key}`;
 
+const CLOSE_BUTTON =
+  "ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50";
+
+function usePhone(): boolean {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia(PHONE_QUERY);
+    const update = () => setPhone(query.matches);
+    update();
+    query.addEventListener?.("change", update);
+    return () => query.removeEventListener?.("change", update);
+  }, []);
+  return phone;
+}
+
 /**
  * The interactive part of the Level Map: the nodes (buttons) and the Level
- * Detail Panels the server rendered, one per node, only the open one shown.
- * The panel of `defaultOpen` (the active level) is open on arrival without
- * moving focus, so Start stays one click away. Opening a node moves focus to
- * its panel's heading; closing (Close or `Escape`) returns it to that node.
- * The side track comes last in tab order.
+ * Detail Panels the server rendered, one per node. On a laptop the panel of
+ * `defaultOpen` (the active level) is open inline on arrival without moving
+ * focus, so Start stays one click away; opening a node moves focus to its
+ * panel heading, closing (Close or `Escape` anywhere) returns it to the node.
+ * On a phone nothing opens on arrival: a tapped node opens its panel in a
+ * bottom sheet (the shell's Sheet), and closing it returns focus to the node.
+ * The side track is last in DOM and tab order, drawn beside Level 8.
  */
 export function LevelMapClient({
   nodes,
@@ -40,39 +62,53 @@ export function LevelMapClient({
   panels: Readonly<Record<string, ReactNode>>;
   defaultOpen: string | null;
 }) {
+  const phone = usePhone();
   const [open, setOpen] = useState<string | null>(defaultOpen);
+  const [sheet, setSheet] = useState<string | null>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
-  // What to focus after the next render: the open panel's heading, or a node.
+  // What to focus after the next render: a heading id, or a node key.
   const pending = useRef<{ heading: string } | { node: string } | null>(null);
+  const byKey = new Map(nodes.map((node) => [node.key, node]));
 
   useEffect(() => {
     const target = pending.current;
     pending.current = null;
     if (!target) return;
-    if ("heading" in target) document.getElementById(panelId(target.heading))?.querySelector<HTMLElement>("h2")?.focus();
+    if ("heading" in target) document.getElementById(target.heading)?.focus();
     else buttons.current.get(target.node)?.focus();
   }, [open]);
 
-  const show = (key: string) => {
-    pending.current = { heading: key };
-    if (open === key) {
-      // Already open: the effect will not run, so focus now.
-      document.getElementById(panelId(key))?.querySelector<HTMLElement>("h2")?.focus();
-      pending.current = null;
-      return;
-    }
-    setOpen(key);
-  };
   const close = () => {
     if (open === null) return;
     pending.current = { node: open };
     setOpen(null);
   };
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      event.stopPropagation();
-      close();
+
+  // Escape closes the inline panel wherever focus is (the sheet handles its own).
+  useEffect(() => {
+    if (open === null || sheet !== null) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      pending.current = { node: open };
+      setOpen(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [open, sheet]);
+
+  const show = (key: string) => {
+    if (phone) {
+      setSheet(key);
+      return;
     }
+    const headingId = byKey.get(key)?.headingId;
+    if (open === key) {
+      // Already open: no re-render, so focus now.
+      if (headingId) document.getElementById(headingId)?.focus();
+      return;
+    }
+    if (headingId) pending.current = { heading: headingId };
+    setOpen(key);
   };
 
   const main = nodes.filter((node) => node.key !== "side");
@@ -83,7 +119,7 @@ export function LevelMapClient({
         node={entry}
         idBase={nodeIdBase(entry.key)}
         describedBy={entry.reasonId}
-        expanded={open === entry.key}
+        expanded={(phone ? sheet : open) === entry.key}
         controls={panelId(entry.key)}
         onOpen={() => show(entry.key)}
         buttonRef={(element) => {
@@ -98,46 +134,70 @@ export function LevelMapClient({
       )}
     </>
   );
+  const sheetNode = sheet !== null ? byKey.get(sheet) : undefined;
 
   return (
     <div className="grid w-full gap-6 lg:grid-cols-[minmax(0,1fr)_430px] lg:items-start">
       <nav id="level-path" tabIndex={-1} aria-label="Level path" className="w-full rounded-lg border border-border bg-card p-4 outline-none sm:p-[22px]">
-        <ol className="flex flex-col gap-2">
+        <ol className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,13rem)]">
           {main.map((entry) => (
-            <li key={entry.key} data-state={entry.state}>
+            <li key={entry.key} data-state={entry.state} className="sm:col-start-1">
               {node(entry)}
             </li>
           ))}
-        </ol>
-        {side && (
-          // CAP-15: beside the path, joined to Level 8 by a dashed spur; last in tab order.
-          <div data-slot="side-track" className="mt-3 ml-6 border-l-2 border-dashed border-border pl-4">
-            {node(side)}
-          </div>
-        )}
-      </nav>
-      <div>
-        {nodes.map((entry) => (
-          <div
-            key={entry.key}
-            id={panelId(entry.key)}
-            hidden={open !== entry.key}
-            data-sheet={entry.key}
-            onKeyDown={onKeyDown}
-            className={SHEET_CLASS}
-          >
-            <button
-              type="button"
-              onClick={close}
-              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-sm font-bold text-muted-foreground outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          {side && (
+            // CAP-15: last in DOM and tab order; drawn beside Level 8 (row 8) with a dashed spur.
+            <li
+              key={side.key}
+              data-state={side.state}
+              data-slot="side-track"
+              className="ml-6 border-l-2 border-dashed border-border pl-4 sm:col-start-2 sm:row-start-8 sm:ml-0"
             >
+              {node(side)}
+            </li>
+          )}
+        </ol>
+      </nav>
+      <div className={INLINE_CLASS}>
+        {nodes.map((entry) => (
+          <div key={entry.key} id={panelId(entry.key)} hidden={open !== entry.key} data-inline={entry.key} className="flex flex-col gap-2">
+            <button type="button" onClick={close} className={CLOSE_BUTTON}>
               <X aria-hidden="true" className="size-4" />
               Close
             </button>
-            {panels[entry.key]}
+            {/* One copy of a panel at a time: the sheet's while it shows it. */}
+            {sheet !== entry.key && panels[entry.key]}
           </div>
         ))}
       </div>
+      <Sheet open={sheetNode !== undefined} onOpenChange={(next) => !next && setSheet(null)}>
+        {sheetNode && (
+          <SheetPortal>
+            <SheetOverlay />
+            <Dialog.Content
+              data-slot="level-sheet"
+              data-sheet={sheetNode.key}
+              aria-describedby={undefined}
+              className={SHEET_CLASS}
+              onOpenAutoFocus={(event) => {
+                event.preventDefault();
+                document.getElementById(sheetNode.headingId)?.focus();
+              }}
+              onCloseAutoFocus={(event) => {
+                event.preventDefault();
+                buttons.current.get(sheetNode.key)?.focus();
+              }}
+            >
+              <Dialog.Title className="sr-only">{sheetNode.name}</Dialog.Title>
+              <Dialog.Close className={CLOSE_BUTTON}>
+                <X aria-hidden="true" className="size-4" />
+                Close
+              </Dialog.Close>
+              {panels[sheetNode.key]}
+            </Dialog.Content>
+          </SheetPortal>
+        )}
+      </Sheet>
     </div>
   );
 }

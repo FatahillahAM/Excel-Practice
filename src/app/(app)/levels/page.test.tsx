@@ -4,11 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ loadOpenAttempt: vi.fn(), loadProgress: vi.fn() }));
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn() }));
 vi.mock("../open-attempt", () => ({ loadOpenAttempt: mocks.loadOpenAttempt }));
-// The page reads `loadRecords`; these tests drive its progress (no records).
+// The page reads `loadLevelMap`; these tests drive its progress (no records).
 vi.mock("../progress", () => ({
-  loadRecords: async () => {
+  loadLevelMap: async () => {
     const progress = await mocks.loadProgress();
-    return progress === "failed" ? "failed" : { records: new Map(), bestScores: new Map(), progress, timeZone: "Asia/Jakarta" };
+    return progress === "failed" ? "failed" : { records: new Map(), bestScores: new Map(), progress };
   },
 }));
 

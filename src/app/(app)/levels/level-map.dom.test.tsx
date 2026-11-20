@@ -2,13 +2,16 @@
 import "@/test/dom";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./start-actions", () => ({ startAttempt: vi.fn(async () => ({ status: "idle" as const })) }));
 
 import { FIXTURE_LEVELS } from "@/core/content/__fixtures__/levels";
 import { bestScores, levelProgress, records, type GradedAttempt } from "@/core/progress";
-import { SHEET_CLASS } from "./level-map-client";
+import { phoneStartMessage } from "@/messages/id";
+import { INLINE_CLASS, SHEET_CLASS } from "./level-map-client";
+import { startAttempt } from "./start-actions";
+import { PHONE_QUERY } from "./start-control";
 import { LevelMapView, SIDE_TRACK_NAME } from "./level-map";
 import { lockedReason } from "./level-panel";
 
@@ -34,7 +37,7 @@ function show(attempts: GradedAttempt[]) {
 const path = () => screen.getByRole("navigation", { name: "Level path" });
 const nodeButtons = () => within(path()).getAllByRole("button");
 const states = () => nodeButtons().map((button) => button.getAttribute("data-state"));
-const openSheet = () => [...document.querySelectorAll<HTMLElement>("[data-sheet]")].filter((sheet) => !sheet.hidden);
+const openSheet = () => [...document.querySelectorAll<HTMLElement>("[data-inline]")].filter((sheet) => !sheet.hidden);
 
 describe("Level Map node states (fixture progress)", () => {
   it("new account: L1 active, L2–4 locked, L5–9, Ujian Akhir and the side track Under Construction", () => {
@@ -85,7 +88,7 @@ describe("Level Map panel", () => {
   it("opens on the active level by default, with Start one click away and focus left alone", () => {
     show(practices(1, 2));
     const [sheet] = openSheet();
-    expect(sheet.getAttribute("data-sheet")).toBe("1");
+    expect(sheet.getAttribute("data-inline")).toBe("1");
     expect(within(sheet).getByText(/Level 1 · Active/)).toBeTruthy();
     expect(within(sheet).getAllByRole("button", { name: "Start Practice 3" }).length).toBeGreaterThan(0);
     expect(document.activeElement).toBe(document.body);
@@ -104,7 +107,7 @@ describe("Level Map panel", () => {
     show([]);
     await user.click(nodeButtons()[2]);
     const [sheet] = openSheet();
-    expect(sheet.getAttribute("data-sheet")).toBe("3");
+    expect(sheet.getAttribute("data-inline")).toBe("3");
     expect(sheet.querySelector('[data-slot="panel-eyebrow"]')?.textContent).toBe("Level 3 · Locked");
     expect(within(sheet).getByText(lockedReason(3))).toBeTruthy();
     expect(lockedReason(3)).toBe("Pass Test Level 2 to unlock.");
@@ -129,7 +132,7 @@ describe("Level Map panel", () => {
     const l2 = nodeButtons()[1];
     l2.focus();
     await user.keyboard("{Enter}");
-    expect(openSheet()[0].getAttribute("data-sheet")).toBe("2");
+    expect(openSheet()[0].getAttribute("data-inline")).toBe("2");
     expect(document.activeElement?.tagName).toBe("H2");
     await user.click(within(openSheet()[0]).getByRole("button", { name: "Close" }));
     expect(openSheet()).toHaveLength(0);
@@ -155,14 +158,97 @@ describe("Level Map panel", () => {
     expect(cells(rows[5])).toEqual(["—", "—"]);
   });
 
-  it("on a phone the panel is a bottom sheet (coarse pointer below lg), with a Close button", () => {
+  it("Escape closes the inline panel even when focus is outside it, back to the node", async () => {
+    const user = userEvent.setup();
     show([]);
-    const [sheet] = openSheet();
+    const l3 = nodeButtons()[2];
+    await user.click(l3);
+    (document.activeElement as HTMLElement).blur();
+    expect(document.activeElement).toBe(document.body);
+    await user.keyboard("{Escape}");
+    expect(openSheet()).toHaveLength(0);
+    expect(document.activeElement).toBe(l3);
+  });
+
+  it("the inline panel column is hidden on a phone (the bottom sheet takes over)", () => {
+    show([]);
+    expect(openSheet()[0].parentElement!.className).toBe(INLINE_CLASS);
+    expect(INLINE_CLASS).toContain("[@media(pointer:coarse)_and_(max-width:1023px)]:hidden");
+  });
+
+  it("the side track is the last node in the DOM, placed in Level 8's row beside the path", () => {
+    show([]);
+    const items = within(path()).getAllByRole("listitem");
+    const last = items.at(-1)!;
+    expect(last.getAttribute("data-slot")).toBe("side-track");
+    expect(last.className).toContain("sm:col-start-2");
+    expect(last.className).toContain("sm:row-start-8");
+  });
+});
+
+describe("Level Map on a phone (coarse pointer ≤1023px)", () => {
+  const original = window.matchMedia;
+  beforeEach(() => {
+    window.matchMedia = ((query: string) => ({
+      matches: query === PHONE_QUERY,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    })) as typeof window.matchMedia;
+  });
+  afterEach(() => {
+    window.matchMedia = original;
+  });
+  const dialog = () => screen.queryByRole("dialog");
+
+  it("nothing opens on arrival: no dialog, the node not expanded", () => {
+    show(practices(1, 2));
+    expect(dialog()).toBeNull();
+    expect(nodeButtons()[0].getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("a tapped node opens its panel in a bottom-sheet dialog, focus on its heading; Escape closes back to the node", async () => {
+    const user = userEvent.setup();
+    show(practices(1, 2));
+    const l1 = nodeButtons()[0];
+    await user.click(l1);
+    const sheet = dialog()!;
+    expect(sheet).not.toBeNull();
+    expect(sheet.getAttribute("data-slot")).toBe("level-sheet");
     expect(sheet.className).toBe(SHEET_CLASS);
-    for (const part of ["fixed", "inset-x-0", "bottom-0", "max-h-[85dvh]", "overflow-y-auto"]) {
-      expect(sheet.className).toContain(`[@media(pointer:coarse)_and_(max-width:1023px)]:${part}`);
-    }
-    expect(sheet.className).toContain("lg:sticky");
-    expect(within(sheet).getByRole("button", { name: "Close" })).toBeTruthy();
+    expect(document.activeElement).toBe(document.getElementById("level-01-fixture-heading"));
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    // Only one copy of the panel while the sheet shows it.
+    expect(document.querySelectorAll('[id="level-01-fixture-heading"]')).toHaveLength(1);
+    await user.keyboard("{Escape}");
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(l1);
+  });
+
+  it("Start inside the sheet shows the phone message and calls no action", async () => {
+    const user = userEvent.setup();
+    show(practices(1, 2));
+    await user.click(nodeButtons()[0]);
+    const sheet = dialog()!;
+    const phoneStart = within(sheet)
+      .getAllByRole("button", { name: "Start Practice 3" })
+      .find((button) => button.closest('[data-slot="phone-start"]'))!;
+    await user.click(phoneStart);
+    expect(within(sheet).getByText(phoneStartMessage)).toBeTruthy();
+    expect(startAttempt).not.toHaveBeenCalled();
+  });
+
+  it("Close in the sheet returns focus to the node", async () => {
+    const user = userEvent.setup();
+    show([]);
+    const l3 = nodeButtons()[2];
+    await user.click(l3);
+    await user.click(within(dialog()!).getByRole("button", { name: "Close" }));
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(l3);
   });
 });

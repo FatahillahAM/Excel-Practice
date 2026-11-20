@@ -53,14 +53,38 @@ export async function loadProgress(): Promise<LevelProgress[] | "failed"> {
   return levelProgress(attempts, levels);
 }
 
+/** What /levels shows: progress, and the record time and best score per item. */
+export interface LevelMapData {
+  progress: LevelProgress[];
+  records: Map<string, ItemRecord>;
+  bestScores: Map<string, number>;
+}
+
+/**
+ * Server only: the Level Map's data from ONE graded-attempts read
+ * (`loadGradedAttempts`, the progress read; no time-zone read): progress,
+ * `records()` and `bestScores()`. `"failed"` only when progress cannot be
+ * built (the first-load alert); if deriving records or best scores throws,
+ * it is logged (`progress.load_failed`) and the panel shows "—" cells.
+ */
+export async function loadLevelMap(): Promise<LevelMapData | "failed"> {
+  const attempts = await loadGradedAttempts();
+  if (attempts === "failed") return "failed";
+  const progress = levelProgress(attempts, levels);
+  try {
+    return { progress, records: records(attempts), bestScores: bestScores(attempts) };
+  } catch (error) {
+    console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
+    return { progress, records: new Map(), bestScores: new Map() };
+  }
+}
+
 /** The zone Records dates fall back to without a profile zone (as History). */
 export const RECORDS_FALLBACK_ZONE = "Asia/Jakarta";
 
 /** What /records shows: the best time per item, the progress its Practice again checks (`canStart`), and the date zone. */
 export interface RecordsView {
   records: Map<string, ItemRecord>;
-  /** The best score per item (the Level Detail Panel's "Best" column). */
-  bestScores: Map<string, number>;
   progress: LevelProgress[];
   timeZone: string;
 }
@@ -80,7 +104,7 @@ const validScore = (score: unknown): score is number => typeof score === "number
 export async function loadRecords(): Promise<RecordsView | "failed"> {
   try {
     const user = await getSessionUser();
-    if (!user) return { records: new Map(), bestScores: new Map(), progress: levelProgress([], levels), timeZone: RECORDS_FALLBACK_ZONE };
+    if (!user) return { records: new Map(), progress: levelProgress([], levels), timeZone: RECORDS_FALLBACK_ZONE };
     const supabase = await createClient();
     const [read, progress, zone] = await Promise.all([listRecordAttempts(supabase, user.id), loadProgress(), readTimeZone(supabase, user.id)]);
     if (!read.ok || progress === "failed") return "failed";
@@ -91,7 +115,7 @@ export async function loadRecords(): Promise<RecordsView | "failed"> {
     const orphans = [...best.keys()].filter((itemId) => findItem(itemId) === null);
     if (orphans.length > 0) console.error(JSON.stringify({ event: "records.orphan_items", itemIds: orphans }));
     const timeZone = zone.ok && zone.timeZone !== null ? zone.timeZone : RECORDS_FALLBACK_ZONE;
-    return { records: best, bestScores: bestScores(attempts), progress, timeZone };
+    return { records: best, progress, timeZone };
   } catch (error) {
     unstable_rethrow(error);
     console.error(JSON.stringify({ event: "progress.load_failed", name: (error as Error)?.name ?? "unknown" }));
