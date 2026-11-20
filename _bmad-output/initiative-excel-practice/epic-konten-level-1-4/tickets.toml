@@ -1,0 +1,66 @@
+# Breakdown epic-konten-level-1-4, urutan build. id tidak pernah dipakai ulang.
+[[entry]]
+id = 1
+type = "story"
+title = "Tracer: Test L01 dan perlengkapan Test"
+description = "Item L01-T di atas skenario L01 yang ada, status jenis item tersimpan agar keadaan Test lulus/belum tetap benar, penjelasan untuk level v1 tanpa Test, dan hitungan level di sidebar (L-angka dan levels passed of 9)."
+verify = "Tes emas L01-T menilai fixture correct, typed-values dan wrong-function; tes gerbang L01 memakai L01-T asli; tes DOM hitungan sidebar."
+covers = ["CAP-6", "R1", "R2", "R3", "R4", "R5", "R8"]
+after = ["3.1"]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 2
+type = "story"
+title = "L01-P2..P5 dan pemeriksa Excel Table / Sort-Filter"
+description = "Sisa latihan Level 1 serta pemeriksa struktur Excel Table di pembaca workbook dan core; Sort/Filter diperiksa lewat hasil rumus."
+verify = "Tes unit pemeriksa atas xlsx buatan dan tes emas fixture P2-P5."
+covers = ["CAP-6", "R3", "R6", "R8"]
+after = [1]
+hitl = true
+risk = "high"
+
+[[entry]]
+id = 3
+type = "story"
+title = "Level 2 Logika dan edge case penilaian"
+description = "Modul 02-logika (IF, IFS, AND/OR, IFERROR; 5 latihan + Test, minimal 10 skenario) serta perbaikan `_xludf.` (alasan #NAME?) dan `t=\"str\"` cache kosong (not_calculated)."
+verify = "Tes emas per item dan validasi modul (100 poin, tanpa fungsi khusus M365)."
+covers = ["CAP-6", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]
+after = [1]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 4
+type = "story"
+title = "Level 3 Hitung bersyarat dan perbaikan operator spasi"
+description = "Modul 03-hitung-bersyarat (COUNTIFS, SUMIFS, AVERAGEIFS, MAXIFS/MINIFS) dan perbaikan normalizeFormula agar operator intersection tidak menggabungkan referensi."
+verify = "Tes emas fixture dan tes rumus untuk referensi dengan operator spasi."
+covers = ["CAP-6", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]
+after = [3]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 5
+type = "story"
+title = "Level 4 Cari data, akhir V1, istilah Excel dan aturan Tip dobel"
+description = "Modul 04-cari-data (VLOOKUP, XLOOKUP, INDEX-MATCH) dengan L04-T menuju akhir V1, markup `<code lang=\"en\">` di kontrak konten dengan backfill L01-L04, dan aturan untuk Tip id yang dobel di Results."
+verify = "Tes emas fixture, tes lint konten untuk istilah Excel, dan tes DOM Results untuk aturan Tip."
+covers = ["CAP-6", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]
+after = [4]
+hitl = true
+risk = "medium"
+
+[[entry]]
+id = 6
+type = "story"
+title = "Sapu bersih dan validasi CI semua konten"
+description = "Disposisi entri tertunda epic 5 dan satu tes CI berparameter atas semua modul: 100 poin, tanpa fungsi M365, dua seed beda data dengan kunci hitung ulang."
+verify = "Tes CI hijau untuk ke-24 item dan deferred-work tanpa entri epic 5 terbuka."
+covers = ["R2", "R5", "R6", "R8"]
+after = [2, 3, 4, 5]
+hitl = false
+risk = "low"
