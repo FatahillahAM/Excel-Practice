@@ -3,7 +3,7 @@ title: 'L01-P2..P5 dan pemeriksa Excel Table / Sort-Filter'
 type: 'feature'
 ticket: '2'
 created: '2026-11-20'
-status: 'in-progress'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: ''
@@ -94,7 +94,7 @@ Depends on 5.1 (L01-T, `kindFromItemId`, golden pattern). Paths may shift once 5
 - Reviews (blind+edge, verification+intent), 2026-11-26: no blocking defects.
 - Fixed: Total Row excluded from the Table range (`totalsRowCount`); header names compared case-insensitively; README wording for `Table1` (not graded); partial Excel fixture sets fail the golden suite instead of skipping; grade test for a Table on another sheet; `spills` doc comment on CSE arrays.
 - Accepted: CSE array accepted by `spills` (values must match the key); Table name used as a function name without parentheses (theoretical).
-- Pending (hitl): Excel 2021 fixtures l01-p2-{correct,typed-values} and re-saved l01-t-{correct,typed-values,wrong-function}; golden tests skip until committed (R8).
+- Done (hitl): Excel 2021 fixtures committed by the user; golden tests pass (P2 100/60, T 100/85/80). User approved Q6 Table+MAX, empty column H, AutoSum Tip moved to P2 and all new copy (2026-11-26).
 
 ## Design Notes
 
