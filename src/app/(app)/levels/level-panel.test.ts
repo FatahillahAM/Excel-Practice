@@ -10,16 +10,16 @@ const TEST: LevelItem = { id: "L01-T", kind: "test", number: 6, generate };
 const NONE: ReadonlySet<string> = new Set();
 
 describe("levelPanel", () => {
-  it("default registry (L01-P1 + L01-T): P1 next, P2–P5 unavailable, Test locked 5 to go", () => {
+  it("default registry (L01-P1..P5 + L01-T): P1 next, P2–P5 not started, Test locked 5 to go", () => {
     const panel = levelPanel(levels[0], NONE);
     expect(panel.doneCount).toBe(0);
     expect(panel.pips).toEqual(["next", "pending", "pending", "pending", "pending"]);
     expect(panel.practices.map((p) => [p.label, p.itemId, p.status])).toEqual([
       ["Practice 1", "L01-P1", "next"],
-      ["Practice 2", null, "unavailable"],
-      ["Practice 3", null, "unavailable"],
-      ["Practice 4", null, "unavailable"],
-      ["Practice 5", null, "unavailable"],
+      ["Practice 2", "L01-P2", "not_started"],
+      ["Practice 3", "L01-P3", "not_started"],
+      ["Practice 4", "L01-P4", "not_started"],
+      ["Practice 5", "L01-P5", "not_started"],
     ]);
     expect(panel.test).toMatchObject({ label: "Test", itemId: "L01-T", status: "locked", toGo: 5 });
     expect(panel.next).toEqual({ itemId: "L01-P1", label: "Practice 1" });
@@ -40,14 +40,20 @@ describe("levelPanel", () => {
     expect(panel.next).toBeNull();
   });
 
-  it("completed = {P1}: one done pip, Test locked 4 to go, nothing next (no other content)", () => {
+  it("completed = {P1}: one done pip, Test locked 4 to go, P2 next", () => {
     const panel = levelPanel(levels[0], new Set(["L01-P1"]));
     expect(panel.doneCount).toBe(1);
-    expect(panel.pips).toEqual(["done", "pending", "pending", "pending", "pending"]);
+    expect(panel.pips).toEqual(["done", "next", "pending", "pending", "pending"]);
     expect(panel.practices[0].status).toBe("done");
     expect(panel.test).toMatchObject({ status: "locked", toGo: 4 });
     expect(testLockLine(panel.test.toGo)).toBe("Test opens after 5 practices — 4 to go.");
-    expect(panel.next).toBeNull();
+    expect(panel.next).toEqual({ itemId: "L01-P2", label: "Practice 2" });
+  });
+
+  it("completed = {P1..P5} on the real registry: the Test is open", () => {
+    const panel = levelPanel(levels[0], new Set(["L01-P1", "L01-P2", "L01-P3", "L01-P4", "L01-P5"]));
+    expect(panel.doneCount).toBe(5);
+    expect(panel.test).toMatchObject({ status: "open", toGo: 0, itemId: "L01-T" });
   });
 
   it("completed = {P1} with P2 content: P2 is next", () => {
@@ -135,9 +141,8 @@ describe("completedItemIds", () => {
     const panel = levelPanel(levels[0], completedItemIds(levels[0], progress));
     expect(panel.doneCount).toBe(1);
     expect(panel.practices[0].status).toBe("done");
-    // Content-less items behave as before.
-    expect(panel.practices.slice(1).map((p) => p.status)).toEqual(Array(4).fill("unavailable"));
-    expect(panel.next).toBeNull();
+    expect(panel.practices.slice(1).map((p) => p.status)).toEqual(["next", "not_started", "not_started", "not_started"]);
+    expect(panel.next).toEqual({ itemId: "L01-P2", label: "Practice 2" });
   });
 
   it("is empty without progress for the level", () => {

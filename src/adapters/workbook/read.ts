@@ -3,7 +3,7 @@ import path from "node:path";
 import JSZip from "jszip";
 import { columnIndex, columnLetters, normalizeFormula, shiftFormula } from "../../core/grading/formula.ts";
 import { readSheetParts, resolvePartName } from "./template-patch.ts";
-import type { CellReading, WorkbookReading } from "@/core/grading/workbook-reading";
+import type { CellReading, TableReading, WorkbookReading } from "@/core/grading/workbook-reading";
 import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
 
 /**
@@ -21,11 +21,16 @@ import { readVbaModuleHashes, type VbaModuleHashes } from "./vba.ts";
  * are not trusted, each part is inflated as a stream and reading stops once the
  * budget is spent (zip bomb → `NotAWorkbookError`).
  *
+ * Excel Tables are read per sheet (sheet rels → `<tableParts>` →
+ * `xl/tables/tableN.xml`: name, range, header row, column names). A Table part
+ * that is missing, not well-formed or malformed is left out, never a reason to
+ * refuse the workbook; a spent inflate budget still is.
+ *
  * `WorkbookReading` and its cell types live in `src/core/grading/workbook-reading.ts`.
  */
 
 // The reading's types live in core (grading reads them, AD-3); re-exported for existing callers.
-export type { CellReading, CellType, WorkbookReading } from "@/core/grading/workbook-reading";
+export type { CellReading, CellType, TableReading, WorkbookReading } from "@/core/grading/workbook-reading";
 
 /** The bytes are not an OOXML workbook (AD-6 `NOT_EXCEL`); the message says why. */
 export class NotAWorkbookError extends Error {
@@ -48,6 +53,9 @@ export class NotMacroEnabledError extends Error {
     this.contentType = contentType;
   }
 }
+
+/** The inflate budget of one package is spent (a zip bomb): never tolerated, even in optional parts. */
+class InflateBudgetError extends NotAWorkbookError {}
 
 /** Most zip entries a submitted package may hold. */
 export const MAX_ZIP_ENTRIES = 1_000;
@@ -98,14 +106,18 @@ export async function readWorkbook(bytes: Uint8Array): Promise<WorkbookReading> 
   }
   const sharedStrings = await readSharedStrings(parts);
   const sheets = new Map<string, Record<string, CellReading>>();
+  const tables = new Map<string, TableReading[]>();
   for (const [name, part] of sheetParts) {
     const xml = await parts.text(part);
     if (xml === null) throw new NotAWorkbookError(`sheet "${name}" points to missing part ${part}`);
-    sheets.set(name, readSheet(name, parseXml(xml, part), sharedStrings));
+    const doc = parseXml(xml, part);
+    sheets.set(name, readSheet(name, doc, sharedStrings));
+    tables.set(name, await readTables(parts, part, doc));
   }
 
   return {
     sheets: Object.fromEntries(sheets),
+    tables: Object.fromEntries(tables),
     properties: await readCustomProperties(parts),
     vbaModuleHashes: await readVbaFingerprint(parts),
   };
@@ -213,7 +225,7 @@ class PartReader {
           settled = true;
           stream.pause();
           this.remaining = 0;
-          reject(new NotAWorkbookError(`inflating ${name} exceeds ${MAX_INFLATED_BYTES} bytes for the package`));
+          reject(new InflateBudgetError(`inflating ${name} exceeds ${MAX_INFLATED_BYTES} bytes for the package`));
           return;
         }
         chunks.push(chunk);
@@ -308,6 +320,7 @@ function readSheet(
   }
 
   const arrays = arrayRanges(cells);
+  const anchors = new Map(arrays.map((range) => [range.anchor, range.ref]));
   const out = new Map<string, CellReading>();
   for (const cell of cells) {
     const where = `${sheetName}!${cell.ref}`;
@@ -317,7 +330,9 @@ function readSheet(
     const inArray = arrays.some(
       (range) => cell.row >= range.top && cell.row <= range.bottom && cell.column >= range.left && cell.column <= range.right,
     );
-    out.set(cell.ref, inArray ? { formula, value, type, array: true } : { formula, value, type });
+    const arrayRef = anchors.get(cell.ref);
+    if (arrayRef !== undefined) out.set(cell.ref, { formula, value, type, array: true, arrayRef });
+    else out.set(cell.ref, inArray ? { formula, value, type, array: true } : { formula, value, type });
   }
   return Object.fromEntries(out);
 }
@@ -329,6 +344,12 @@ interface CellRange {
   right: number;
 }
 
+/** An array formula's range: where it lies, its anchor cell and its range as A1 text (`I2:I13`). */
+interface ArrayRange extends CellRange {
+  anchor: string;
+  ref: string;
+}
+
 /**
  * The ranges of array formulas over more than one cell (`<f t="array"
  * ref="H2:H13">`, a legacy Ctrl+Shift+Enter array or a dynamic array that
@@ -336,8 +357,8 @@ interface CellRange {
  * A one-cell `ref` is not one: Excel 2021 saves many ordinary formulas that
  * way (`cm="1"`), so their cell reads like any other formula.
  */
-function arrayRanges(cells: readonly RawCell[]): CellRange[] {
-  const ranges: CellRange[] = [];
+function arrayRanges(cells: readonly RawCell[]): ArrayRange[] {
+  const ranges: ArrayRange[] = [];
   for (const cell of cells) {
     const f = child(cell.node, "f");
     if (f === undefined || attr(f, "t") !== "array") continue;
@@ -351,7 +372,10 @@ function arrayRanges(cells: readonly RawCell[]): CellRange[] {
       left: Math.min(columnIndex(start[1]), columnIndex(end[1])),
       right: Math.max(columnIndex(start[1]), columnIndex(end[1])),
     };
-    if (range.top !== range.bottom || range.left !== range.right) ranges.push(range);
+    if (range.top !== range.bottom || range.left !== range.right) {
+      const ref = `${columnLetters(range.left)}${range.top}:${columnLetters(range.right)}${range.bottom}`;
+      ranges.push({ ...range, anchor: cell.ref, ref });
+    }
   }
   return ranges;
 }
@@ -417,6 +441,76 @@ function cellValue(
 const EMPTY = { value: null, type: "empty" } as const;
 
 // ---------------------------------------------------------------------------
+// Excel Tables
+
+const TABLE_REF_RE = /^\$?([A-Z]{1,3})\$?([1-9][0-9]*)(?::\$?([A-Z]{1,3})\$?([1-9][0-9]*))?$/i;
+
+/**
+ * The Tables a sheet links in `<tableParts>`, in that order, each through the
+ * sheet's own relationships part. Anything missing or unreadable on the way
+ * (rels part, relationship, table part, its XML or its range) leaves that
+ * Table out; only a spent inflate budget throws.
+ */
+async function readTables(parts: PartReader, sheetPart: string, doc: XmlNode): Promise<TableReading[]> {
+  const ids = children(child(child(doc, "worksheet"), "tableParts"), "tablePart")
+    .map((node) => attr(node, "id"))
+    .filter((id): id is string => id !== null);
+  if (ids.length === 0) return [];
+  const directory = path.posix.dirname(sheetPart);
+  const relsPart = path.posix.join(directory, "_rels", `${path.posix.basename(sheetPart)}.rels`);
+  const rels = await optionalXml(parts, relsPart);
+  if (rels === null) return [];
+  const targets = new Map<string, string>();
+  for (const rel of children(child(rels, "Relationships"), "Relationship")) {
+    const id = attr(rel, "Id");
+    const target = attr(rel, "Target");
+    if (id === null || target === null || (attr(rel, "TargetMode") ?? "").toLowerCase() === "external") continue;
+    targets.set(id, target.startsWith("/") ? path.posix.normalize(target).slice(1) : path.posix.normalize(path.posix.join(directory, target)));
+  }
+  const tables: TableReading[] = [];
+  for (const id of ids) {
+    const part = targets.get(id);
+    const table = part === undefined ? null : readTable(await optionalXml(parts, part));
+    if (table !== null) tables.push(table);
+  }
+  return tables;
+}
+
+/** A Table part's structure, or `null` when it is not a `<table>` with a cell range. */
+function readTable(doc: XmlNode | null): TableReading | null {
+  const table = child(doc ?? undefined, "table");
+  if (table === undefined) return null;
+  const match = TABLE_REF_RE.exec((attr(table, "ref") ?? "").trim());
+  if (match === null) return null;
+  const [, firstColumn, firstRow, lastColumn = firstColumn, lastRow = firstRow] = match;
+  // A Total Row (`totalsRowCount`) is part of the Table's `ref` but not of its data: it is left out of `ref` here.
+  const totals = Number((attr(table, "totalsRowCount") ?? "0").trim());
+  const totalsRows = Number.isInteger(totals) && totals > 0 ? totals : 0;
+  const bottom = Math.max(Number(firstRow), Number(lastRow) - totalsRows);
+  const ref = `${firstColumn.toUpperCase()}${firstRow}:${lastColumn.toUpperCase()}${bottom}`;
+  const headerRowCount = attr(table, "headerRowCount");
+  return {
+    name: attr(table, "displayName") ?? attr(table, "name") ?? "",
+    ref,
+    // ECMA-376 default: one header row.
+    headerRow: headerRowCount === null || Number(headerRowCount.trim()) !== 0,
+    totalsRow: totalsRows > 0,
+    columns: children(child(table, "tableColumns"), "tableColumn").map((column) => decodeEscapes(attr(column, "name") ?? "")),
+  };
+}
+
+/** An optional part's parsed XML; `null` when it is missing, unreadable or not well-formed. A spent budget still throws. */
+async function optionalXml(parts: PartReader, name: string): Promise<XmlNode | null> {
+  try {
+    const xml = await parts.text(name);
+    return xml === null ? null : parseXml(xml, name);
+  } catch (error) {
+    if (error instanceof InflateBudgetError) throw error;
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Shared strings, custom properties
 
 async function readSharedStrings(parts: PartReader): Promise<string[]> {
@@ -461,7 +555,7 @@ async function readCustomProperties(parts: PartReader): Promise<Record<string, s
 
 type XmlNode = { [key: string]: unknown };
 
-const ARRAY_TAGS = new Set(["row", "c", "si", "r", "property", "Relationship", "Override", "Default"]);
+const ARRAY_TAGS = new Set(["row", "c", "si", "r", "property", "Relationship", "Override", "Default", "tablePart", "tableColumn"]);
 
 // Entities are decoded by `text`/`attr` below, so numeric references (`&#10;`)
 // are handled too and no DOCTYPE entity is ever expanded.

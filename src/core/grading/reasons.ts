@@ -16,9 +16,17 @@ export type ReasonKind =
   | "wrong_reference"
   | "error_value"
   | "not_calculated"
-  | "wrong_value";
+  | "wrong_value"
+  | "not_a_table"
+  | "wrong_table_range"
+  | "wrong_table_header"
+  | "wrong_spill";
 
-/** Why a check failed: the kind and the first cell (A1, without the sheet) it failed on. */
+/**
+ * Why a check failed: the kind and the first cell (A1, without the sheet) it
+ * failed on; for the Table reasons, the range the Table must cover (the
+ * prompt names it too).
+ */
 export interface Reason {
   kind: ReasonKind;
   ref: string;
@@ -49,6 +57,14 @@ export const REASON_TEMPLATES: Readonly<Record<ReasonKind, string>> = {
   not_calculated: "Rumus di {ref} belum dihitung oleh Excel.",
   /** `value_equals_key`: the cell's value is not the expected one. */
   wrong_value: "Hasil di {ref} belum sesuai.",
+  /** `is_table`: no Excel Table on the sheet overlaps the data (formatting or a plain AutoFilter is not one). */
+  not_a_table: "Data di {ref} belum dijadikan Excel Table.",
+  /** `is_table`: a Table overlaps the data but its range is not exactly the data (rows left out, or extra columns or rows). */
+  wrong_table_range: "Range Excel Table belum sama dengan data di {ref}: judul kolom dan semua baris data harus masuk, tanpa kolom atau baris tambahan.",
+  /** `is_table`: the Table's header row is off, or its column names are not the data's headers. */
+  wrong_table_header: "Excel Table di {ref} belum memakai baris judul data sebagai header.",
+  /** `spills`: the top-left cell's formula does not spill over exactly the answer range; never names the expected size. */
+  wrong_spill: "Hasil rumus di {ref} belum mengisi daftar yang diminta: jumlah baris atau kolom hasilnya berbeda.",
 };
 
 /** The reason's Indonesian text: `{ref}` and `{function}` filled in. */

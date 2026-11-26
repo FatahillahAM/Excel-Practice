@@ -185,3 +185,23 @@ describe("grade(snapshot, reading, hintsUsed)", () => {
     expect(() => grade(broken, readingOf(correctCells()), 0)).toThrow(/malformed answer range/);
   });
 });
+
+describe("grade: Excel Tables per sheet (5.2)", () => {
+  const question = {
+    ...SNAPSHOT.questions[0],
+    checks: [{ name: "is_table" as const, ref: "A1:G13", headers: ["Kode Batch"] }, ...SNAPSHOT.questions[0].checks],
+  };
+  const snapshot = { ...SNAPSHOT, questions: [{ ...question, points: 100 }] };
+  const table = { name: "Table1", ref: "A1:G13", headerRow: true, columns: ["Kode Batch"] };
+
+  it("a Table only on another sheet is not_a_table for the question's sheet", () => {
+    const reading = { ...readingOf(correctCells()), tables: { Data: [], Instructions: [table] } };
+    const result = grade(snapshot, reading, 0);
+    expect(result.questions[0]).toMatchObject({ correct: false, reasonText: "Data di A1:G13 belum dijadikan Excel Table." });
+  });
+
+  it("the same Table on the question's sheet passes", () => {
+    const reading = { ...readingOf(correctCells()), tables: { Data: [table] } };
+    expect(grade(snapshot, reading, 0).questions[0]).toMatchObject({ correct: true, reasonText: null });
+  });
+});

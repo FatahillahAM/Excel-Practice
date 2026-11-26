@@ -3,7 +3,7 @@ title: 'L01-P2..P5 dan pemeriksa Excel Table / Sort-Filter'
 type: 'feature'
 ticket: '2'
 created: '2026-11-20'
-status: 'draft'
+status: 'built'
 route: 'full'
 route_source: 'auto'
 review: ''
@@ -78,9 +78,23 @@ Depends on 5.1 (L01-T, `kindFromItemId`, golden pattern). Paths may shift once 5
 
 ## Implementation Notes
 
+- Spike (Excel 2021, user, 2026-11-26) `src/adapters/workbook/__fixtures__/table-excel2021.xlsm`: sheet2 `<tableParts><tablePart r:id="rId1"/>` → rels Target `../tables/table1.xml`; table `name="Table1" displayName="Table1" ref="A1:G13" totalsRowShown="0"`, `<autoFilter ref="A1:G13"/>`, `<tableColumns count="7">` with `name` = header text, no `headerRowCount` attribute (default 1 = header on). Spill cached: Y2 `<f t="array" ref="Y2:Y13">_xlfn._xlws.SORT(Table1[Unit Diproduksi],1,-1)</f><v>1434</v>`, Y3..Y13 plain `<v>`; AA2 `t="str"` `_xlfn._xlws.FILTER(Table1[Kode Batch],Table1[Unit Diproduksi]&gt;1000)` spill AA2:AA8 `t="str"` values. So: spill cells carry cached values (no SMALL/LARGE fallback needed); function detection must strip `_xlfn.` AND `_xlws.` prefixes; formulas typed in a Table may use structured references (`Table1[Col]`) — checks that compare references must accept them or questions must target cells outside the Table / not depend on reference text.
+
 ## Plan Change Log
 
+- 2026-11-26 (implementer): L01-T keeps 6 questions (`MAX_QUESTIONS`, instruction lines B6:B12): the Table joins question 6 (`is_table` on A1:G{n+1}, then MAX) instead of a 7th question. Layout re-laid so Ctrl+T finds exactly the data and answer references stay A1-style: column H empty, answers I:L, target O2, max O4, grid Q:V. Points 15/15/15/15/20/20. Q6 Tip becomes the Ctrl+T card (`l01-ctrl-t-table`, shared with P2); the 5.1 AutoSum card (`l01-autosum-cepat`, Alt+=) moves unchanged to P2 Q4. Approved 5.1 copy changes: Test Tip set.
+- 2026-11-26: spill answers needed a check of their own: new check `spills` (one spilled formula in the top-left cell over exactly the range; formula checks then read that cell, `value_equals_key` the spilled values), reason `wrong_spill`, and `CellReading.arrayRef` on array anchors. Third Table reason `wrong_table_header` (header row off / other column names) besides `not_a_table` and `wrong_table_range`.
+- 2026-11-26: `not_hard_coded` counts a workbook Table's bare name (`SORT(Table1,5,1)`) as a reference (found by the P3 structured fixture); `CheckContext.tableNames`.
+- 2026-11-26: Table part for code-built fixtures is a test helper (`src/adapters/workbook/__fixtures__/table-part.ts`), not `generate.ts`: production never emits a Table.
+- 2026-11-26: "gate opens with real P1..P5" lives in `src/content/levels/index.test.ts` (+ `test.test.ts`, `level-panel.test.ts`), not `src/core/progress/level-progress.test.ts`: AD-1 lint forbids core tests importing `src/content`.
+- 2026-11-26: the committed 5.1 L01-T Excel files grade the old layout; `l01-t.ts` lists their SHA-256 as stale so the L01-T Excel golden skips ("not committed yet") until the re-saved files replace them. P2 Excel fixtures: correct and typed-values only (wrong-function is T only, per user steps). Blanks via `__fixtures__/write-blanks.test.ts` (`WRITE_L01_BLANKS=<dir>`).
+
 ## Review Triage Log
+
+- Reviews (blind+edge, verification+intent), 2026-11-26: no blocking defects.
+- Fixed: Total Row excluded from the Table range (`totalsRowCount`); header names compared case-insensitively; README wording for `Table1` (not graded); partial Excel fixture sets fail the golden suite instead of skipping; grade test for a Table on another sheet; `spills` doc comment on CSE arrays.
+- Accepted: CSE array accepted by `spills` (values must match the key); Table name used as a function name without parentheses (theoretical).
+- Done (hitl): Excel 2021 fixtures committed by the user; golden tests pass (P2 100/60, T 100/85/80). User approved Q6 Table+MAX, empty column H, AutoSum Tip moved to P2 and all new copy (2026-11-26).
 
 ## Design Notes
 

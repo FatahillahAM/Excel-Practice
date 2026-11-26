@@ -3,7 +3,7 @@ title: 'Tracer: Test L01 dan perlengkapan Test'
 type: 'feature'
 ticket: '1'
 created: '2026-11-20'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: 'thorough'

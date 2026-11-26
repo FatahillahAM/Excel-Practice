@@ -15,6 +15,7 @@ import {
   type LevelItem,
   type LevelModule,
 } from "@/core/content/level-module";
+import { canStart, levelProgress, type GradedAttempt } from "@/core/progress";
 import { assertTipsAgreeAcrossLevels, findItem, levels } from "./index";
 import { fondasi } from "./01-fondasi";
 import { DATA_HEADERS, practice1 } from "./01-fondasi/practice-1";
@@ -26,11 +27,22 @@ const without = (object: object, ...keys: string[]) => Object.fromEntries(Object
 const SEEDS = Array.from({ length: 50 }, (_, i) => i + 1);
 
 describe("level registry", () => {
-  it("lists Level 1 Fondasi (V1, 3 hints, content version 3) with Practice 1 and the Test", () => {
+  it("opens L01-T once the real P1..P5 each have a graded attempt, in order, any score (5.2)", () => {
+    const at = (itemId: string, score: number): GradedAttempt => ({ id: itemId, itemId, score, startedAt: "2026-11-26T01:00:00Z", receivedAt: "2026-11-26T01:10:00Z" });
+    const done: GradedAttempt[] = [];
+    for (const [i, itemId] of ["L01-P1", "L01-P2", "L01-P3", "L01-P4", "L01-P5"].entries()) {
+      expect(canStart(levelProgress(done, levels), levels, "L01-T"), `after ${i} practices`).toEqual({ ok: false, reason: "test_locked", toGo: 5 - i });
+      expect(canStart(levelProgress(done, levels), levels, itemId), itemId).toEqual({ ok: true, practiceAgain: false });
+      done.push(at(itemId, i * 20));
+    }
+    expect(canStart(levelProgress(done, levels), levels, "L01-T")).toEqual({ ok: true, practiceAgain: false });
+  });
+
+  it("lists Level 1 Fondasi (V1, 3 hints, content version 4) with Practices 1–5 and the Test", () => {
     expect(levels.map((level) => level.id)).toEqual(["01-fondasi"]);
     const [level] = levels;
-    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 3 });
-    expect(level.items.map((item) => item.id)).toEqual(["L01-P1", "L01-T"]);
+    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 4 });
+    expect(level.items.map((item) => item.id)).toEqual(["L01-P1", "L01-P2", "L01-P3", "L01-P4", "L01-P5", "L01-T"]);
     expect(level.functions).toEqual(["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"]);
     for (const candidate of levels) expect(levelModuleSchema.safeParse(candidate).success).toBe(true);
   });
@@ -41,12 +53,14 @@ describe("level registry", () => {
     for (const scenario of fondasi.scenarios) expect(fondasiScenarioSchema.safeParse(scenario).success).toBe(true);
   });
 
-  it("finds L01-P1 and nothing else", () => {
+  it("finds L01-P1 and L01-P5, and no item that does not exist", () => {
     const found = findItem("L01-P1");
     expect(found?.level.id).toBe("01-fondasi");
     expect(found?.item).toMatchObject({ id: "L01-P1", kind: "practice", number: 1 });
     expect(itemLabel(found!.item)).toBe("Practice 1");
-    expect(findItem("L01-P2")).toBeNull();
+    expect(findItem("L01-P5")?.item).toMatchObject({ id: "L01-P5", kind: "practice", number: 5 });
+    expect(findItem("L01-P6")).toBeNull();
+    expect(findItem("L02-P1")).toBeNull();
     expect(findItem("")).toBeNull();
   });
 });

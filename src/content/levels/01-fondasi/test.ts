@@ -12,29 +12,35 @@ import {
 } from "@/core/content/level-module";
 import { createRandom } from "@/core/content/random";
 import { DATA_HEADERS, MAX_BATCHES, MIN_BATCHES, TIPS } from "./practice-1";
+import { P2_TIPS } from "./practice-2";
 import type { FondasiScenario } from "./scenarios";
 
 /**
  * Level 1 · Test (`L01-T`): the skills of Level 1 together on the same table
- * of production batches as L01-P1 (Data A1:G{n+1}, n = 12–20), with the
- * target of good units per batch in `N2`, P1:Q{p+1} the products with their
- * base cost and R1:U1 four cost increases. No time limit; passing is
- * `isPassingScore` (≥ 80). Six questions, 100 points:
+ * of production batches as L01-P1 (Data A1:G{n+1}, n = 12–20). Column H
+ * stays empty, so Ctrl+T on the data finds exactly A1:G{n+1} and the answer
+ * columns I:L lie outside the Table (their `$` references are never
+ * rewritten as structured references). The target of good units per batch is
+ * in `O2`, Q1:R{p+1} the products with their base cost and S1:V1 four cost
+ * increases. No time limit; passing is `isPassingScore` (≥ 80). Six
+ * questions, 100 points (5.2: the Excel Table joins question 6, so the
+ * instruction lines stay within B6:B12):
  *
  * | # | Points | Answer        | Expected formula (top cell)    |
  * |---|--------|---------------|--------------------------------|
- * | 1 | 15     | H2:H{n+1}     | `=E2-F2`                       |
- * | 2 | 15     | I2:I{n+1}     | `=H2-$N$2`                     |
- * | 3 | 15     | J2:J{n+1}     | `=H2/SUM($H$2:$H${n+1})`       |
- * | 4 | 20     | K2:K{n+1}     | `=RANK.EQ(H2,$H$2:$H${n+1})`   |
- * | 5 | 20     | R2:U{p+1}     | `=$Q2*(1+R$1)`                 |
- * | 6 | 15     | N4            | `=MAX(H2:H{n+1})`              |
+ * | 1 | 15     | I2:I{n+1}     | `=E2-F2`                       |
+ * | 2 | 15     | J2:J{n+1}     | `=I2-$O$2`                     |
+ * | 3 | 15     | K2:K{n+1}     | `=I2/SUM($I$2:$I${n+1})`       |
+ * | 4 | 15     | L2:L{n+1}     | `=RANK.EQ(I2,$I$2:$I${n+1})`   |
+ * | 5 | 20     | S2:V{p+1}     | `=$R2*(1+S$1)`                 |
+ * | 6 | 20     | O4            | Table over A1:G{n+1}, then `=MAX(I2:I{n+1})` |
  *
  * Question 4 is the formula form of "Sort": the batch's place when sorted by
- * Unit Baik, largest first (ties share a place, as RANK.EQ does). The Excel
- * Table question joins in 5.2, with its checker. Prompts never reveal `$` or
- * F4; each question has 3 hints and one fixed Tip (`TEST_TIPS`), plain text
- * that draws nothing from `random`.
+ * Unit Baik, largest first (ties share a place, as RANK.EQ does). Question 6
+ * checks the Excel Table first (`is_table`: range with header row, header
+ * row on, the data headers as column names). Prompts never reveal `$` or F4;
+ * each question has 3 hints and one fixed Tip (`TEST_TIPS`), plain text that
+ * draws nothing from `random`.
  */
 
 export const TEST_ANSWER_HEADERS = {
@@ -57,7 +63,7 @@ const BASE_CHECKS: Check[] = [{ name: "formula_present" }, { name: "not_hard_cod
 
 const col = (letter: string) => columnNumber(letter);
 
-/** The Tips of L01-T: four shared with L01-P1 (same id, same card) and two of its own (Excel 2021 features only). */
+/** The Tips of L01-T: four shared with L01-P1 and the Table card of L01-P2 (same id, same card), and one of its own (Excel 2021 features only). */
 export const TEST_TIPS = {
   fill: TIPS.fill,
   lock: TIPS.lock,
@@ -72,14 +78,7 @@ export const TEST_TIPS = {
     shortcuts: ["Ctrl+Shift+L"],
   },
   mixed: TIPS.mixed,
-  autosum: {
-    id: "l01-autosum-cepat",
-    title: "Ringkasan cepat dengan AutoSum",
-    body:
-      "Klik sel kosong di bawah atau di samping angka lalu tekan Alt+= untuk menulis SUM otomatis. " +
-      "Panah kecil di tombol AutoSum (Home → Editing) juga punya Max, Min, Average, dan Count Numbers.",
-    shortcuts: ["Alt+="],
-  },
+  table: P2_TIPS.table,
 } as const satisfies Record<string, Tip>;
 
 /** A fresh copy (mutable `shortcuts`) of a constant Tip. */
@@ -129,19 +128,19 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
       (value, c) => (data[cellRef(c + 1, i + 2)] = value),
     );
   });
-  data.H1 = TEST_ANSWER_HEADERS.good;
-  data.I1 = TEST_ANSWER_HEADERS.gap;
-  data.J1 = TEST_ANSWER_HEADERS.share;
-  data.K1 = TEST_ANSWER_HEADERS.rank;
-  data.M2 = TARGET_LABEL;
-  data.N2 = target;
-  data.M4 = MAX_LABEL;
-  data.P1 = TEST_GRID_HEADERS.product;
-  data.Q1 = TEST_GRID_HEADERS.baseCost;
-  increases.forEach((increase, c) => (data[cellRef(col("R") + c, 1)] = increase));
+  data.I1 = TEST_ANSWER_HEADERS.good;
+  data.J1 = TEST_ANSWER_HEADERS.gap;
+  data.K1 = TEST_ANSWER_HEADERS.share;
+  data.L1 = TEST_ANSWER_HEADERS.rank;
+  data.N2 = TARGET_LABEL;
+  data.O2 = target;
+  data.N4 = MAX_LABEL;
+  data.Q1 = TEST_GRID_HEADERS.product;
+  data.R1 = TEST_GRID_HEADERS.baseCost;
+  increases.forEach((increase, c) => (data[cellRef(col("S") + c, 1)] = increase));
   products.forEach((product, r) => {
-    data[`P${r + 2}`] = product.name;
-    data[`Q${r + 2}`] = product.cost;
+    data[`Q${r + 2}`] = product.name;
+    data[`R${r + 2}`] = product.cost;
   });
 
   const totalGood = good.reduce((sum, value) => sum + value, 0);
@@ -149,7 +148,7 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
     Object.fromEntries(good.map((goodUnits, i) => [`${letter}${i + 2}`, value(goodUnits)]));
   const gridKey: Record<string, number> = {};
   products.forEach((product, r) => {
-    increases.forEach((increase, c) => (gridKey[cellRef(col("R") + c, r + 2)] = product.cost * (1 + increase)));
+    increases.forEach((increase, c) => (gridKey[cellRef(col("S") + c, r + 2)] = product.cost * (1 + increase)));
   });
   const gridLast = products.length + 1;
 
@@ -157,103 +156,105 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
     {
       number: 1,
       prompt:
-        `Di H2:H${last}, hitung ${TEST_ANSWER_HEADERS.good} tiap batch: "Unit Diproduksi" dikurangi "Unit Cacat". ` +
-        `Tulis satu rumus di H2, lalu salin ke bawah sampai H${last}.`,
+        `Di I2:I${last}, hitung ${TEST_ANSWER_HEADERS.good} tiap batch: "Unit Diproduksi" dikurangi "Unit Cacat". ` +
+        `Tulis satu rumus di I2, lalu salin ke bawah sampai I${last}.`,
       points: 15,
       sheet: DATA_SHEET,
-      range: `H2:H${last}`,
+      range: `I2:I${last}`,
       checks: BASE_CHECKS,
-      key: columnKey("H", (goodUnits) => goodUnits),
+      key: columnKey("I", (goodUnits) => goodUnits),
       hints: [
         "Unit Baik cukup dihitung dari dua kolom di baris yang sama: Unit Diproduksi dan Unit Cacat.",
         "Rumus dimulai dengan = dan merujuk sel di baris yang sama, bukan angka yang diketik.",
-        `Kedua referensi harus ikut bergeser per baris, jadi tidak perlu tanda $. Setelah H2 benar, blok H2:H${last} lalu tekan Ctrl+D.`,
+        `Kedua referensi harus ikut bergeser per baris, jadi tidak perlu tanda $. Setelah I2 benar, blok I2:I${last} lalu tekan Ctrl+D.`,
       ],
       tip: tipOf(TEST_TIPS.fill),
     },
     {
       number: 2,
       prompt:
-        `Di I2:I${last}, hitung ${TEST_ANSWER_HEADERS.gap} tiap batch: ${TEST_ANSWER_HEADERS.good} (kolom H) dikurangi target di sel N2. ` +
-        `Hasil negatif berarti batch itu di bawah target. Rumus di I2 harus tetap benar saat disalin ke bawah sampai I${last}.`,
+        `Di J2:J${last}, hitung ${TEST_ANSWER_HEADERS.gap} tiap batch: ${TEST_ANSWER_HEADERS.good} (kolom I) dikurangi target di sel O2. ` +
+        `Hasil negatif berarti batch itu di bawah target. Rumus di J2 harus tetap benar saat disalin ke bawah sampai J${last}.`,
       points: 15,
       sheet: DATA_SHEET,
-      range: `I2:I${last}`,
-      checks: [...BASE_CHECKS, { name: "uses_reference", ref: "$N$2" }],
-      key: columnKey("I", (goodUnits) => goodUnits - target),
+      range: `J2:J${last}`,
+      checks: [...BASE_CHECKS, { name: "uses_reference", ref: "$O$2" }],
+      key: columnKey("J", (goodUnits) => goodUnits - target),
       hints: [
-        "Targetnya hanya ada di satu sel, N2. Kalau rumus disalin ke bawah, referensi biasa ikut bergeser ke N3, N4, dan seterusnya, yang kosong.",
+        "Targetnya hanya ada di satu sel, O2. Kalau rumus disalin ke bawah, referensi biasa ikut bergeser ke O3, O4, dan seterusnya, yang bukan target.",
         "Tanda $ mengunci referensi: $ di depan huruf mengunci kolom, $ di depan angka mengunci baris.",
-        "Di rumus I2, klik referensi target lalu tekan F4 sampai kolom dan barisnya sama-sama terkunci. Unit Baik dibiarkan tanpa $ karena harus ikut turun per baris.",
+        "Di rumus J2, klik referensi target lalu tekan F4 sampai kolom dan barisnya sama-sama terkunci. Unit Baik dibiarkan tanpa $ karena harus ikut turun per baris.",
       ],
       tip: tipOf(TEST_TIPS.lock),
     },
     {
       number: 3,
       prompt:
-        `Di J2:J${last}, hitung ${TEST_ANSWER_HEADERS.share} tiap batch: ${TEST_ANSWER_HEADERS.good} batch itu dibagi total ` +
-        `${TEST_ANSWER_HEADERS.good} semua batch (pakai SUM atas H2:H${last}). Rumus di J2 harus tetap benar saat disalin ke bawah sampai J${last}.`,
+        `Di K2:K${last}, hitung ${TEST_ANSWER_HEADERS.share} tiap batch: ${TEST_ANSWER_HEADERS.good} batch itu dibagi total ` +
+        `${TEST_ANSWER_HEADERS.good} semua batch (pakai SUM atas I2:I${last}). Rumus di K2 harus tetap benar saat disalin ke bawah sampai K${last}.`,
       points: 15,
       sheet: DATA_SHEET,
-      range: `J2:J${last}`,
-      checks: [...BASE_CHECKS, { name: "uses_functions", functions: ["SUM"] }, { name: "uses_reference", ref: `$H$2:$H$${last}` }],
-      key: columnKey("J", (goodUnits) => goodUnits / totalGood),
+      range: `K2:K${last}`,
+      checks: [...BASE_CHECKS, { name: "uses_functions", functions: ["SUM"] }, { name: "uses_reference", ref: `$I$2:$I$${last}` }],
+      key: columnKey("K", (goodUnits) => goodUnits / totalGood),
       hints: [
         "Porsi = Unit Baik batch itu dibagi total Unit Baik semua batch. Pembilangnya berubah per baris, penyebutnya selalu total yang sama.",
         "Kalau range di dalam SUM tidak dikunci, range itu ikut bergeser saat disalin ke bawah, jadi totalnya tidak lagi mencakup semua batch.",
-        `Di dalam SUM, blok range H2:H${last} lalu tekan F4 sekali supaya awal dan akhir range sama-sama terkunci. Unit Baik di pembilang tetap tanpa $.`,
+        `Di dalam SUM, blok range I2:I${last} lalu tekan F4 sekali supaya awal dan akhir range sama-sama terkunci. Unit Baik di pembilang tetap tanpa $.`,
       ],
       tip: tipOf(TEST_TIPS.percent),
     },
     {
       number: 4,
       prompt:
-        `Di K2:K${last}, tulis ${TEST_ANSWER_HEADERS.rank} tiap batch kalau diurutkan dari ${TEST_ANSWER_HEADERS.good} terbesar: ` +
-        `terbesar = 1. Pakai fungsi RANK.EQ dan jangan mengurutkan tabelnya. Rumus di K2 harus tetap benar saat disalin ke bawah sampai K${last}.`,
-      points: 20,
+        `Di L2:L${last}, tulis ${TEST_ANSWER_HEADERS.rank} tiap batch kalau diurutkan dari ${TEST_ANSWER_HEADERS.good} terbesar: ` +
+        `terbesar = 1. Pakai fungsi RANK.EQ dan jangan mengurutkan tabelnya. Rumus di L2 harus tetap benar saat disalin ke bawah sampai L${last}.`,
+      points: 15,
       sheet: DATA_SHEET,
-      range: `K2:K${last}`,
-      checks: [...BASE_CHECKS, { name: "uses_functions", functions: ["RANK.EQ"] }, { name: "uses_reference", ref: `$H$2:$H$${last}` }],
-      key: columnKey("K", (goodUnits) => rankEq(goodUnits, good)),
+      range: `L2:L${last}`,
+      checks: [...BASE_CHECKS, { name: "uses_functions", functions: ["RANK.EQ"] }, { name: "uses_reference", ref: `$I$2:$I$${last}` }],
+      key: columnKey("L", (goodUnits) => rankEq(goodUnits, good)),
       hints: [
         "RANK.EQ butuh dua hal: angka yang mau dirangking (Unit Baik batch itu) dan daftar semua Unit Baik sebagai pembanding.",
         "Tanpa argumen ketiga, RANK.EQ memberi peringkat 1 untuk angka terbesar. Batch dengan Unit Baik sama mendapat peringkat yang sama.",
-        `Daftar pembanding harus selalu H2:H${last} di setiap baris: kunci range itu dengan F4. Angka yang dirangking tetap tanpa $ supaya ikut turun.`,
+        `Daftar pembanding harus selalu I2:I${last} di setiap baris: kunci range itu dengan F4. Angka yang dirangking tetap tanpa $ supaya ikut turun.`,
       ],
       tip: tipOf(TEST_TIPS.rank),
     },
     {
       number: 5,
       prompt:
-        `Di R2:U${gridLast}, buat simulasi kenaikan biaya: "${TEST_GRID_HEADERS.baseCost}" di kolom Q dikali (1 + persentase kenaikan di R1:U1). ` +
-        `Kenaikan ditulis dalam desimal: 0.02 artinya 2%. Tulis satu rumus di R2 yang tetap benar saat disalin ke kanan dan ke bawah sampai U${gridLast}.`,
+        `Di S2:V${gridLast}, buat simulasi kenaikan biaya: "${TEST_GRID_HEADERS.baseCost}" di kolom R dikali (1 + persentase kenaikan di S1:V1). ` +
+        `Kenaikan ditulis dalam desimal: 0.02 artinya 2%. Tulis satu rumus di S2 yang tetap benar saat disalin ke kanan dan ke bawah sampai V${gridLast}.`,
       points: 20,
       sheet: DATA_SHEET,
-      range: `R2:U${gridLast}`,
-      checks: [...BASE_CHECKS, { name: "uses_reference", ref: "$Q2" }, { name: "uses_reference", ref: "R$1" }],
+      range: `S2:V${gridLast}`,
+      checks: [...BASE_CHECKS, { name: "uses_reference", ref: "$R2" }, { name: "uses_reference", ref: "S$1" }],
       key: gridKey,
       hints: [
-        `Setiap sel di R2:U${gridLast} memakai Biaya Dasar di kolom Q pada baris yang sama dan persentase kenaikan di baris 1 pada kolom yang sama.`,
-        "Saat disalin ke kanan, rujukan ke kolom Q tidak boleh pindah kolom; saat disalin ke bawah, rujukan ke baris 1 tidak boleh pindah baris. Hanya satu bagian tiap referensi yang dikunci.",
+        `Setiap sel di S2:V${gridLast} memakai Biaya Dasar di kolom R pada baris yang sama dan persentase kenaikan di baris 1 pada kolom yang sama.`,
+        "Saat disalin ke kanan, rujukan ke kolom R tidak boleh pindah kolom; saat disalin ke bawah, rujukan ke baris 1 tidak boleh pindah baris. Hanya satu bagian tiap referensi yang dikunci.",
         "Tekan F4 berulang untuk berganti bentuk referensi: A1 → $A$1 → A$1 → $A1. Untuk Biaya Dasar kunci kolomnya saja, untuk persentase kunci barisnya saja. " +
-          `Setelah R2 benar, blok R2:U2 lalu Ctrl+R, kemudian blok R2:U${gridLast} lalu Ctrl+D.`,
+          `Setelah S2 benar, blok S2:V2 lalu Ctrl+R, kemudian blok S2:V${gridLast} lalu Ctrl+D.`,
       ],
       tip: tipOf(TEST_TIPS.mixed),
     },
     {
       number: 6,
-      prompt: `Di N4, tampilkan ${MAX_LABEL} dari semua batch dengan fungsi MAX atas H2:H${last}.`,
-      points: 15,
+      prompt:
+        `Ubah data A1:G${last} jadi Excel Table, dengan judul kolom di baris 1 sebagai header. ` +
+        `Lalu di O4, tampilkan ${MAX_LABEL} dari semua batch dengan fungsi MAX atas I2:I${last}.`,
+      points: 20,
       sheet: DATA_SHEET,
-      range: "N4",
-      checks: [...BASE_CHECKS, { name: "uses_functions", functions: ["MAX"] }],
-      key: { N4: Math.max(...good) },
+      range: "O4",
+      checks: [{ name: "is_table", ref: `A1:G${last}`, headers: [...DATA_HEADERS] }, ...BASE_CHECKS, { name: "uses_functions", functions: ["MAX"] }],
+      key: { O4: Math.max(...good) },
       hints: [
-        "Angka tertinggi cukup dicari dari satu kolom: Unit Baik.",
-        "Jangan ketik angkanya: kalau data berubah, hasilnya harus ikut berubah.",
-        `MAX menerima satu range. Tulis rumusnya di N4 dengan range H2:H${last}; rumus ini tidak disalin, jadi $ tidak wajib.`,
+        "Excel Table dibuat dari data yang judul kolomnya ada di baris pertama. Kolom H yang kosong menjadi batas kanannya, jadi Unit Baik dan jawaban lain tidak ikut masuk.",
+        "Klik satu sel di dalam data lalu buat Table dari tab Insert atau dengan shortcut, dengan pilihan bahwa data punya header dicentang.",
+        `Untuk angka tertinggi, MAX menerima satu range: Unit Baik di I2:I${last}. Rumus ini tidak disalin, jadi $ tidak wajib.`,
       ],
-      tip: tipOf(TEST_TIPS.autosum),
+      tip: tipOf(TEST_TIPS.table),
     },
   ];
 

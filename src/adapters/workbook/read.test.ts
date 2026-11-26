@@ -229,7 +229,7 @@ describe("readWorkbook", () => {
 
   it("gives a spilled array its formula only at the anchor, and marks every cell of its range as array", async () => {
     const { sheets } = await readWorkbook(await makeWorkbook());
-    expect(sheets.Data.L6).toEqual({ formula: "UNIQUE(B2:B11)", value: "Lini A", type: "string", array: true });
+    expect(sheets.Data.L6).toEqual({ formula: "UNIQUE(B2:B11)", value: "Lini A", type: "string", array: true, arrayRef: "L6:L8" });
     expect(sheets.Data.L7).toEqual({ formula: null, value: "Lini B", type: "string", array: true });
     expect(sheets.Data.L8).toEqual({ formula: null, value: "Lini C", type: "string", array: true });
   });
@@ -549,6 +549,137 @@ async function readFixture(): Promise<Uint8Array> {
   }
   return readFile(fixturePath);
 }
+
+// Excel Tables (5.2): sheet rels → <tableParts> → xl/tables/tableN.xml.
+const TABLE_RELS_XML = (targets: Record<string, string>) =>
+  `${XML_HEAD}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+  Object.entries(targets)
+    .map(([id, target]) => `<Relationship Id="${id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="${target}"/>`)
+    .join("") +
+  "</Relationships>";
+
+const tableXml = (attrs: string, columns: string[]) =>
+  `${XML_HEAD}<table ${MAIN_NS} id="1" ${attrs}><autoFilter ref="A1:C3"/><tableColumns count="${columns.length}">` +
+  columns.map((name, i) => `<tableColumn id="${i + 1}" name="${name}"/>`).join("") +
+  '</tableColumns><tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/></table>';
+
+/** The Data sheet with `<tableParts>` linking `ids`, after <pageMargins> as Excel writes it. */
+const dataWithTables = (ids: string[]) =>
+  sheetXml(DATA_ROWS).replace(
+    "</worksheet>",
+    `<tableParts count="${ids.length}">${ids.map((id) => `<tablePart r:id="${id}"/>`).join("")}</tableParts></worksheet>`,
+  );
+
+describe("readWorkbook: Excel Tables", () => {
+  const TABLE1 = tableXml('name="Table1" displayName="Table1" ref="A1:C3" totalsRowShown="0"', ["Kode Batch", "Lini_x000a_Produksi", "R&amp;D"]);
+
+  it("reads each Table of a sheet: name, range, header row and column names", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet2.xml": dataWithTables(["rId1", "rId2"]),
+      "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml", rId2: "/xl/tables/table2.xml" }),
+      "xl/tables/table1.xml": TABLE1,
+      "xl/tables/table2.xml": tableXml('name="Tbl" displayName="Ringkas" ref="$e$5:$f$9" headerRowCount="0"', ["Column1", "Column2"]),
+    });
+    const { tables } = await readWorkbook(bytes);
+    expect(tables).toEqual({
+      Instructions: [],
+      Data: [
+        { name: "Table1", ref: "A1:C3", headerRow: true, totalsRow: false, columns: ["Kode Batch", "Lini\nProduksi", "R&D"] },
+        { name: "Ringkas", ref: "E5:F9", headerRow: false, totalsRow: false, columns: ["Column1", "Column2"] },
+      ],
+    });
+  });
+
+  it("leaves a Total Row out of the Table's range", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet2.xml": dataWithTables(["rId1"]),
+      "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }),
+      "xl/tables/table1.xml": tableXml('name="Table1" displayName="Table1" ref="A1:G14" totalsRowCount="1"', ["Kode Batch"]),
+    });
+    expect((await readWorkbook(bytes)).tables?.Data).toEqual([{ name: "Table1", ref: "A1:G13", headerRow: true, totalsRow: true, columns: ["Kode Batch"] }]);
+  });
+
+  it("lists no Table for a sheet without <tableParts>, even with a sheet AutoFilter", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet2.xml": sheetXml(DATA_ROWS).replace("<pageMargins", '<autoFilter ref="A1:C3"/><pageMargins'),
+    });
+    expect((await readWorkbook(bytes)).tables).toEqual({ Instructions: [], Data: [] });
+  });
+
+  it.each([
+    ["the sheet rels part is missing", {}],
+    ["the sheet rels part is not XML", { "xl/worksheets/_rels/sheet2.xml.rels": "<Relationships" }],
+    ["the relationship id is unknown", { "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId9: "../tables/table1.xml" }) }],
+    ["the table part is missing", { "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }) }],
+    [
+      "the table part is not well-formed",
+      { "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }), "xl/tables/table1.xml": "<table ref=" },
+    ],
+    [
+      "the table has no range",
+      {
+        "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }),
+        "xl/tables/table1.xml": tableXml('name="Table1" ref="tidak"', ["A"]),
+      },
+    ],
+    [
+      "the part is not a table",
+      { "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }), "xl/tables/table1.xml": `${XML_HEAD}<sst ${MAIN_NS}/>` },
+    ],
+  ])("leaves a Table out without failing when %s", async (_, parts: Record<string, string>) => {
+    const bytes = await makeWorkbook({ "xl/worksheets/sheet2.xml": dataWithTables(["rId1"]), ...parts });
+    const reading = await readWorkbook(bytes);
+    expect(reading.tables?.Data).toEqual([]);
+    expect(reading.sheets.Data.H2.formula).toBe("F2/E2");
+  });
+
+  it("keeps the good Table when another one of the same sheet is broken", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet2.xml": dataWithTables(["rId1", "rId2"]),
+      "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml", rId2: "../tables/table2.xml" }),
+      "xl/tables/table1.xml": "<<<",
+      "xl/tables/table2.xml": TABLE1,
+    });
+    expect((await readWorkbook(bytes)).tables?.Data.map((table) => table.ref)).toEqual(["A1:C3"]);
+  });
+
+  it("still refuses a Table part that inflates past the budget", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet2.xml": dataWithTables(["rId1"]),
+      "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }),
+      "xl/tables/table1.xml": new Uint8Array(MAX_INFLATED_BYTES + 1),
+    });
+    await expect(readWorkbook(bytes)).rejects.toThrow(/exceeds/);
+  }, 20_000);
+});
+
+// The spike file (plan 5.2 › Implementation Notes): Excel 2021 made A1:G13 a
+// Table with Ctrl+T and spilled SORT/FILTER over structured references.
+describe("table-excel2021.xlsm (saved by Excel 2021)", () => {
+  const fixture = fileURLToPath(new URL("./__fixtures__/table-excel2021.xlsm", import.meta.url));
+
+  it("reads Table1 over A1:G13 with its header row, and the spilled SORT and FILTER with cached values", async () => {
+    const reading = await readWorkbook(Uint8Array.from(await readFile(fixture)));
+    expect(reading.tables).toEqual({
+      Instructions: [],
+      Data: [
+        {
+          name: "Table1",
+          ref: "A1:G13",
+          headerRow: true,
+          totalsRow: false,
+          columns: ["Kode Batch", "Lini", "Shift", "Produk", "Unit Diproduksi", "Unit Cacat", "Biaya per Unit"],
+        },
+      ],
+    });
+    const data = reading.sheets.Data;
+    expect(data.Y2).toEqual({ formula: "SORT(TABLE1[UNIT DIPRODUKSI],1,-1)", value: 1434, type: "number", array: true, arrayRef: "Y2:Y13" });
+    expect(data.Y13).toMatchObject({ formula: null, type: "number", array: true });
+    expect(data.AA2).toMatchObject({ formula: "FILTER(TABLE1[KODE BATCH],TABLE1[UNIT DIPRODUKSI]>1000)", type: "string", arrayRef: "AA2:AA8" });
+    expect(data.AA8).toMatchObject({ formula: null, type: "string", array: true });
+    expect(data.AA9).toBeUndefined();
+  });
+});
 
 describe("s2-excel2021.xlsm (saved by Excel 2021)", () => {
   it("matches the expected formula, value and type of every fixture cell", async () => {

@@ -1,7 +1,9 @@
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { formulaCell, sharedFill, typedValue, writeFormulaCells, type FixtureCell } from "@/adapters/workbook/__fixtures__/formula-cells";
+import { writeTablePart } from "@/adapters/workbook/__fixtures__/table-part";
 import { generateExamWorkbook } from "@/adapters/workbook/generate";
 import { expandRange } from "@/core/content/a1";
 import {
@@ -15,6 +17,7 @@ import {
 import { RESULT_VERSION, type Result } from "@/core/grading";
 import { fondasi } from "..";
 import { TEST_TIPS, levelTest } from "../test";
+import { dataTable } from "./item-fixture";
 
 /**
  * Test only: the golden fixtures of L01-T (AD-3, spine › fixtures), as
@@ -22,10 +25,11 @@ import { TEST_TIPS, levelTest } from "../test";
  * `baut-sinar-presisi`, a fixed token that belongs to no attempt) generated
  * live from template v1 exactly as Start does.
  *
- * L01-T seed 7: 12 batches (Data rows 2–13), N2 = 960, products P2:Q5,
- * R1:U1 = 0.04, 0.09, 0.14, 0.19. Expected top-cell formulas: H2 `=E2-F2`,
- * I2 `=H2-$N$2`, J2 `=H2/SUM($H$2:$H$13)`, K2 `=RANK.EQ(H2,$H$2:$H$13)`,
- * R2 `=$Q2*(1+R$1)`, N4 `=MAX(H2:H13)`.
+ * L01-T seed 7 (content version 4, 5.2 layout): 12 batches (Data rows
+ * 2–13), column H empty, O2 = 960, products Q2:R5, S1:V1 = 0.04, 0.09,
+ * 0.14, 0.19. Expected: I2 `=E2-F2`, J2 `=I2-$O$2`, K2
+ * `=I2/SUM($I$2:$I$13)`, L2 `=RANK.EQ(I2,$I$2:$I$13)`, S2 `=$R2*(1+S$1)`,
+ * and A1:G13 an Excel Table with O4 `=MAX(I2:I13)`.
  */
 
 export const FIXTURE_SEED = 7;
@@ -34,8 +38,8 @@ export const FIXTURE_SCENARIO_ID = "baut-sinar-presisi";
 export const FIXTURE_TOKEN = "TDAxLVQgZ29sZGVuIGZpeHR1cmUgdG9rZW4gMDAwMDE";
 export const FIXTURE_SERVER_URL = "https://example.invalid";
 
-/** Code-built variants: `blank` is the file sent for Excel; the others mirror the three Excel files. */
-export const VARIANTS = ["blank", "correct", "typed-values", "wrong-function"] as const;
+/** Code-built variants: `blank` is the file sent for Excel; `correct`, `typed-values`, `wrong-function` mirror the three Excel files. */
+export const VARIANTS = ["blank", "correct", "typed-values", "wrong-function", "no-table"] as const;
 
 export type Variant = (typeof VARIANTS)[number];
 
@@ -79,11 +83,11 @@ function filled(snapshot: ExamSnapshot, number: number, si: number, formula: str
 function correct(snapshot: ExamSnapshot): Cells {
   return {
     ...filled(snapshot, 1, 0, "E2-F2"),
-    ...filled(snapshot, 2, 1, "H2-$N$2"),
-    ...filled(snapshot, 3, 2, "H2/SUM($H$2:$H$13)"),
-    ...filled(snapshot, 4, 3, "RANK.EQ(H2,$H$2:$H$13)"),
-    ...filled(snapshot, 5, 4, "$Q2*(1+R$1)"),
-    N4: formulaCell("MAX(H2:H13)", keyOf(snapshot, 6).N4),
+    ...filled(snapshot, 2, 1, "I2-$O$2"),
+    ...filled(snapshot, 3, 2, "I2/SUM($I$2:$I$13)"),
+    ...filled(snapshot, 4, 3, "RANK.EQ(I2,$I$2:$I$13)"),
+    ...filled(snapshot, 5, 4, "$R2*(1+S$1)"),
+    O4: formulaCell("MAX(I2:I13)", keyOf(snapshot, 6).O4),
   };
 }
 
@@ -99,16 +103,23 @@ function answers(variant: Variant, snapshot: ExamSnapshot): Cells {
         ...Object.fromEntries(Object.entries(keyOf(snapshot, 1)).map(([ref, value]) => [ref, typedValue(value)])),
       };
     case "wrong-function":
-      return { ...correct(snapshot), N4: formulaCell("LARGE(H2:H13,1)", keyOf(snapshot, 6).N4) };
+      return { ...correct(snapshot), O4: formulaCell("LARGE(I2:I13,1)", keyOf(snapshot, 6).O4) };
+    case "no-table":
+      return correct(snapshot);
   }
 }
 
-/** The fixture workbook of `variant`: template v1 generated as Start does, answer cells written as Excel saves them. */
+/**
+ * The fixture workbook of `variant`: template v1 generated as Start does,
+ * answer cells written as Excel saves them and, except in `blank` and
+ * `no-table`, Table1 over A1:G13 as Ctrl+T saves it.
+ */
 export async function buildFixture(variant: Variant): Promise<Uint8Array> {
   const { exam, snapshot } = generated();
   const { bytes } = await generateExamWorkbook({ token: FIXTURE_TOKEN, serverUrl: FIXTURE_SERVER_URL, cells: exam.cells });
   const cells = answers(variant, snapshot);
-  return Object.keys(cells).length === 0 ? bytes : writeFormulaCells(bytes, DATA_SHEET, cells);
+  const answered = Object.keys(cells).length === 0 ? bytes : await writeFormulaCells(bytes, DATA_SHEET, cells);
+  return variant === "blank" || variant === "no-table" ? answered : writeTablePart(answered, DATA_SHEET, dataTable(13));
 }
 
 export interface ExpectedGrade {
@@ -120,18 +131,19 @@ export interface ExpectedGrade {
 const RIGHT = { correct: true, reasonText: null };
 const wrong = (reasonText: string) => ({ correct: false, reasonText });
 const ALL_RIGHT = [RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, RIGHT];
-const TYPED = { score: 85, correctCount: 5, questions: [wrong("Sel H2 berisi nilai yang diketik, bukan rumus."), RIGHT, RIGHT, RIGHT, RIGHT, RIGHT] };
-const WRONG_FUNCTION = { score: 85, correctCount: 5, questions: [RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, wrong("Rumus di N4 tidak memakai fungsi MAX.")] };
+const TYPED = { score: 85, correctCount: 5, questions: [wrong("Sel I2 berisi nilai yang diketik, bukan rumus."), RIGHT, RIGHT, RIGHT, RIGHT, RIGHT] };
+const WRONG_FUNCTION = { score: 80, correctCount: 5, questions: [RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, wrong("Rumus di O4 tidak memakai fungsi MAX.")] };
 
 export const EXPECTED: Readonly<Record<Variant, ExpectedGrade>> = {
   blank: {
     score: 0,
     correctCount: 0,
-    questions: ["H2", "I2", "J2", "K2", "R2", "N4"].map((ref) => wrong(`Sel ${ref} masih kosong.`)),
+    questions: [...["I2", "J2", "K2", "L2", "S2"].map((ref) => wrong(`Sel ${ref} masih kosong.`)), wrong("Data di A1:G13 belum dijadikan Excel Table.")],
   },
   correct: { score: 100, correctCount: 6, questions: ALL_RIGHT },
   "typed-values": TYPED,
   "wrong-function": WRONG_FUNCTION,
+  "no-table": { score: 80, correctCount: 5, questions: [RIGHT, RIGHT, RIGHT, RIGHT, RIGHT, wrong("Data di A1:G13 belum dijadikan Excel Table.")] },
 };
 
 /** The Tips of questions 1–6, from the content constants (not from the snapshot under test). */
@@ -177,9 +189,34 @@ export const EXPECTED_EXCEL: Readonly<Record<ExcelFixture, ExpectedGrade>> = {
 
 const excelPath = (name: ExcelFixture) => fileURLToPath(new URL(`./${name}.xlsm`, import.meta.url));
 
-/** Whether every Excel-saved L01-T file is committed (until then their golden tests skip). */
+/**
+ * SHA-256 of the three files Excel 2021 saved for 5.1 (content version 3,
+ * answers in H:K, no Table question). They grade a different exam than
+ * `fixtureSnapshot()` now generates, so they count as not committed until the
+ * user replaces them with the re-saved 5.2 files (README.md › L01-T).
+ */
+export const STALE_5_1_SHA256: ReadonlySet<string> = new Set([
+  "1bdc8b1a6be30724ef7dc90956b43e68c38ec6b96ebac15277a3c962201223cc",
+  "2b9d9aed721e5501acae50d6c0a376b8891ec79ff1704887a51e01ad5861b714",
+  "535bf3e47443ad57f0044e301a72b29093ac7e7005e83d948c87106a58c2ef07",
+]);
+
+/**
+ * Whether every Excel-saved L01-T file of the current layout is committed:
+ * `false` (their golden tests skip) when all are absent or still the 5.1
+ * files; throws (the golden suite fails) when only some are there.
+ */
 export function excelFixturesPresent(): boolean {
-  return EXCEL_FIXTURES.every((name) => existsSync(excelPath(name)));
+  const current = EXCEL_FIXTURES.filter((name) => {
+    const file = excelPath(name);
+    return existsSync(file) && !STALE_5_1_SHA256.has(createHash("sha256").update(readFileSync(file)).digest("hex"));
+  });
+  if (current.length === 0) return false;
+  if (current.length < EXCEL_FIXTURES.length) {
+    const missing = EXCEL_FIXTURES.filter((name) => !current.includes(name));
+    throw new Error(`L01-T Excel fixtures are incomplete: ${current.join(", ")} committed for 5.2, but ${missing.join(", ")} missing or still the 5.1 file (README.md › L01-T)`);
+  }
+  return true;
 }
 
 /** The committed bytes of an Excel-saved fixture. */
@@ -187,10 +224,10 @@ export async function readExcelFixture(name: ExcelFixture): Promise<Uint8Array> 
   return Uint8Array.from(await readFile(excelPath(name)));
 }
 
-/** The Data cells the drift guard compares: A1:G13, N2, P2:Q5 and R1:U1, as `fixtureCells()` generates them now. */
+/** The Data cells the drift guard compares: A1:G13, O2, Q2:R5 and S1:V1, as `fixtureCells()` generates them now. */
 export function driftGuardCells(): Record<string, number | string> {
   const data = fixtureCells()[DATA_SHEET];
-  const refs = [...expandRange("A1:G13")!, "N2", ...expandRange("P2:Q5")!, ...expandRange("R1:U1")!];
+  const refs = [...expandRange("A1:G13")!, "O2", ...expandRange("Q2:R5")!, ...expandRange("S1:V1")!];
   return Object.fromEntries(
     refs.map((ref) => {
       const value = data[ref];

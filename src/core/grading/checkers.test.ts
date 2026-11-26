@@ -18,7 +18,7 @@ import {
   type AnswerCell,
 } from "./checkers";
 import { REASON_TEMPLATES, reasonText } from "./reasons";
-import type { CellReading } from "./workbook-reading";
+import type { CellReading, TableReading } from "./workbook-reading";
 
 const q1 = SNAPSHOT.questions[0];
 
@@ -346,5 +346,156 @@ describe("reasons", () => {
 
   it("words typed_value neutrally: typed text is caught too, so it never says 'angka'", () => {
     expect(REASON_TEMPLATES.typed_value).not.toMatch(/angka/i);
+  });
+});
+
+describe("is_table (5.2)", () => {
+  const HEADERS = ["Kode Batch", "Lini", "Unit Diproduksi"];
+  const check = { name: "is_table", ref: "A1:C13", headers: HEADERS } as const;
+  const q = question("K2", { K2: 1 });
+  const table = (ref: string, columns = HEADERS, headerRow = true): TableReading => ({ name: "Table1", ref, headerRow, columns });
+  const run = (tables: TableReading[]) => runCheck(check, q, [at("K2", f("=1"))], { tables });
+
+  it("passes on a Table over exactly the range with the data's headers, whatever its name", () => {
+    expect(run([table("A1:C13")])).toEqual({ ok: true });
+    expect(run([{ ...table("A1:C13"), name: "Produksi" }])).toEqual({ ok: true });
+  });
+
+  it("is not_a_table without a Table, or with one elsewhere on the sheet only", () => {
+    expect(run([])).toEqual({ ok: false, reason: { kind: "not_a_table", ref: "A1:C13" } });
+    expect(run([table("E1:F5", ["X", "Y"])])).toEqual({ ok: false, reason: { kind: "not_a_table", ref: "A1:C13" } });
+    expect(runCheck(check, q, [at("K2", f("=1"))])).toEqual({ ok: false, reason: { kind: "not_a_table", ref: "A1:C13" } });
+  });
+
+  it("is wrong_table_range for a Table missing rows, or taking extra columns", () => {
+    expect(run([table("A1:C12")])).toEqual({ ok: false, reason: { kind: "wrong_table_range", ref: "A1:C13" } });
+    expect(run([table("A1:E13", [...HEADERS, "Kolom1", "Kolom2"])])).toEqual({ ok: false, reason: { kind: "wrong_table_range", ref: "A1:C13" } });
+    expect(run([table("A2:C13")])).toEqual({ ok: false, reason: { kind: "wrong_table_range", ref: "A1:C13" } });
+  });
+
+  it("takes the exact Table when another one overlaps too", () => {
+    expect(run([table("B5:B6", ["Lini"]), table("A1:C13")])).toEqual({ ok: true });
+  });
+
+  it("is wrong_table_header with the header row off or other column names", () => {
+    expect(run([table("A1:C13", ["Column1", "Column2", "Column3"], false)])).toEqual({ ok: false, reason: { kind: "wrong_table_header", ref: "A1:C13" } });
+    expect(run([table("A1:C13", ["Kode Batch", "Lini", "Unit"])])).toEqual({ ok: false, reason: { kind: "wrong_table_header", ref: "A1:C13" } });
+  });
+
+  it("passes a Table with its Total Row on (the reader leaves the Total Row out of the range)", () => {
+    expect(run([{ ...table("A1:C13"), totalsRow: true }])).toEqual({ ok: true });
+  });
+
+  it("compares header names trimmed and case-insensitively", () => {
+    expect(run([table("A1:C13", [" kode batch", "LINI ", "Unit diproduksi"])])).toEqual({ ok: true });
+  });
+
+  it("ignores the answer cells: a Table check passes over an empty answer", () => {
+    expect(runCheck(check, q, [at("K2", undefined)], { tables: [table("A1:C13")] })).toEqual({ ok: true });
+  });
+
+  it("refuses a malformed range or no headers in the schema", () => {
+    expect(checkSchema.safeParse({ name: "is_table", ref: "$A$1:$C$13", headers: HEADERS }).success).toBe(false);
+    expect(checkSchema.safeParse({ name: "is_table", ref: "A1", headers: HEADERS }).success).toBe(false);
+    expect(checkSchema.safeParse({ name: "is_table", ref: "A1:C13", headers: [] }).success).toBe(false);
+    expect(checkSchema.safeParse(check).success).toBe(true);
+  });
+});
+
+describe("spills (5.2)", () => {
+  const spillQuestion = (range: string, key: ExamQuestion["key"]): ExamQuestion => ({
+    ...question(range, key),
+    checks: [{ name: "formula_present" }, { name: "not_hard_coded" }, { name: "uses_functions", functions: ["SORT"] }, { name: "spills" }, { name: "value_equals_key", tolerance: 1e-9 }],
+  });
+  const q = spillQuestion("I2:I4", { I2: 30, I3: 20, I4: 10 });
+  const anchor = (formulaText: string, value: CellReading["value"], arrayRef?: string): CellReading => ({
+    formula: formulaText,
+    value,
+    type: typeof value === "string" ? "string" : "number",
+    ...(arrayRef === undefined ? {} : { array: true as const, arrayRef }),
+  });
+  const member = (value: number | string): CellReading => ({ formula: null, value, type: typeof value === "string" ? "string" : "number", array: true });
+  const spilled = [at("I2", anchor("_XLFN._XLWS.SORT(E2:E4,1,-1)", 30, "I2:I4")), at("I3", member(20)), at("I4", member(10))];
+  const grade = (cells: AnswerCell[]) => q.checks.map((check) => runCheck(check, q, cells));
+
+  it("passes every check on one spilled SORT over exactly the range (prefixes _xlfn._xlws. dropped)", () => {
+    expect(grade(spilled)).toEqual(q.checks.map(() => ({ ok: true })));
+  });
+
+  it("passes a spill over structured references to a Table", () => {
+    const cells = [at("I2", anchor("SORT(TABLE1[UNIT DIPRODUKSI],1,-1)", 30, "I2:I4")), spilled[1], spilled[2]];
+    expect(grade(cells)).toEqual(q.checks.map(() => ({ ok: true })));
+  });
+
+  it("is wrong_spill for a spill of another size, a formula that does not spill, or a cell inside another spill", () => {
+    const longer = [at("I2", anchor("SORT(E2:E5,1,-1)", 30, "I2:I5")), spilled[1], spilled[2]];
+    expect(runCheck({ name: "spills" }, q, longer)).toEqual({ ok: false, reason: { kind: "wrong_spill", ref: "I2" } });
+    expect(runCheck({ name: "spills" }, q, [at("I2", anchor("MAX(E2:E4)", 30)), at("I3", typed(20)), at("I4", typed(10))])).toEqual({
+      ok: false,
+      reason: { kind: "wrong_spill", ref: "I2" },
+    });
+    expect(runCheck({ name: "spills" }, q, [at("I2", member(30)), spilled[1], spilled[2]])).toEqual({ ok: false, reason: { kind: "wrong_spill", ref: "I2" } });
+  });
+
+  it("is empty or typed_value at the top-left cell", () => {
+    expect(runCheck({ name: "spills" }, q, [at("I2", undefined)])).toEqual({ ok: false, reason: { kind: "empty", ref: "I2" } });
+    expect(runCheck({ name: "spills" }, q, [at("I2", typed(30))])).toEqual({ ok: false, reason: { kind: "typed_value", ref: "I2" } });
+  });
+
+  it("accepts a one-cell spill range as an ordinary formula", () => {
+    const one = spillQuestion("I2", { I2: 30 });
+    expect(runCheck({ name: "spills" }, one, [at("I2", anchor("SORT(E2,1,-1)", 30))])).toEqual({ ok: true });
+    expect(runCheck({ name: "spills" }, one, [at("I2", anchor("SORT(E2:E3,1,-1)", 30, "I2:I3"))])).toEqual({ ok: false, reason: { kind: "wrong_spill", ref: "I2" } });
+  });
+
+  it("value_equals_key compares the spilled values: wrong order is wrong_value, a gap empty, a typed value typed_value", () => {
+    const value = q.checks[4];
+    expect(runCheck(value, q, [spilled[0], at("I3", member(10)), at("I4", member(20))])).toEqual({ ok: false, reason: { kind: "wrong_value", ref: "I3" } });
+    expect(runCheck(value, q, [spilled[0], spilled[1], at("I4", undefined)])).toEqual({ ok: false, reason: { kind: "empty", ref: "I4" } });
+    expect(runCheck(value, q, [spilled[0], spilled[1], at("I4", typed(10))])).toEqual({ ok: false, reason: { kind: "typed_value", ref: "I4" } });
+    expect(runCheck(value, q, [spilled[0], spilled[1], at("I4", { formula: null, value: "#N/A", type: "error", array: true })])).toEqual({
+      ok: false,
+      reason: { kind: "error_value", ref: "I4" },
+    });
+  });
+
+  it("without spills declared, the same cells are still array_formula (the fill questions are unchanged)", () => {
+    expect(runCheck({ name: "formula_present" }, question("I2:I4", {}), spilled)).toEqual({ ok: false, reason: { kind: "array_formula", ref: "I3" } });
+  });
+});
+
+describe("structured references and _xlws. prefixes (5.2)", () => {
+  it("calledFunctions drops _xlfn. and _xlws. together or alone", () => {
+    expect([...calledFunctions("_xlfn._xlws.SORT(Table1[Unit Diproduksi],1,-1)")]).toEqual(["SORT"]);
+    expect([...calledFunctions("_xlws.FILTER(A2:A9,B2:B9=L2)")]).toEqual(["FILTER"]);
+    expect([...calledFunctions("_xlfn._xlws.SORTBY(Table1[Kode Batch],Table1[Unit Diproduksi],-1)")]).toEqual(["SORTBY"]);
+  });
+
+  it("not_hard_coded counts a structured reference as a reference", () => {
+    for (const text of ["SUM(Table1[Unit Diproduksi])", "[@[Unit Diproduksi]]-[@[Unit Cacat]]", "SUM(Table1[[#This Row],[Unit Cacat]])"]) {
+      expect(notHardCoded({ name: "not_hard_coded" }, q1, [at("H2", f(text))]), text).toEqual({ ok: true });
+    }
+  });
+
+  it("not_hard_coded counts a workbook Table's bare name, but not another defined name or a function of that name", () => {
+    const context = { tables: [], tableNames: ["Table1"] };
+    expect(notHardCoded({ name: "not_hard_coded" }, q1, [at("M2", f("SORT(TABLE1,5,1)"))], context)).toEqual({ ok: true });
+    expect(notHardCoded({ name: "not_hard_coded" }, q1, [at("M2", f("SORT(TABLE1,5,1)"))])).toEqual({ ok: false, reason: { kind: "hard_coded", ref: "M2" } });
+    expect(notHardCoded({ name: "not_hard_coded" }, q1, [at("M2", f("RATE*2"))], context)).toEqual({ ok: false, reason: { kind: "hard_coded", ref: "M2" } });
+  });
+
+  it("uses_functions finds SUM over a structured reference", () => {
+    expect(usesFunctions({ name: "uses_functions", functions: ["SUM"] }, q1, [at("H2", f("SUM(TABLE1[UNIT DIPRODUKSI])"))])).toEqual({ ok: true });
+  });
+});
+
+describe("Table and spill reasons", () => {
+  it("name the range or cell only", () => {
+    expect(reasonText({ kind: "not_a_table", ref: "A1:G13" })).toBe("Data di A1:G13 belum dijadikan Excel Table.");
+    expect(reasonText({ kind: "wrong_table_range", ref: "A1:G13" })).toBe(
+      "Range Excel Table belum sama dengan data di A1:G13: judul kolom dan semua baris data harus masuk, tanpa kolom atau baris tambahan.",
+    );
+    expect(reasonText({ kind: "wrong_table_header", ref: "A1:G13" })).toBe("Excel Table di A1:G13 belum memakai baris judul data sebagai header.");
+    expect(reasonText({ kind: "wrong_spill", ref: "I2" })).toBe("Hasil rumus di I2 belum mengisi daftar yang diminta: jumlah baris atau kolom hasilnya berbeda.");
   });
 });
