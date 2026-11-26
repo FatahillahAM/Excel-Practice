@@ -3,7 +3,7 @@ title: 'L01-P2..P5 dan pemeriksa Excel Table / Sort-Filter'
 type: 'feature'
 ticket: '2'
 created: '2026-11-20'
-status: 'draft'
+status: 'in-progress'
 route: 'full'
 route_source: 'auto'
 review: ''
@@ -77,6 +77,8 @@ Depends on 5.1 (L01-T, `kindFromItemId`, golden pattern). Paths may shift once 5
 - Given any L01 item and two seeds, when generated, then data differs and keys equal recomputation.
 
 ## Implementation Notes
+
+- Spike (Excel 2021, user, 2026-11-26) `src/adapters/workbook/__fixtures__/table-excel2021.xlsm`: sheet2 `<tableParts><tablePart r:id="rId1"/>` → rels Target `../tables/table1.xml`; table `name="Table1" displayName="Table1" ref="A1:G13" totalsRowShown="0"`, `<autoFilter ref="A1:G13"/>`, `<tableColumns count="7">` with `name` = header text, no `headerRowCount` attribute (default 1 = header on). Spill cached: Y2 `<f t="array" ref="Y2:Y13">_xlfn._xlws.SORT(Table1[Unit Diproduksi],1,-1)</f><v>1434</v>`, Y3..Y13 plain `<v>`; AA2 `t="str"` `_xlfn._xlws.FILTER(Table1[Kode Batch],Table1[Unit Diproduksi]&gt;1000)` spill AA2:AA8 `t="str"` values. So: spill cells carry cached values (no SMALL/LARGE fallback needed); function detection must strip `_xlfn.` AND `_xlws.` prefixes; formulas typed in a Table may use structured references (`Table1[Col]`) — checks that compare references must accept them or questions must target cells outside the Table / not depend on reference text.
 
 ## Plan Change Log
 
