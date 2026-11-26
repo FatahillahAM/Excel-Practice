@@ -34,8 +34,10 @@ export interface CellReading {
 export interface TableReading {
   /** `displayName` (what formulas refer to: `Table1`), else `name`. */
   name: string;
-  /** The Table's range, header row included, A1 without `$` (`A1:G13`). */
+  /** The Table's range, header row included and Total Row left out, A1 without `$` (`A1:G13`). */
   ref: string;
+  /** Whether the Table has a Total Row below `ref` (`totalsRowCount` > 0). Absent in readings built by hand: none. */
+  totalsRow?: boolean;
   /** Whether the Table has its header row on (`headerRowCount` ≠ 0). */
   headerRow: boolean;
   /** Column names in order (`tableColumn@name`): the header cells' text when the header row is on. */

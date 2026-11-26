@@ -23,8 +23,8 @@ describe("writeTablePart (test fixture)", () => {
     expect(reading.tables).toEqual({
       Instructions: [],
       Data: [
-        { name: "Table1", ref: "A1:B3", headerRow: true, columns: ["Kode Batch", "Unit"] },
-        { name: "Tanpa Judul", ref: "D5:E6", headerRow: false, columns: ["Column1", "Column2"] },
+        { name: "Table1", ref: "A1:B3", headerRow: true, totalsRow: false, columns: ["Kode Batch", "Unit"] },
+        { name: "Tanpa Judul", ref: "D5:E6", headerRow: false, totalsRow: false, columns: ["Column1", "Column2"] },
       ],
     });
     expect(reading.sheets).toEqual(before.sheets);

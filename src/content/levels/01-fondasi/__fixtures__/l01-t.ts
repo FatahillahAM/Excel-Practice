@@ -201,12 +201,22 @@ export const STALE_5_1_SHA256: ReadonlySet<string> = new Set([
   "535bf3e47443ad57f0044e301a72b29093ac7e7005e83d948c87106a58c2ef07",
 ]);
 
-/** Whether every Excel-saved L01-T file of the current layout is committed (until then their golden tests skip). */
+/**
+ * Whether every Excel-saved L01-T file of the current layout is committed:
+ * `false` (their golden tests skip) when all are absent or still the 5.1
+ * files; throws (the golden suite fails) when only some are there.
+ */
 export function excelFixturesPresent(): boolean {
-  return EXCEL_FIXTURES.every((name) => {
+  const current = EXCEL_FIXTURES.filter((name) => {
     const file = excelPath(name);
     return existsSync(file) && !STALE_5_1_SHA256.has(createHash("sha256").update(readFileSync(file)).digest("hex"));
   });
+  if (current.length === 0) return false;
+  if (current.length < EXCEL_FIXTURES.length) {
+    const missing = EXCEL_FIXTURES.filter((name) => !current.includes(name));
+    throw new Error(`L01-T Excel fixtures are incomplete: ${current.join(", ")} committed for 5.2, but ${missing.join(", ")} missing or still the 5.1 file (README.md › L01-T)`);
+  }
+  return true;
 }
 
 /** The committed bytes of an Excel-saved fixture. */

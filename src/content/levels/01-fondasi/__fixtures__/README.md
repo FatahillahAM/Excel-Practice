@@ -59,7 +59,7 @@ File awal `l01-p2-blank.xlsm` dibuat dengan `buildFixture("blank")` dari `l01-p2
 1. Simpan file ke folder mana saja. Buka di Excel 2021; bila ada **Protected View**, klik **Enable Editing**. Bar **Enable Content** boleh diabaikan. **Jangan klik Finish.**
 2. Bila Excel menolak rumus ("There's a problem with this formula"), ganti setiap `,` dengan `;` lalu ketik ulang.
 3. **File 1 — correct.** Di sheet `Data`:
-   - Klik sel **A1** → **Ctrl+T** → pastikan range `=$A$1:$G$13` dan **My table has headers** dicentang → **OK**. Nama Table harus `Table1` (bawaan; lihat **Table Design → Table Name**). Jangan ubah gaya Table.
+   - Klik sel **A1** → **Ctrl+T** → pastikan range `=$A$1:$G$13` dan **My table has headers** dicentang → **OK**. Nama Table bawaannya `Table1` (lihat **Table Design → Table Name**); rumus di bawah memakai nama itu, jadi jangan diganti. Nama Table sendiri tidak dinilai. Jangan ubah gaya Table.
    - K2 ketik `=SUM(Table1[Unit Diproduksi])` → Enter (K2 tampil 11788).
    - K3 ketik `=SUM(Table1[Unit Cacat])` → Enter (K3 223).
    - K4 ketik `=COUNTA(Table1[Kode Batch])` → Enter (K4 12).

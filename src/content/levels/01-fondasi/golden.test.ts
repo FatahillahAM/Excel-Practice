@@ -315,7 +315,7 @@ describe.each(PRACTICES)("$id golden fixtures (code-built)", (practice) => {
 describe("L01-P2..P5 code-built fixtures read as Excel saves them", () => {
   it("L01-P2 correct: Table1 over A1:G13 and structured references in K2:K5", async () => {
     const reading = await readWorkbook(await l01p2.buildFixture("correct"));
-    expect(reading.tables?.Data).toEqual([{ name: "Table1", ref: "A1:G13", headerRow: true, columns: [...DATA_HEADERS] }]);
+    expect(reading.tables?.Data).toEqual([{ name: "Table1", ref: "A1:G13", headerRow: true, totalsRow: false, columns: [...DATA_HEADERS] }]);
     expect(reading.sheets.Data.K2).toMatchObject({ formula: "SUM(TABLE1[UNIT DIPRODUKSI])", value: 11788 });
   });
 

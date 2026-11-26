@@ -256,7 +256,7 @@ export const valueEqualsKey: Checker<"value_equals_key"> = (check, question, cel
  * exactly the answer range (for a one-cell range: an ordinary formula, not
  * the anchor of a larger array). `empty`, `typed_value`, else `wrong_spill`
  * (also when the cell is only a value of another cell's spill); the reason
- * never names the expected size.
+ * never names the expected size. A Ctrl+Shift+Enter array over exactly the range also passes: harmless, its values must still match the key.
  */
 export const spills: Checker<"spills"> = (_check, question, cells) => {
   if (cells.length === 0) throw new Error("A check needs at least one answer cell");
@@ -293,8 +293,9 @@ const overlaps = (a: Bounds, b: Bounds) => a.left <= b.right && b.left <= a.righ
  * `is_table`: an Excel Table on the question's sheet lies over exactly
  * `ref`, with its header row on and `headers` as its column names. No Table
  * overlapping `ref` is `not_a_table`; one that overlaps with another range
- * `wrong_table_range`; a header row off or other column names
- * `wrong_table_header`. Each reason names `ref` (the prompt names it too).
+ * `wrong_table_range` (a Total Row is not part of the range); a header row
+ * off or other column names (compared trimmed, case-insensitive, as Excel
+ * names columns) `wrong_table_header`. Each reason names `ref` (the prompt names it too).
  */
 export const isTable: Checker<"is_table"> = (check, _question, _cells, context) => {
   const want = boundsOf(check.ref);
@@ -309,7 +310,7 @@ export const isTable: Checker<"is_table"> = (check, _question, _cells, context) 
   const headersMatch =
     table.headerRow &&
     table.columns.length === check.headers.length &&
-    table.columns.every((name, i) => name.trim() === check.headers[i].trim());
+    table.columns.every((name, i) => name.trim().toUpperCase() === check.headers[i].trim().toUpperCase());
   return headersMatch ? OK : { ok: false, reason: { kind: "wrong_table_header", ref: check.ref } };
 };
 

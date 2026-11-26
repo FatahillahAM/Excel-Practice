@@ -483,13 +483,18 @@ function readTable(doc: XmlNode | null): TableReading | null {
   const match = TABLE_REF_RE.exec((attr(table, "ref") ?? "").trim());
   if (match === null) return null;
   const [, firstColumn, firstRow, lastColumn = firstColumn, lastRow = firstRow] = match;
-  const ref = `${firstColumn.toUpperCase()}${firstRow}:${lastColumn.toUpperCase()}${lastRow}`;
+  // A Total Row (`totalsRowCount`) is part of the Table's `ref` but not of its data: it is left out of `ref` here.
+  const totals = Number((attr(table, "totalsRowCount") ?? "0").trim());
+  const totalsRows = Number.isInteger(totals) && totals > 0 ? totals : 0;
+  const bottom = Math.max(Number(firstRow), Number(lastRow) - totalsRows);
+  const ref = `${firstColumn.toUpperCase()}${firstRow}:${lastColumn.toUpperCase()}${bottom}`;
   const headerRowCount = attr(table, "headerRowCount");
   return {
     name: attr(table, "displayName") ?? attr(table, "name") ?? "",
     ref,
     // ECMA-376 default: one header row.
     headerRow: headerRowCount === null || Number(headerRowCount.trim()) !== 0,
+    totalsRow: totalsRows > 0,
     columns: children(child(table, "tableColumns"), "tableColumn").map((column) => decodeEscapes(attr(column, "name") ?? "")),
   };
 }

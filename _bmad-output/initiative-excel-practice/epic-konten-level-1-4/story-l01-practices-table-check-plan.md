@@ -91,6 +91,11 @@ Depends on 5.1 (L01-T, `kindFromItemId`, golden pattern). Paths may shift once 5
 
 ## Review Triage Log
 
+- Reviews (blind+edge, verification+intent), 2026-11-26: no blocking defects.
+- Fixed: Total Row excluded from the Table range (`totalsRowCount`); header names compared case-insensitively; README wording for `Table1` (not graded); partial Excel fixture sets fail the golden suite instead of skipping; grade test for a Table on another sheet; `spills` doc comment on CSE arrays.
+- Accepted: CSE array accepted by `spills` (values must match the key); Table name used as a function name without parentheses (theoretical).
+- Pending (hitl): Excel 2021 fixtures l01-p2-{correct,typed-values} and re-saved l01-t-{correct,typed-values,wrong-function}; golden tests skip until committed (R8).
+
 ## Design Notes
 
 - [ASSUMPTION] Table check = structural only (exists on sheet, `ref` covers the data block, header row on, column names match data headers); AutoFilter on a Table is implied, not checked.

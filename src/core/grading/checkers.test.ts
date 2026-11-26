@@ -18,7 +18,7 @@ import {
   type AnswerCell,
 } from "./checkers";
 import { REASON_TEMPLATES, reasonText } from "./reasons";
-import type { CellReading } from "./workbook-reading";
+import type { CellReading, TableReading } from "./workbook-reading";
 
 const q1 = SNAPSHOT.questions[0];
 
@@ -353,8 +353,8 @@ describe("is_table (5.2)", () => {
   const HEADERS = ["Kode Batch", "Lini", "Unit Diproduksi"];
   const check = { name: "is_table", ref: "A1:C13", headers: HEADERS } as const;
   const q = question("K2", { K2: 1 });
-  const table = (ref: string, columns = HEADERS, headerRow = true) => ({ name: "Table1", ref, headerRow, columns });
-  const run = (tables: ReturnType<typeof table>[]) => runCheck(check, q, [at("K2", f("=1"))], { tables });
+  const table = (ref: string, columns = HEADERS, headerRow = true): TableReading => ({ name: "Table1", ref, headerRow, columns });
+  const run = (tables: TableReading[]) => runCheck(check, q, [at("K2", f("=1"))], { tables });
 
   it("passes on a Table over exactly the range with the data's headers, whatever its name", () => {
     expect(run([table("A1:C13")])).toEqual({ ok: true });
@@ -380,6 +380,14 @@ describe("is_table (5.2)", () => {
   it("is wrong_table_header with the header row off or other column names", () => {
     expect(run([table("A1:C13", ["Column1", "Column2", "Column3"], false)])).toEqual({ ok: false, reason: { kind: "wrong_table_header", ref: "A1:C13" } });
     expect(run([table("A1:C13", ["Kode Batch", "Lini", "Unit"])])).toEqual({ ok: false, reason: { kind: "wrong_table_header", ref: "A1:C13" } });
+  });
+
+  it("passes a Table with its Total Row on (the reader leaves the Total Row out of the range)", () => {
+    expect(run([{ ...table("A1:C13"), totalsRow: true }])).toEqual({ ok: true });
+  });
+
+  it("compares header names trimmed and case-insensitively", () => {
+    expect(run([table("A1:C13", [" kode batch", "LINI ", "Unit diproduksi"])])).toEqual({ ok: true });
   });
 
   it("ignores the answer cells: a Table check passes over an empty answer", () => {

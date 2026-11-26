@@ -584,10 +584,19 @@ describe("readWorkbook: Excel Tables", () => {
     expect(tables).toEqual({
       Instructions: [],
       Data: [
-        { name: "Table1", ref: "A1:C3", headerRow: true, columns: ["Kode Batch", "Lini\nProduksi", "R&D"] },
-        { name: "Ringkas", ref: "E5:F9", headerRow: false, columns: ["Column1", "Column2"] },
+        { name: "Table1", ref: "A1:C3", headerRow: true, totalsRow: false, columns: ["Kode Batch", "Lini\nProduksi", "R&D"] },
+        { name: "Ringkas", ref: "E5:F9", headerRow: false, totalsRow: false, columns: ["Column1", "Column2"] },
       ],
     });
+  });
+
+  it("leaves a Total Row out of the Table's range", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet2.xml": dataWithTables(["rId1"]),
+      "xl/worksheets/_rels/sheet2.xml.rels": TABLE_RELS_XML({ rId1: "../tables/table1.xml" }),
+      "xl/tables/table1.xml": tableXml('name="Table1" displayName="Table1" ref="A1:G14" totalsRowCount="1"', ["Kode Batch"]),
+    });
+    expect((await readWorkbook(bytes)).tables?.Data).toEqual([{ name: "Table1", ref: "A1:G13", headerRow: true, totalsRow: true, columns: ["Kode Batch"] }]);
   });
 
   it("lists no Table for a sheet without <tableParts>, even with a sheet AutoFilter", async () => {
@@ -658,6 +667,7 @@ describe("table-excel2021.xlsm (saved by Excel 2021)", () => {
           name: "Table1",
           ref: "A1:G13",
           headerRow: true,
+          totalsRow: false,
           columns: ["Kode Batch", "Lini", "Shift", "Produk", "Unit Diproduksi", "Unit Cacat", "Biaya per Unit"],
         },
       ],

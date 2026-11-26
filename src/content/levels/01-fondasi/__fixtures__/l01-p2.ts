@@ -137,9 +137,15 @@ export const EXPECTED_EXCEL: Readonly<Record<ExcelFixture, ExpectedGrade>> = {
 
 const excelPath = (name: ExcelFixture) => fileURLToPath(new URL(`./${name}.xlsm`, import.meta.url));
 
-/** Whether every Excel-saved L01-P2 file is committed (until then their golden tests skip). */
+/** Whether every Excel-saved L01-P2 file is committed: `false` (golden tests skip) when none is; throws (the suite fails) when only some are. */
 export function excelFixturesPresent(): boolean {
-  return EXCEL_FIXTURES.every((name) => existsSync(excelPath(name)));
+  const present = EXCEL_FIXTURES.filter((name) => existsSync(excelPath(name)));
+  if (present.length === 0) return false;
+  if (present.length < EXCEL_FIXTURES.length) {
+    const missing = EXCEL_FIXTURES.filter((name) => !present.includes(name));
+    throw new Error(`L01-P2 Excel fixtures are incomplete: ${present.join(", ")} committed, ${missing.join(", ")} missing (README.md › L01-P2)`);
+  }
+  return true;
 }
 
 export async function readExcelFixture(name: ExcelFixture): Promise<Uint8Array> {
