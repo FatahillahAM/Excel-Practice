@@ -47,7 +47,7 @@ describe("writeFormulaCells (test fixture)", () => {
   it("writes an array formula as Excel does: the formula in the anchor only, every cell of its ref marked array", async () => {
     const bytes = await writeFormulaCells(await base(), "Data", arrayFill("H2:H3", "E2:E3*G2:G3", (ref) => (ref === "H2" ? 20 : 60)));
     const data = (await readWorkbook(bytes)).sheets.Data;
-    expect(data.H2).toEqual({ formula: "E2:E3*G2:G3", value: 20, type: "number", array: true });
+    expect(data.H2).toEqual({ formula: "E2:E3*G2:G3", value: 20, type: "number", array: true, arrayRef: "H2:H3" });
     expect(data.H3).toEqual({ formula: null, value: 60, type: "number", array: true });
     expect(data.G2).toEqual({ formula: null, value: 2, type: "number" });
   });

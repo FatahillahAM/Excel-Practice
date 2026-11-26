@@ -10,6 +10,9 @@ import { z } from "zod";
 const REF_PART = String.raw`\$?[A-Z]{1,3}\$?[1-9]\d{0,6}`;
 export const REFERENCE_RE = new RegExp(`^${REF_PART}(:${REF_PART})?$`);
 
+/** A range of cells without `$` (`A1:G13`): where a Table must lie. */
+export const PLAIN_RANGE_RE = /^[A-Z]{1,3}[1-9]\d{0,6}:[A-Z]{1,3}[1-9]\d{0,6}$/;
+
 /** An Excel function name as Excel writes it (`SUM`, `COUNTIFS`, `T.TEST`). */
 export const FUNCTION_NAME_RE = /^[A-Z][A-Z0-9]*(\.[A-Z0-9]+)*$/;
 
@@ -25,6 +28,16 @@ export const FUNCTION_NAME_RE = /^[A-Z][A-Z0-9]*(\.[A-Z0-9]+)*$/;
  *   fill does (`$` parts stay fixed). `ref` itself has no sheet; in the
  *   student's formula the reference may carry the question's own sheet prefix
  *   (`Data!$L$2`, `'Data'!$L$2`), never another sheet's.
+ * - `is_table`: the question's sheet has an Excel Table over exactly `ref`
+ *   (header row included) with its header row on and `headers` as its column
+ *   names, in order. Only the structure: not its name, style, AutoFilter or
+ *   sort state. It reads the sheet's Tables, not the answer cells.
+ * - `spills`: the answer range is the result of one formula in its top-left
+ *   cell, spilled (a dynamic array: SORT, SORTBY, FILTER) over exactly the
+ *   range. With it declared, the formula checks (`formula_present`,
+ *   `not_hard_coded`, `uses_functions`) look at that top-left cell only and
+ *   `value_equals_key` takes the other cells' spilled values; do not combine
+ *   it with `uses_reference`.
  */
 export const CHECKERS = {
   formula_present: z.object({ name: z.literal("formula_present") }).strict(),
@@ -36,6 +49,14 @@ export const CHECKERS = {
     .object({ name: z.literal("uses_functions"), functions: z.array(z.string().regex(FUNCTION_NAME_RE)).min(1) })
     .strict(),
   uses_reference: z.object({ name: z.literal("uses_reference"), ref: z.string().regex(REFERENCE_RE) }).strict(),
+  is_table: z
+    .object({
+      name: z.literal("is_table"),
+      ref: z.string().regex(PLAIN_RANGE_RE),
+      headers: z.array(z.string().trim().min(1)).min(1),
+    })
+    .strict(),
+  spills: z.object({ name: z.literal("spills") }).strict(),
 } as const;
 
 export type CheckName = keyof typeof CHECKERS;
@@ -47,6 +68,8 @@ export const checkSchema = z.discriminatedUnion("name", [
   CHECKERS.value_equals_key,
   CHECKERS.uses_functions,
   CHECKERS.uses_reference,
+  CHECKERS.is_table,
+  CHECKERS.spills,
 ]);
 
 export type Check = z.infer<typeof checkSchema>;

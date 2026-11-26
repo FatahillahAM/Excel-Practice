@@ -18,6 +18,28 @@ export interface CellReading {
    * holds the formula, the other cells only its values. Absent otherwise.
    */
   array?: true;
+  /**
+   * Only on the anchor (top-left cell) of such an array formula: the range its
+   * values fill, A1 without `$` (`I2:I13`), as Excel saved it. A spilled
+   * dynamic array's anchor carries the range of its last calculation.
+   */
+  arrayRef?: string;
+}
+
+/**
+ * One Excel Table (ListObject) on a sheet (`xl/tables/tableN.xml`, linked from
+ * the sheet's `<tableParts>`). Only its structure: no styling, no AutoFilter
+ * state, no sort state.
+ */
+export interface TableReading {
+  /** `displayName` (what formulas refer to: `Table1`), else `name`. */
+  name: string;
+  /** The Table's range, header row included, A1 without `$` (`A1:G13`). */
+  ref: string;
+  /** Whether the Table has its header row on (`headerRowCount` ≠ 0). */
+  headerRow: boolean;
+  /** Column names in order (`tableColumn@name`): the header cells' text when the header row is on. */
+  columns: string[];
 }
 
 export interface WorkbookReading {
@@ -30,4 +52,11 @@ export interface WorkbookReading {
    * `null` when `xl/vbaProject.bin` is missing or is not a readable VBA project.
    */
   vbaModuleHashes: Readonly<Record<string, string>> | null;
+  /**
+   * Per sheet name, the Excel Tables on it, in `<tableParts>` order; a sheet
+   * without Tables has none listed. A Table part that is missing or not
+   * readable is left out (it counts as no Table). Absent in readings built by
+   * hand (tests): no Tables.
+   */
+  tables?: Record<string, TableReading[]>;
 }

@@ -61,9 +61,9 @@ describe("/levels — Level Detail Panel Level 1", () => {
     expect(html).toContain("$ references · Excel Table (Ctrl+T) · Sort &amp; Filter");
   });
 
-  it("shows five practice rows and the Test row with their statuses (real L01-T: locked, 5 to go)", () => {
+  it("shows five practice rows and the Test row with their statuses (real P1..P5 and L01-T: locked, 5 to go)", () => {
     expect(body.match(/<tr\b/g)).toHaveLength(6);
-    expect(body.match(/Not available yet/g)).toHaveLength(4);
+    expect(body).not.toContain("Not available yet");
     expect(body).toContain("Next");
     expect(body).toContain("Test opens after 5 practices — 5 to go.");
     expect(body).not.toContain("The Test for this level isn&#x27;t ready yet.");

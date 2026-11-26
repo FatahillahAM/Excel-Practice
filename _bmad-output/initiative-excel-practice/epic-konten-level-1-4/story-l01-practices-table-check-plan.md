@@ -82,6 +82,13 @@ Depends on 5.1 (L01-T, `kindFromItemId`, golden pattern). Paths may shift once 5
 
 ## Plan Change Log
 
+- 2026-11-26 (implementer): L01-T keeps 6 questions (`MAX_QUESTIONS`, instruction lines B6:B12): the Table joins question 6 (`is_table` on A1:G{n+1}, then MAX) instead of a 7th question. Layout re-laid so Ctrl+T finds exactly the data and answer references stay A1-style: column H empty, answers I:L, target O2, max O4, grid Q:V. Points 15/15/15/15/20/20. Q6 Tip becomes the Ctrl+T card (`l01-ctrl-t-table`, shared with P2); the 5.1 AutoSum card (`l01-autosum-cepat`, Alt+=) moves unchanged to P2 Q4. Approved 5.1 copy changes: Test Tip set.
+- 2026-11-26: spill answers needed a check of their own: new check `spills` (one spilled formula in the top-left cell over exactly the range; formula checks then read that cell, `value_equals_key` the spilled values), reason `wrong_spill`, and `CellReading.arrayRef` on array anchors. Third Table reason `wrong_table_header` (header row off / other column names) besides `not_a_table` and `wrong_table_range`.
+- 2026-11-26: `not_hard_coded` counts a workbook Table's bare name (`SORT(Table1,5,1)`) as a reference (found by the P3 structured fixture); `CheckContext.tableNames`.
+- 2026-11-26: Table part for code-built fixtures is a test helper (`src/adapters/workbook/__fixtures__/table-part.ts`), not `generate.ts`: production never emits a Table.
+- 2026-11-26: "gate opens with real P1..P5" lives in `src/content/levels/index.test.ts` (+ `test.test.ts`, `level-panel.test.ts`), not `src/core/progress/level-progress.test.ts`: AD-1 lint forbids core tests importing `src/content`.
+- 2026-11-26: the committed 5.1 L01-T Excel files grade the old layout; `l01-t.ts` lists their SHA-256 as stale so the L01-T Excel golden skips ("not committed yet") until the re-saved files replace them. P2 Excel fixtures: correct and typed-values only (wrong-function is T only, per user steps). Blanks via `__fixtures__/write-blanks.test.ts` (`WRITE_L01_BLANKS=<dir>`).
+
 ## Review Triage Log
 
 ## Design Notes

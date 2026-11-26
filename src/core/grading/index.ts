@@ -1,19 +1,22 @@
 export {
   CHECKER_REGISTRY,
   calledFunctions,
+  declaresSpill,
   functionName,
   formulaPresent,
   hasReference,
   isEmptyCell,
+  isTable,
   notHardCoded,
   runCheck,
   shiftedReference,
+  spills,
   usesFunctions,
   usesReference,
   valueEqualsKey,
   valueMatches,
 } from "./checkers";
-export type { AnswerCell, CheckOutcome, Checker } from "./checkers";
+export type { AnswerCell, CheckContext, CheckOutcome, Checker } from "./checkers";
 export { columnIndex, columnLetters, normalizeFormula, shiftFormula, tokenize } from "./formula";
 export type { FormulaRefPart, FormulaToken, FormulaTokenKind } from "./formula";
 export { grade } from "./grade";
@@ -41,4 +44,4 @@ export {
   tipSchema,
 } from "./result";
 export type { QuestionResult, Result, Tip } from "./result";
-export type { CellReading, CellType, WorkbookReading } from "./workbook-reading";
+export type { CellReading, CellType, TableReading, WorkbookReading } from "./workbook-reading";

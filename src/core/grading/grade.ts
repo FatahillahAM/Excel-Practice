@@ -9,7 +9,7 @@ import type { WorkbookReading } from "./workbook-reading";
  * `grade(snapshot, reading, hintsUsed) → Result` (AD-3): pure and
  * deterministic, it reads only its arguments (no clock, random or IO, and
  * never the level content). Per question, the declared checks run in order
- * on the answer cells; the first failing check, at its first failing cell,
+ * on the answer cells (and the Excel Tables of the question's sheet); the first failing check, at its first failing cell,
  * gives the reason. A correct question earns its points; score = Σ points of
  * correct questions − 5 × `hintsUsed`, floor 0. Throws on a malformed
  * snapshot or `hintsUsed`, and on `hintsUsed` above `snapshot.hintQuota`;
@@ -43,9 +43,12 @@ function gradeQuestion(question: ExamQuestion, reading: WorkbookReading): Questi
   const sheet = Object.hasOwn(reading.sheets, question.sheet) ? reading.sheets[question.sheet] : {};
   const cells: AnswerCell[] = refs.map((ref) => ({ ref, reading: Object.hasOwn(sheet, ref) ? sheet[ref] : undefined }));
 
+  const tables = reading.tables !== undefined && Object.hasOwn(reading.tables, question.sheet) ? reading.tables[question.sheet] : [];
+  const tableNames = Object.values(reading.tables ?? {}).flatMap((sheetTables) => sheetTables.map((table) => table.name));
+
   let reason: string | null = null;
   for (const check of question.checks) {
-    const outcome = runCheck(check, question, cells);
+    const outcome = runCheck(check, question, cells, { tables, tableNames });
     if (!outcome.ok) {
       reason = reasonText(outcome.reason);
       break;

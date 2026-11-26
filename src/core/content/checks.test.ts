@@ -3,7 +3,7 @@ import { CHECK_NAMES, checkSchema, findM365Functions, M365_ONLY_FUNCTIONS, REFER
 
 describe("checkSchema", () => {
   it("lists the five checkers", () => {
-    expect(CHECK_NAMES).toEqual(["formula_present", "not_hard_coded", "value_equals_key", "uses_functions", "uses_reference"]);
+    expect(CHECK_NAMES).toEqual(["formula_present", "not_hard_coded", "value_equals_key", "uses_functions", "uses_reference", "is_table", "spills"]);
   });
 
   it.each([
