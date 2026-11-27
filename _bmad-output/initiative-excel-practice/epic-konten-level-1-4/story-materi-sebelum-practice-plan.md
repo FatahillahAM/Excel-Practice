@@ -114,3 +114,10 @@ Outline P2–P5 (judul kartu):
 
 **Manual checks:**
 - /levels L01: Materi P1 terbaca sebelum Start; buka lagi dari layar Exam selama attempt P1; phone bottom sheet terbaca.
+
+## Plan Change Log
+
+- 2026-11-27 (implementation): P5 card 1 uses `=$A2*B$1`, not the outline's `$B2*C$1`, which is L01-P5 Question 1's exact formula (the "no exact answer" rule wins).
+- 2026-11-27 (implementation): the L01-P1 sample is kept word for word as approved, split into the card fields (concept · example + note · steps · shortcuts). Its examples `=E2*G2`, `=E2*$L$2` and `=$N2*(1+O$1)` are P1's own Question 1, 2 and 4 formulas; this is flagged for the owner, not changed.
+- 2026-11-27 (implementation): inline markup in Materi text: `` `…` `` renders as `<code lang="en">` and `[[Key]]` as `<kbd>` (validated against `SHORTCUT_RE`). The example `formula` must start with `=`.
+- 2026-11-27 (implementation): `SheetContent` gains `side="right"` (from the right at `sm`, a bottom sheet on a phone) and `closeLabel`. The next Practice's Materi is its own row directly above Start; the other practices carry a Materi link in their table row.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemFromId, kindFromItemId } from "./level-module";
+import { itemFromId, kindFromItemId, materiSegments } from "./level-module";
 
 describe("kindFromItemId / itemFromId", () => {
   it("derives the kind from the id alone", () => {
@@ -16,5 +16,21 @@ describe("kindFromItemId / itemFromId", () => {
   it("gives the Test number 6 and a practice its own number", () => {
     expect(itemFromId("L03-T")).toEqual({ kind: "test", number: 6 });
     expect(itemFromId("L02-P4")).toEqual({ kind: "practice", number: 4 });
+  });
+});
+
+describe("materiSegments", () => {
+  it("splits code and keys out of the text, in order", () => {
+    expect(materiSegments("Ketik `=A2*2` lalu [[Enter]].")).toEqual([
+      { kind: "text", value: "Ketik " },
+      { kind: "code", value: "=A2*2" },
+      { kind: "text", value: " lalu " },
+      { kind: "key", value: "Enter" },
+      { kind: "text", value: "." },
+    ]);
+  });
+
+  it("keeps unmarked text whole", () => {
+    expect(materiSegments("Tanpa markup.")).toEqual([{ kind: "text", value: "Tanpa markup." }]);
   });
 });

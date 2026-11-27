@@ -15,6 +15,7 @@ import {
   type PracticeStatus,
   type TestResult,
 } from "./level-panel";
+import { MateriSheet } from "@/components/materi/materi-sheet";
 import { StartControl } from "./start-control";
 import type { StartLock } from "./start-lock";
 
@@ -111,6 +112,8 @@ const PRACTICE_STATUS: Record<PracticeStatus, string> = {
  * passed Test carry "Practice again" (CAP-11; never changes pips, gate or
  * level status). `startLock` (an attempt in progress) disables every one of
  * them, with its reason shown once. Level 4 passed shows the V1 end line.
+ * Each Practice with content opens its Materi Sheet (5.7): the next one from
+ * a row right above Start, the others from their row; it never gates Start.
  */
 export function LevelDetailPanel({
   level,
@@ -144,6 +147,8 @@ export function LevelDetailPanel({
     return record ? formatElapsed(record.seconds) : NO_VALUE;
   };
   const panel = levelPanel(level, completed, result);
+  // The next Practice's Materi sits right above its Start (5.7); the other practices carry theirs in their row.
+  const nextPractice = panel.practices.find((practice) => practice.status === "next");
   const headingId = `level-${level.id}-heading`;
   const passed = state === "passed";
   // The lock reason is shown once: under the Primary Button, else in its own line.
@@ -211,6 +216,7 @@ export function LevelDetailPanel({
                         Best {best(practice.itemId)} · {time(practice.itemId)}
                       </span>
                     )}
+                    {practice.status !== "next" && <MateriSheet itemLabel={practice.label} cards={practice.materi} />}
                     {practice.practiceAgain && practice.itemId && again(practice.itemId)}
                   </td>
                   <td className={cn(VALUE, "hidden px-2 sm:table-cell")}>{best(practice.itemId)}</td>
@@ -265,6 +271,12 @@ export function LevelDetailPanel({
 
       {level.number === V1_LAST_LEVEL && panel.test.status === "passed" && (
         <p className="font-bold text-primary">{V1_END_LINE}</p>
+      )}
+
+      {nextPractice && (
+        <div data-slot="materi-next" className="pt-1">
+          <MateriSheet itemLabel={nextPractice.label} cards={nextPractice.materi} prominent />
+        </div>
       )}
 
       {panel.primary ? (

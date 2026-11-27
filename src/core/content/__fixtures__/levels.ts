@@ -1,5 +1,5 @@
 import { KEY_TOLERANCE } from "../checks";
-import { defineLevelModule, scenarioSchema, type GeneratedExam, type LevelItem, type LevelModule, type LevelPhase, type Scenario } from "../level-module";
+import { defineLevelModule, scenarioSchema, type GeneratedExam, type LevelItem, type LevelModule, type LevelPhase, type MateriCard, type Scenario } from "../level-module";
 
 /**
  * Fixture `LevelModule`s for gate tests (4.3): Levels 1–4 (V1) with five
@@ -14,6 +14,18 @@ const SCENARIOS: Scenario[] = Array.from({ length: 10 }, (_, i) => ({
   story: `Cerita skenario ${i + 1}.`,
 }));
 
+/** Two minimal Materi cards (a Practice needs 2–4), ids unique per item. */
+export function fixtureMateri(itemId: string): MateriCard[] {
+  return [1, 2].map((n) => ({
+    id: `${itemId.toLowerCase()}-materi-${n}`,
+    title: `Materi ${n}`,
+    concept: "Kalikan nilai dengan 2.",
+    example: { formula: "=A2*2", note: "nilai A2 dikali 2" },
+    steps: ["Ketik `=A2*2` lalu [[Enter]]."],
+    shortcuts: [],
+  }));
+}
+
 function fixtureItem(level: number, kind: "practice" | "test", number: number): LevelItem {
   const pad = String(level).padStart(2, "0");
   const id = kind === "practice" ? `L${pad}-P${number}` : `L${pad}-T`;
@@ -21,6 +33,7 @@ function fixtureItem(level: number, kind: "practice" | "test", number: number): 
     id,
     kind,
     number,
+    ...(kind === "practice" ? { materi: fixtureMateri(id) } : {}),
     generate(seed: number, scenario: Scenario): GeneratedExam {
       const value = (seed % 97) + 1;
       const prompt = 'Isi "Hasil" dengan "Nilai" dikali 2.';

@@ -6,6 +6,7 @@ import {
   type ExamQuestion,
   type GeneratedExam,
   type LevelItem,
+  type MateriCard,
   type Tip,
 } from "@/core/content/level-module";
 import { createRandom } from "@/core/content/random";
@@ -171,9 +172,66 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
   return { cells: { [INSTRUCTIONS_SHEET]: instructions, [DATA_SHEET]: data }, questions };
 }
 
+/** The Materi of L01-P2 (5.7): read before Start and on the Exam screen; its examples use other cells and numbers than the questions. */
+export const P2_MATERI: readonly MateriCard[] = [
+  {
+    id: "l01-p2-ctrl-t",
+    title: "Excel Table: [[Ctrl+T]] dan My table has headers",
+    concept:
+      "Excel Table mengubah range biasa jadi tabel bernama: ikut melebar saat baris baru ditambah, dan tiap kolom bisa dipanggil pakai namanya.",
+    example: { formula: "=ROWS(Table1)", note: "jumlah baris data di Table1; baris judul tidak dihitung." },
+    steps: [
+      "Klik satu sel di dalam data.",
+      "Tekan [[Ctrl+T]].",
+      "Pastikan `My table has headers` dicentang → OK.",
+    ],
+    shortcuts: ["Ctrl+T"],
+  },
+  {
+    id: "l01-p2-structured-reference",
+    title: "Structured reference `Table1[Kolom]`",
+    concept:
+      "Di rumus, kolom Table ditulis dengan namanya, bukan alamat sel. Rumusnya tetap mencakup semua baris walau Table bertambah panjang.",
+    example: { formula: "=AVERAGE(Table1[Jam Mesin])", note: "rata-rata seluruh isi kolom Jam Mesin." },
+    steps: [
+      "Ketik `=AVERAGE(`.",
+      "Blok isi kolom Jam Mesin dengan mouse: Excel menulis `Table1[Jam Mesin]` sendiri.",
+      "Ketik `)` → [[Enter]].",
+    ],
+    shortcuts: [],
+  },
+  {
+    id: "l01-p2-sum-counta-max",
+    title: "SUM, COUNTA, dan MAX pada kolom Table",
+    concept:
+      "SUM menjumlahkan angka, COUNTA menghitung sel yang terisi (teks juga dihitung), MAX mengambil nilai terbesar. Ketiganya bisa langsung diberi satu kolom Table.",
+    example: { formula: "=MAX(Table1[Suhu Oven])", note: "suhu oven tertinggi dari semua baris Table." },
+    steps: [
+      "Klik sel di luar Table untuk hasilnya.",
+      "Ketik `=MAX(` → blok kolom Suhu Oven → `)` → [[Enter]].",
+      "Ganti `MAX` dengan `SUM` untuk total, atau `COUNTA` untuk menghitung baris yang terisi.",
+    ],
+    shortcuts: [],
+  },
+  {
+    id: "l01-p2-autosum",
+    title: "AutoSum dengan [[Alt+=]]",
+    concept:
+      "AutoSum menulis rumus SUM sendiri untuk angka di atas sel aktif. Cek dulu range yang ditebak Excel sebelum [[Enter]].",
+    example: { formula: "=SUM(D2:D8)", note: "hasil AutoSum di D9: total D2 sampai D8." },
+    steps: [
+      "Klik sel kosong tepat di bawah kolom angka.",
+      "Tekan [[Alt+=]].",
+      "Periksa range yang diblok Excel → [[Enter]].",
+    ],
+    shortcuts: ["Alt+="],
+  },
+];
+
 export const practice2: LevelItem<FondasiScenario> = {
   id: "L01-P2",
   kind: "practice",
   number: 2,
+  materi: P2_MATERI,
   generate,
 };

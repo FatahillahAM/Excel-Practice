@@ -9,6 +9,7 @@ import { loginRedirectPath } from "@/adapters/supabase/auth-rules";
 import { readHintState } from "@/adapters/supabase/hints";
 import { createClient } from "@/adapters/supabase/server";
 import { createServiceClient } from "@/adapters/supabase/service";
+import { MateriSheet } from "@/components/materi/materi-sheet";
 import { surfaceTitle } from "@/components/shell/nav-items";
 import { itemLabel } from "@/core/content/level-module";
 import { elapsedSeconds, type HintState } from "@/core/services/attempts";
@@ -29,9 +30,9 @@ const CARD = "flex flex-col gap-4 rounded-lg border border-border bg-card p-4";
  * Status Line (time since Start, from the server: AD-8), the hint group
  * (Hint Select + Hint Button) beside the Upload Dropzone and the revealed
  * hints while open (the revealed hints stay, read-only, while the file is
- * graded), Setup Guide link. The hint state (quota, soal, revealed
- * hints) comes from the server on every render (reload, Resume): read with
- * the service role after the session read proved the attempt is the user's
+ * graded), a Practice's Materi Sheet trigger (5.7; not for the Test), Setup
+ * Guide link. The hint state (quota, soal, revealed hints) comes from the
+ * server on every render (reload, Resume): read with the service role after the session read proved the attempt is the user's
  * (AD-9); if that read fails, the exam works without the hint group.
  * The status is polled (AD-11). A reload renders the server's state first;
  * a graded attempt with a valid stored Result redirects to Results; one
@@ -56,7 +57,7 @@ async function Exam({ params }: { params: Promise<{ attemptId: string }> }) {
   if (loaded === null) notFound();
   const { attempt, elapsed, receivedSeconds, hints } = loaded;
 
-  const { item, level } = itemView(attempt.itemId);
+  const { item, level, materi } = itemView(attempt.itemId);
   const label = item ? itemLabel(item) : attempt.itemId;
   const title = level ? `Level ${level.number} · ${label}` : label;
 
@@ -74,6 +75,12 @@ async function Exam({ params }: { params: Promise<{ attemptId: string }> }) {
           hints={hints}
         />
       </section>
+      {/* The Practice's Materi, open again any time (5.7); the Test and unknown items have none. */}
+      {item?.kind === "practice" && materi.length > 0 && (
+        <div data-slot="exam-materi" className="mt-[18px]">
+          <MateriSheet itemLabel={label} cards={materi} />
+        </div>
+      )}
       <p className="mt-[22px] flex items-center gap-1.5 text-[13px] text-muted-foreground">
         <BookOpen aria-hidden="true" className="size-3.5" />
         Finish not working?{" "}

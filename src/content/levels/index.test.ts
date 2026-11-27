@@ -41,7 +41,7 @@ describe("level registry", () => {
   it("lists Level 1 Fondasi (V1, 3 hints, content version 4) with Practices 1–5 and the Test", () => {
     expect(levels.map((level) => level.id)).toEqual(["01-fondasi"]);
     const [level] = levels;
-    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 4 });
+    expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 5 });
     expect(level.items.map((item) => item.id)).toEqual(["L01-P1", "L01-P2", "L01-P3", "L01-P4", "L01-P5", "L01-T"]);
     expect(level.functions).toEqual(["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"]);
     for (const candidate of levels) expect(levelModuleSchema.safeParse(candidate).success).toBe(true);
@@ -385,7 +385,7 @@ describe("defineLevelModule (load-time checks)", () => {
   });
 
   it("accepts the Test as item 6, and a Next level without scenarios", () => {
-    const test = { ...practice1, id: "L01-T", kind: "test" as const, number: 6 };
+    const test = { ...practice1, id: "L01-T", kind: "test" as const, number: 6, materi: undefined };
     expect(() => defineLevelModule({ ...validLevel, items: [practice1, test] })).not.toThrow();
     expect(itemLabel({ kind: "test", number: 6 })).toBe("Test");
     expect(() => defineLevelModule({ ...validLevel, phase: "next", scenarios: [], items: [] })).not.toThrow();
@@ -422,5 +422,39 @@ describe("Tip ids across levels", () => {
         : { ...exam, questions: exam.questions.map((q, i) => (i === 2 ? { ...q, tip: { ...q.tip, body: "Isi lain." } } : q)) },
     );
     expect(() => assertTipsAgreeAcrossLevels([fondasi as unknown as LevelModule, changed])).toThrow(/differs between levels/);
+  });
+});
+
+describe("defineLevelModule (Materi, 5.7)", () => {
+  const card = practice1.materi![0];
+  const withMateri = (materi: unknown) => ({ ...validLevel, items: [{ ...practice1, materi } as unknown as LevelItem<FondasiScenario>] });
+
+  it("refuses a Practice without Materi, naming the item", () => {
+    expect(() => defineLevelModule(withMateri(undefined))).toThrow(/L01-P1 needs 2–4 Materi cards, has 0/);
+  });
+
+  it("refuses 1 or 5 cards and accepts 2 and 4", () => {
+    const cards = (n: number) => Array.from({ length: n }, (_, i) => ({ ...card, id: `kartu-${i}` }));
+    expect(() => defineLevelModule(withMateri(cards(1)))).toThrow(/has 1/);
+    expect(() => defineLevelModule(withMateri(cards(5)))).toThrow(/has 5/);
+    expect(() => defineLevelModule(withMateri(cards(2)))).not.toThrow();
+    expect(() => defineLevelModule(withMateri(cards(4)))).not.toThrow();
+  });
+
+  it("refuses Materi on the Test", () => {
+    const test = { ...practice1, id: "L01-T", kind: "test" as const, number: 6 };
+    expect(() => defineLevelModule({ ...validLevel, items: [practice1, test] })).toThrow(/L01-T is a Test: no Materi/);
+  });
+
+  it("refuses a Microsoft 365-only function in a card", () => {
+    const bad = { ...card, steps: ["Pakai `=TEXTSPLIT(A2,\",\")`."] };
+    expect(() => defineLevelModule(withMateri([bad, practice1.materi![1]]))).toThrow(/Microsoft 365-only function TEXTSPLIT/);
+  });
+
+  it("refuses a duplicate card id, a bad key and a malformed card", () => {
+    expect(() => defineLevelModule(withMateri([card, card]))).toThrow(/used twice/);
+    expect(() => defineLevelModule(withMateri([{ ...card, steps: ["Tekan [[ctrl d]]."] }, practice1.materi![1]]))).toThrow(/Key \[\[ctrl d\]\]/);
+    expect(() => defineLevelModule(withMateri([{ ...card, steps: [] }, practice1.materi![1]]))).toThrow(/steps/);
+    expect(() => defineLevelModule(withMateri([{ ...card, example: { formula: "E2*G2", note: "x" } }, practice1.materi![1]]))).toThrow(/formula/);
   });
 });

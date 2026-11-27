@@ -6,6 +6,7 @@ import {
   type ExamQuestion,
   type GeneratedExam,
   type LevelItem,
+  type MateriCard,
   type Tip,
 } from "@/core/content/level-module";
 import { createRandom } from "@/core/content/random";
@@ -191,9 +192,52 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
   return { cells: { [INSTRUCTIONS_SHEET]: instructions, [DATA_SHEET]: data }, questions };
 }
 
+/** The Materi of L01-P4 (5.7): read before Start and on the Exam screen; its examples use other cells and numbers than the questions. */
+export const P4_MATERI: readonly MateriCard[] = [
+  {
+    id: "l01-p4-filter",
+    title: "FILTER dengan satu syarat",
+    concept:
+      "FILTER menampilkan baris yang memenuhi syarat saja. Syaratnya perbandingan satu kolom: `=` untuk sama dengan, `>` untuk lebih dari.",
+    example: { formula: "=FILTER(A2:A9,D2:D9>50)", note: "kode di kolom A yang nilai kolom D-nya lebih dari 50." },
+    steps: [
+      "Ketik `=FILTER(` → blok kolom yang mau ditampilkan.",
+      "Ketik `,` → tulis syaratnya, misalnya blok D2:D9 lalu ketik `>50`.",
+      "Ketik `)` → [[Enter]]: hasilnya spill ke bawah.",
+    ],
+    shortcuts: [],
+  },
+  {
+    id: "l01-p4-countif",
+    title: "COUNTIF untuk teks dan `\">\"&sel`",
+    concept:
+      "COUNTIF menghitung sel yang cocok dengan satu syarat. Syarat teks cukup ditulis dalam tanda kutip, misalnya `=COUNTIF(C2:C9,\"Malam\")`. Syarat perbandingan digabung dengan sel pakai `&`.",
+    example: { formula: "=COUNTIF(F2:F9,\">\"&H1)", note: "berapa nilai di F2:F9 yang lebih dari isi H1." },
+    steps: [
+      "Ketik `=COUNTIF(` → blok range yang mau dihitung → `,`.",
+      "Ketik `\">\"&` → klik sel batasnya → `)` → [[Enter]].",
+    ],
+    shortcuts: [],
+  },
+  {
+    id: "l01-p4-syarat-dari-sel",
+    title: "Syarat diambil dari sel, bukan diketik",
+    concept:
+      "Taruh syarat di sel sendiri lalu rujuk selnya, jangan ketik nilainya di rumus. Kalau isi sel syarat diganti, hasil FILTER dan COUNTIF ikut berubah.",
+    example: { formula: "=FILTER(A2:A9,C2:C9=H1)", note: "baris yang shift-nya sama dengan isi H1." },
+    steps: [
+      "Tulis syarat di sel kosong, misalnya `Malam` di H1.",
+      "Di rumus, klik H1 alih-alih mengetik `\"Malam\"`.",
+      "Uji: ganti isi H1, lalu lihat hasilnya ikut berubah.",
+    ],
+    shortcuts: [],
+  },
+];
+
 export const practice4: LevelItem<FondasiScenario> = {
   id: "L01-P4",
   kind: "practice",
   number: 4,
+  materi: P4_MATERI,
   generate,
 };

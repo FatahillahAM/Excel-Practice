@@ -8,6 +8,7 @@ import {
   type ExamQuestion,
   type GeneratedExam,
   type LevelItem,
+  type MateriCard,
   type Tip,
 } from "@/core/content/level-module";
 import { createRandom } from "@/core/content/random";
@@ -162,9 +163,53 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
   return { cells: { [INSTRUCTIONS_SHEET]: instructions, [DATA_SHEET]: data }, questions };
 }
 
+/** The Materi of L01-P3 (5.7): read before Start and on the Exam screen; its examples use other cells and numbers than the questions. */
+export const P3_MATERI: readonly MateriCard[] = [
+  {
+    id: "l01-p3-sort",
+    title: "SORT: urut naik atau turun",
+    concept:
+      "SORT menampilkan salinan data yang sudah urut; data aslinya tidak berubah. Argumen ketiga `1` berarti naik (kecil ke besar), `-1` turun (besar ke kecil). Kalau range-nya beberapa kolom, argumen kedua memilih kolom kuncinya.",
+    example: { formula: "=SORT(C2:C9,1,1)", note: "isi C2:C9 dari yang terkecil ke yang terbesar." },
+    steps: [
+      "Klik satu sel kosong untuk hasilnya.",
+      "Ketik `=SORT(` → blok range yang mau diurutkan.",
+      "Ketik `,1,1)` untuk naik atau `,1,-1)` untuk turun → [[Enter]].",
+    ],
+    shortcuts: [],
+  },
+  {
+    id: "l01-p3-sortby",
+    title: "SORTBY: urut berdasarkan kolom lain",
+    concept:
+      "SORTBY menampilkan satu kolom, tapi urutannya diambil dari kolom lain. Misalnya nama operator diurutkan dari jam kerjanya.",
+    example: { formula: "=SORTBY(B2:B9,D2:D9,1)", note: "operator di kolom B, urut dari jam kerja di kolom D yang paling sedikit." },
+    steps: [
+      "Ketik `=SORTBY(` → blok kolom yang mau ditampilkan.",
+      "Ketik `,` → blok kolom kunci urutannya (jumlah barisnya harus sama).",
+      "Ketik `,1)` atau `,-1)` → [[Enter]].",
+    ],
+    shortcuts: [],
+  },
+  {
+    id: "l01-p3-spill",
+    title: "Spill: cukup satu sel",
+    concept:
+      "Rumus SORT dan SORTBY mengisi banyak sel sekaligus dari satu sel (spill). Sel di bawahnya jangan diisi: kalau terhalang, muncul `#SPILL!`.",
+    example: { formula: "=SORT(F2:F7,1,-1)", note: "ditulis di H2 saja; H3 sampai H7 terisi sendiri." },
+    steps: [
+      "Tulis rumus hanya di sel paling atas.",
+      "Kalau muncul `#SPILL!`, klik selnya untuk melihat sel yang menghalangi.",
+      "Kosongkan sel penghalang dengan [[Delete]]: hasilnya langsung muncul.",
+    ],
+    shortcuts: ["Delete"],
+  },
+];
+
 export const practice3: LevelItem<FondasiScenario> = {
   id: "L01-P3",
   kind: "practice",
   number: 3,
+  materi: P3_MATERI,
   generate,
 };

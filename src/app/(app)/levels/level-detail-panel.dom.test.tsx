@@ -182,3 +182,29 @@ describe("LevelDetailPanel Test row with the real Level 1 and without a Test", (
     expect(screen.getByText("The Test for this level isn't ready yet.")).toBeTruthy();
   });
 });
+
+describe("LevelDetailPanel Materi (5.7)", () => {
+  it("puts the next Practice's Materi before its Start button, and opens it in a sheet", async () => {
+    const { fondasi } = await import("@/content/levels/01-fondasi");
+    render(<LevelDetailPanel level={fondasi} />);
+    const trigger = screen.getByRole("button", { name: "Materi · 4 kartu, Practice 1" });
+    const [start] = realButtons("Start Practice 1");
+    expect(trigger.compareDocumentPosition(start) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // Start never waits for the Materi.
+    expect((start as HTMLButtonElement).disabled).toBe(false);
+
+    await userEvent.click(trigger);
+    const sheet = screen.getByRole("dialog", { name: "Materi Practice 1" });
+    expect(within(sheet).getAllByRole("article")).toHaveLength(4);
+    expect(within(sheet).getByRole("heading", { name: /Rumus dimulai dengan/ })).toBeTruthy();
+    await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps Materi on every practice row with content, done ones included", () => {
+    render(<LevelDetailPanel level={L1} completed={ids(1, 2)} />);
+    for (const n of [1, 2, 3, 4, 5]) {
+      expect(screen.getAllByRole("button", { name: `Materi · 2 kartu, Practice ${n}` }), `P${n}`).toHaveLength(1);
+    }
+  });
+});

@@ -1,4 +1,4 @@
-import { LOAD_CHECK_SEED, itemFromId, sameTip, type LevelItem, type LevelItemKind, type LevelModule, type Tip } from "@/core/content/level-module";
+import { LOAD_CHECK_SEED, itemFromId, sameTip, type LevelItem, type LevelItemKind, type LevelModule, type MateriCard, type Tip } from "@/core/content/level-module";
 import { CURRICULUM } from "@/core/progress/level-progress";
 import { fondasi } from "./01-fondasi";
 
@@ -50,6 +50,8 @@ export function findItem(itemId: string): FoundItem | null {
 export interface ItemView {
   item: { kind: LevelItemKind; number: number } | null;
   level: { number: number; name: string } | null;
+  /** The item's Materi cards (a Practice in the registry), else empty: the Exam screen's Materi button (5.7). */
+  materi: readonly MateriCard[];
 }
 
 /**
@@ -61,9 +63,13 @@ export interface ItemView {
 export function itemView(itemId: string): ItemView {
   const found = findItem(itemId);
   if (found) {
-    return { item: { kind: found.item.kind, number: found.item.number }, level: { number: found.level.number, name: found.level.name } };
+    return {
+      item: { kind: found.item.kind, number: found.item.number },
+      level: { number: found.level.number, name: found.level.name },
+      materi: found.item.kind === "practice" ? (found.item.materi ?? []) : [],
+    };
   }
   const item = itemFromId(itemId);
   const level = item === null ? undefined : CURRICULUM.find((entry) => entry.number === Number(itemId.slice(1, 3)));
-  return { item, level: level ? { number: level.number, name: level.name } : null };
+  return { item, level: level ? { number: level.number, name: level.name } : null, materi: [] };
 }

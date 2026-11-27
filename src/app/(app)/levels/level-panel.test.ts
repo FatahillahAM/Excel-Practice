@@ -125,6 +125,15 @@ describe("levelPanel: Test outcome, Primary Button and Practice again", () => {
   });
 });
 
+describe("levelPanel: Materi (5.7)", () => {
+  it("carries each Practice's Materi cards; an unavailable practice has none", () => {
+    const panel = levelPanel(levels[0], new Set());
+    expect(panel.practices.map((practice) => practice.materi.length)).toEqual([4, 4, 3, 3, 3]);
+    const gappy = levelPanel({ items: levels[0].items.filter((item) => item.id !== "L01-P2") }, new Set());
+    expect(gappy.practices[1]).toMatchObject({ status: "unavailable", materi: [] });
+  });
+});
+
 describe("testLockLine", () => {
   it("uses the live count", () => {
     expect(testLockLine(5)).toBe("Test opens after 5 practices — 5 to go.");
