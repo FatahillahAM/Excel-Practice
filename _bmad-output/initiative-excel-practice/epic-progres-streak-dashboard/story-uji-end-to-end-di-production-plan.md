@@ -38,5 +38,6 @@ Prove epic 4 "Done when" 1–6 in Production with log/SQL evidence now that Leve
 ## Production Evidence
 
 - Kelompok 1 (A–C), 2026-11-27, user: semua sesuai. Prod SQL: L01-P1 (100, 2026-11-19), L01-P2 100 (01:06Z), L01-P3 0 (01:09Z), L01-P4 0 (01:12Z), L01-P5 0 (01:13Z) graded → L01-T dimulai dan graded 15 (01:14Z, < 80); ulang Test tersedia (user). Log Vercel 55 menit terakhir: tanpa error (jendela run sudah di luar retensi 1 jam).
+- Kelompok 2 (D), 2026-11-27, user: sesuai — Level 2 terbuka, sidebar "1 of 9 levels passed". Prod SQL: L01-T graded 100 (06:49Z), setelah percobaan 15 (Test gagal bisa diulang). Log Vercel 55 menit: 3 info, tanpa warning/error.
 
 ## Review Triage Log
