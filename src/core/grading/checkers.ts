@@ -77,6 +77,8 @@ function everyFormula(
   for (const { ref, reading } of declaresSpill(question) ? cells.slice(0, 1) : cells) {
     if (reading === undefined || isEmptyCell(reading)) return { ok: false, reason: { kind: "empty", ref } };
     if (reading.formula === null) return { ok: false, reason: { kind: reading.array === true ? "array_formula" : "typed_value", ref } };
+    // A function Excel does not know (`_xludf.`, shown as #NAME?) decides before any other check on the cell.
+    if (callsUnknownFunction(reading.formula)) return { ok: false, reason: { kind: "unknown_function", ref } };
     const reason = test(reading.formula, reading, ref);
     if (reason !== null) return { ok: false, reason };
   }
@@ -115,7 +117,9 @@ export const notHardCoded: Checker<"not_hard_coded"> = (_check, question, cells,
   });
 };
 
-const FUNCTION_PREFIX_RE = /^(?:_xl(?:fn|ws|pm)\.)+/i;
+const FUNCTION_PREFIX_RE = /^(?:_xl(?:fn|ws|pm|udf)\.)+/i;
+/** The prefix Excel saves before a function name it does not know (`=_xludf.IFZ(…)`, shown as #NAME?). */
+const UNKNOWN_FUNCTION_RE = /^(?:_xl(?:fn|ws|pm)\.)*_xludf\./i;
 
 /** Tokens of a formula without whitespace, so neighbours can be compared. */
 function solidTokens(formula: string): FormulaToken[] {
@@ -137,7 +141,17 @@ export function calledFunctions(formula: string): Set<string> {
   return called;
 }
 
-/** A function name as compared: `_xlfn.`-style prefixes dropped, upper case. */
+/**
+ * Whether a formula calls a function Excel did not recognize: a name with the
+ * `_xludf.` prefix followed by `(` (a typo, or a function newer than the
+ * Excel that saved the file). Excel shows such a cell as `#NAME?`.
+ */
+export function callsUnknownFunction(formula: string): boolean {
+  const tokens = solidTokens(formula);
+  return tokens.some((token, i) => token.kind === "name" && tokens[i + 1]?.text === "(" && UNKNOWN_FUNCTION_RE.test(token.text));
+}
+
+/** A function name as compared: `_xlfn.`-style prefixes (and `_xludf.`) dropped, upper case. */
 export function functionName(name: string): string {
   return name.replace(FUNCTION_PREFIX_RE, "").toUpperCase();
 }
@@ -229,14 +243,16 @@ export function valueMatches(reading: CellReading, key: ExamCellValue, tolerance
 /**
  * `value_equals_key`: every answer cell's formula value equals its key. Per
  * cell, in order: `empty`, `typed_value`, `error_value` (an error such as
- * `#DIV/0!`), `not_calculated` (a formula without a cached value), then
+ * `#DIV/0!`), `not_calculated` (a formula without a cached value; an empty
+ * text cache passes only where the key is ""), then
  * `wrong_value` for any other mismatch.
  */
 export const valueEqualsKey: Checker<"value_equals_key"> = (check, question, cells) => {
   const valueReason = (reading: CellReading, ref: string): Reason | null => {
     if (reading.type === "error") return { kind: "error_value", ref };
-    if (reading.value === null) return { kind: "not_calculated", ref };
     const key = Object.hasOwn(question.key, ref) ? question.key[ref] : undefined;
+    // An empty text cache (`t="str"`, `<v></v>`) is Excel's own "" result where the key is "".
+    if (reading.value === null) return key === "" && reading.type === "string" ? null : { kind: "not_calculated", ref };
     return key !== undefined && valueMatches(reading, key, check.tolerance) ? null : { kind: "wrong_value", ref };
   };
   const outcome = everyFormula(question, cells, (_formula, reading, ref) => valueReason(reading, ref));
@@ -263,6 +279,7 @@ export const spills: Checker<"spills"> = (_check, question, cells) => {
   const { ref, reading } = cells[0];
   if (reading === undefined || isEmptyCell(reading)) return { ok: false, reason: { kind: "empty", ref } };
   if (reading.formula === null) return { ok: false, reason: { kind: reading.array === true ? "wrong_spill" : "typed_value", ref } };
+  if (callsUnknownFunction(reading.formula)) return { ok: false, reason: { kind: "unknown_function", ref } };
   const expected = question.range.includes(":") ? question.range.toUpperCase() : undefined;
   return reading.arrayRef === expected ? OK : { ok: false, reason: { kind: "wrong_spill", ref } };
 };

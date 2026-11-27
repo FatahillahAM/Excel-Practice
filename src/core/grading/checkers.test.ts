@@ -5,6 +5,7 @@ import { SNAPSHOT, formula, typed } from "./__fixtures__/exam";
 import {
   CHECKER_REGISTRY,
   calledFunctions,
+  callsUnknownFunction,
   formulaPresent,
   functionName,
   hasReference,
@@ -304,6 +305,18 @@ describe("value_equals_key", () => {
     expect(reasonText({ kind: "not_calculated", ref: "H2" })).toBe("Rumus di H2 belum dihitung oleh Excel.");
   });
 
+  it("an empty text cache (t=str, <v></v>) is not_calculated, never wrong_value, unless the key is \"\" (5.3)", () => {
+    const emptyText: CellReading = { formula: 'IF(F2>0,"Cek","")', value: null, type: "string" };
+    expect(valueEqualsKey(check, question("H2", { H2: "Cek" }), [at("H2", emptyText)])).toEqual({ ok: false, reason: { kind: "not_calculated", ref: "H2" } });
+    expect(valueEqualsKey(check, question("H2", { H2: 5 }), [at("H2", emptyText)])).toEqual({ ok: false, reason: { kind: "not_calculated", ref: "H2" } });
+    expect(valueEqualsKey(check, question("H2", { H2: "" }), [at("H2", emptyText)])).toEqual({ ok: true });
+    // No cached value at all is not_calculated even where the key is "".
+    expect(valueEqualsKey(check, question("H2", { H2: "" }), [at("H2", f('IF(F2>0,"Cek","")', null))])).toEqual({
+      ok: false,
+      reason: { kind: "not_calculated", ref: "H2" },
+    });
+  });
+
   it("the first failing cell decides, whatever its kind", () => {
     expect(valueEqualsKey(check, q1, [at("H2", f("=E2*G2", 1)), at("H3", f("=E3*G3", null))])).toEqual({
       ok: false,
@@ -497,5 +510,45 @@ describe("Table and spill reasons", () => {
     );
     expect(reasonText({ kind: "wrong_table_header", ref: "A1:G13" })).toBe("Excel Table di A1:G13 belum memakai baris judul data sebagai header.");
     expect(reasonText({ kind: "wrong_spill", ref: "I2" })).toBe("Hasil rumus di I2 belum mengisi daftar yang diminta: jumlah baris atau kolom hasilnya berbeda.");
+  });
+});
+
+describe("_xludf. functions Excel does not know (5.3)", () => {
+  const xludf = f('_XLUDF.IFZ(D2>=90,"OK","NG")', "#NAME?");
+  const asError: CellReading = { formula: '_XLUDF.IFZ(D2>=90,"OK","NG")', value: "#NAME?", type: "error" };
+
+  it("calledFunctions drops _xludf. like the other prefixes; callsUnknownFunction finds it only before (", () => {
+    expect([...calledFunctions('_xludf.IFS(A1>1,"a",TRUE,"b")')]).toEqual(["IFS"]);
+    expect(functionName("_xludf.ifs")).toBe("IFS");
+    expect(callsUnknownFunction('_XLUDF.IFZ(D2>=90,"OK","NG")')).toBe(true);
+    expect(callsUnknownFunction('IF(A1>1,_xlfn._xludf.IFZ(B1),"b")')).toBe(true);
+    expect(callsUnknownFunction('IF(A1="_xludf.X(","a","b")')).toBe(false);
+    expect(callsUnknownFunction('_xlfn.IFS(A1>1,"a",TRUE,"b")')).toBe(false);
+  });
+
+  it.each(CHECKS.map((check) => [check.name, check] as const))("%s: an _xludf. call is unknown_function, never missing_function", (_, check) => {
+    const q = question("H2:H3", { H2: "OK", H3: "OK" });
+    for (const reading of [xludf, asError]) {
+      expect(runCheck(check, q, [at("H3", reading)])).toEqual({ ok: false, reason: { kind: "unknown_function", ref: "H3" } });
+    }
+  });
+
+  it("decides before missing_function even when the declared function is the unknown one (IFS saved by an older Excel)", () => {
+    const check: Check = { name: "uses_functions", functions: ["IFS"] };
+    expect(usesFunctions(check, q1, [at("H2", f('_xludf.IFS(D2>=90,"A",TRUE,"B")', "#NAME?"))])).toEqual({
+      ok: false,
+      reason: { kind: "unknown_function", ref: "H2" },
+    });
+  });
+
+  it("is unknown_function at a spill's top-left cell too", () => {
+    expect(runCheck({ name: "spills" }, question("H2:H3", { H2: 1, H3: 1 }), [at("H2", xludf), at("H3", undefined)])).toEqual({
+      ok: false,
+      reason: { kind: "unknown_function", ref: "H2" },
+    });
+  });
+
+  it("reads as #NAME?, naming the cell only", () => {
+    expect(reasonText({ kind: "unknown_function", ref: "H3" })).toBe("Excel tidak mengenali nama fungsi di rumus H3, jadi hasilnya #NAME?. Cek ejaan nama fungsinya.");
   });
 });

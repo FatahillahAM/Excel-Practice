@@ -1,6 +1,7 @@
 import { LOAD_CHECK_SEED, itemFromId, sameTip, type LevelItem, type LevelItemKind, type LevelModule, type MateriCard, type Tip } from "@/core/content/level-module";
 import { CURRICULUM } from "@/core/progress/level-progress";
 import { fondasi } from "./01-fondasi";
+import { logika } from "./02-logika";
 
 /**
  * Throws when one Tip id has different content in two levels (the Tips
@@ -29,7 +30,7 @@ export function assertTipsAgreeAcrossLevels(modules: readonly LevelModule[]): vo
  * The level registry (AD-2): the only list of levels. The Level Map, gates
  * and Start read it; engine code never branches on a level id.
  */
-export const levels: readonly LevelModule[] = [fondasi];
+export const levels: readonly LevelModule[] = [fondasi, logika];
 assertTipsAgreeAcrossLevels(levels);
 
 export interface FoundItem {

@@ -424,7 +424,10 @@ function cellValue(
       return { value, type: "string" };
     }
     case "str":
-      return { value: decodeEscapes(raw), type: "string" };
+      // A formula's text result with an empty cache (`<v></v>`): a writer that did not
+      // calculate, or Excel's own "" result. `value: null` keeps it from passing as text;
+      // `value_equals_key` accepts it only where the key is "" (otherwise `not_calculated`).
+      return raw === "" ? { value: null, type: "string" } : { value: decodeEscapes(raw), type: "string" };
     case "b":
       if (raw.trim() !== "0" && raw.trim() !== "1") throw new Error(`Cell ${where}: boolean "${raw}" is not 0 or 1`);
       return { value: raw.trim() === "1", type: "boolean" };

@@ -76,6 +76,12 @@ Depends on 5.1 (Test pattern); independent of 5.2 but built after it, so Code Ma
 
 ## Plan Change Log
 
+- 2026-11-27 (implementation): "IF or IFS accepted" is done by declaring no `uses_functions` on those questions (L02-P1 all, L02-P3 Q3, L02-P5 Q2, L02-T Q4), not by a new any-of check; questions that teach AND, OR, IFS, nested IF or IFERROR require that function.
+- 2026-11-27: empty `t="str"` cache is read as `value: null, type: "string"`; `value_equals_key` gives `not_calculated`, except where the key is "" (Excel's own "" result passes). No calcChain/app-props test: the L02-P1 Excel fixture (K2) settles whether Excel 2021 writes `<v></v>`.
+- 2026-11-27: `unknown_function` is decided in every formula checker (and `spills`) right after the formula-present rule, so it precedes all other checks on that cell; template has no function name (the unknown name may be a declared one, e.g. `_xludf.IFS`).
+- 2026-11-27: L02-T has 6 questions (MAX_QUESTIONS), not 6–8; Materi 2–3 cards per Practice (5.7); NOT left out of `functions` (curriculum lists IF, IFS, AND/OR, IFERROR).
+- 2026-11-27: registering Level 2 changed two existing expectations: `index.test.ts` (registry now L01 + L02) and `level-path.dom.test.tsx` (new account: Level 2 "locked", not "under_construction").
+
 ## Review Triage Log
 
 ## Design Notes

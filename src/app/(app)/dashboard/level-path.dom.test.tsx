@@ -48,7 +48,7 @@ afterEach(() => {
 });
 
 describe("Level Path", () => {
-  it("empty: Level 1 → Ujian Akhir, Level 1 active with 0/5, the rest Under Construction", async () => {
+  it("empty: Level 1 → Ujian Akhir, Level 1 active with 0/5, Level 2 locked, the rest Under Construction", async () => {
     mocks.listProgressAttempts.mockResolvedValue({ ok: true, value: [] });
     await show();
     expect(mocks.listProgressAttempts).toHaveBeenCalledWith({ session: true }, "user-1");
@@ -57,12 +57,12 @@ describe("Level Path", () => {
     expect(items[0].textContent).toContain("Level 1");
     expect(items[0].textContent).toContain("Fondasi");
     expect(items[9].textContent).toContain("Ujian Akhir");
-    expect(states()).toEqual(["active", ...Array(9).fill("under_construction")]);
+    expect(states()).toEqual(["active", "locked", ...Array(8).fill("under_construction")]);
     expect(items[0].getAttribute("aria-current")).toBe("step");
     expect(items.filter((li) => li.hasAttribute("aria-current"))).toHaveLength(1);
     expect(items[0].textContent).toContain("0/5 practices done");
     expect(items[0].querySelectorAll("[data-pip]")).toHaveLength(5);
-    expect(items[1].textContent).toContain("Under Construction");
+    expect(items[2].textContent).toContain("Under Construction");
   });
 
   it("one practice graded (repeated): 1/5 with one done pip; the Test failing (72) keeps Level 1 active", async () => {

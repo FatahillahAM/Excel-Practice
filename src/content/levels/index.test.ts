@@ -38,13 +38,15 @@ describe("level registry", () => {
     expect(canStart(levelProgress(done, levels), levels, "L01-T")).toEqual({ ok: true, practiceAgain: false });
   });
 
-  it("lists Level 1 Fondasi (V1, 3 hints, content version 4) with Practices 1–5 and the Test", () => {
-    expect(levels.map((level) => level.id)).toEqual(["01-fondasi"]);
+  it("lists Level 1 Fondasi (V1, 3 hints, content version 5) with Practices 1–5 and the Test, then Level 2 Logika (5.3)", () => {
+    expect(levels.map((level) => level.id)).toEqual(["01-fondasi", "02-logika"]);
     const [level] = levels;
     expect(level).toMatchObject({ number: 1, name: "Fondasi", phase: "v1", hintQuota: 3, contentVersion: 5 });
     expect(level.items.map((item) => item.id)).toEqual(["L01-P1", "L01-P2", "L01-P3", "L01-P4", "L01-P5", "L01-T"]);
     expect(level.functions).toEqual(["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"]);
     for (const candidate of levels) expect(levelModuleSchema.safeParse(candidate).success).toBe(true);
+    expect(levels[1]).toMatchObject({ number: 2, name: "Logika", phase: "v1", hintQuota: 2, contentVersion: 1 });
+    expect(levels[1].items.map((item) => item.id)).toEqual(["L02-P1", "L02-P2", "L02-P3", "L02-P4", "L02-P5", "L02-T"]);
   });
 
   it("has at least 10 scenarios with unique ids, each passing the level's scenario schema", () => {
@@ -60,7 +62,8 @@ describe("level registry", () => {
     expect(itemLabel(found!.item)).toBe("Practice 1");
     expect(findItem("L01-P5")?.item).toMatchObject({ id: "L01-P5", kind: "practice", number: 5 });
     expect(findItem("L01-P6")).toBeNull();
-    expect(findItem("L02-P1")).toBeNull();
+    expect(findItem("L02-P1")?.level.id).toBe("02-logika");
+    expect(findItem("L03-P1")).toBeNull();
     expect(findItem("")).toBeNull();
   });
 });

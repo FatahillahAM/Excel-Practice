@@ -13,6 +13,7 @@ export type ReasonKind =
   | "empty"
   | "hard_coded"
   | "missing_function"
+  | "unknown_function"
   | "wrong_reference"
   | "error_value"
   | "not_calculated"
@@ -49,6 +50,12 @@ export const REASON_TEMPLATES: Readonly<Record<ReasonKind, string>> = {
   hard_coded: "Rumus di {ref} hanya berisi angka, tidak merujuk sel.",
   /** `uses_functions`: the formula does not call a declared function. */
   missing_function: "Rumus di {ref} tidak memakai fungsi {function}.",
+  /**
+   * Any check on a formula: it calls a function Excel does not recognize
+   * (saved with the `_xludf.` prefix, shown as #NAME?); decides before the
+   * other checks on that cell, so it is never reported as `missing_function`.
+   */
+  unknown_function: "Excel tidak mengenali nama fungsi di rumus {ref}, jadi hasilnya #NAME?. Cek ejaan nama fungsinya.",
   /** `uses_reference`: the formula lacks the declared reference (shifted for this cell); never names it. */
   wrong_reference: "Rumus di {ref} belum memakai referensi sel yang diminta, jadi hasilnya bisa salah saat disalin.",
   /** `value_equals_key`: the formula's value is an error (`#DIV/0!`); never names the code. */

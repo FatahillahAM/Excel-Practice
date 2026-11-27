@@ -9,7 +9,11 @@ export type CellType = "number" | "string" | "boolean" | "error" | "empty";
 export interface CellReading {
   /** Normalized formula text (shared formulas expanded), or `null` for a value typed in or spilled into the cell. */
   formula: string | null;
-  /** Cached value; an error is its code (`#N/A`); `null` when the cell holds a formula Excel has not calculated. */
+  /**
+   * Cached value; an error is its code (`#N/A`); `null` when the cell holds a
+   * formula Excel has not calculated, or (with `type: "string"`) a formula's
+   * text result saved with an empty cache (`t="str"`, `<v></v>`).
+   */
   value: number | string | boolean | null;
   type: CellType;
   /**

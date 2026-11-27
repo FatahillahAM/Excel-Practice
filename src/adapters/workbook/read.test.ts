@@ -175,6 +175,18 @@ describe("readWorkbook", () => {
     expect(sheets.Data.I2).toEqual({ formula: 'IF(H2>3%,"Periksa","OK")', value: "OK", type: "string" });
   });
 
+  it("reads a formula string result with an empty cache (t=str, <v></v> or no <v>) as value null (5.3)", async () => {
+    const bytes = await makeWorkbook({
+      "xl/worksheets/sheet1.xml": sheetXml(
+        '<row r="1"><c r="A1" t="str"><f>IF(B1&gt;0,"Cek","")</f><v></v></c><c r="B1" t="str"><f>IF(C1&gt;0,"Cek","")</f></c><c r="C1" t="str"><f>"x"</f><v>x</v></c></row>',
+      ),
+    });
+    const { sheets } = await readWorkbook(bytes);
+    expect(sheets.Instructions.A1).toEqual({ formula: 'IF(B1>0,"Cek","")', value: null, type: "string" });
+    expect(sheets.Instructions.B1).toEqual({ formula: 'IF(C1>0,"Cek","")', value: null, type: "empty" });
+    expect(sheets.Instructions.C1).toEqual({ formula: '"x"', value: "x", type: "string" });
+  });
+
   it("decodes _xHHHH_ in a formula string result", async () => {
     const bytes = await makeWorkbook({
       "xl/worksheets/sheet1.xml": sheetXml('<row r="1"><c r="A1" t="str"><f>"a"&amp;CHAR(13)</f><v>a_x000D_</v></c></row>'),
