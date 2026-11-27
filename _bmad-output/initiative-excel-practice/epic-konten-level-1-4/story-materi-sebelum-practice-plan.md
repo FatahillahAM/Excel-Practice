@@ -3,7 +3,7 @@ title: 'Materi sebelum Practice'
 type: 'feature'
 ticket: '7'
 created: '2026-11-27'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: ''
