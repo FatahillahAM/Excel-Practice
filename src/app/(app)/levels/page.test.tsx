@@ -79,8 +79,10 @@ describe("/levels — Level Detail Panel Level 1", () => {
     expect(html.match(/data-pip="pending"/g)).toHaveLength(4);
   });
 
-  it("puts no button in the rows", () => {
-    expect(body).not.toContain("<button");
+  it("puts no Start in the rows: their only buttons open a Practice's Materi (5.7)", () => {
+    const buttons = body.match(/<button[^>]*>/g) ?? [];
+    expect(buttons).toHaveLength(4); // P2–P5; P1 (next) has its Materi above Start
+    for (const button of buttons) expect(button).toContain('data-slot="materi-trigger"');
     expect(body).not.toContain("<a ");
   });
 });
@@ -110,7 +112,7 @@ describe("StartControl", () => {
 describe("LevelDetailPanel with startLock", () => {
   it("passes the lock to the foot Start: aria-disabled, focusable, reason read", () => {
     const markup = renderToStaticMarkup(<LevelDetailPanel level={levels[0]} startLock={{ reason: BLOCKED_MESSAGE }} />);
-    const button = markup.match(/<button[^>]*>/)?.[0] ?? "";
+    const button = (markup.match(/<button[^>]*>/g) ?? []).find((tag) => !tag.includes("materi-trigger")) ?? "";
     expect(button).toContain('aria-disabled="true"');
     expect(button).not.toMatch(/\sdisabled=""/);
     expect(button).toContain('aria-describedby="start-L01-P1-lock start-L01-P1-message"');

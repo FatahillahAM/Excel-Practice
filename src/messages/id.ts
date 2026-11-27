@@ -104,6 +104,14 @@ export const hintMessages = {
   failed: "Koneksi lagi bermasalah. Coba lagi sebentar, ya.",
 } as const;
 
+/** Materi Sheet (5.7): the Practice's short reading, before Start and on the Exam screen. */
+export const materiMessages = {
+  /** The Level Detail Panel row and the Exam button: "Materi · 4 kartu". */
+  row: (cards: number) => `Materi · ${cards} kartu`,
+  /** The sheet's description, under the title. */
+  helper: "Bacaan singkat sebelum mulai. Tidak dinilai, dan bisa dibuka lagi waktu mengerjakan.",
+} as const;
+
 /**
  * Upload Dropzone's inline message slot (EXPERIENCE.md › Message set): one per
  * AD-6 rejection code (verbatim), the size limit and a failed request.

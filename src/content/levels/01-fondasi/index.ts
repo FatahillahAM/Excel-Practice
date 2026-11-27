@@ -11,13 +11,14 @@ import { levelTest } from "./test";
  * Level 1 "Fondasi" (V1): Practices 1–5 (`$` references, Excel Table, Sort and
  * Filter through formulas, mixed references) and the Test (`L01-T`).
  * contentVersion 4 (5.2): P2–P5 added, the Test re-laid out with its Table question.
+ * contentVersion 5 (5.7): Materi cards on P1–P5.
  */
 export const fondasi = defineLevelModule({
   id: "01-fondasi",
   number: 1,
   name: "Fondasi",
   phase: "v1",
-  contentVersion: 4,
+  contentVersion: 5,
   functions: ["$ references", "Excel Table (Ctrl+T)", "Sort & Filter"],
   hintQuota: 3,
   scenarios,

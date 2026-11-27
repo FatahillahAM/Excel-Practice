@@ -75,6 +75,12 @@ export interface LevelItem<S extends Scenario = Scenario> {
   kind: LevelItemKind;
   /** Practice 1–5; the Test is item 6. */
   number: number;
+  /**
+   * The item's Materi (5.7): 2–`MAX_MATERI_CARDS` short cards a Practice shows
+   * before Start and on its Exam screen. Static per item (not per seed), not
+   * graded, not in the snapshot. A Practice must have it; the Test must not.
+   */
+  materi?: readonly MateriCard[];
   /** Pure and deterministic: draws only from `createRandom(seed)`. Same seed and scenario, same exam. */
   generate(seed: number, scenario: S): GeneratedExam;
 }
@@ -188,6 +194,72 @@ export const tipSchema = z
   .strict();
 
 export type Tip = z.infer<typeof tipSchema>;
+
+/** Materi cards per Practice, at least and at most (5.7). */
+export const MIN_MATERI_CARDS = 2;
+export const MAX_MATERI_CARDS = 4;
+/** Click steps per Materi card, at most. */
+export const MAX_MATERI_STEPS = 5;
+
+/**
+ * Inline markup of Materi text (`materiSegments`): `` `=SUM(A2:A9)` `` is a
+ * formula, cell or menu (rendered as `<code lang="en">`), `[[Ctrl+D]]` a key
+ * (rendered as `<kbd>`; it must match `SHORTCUT_RE`). Inside code, `[[…]]` is
+ * plain code.
+ */
+const materiTextSchema = (max: number) =>
+  z
+    .string()
+    .trim()
+    .min(1)
+    .max(max)
+    .superRefine((text, ctx) => {
+      if (text.includes("``")) ctx.addIssue({ code: "custom", message: "Empty code span in Materi text" });
+      if ((text.match(/`/g)?.length ?? 0) % 2 !== 0) ctx.addIssue({ code: "custom", message: "Unclosed ` in Materi text" });
+      for (const segment of materiSegments(text)) {
+        if (segment.kind === "key" && !SHORTCUT_RE.test(segment.value)) {
+          ctx.addIssue({ code: "custom", message: `Key [[${segment.value}]] is not Excel key names joined with +` });
+        }
+        if (segment.kind === "text" && (segment.value.includes("[[") || segment.value.includes("]]"))) {
+          ctx.addIssue({ code: "custom", message: "Unclosed [[ ]] in Materi text" });
+        }
+      }
+    });
+
+/** One Materi card (5.7): title · concept · example formula · click steps · shortcuts. Indonesian, Excel names in English. */
+export const materiCardSchema = z
+  .object({
+    /** Kebab-case, unique in the level. */
+    id: z.string().regex(KEBAB_RE).max(64),
+    title: materiTextSchema(120),
+    /** One or two sentences. */
+    concept: materiTextSchema(500),
+    example: z
+      .object({
+        /** One formula as typed in Excel: starts with `=`. */
+        formula: z.string().trim().min(2).startsWith("=").max(120),
+        /** What the formula means (Indonesian). */
+        note: materiTextSchema(300),
+      })
+      .strict(),
+    steps: z.array(materiTextSchema(300)).min(1).max(MAX_MATERI_STEPS),
+    shortcuts: z.array(z.string().max(40).regex(SHORTCUT_RE, "Shortcut must be Excel key names joined with + (Ctrl+D, F4)")).max(6),
+  })
+  .strict();
+
+export type MateriCard = z.infer<typeof materiCardSchema>;
+
+/** Every text of a Materi card, with its path in the card (for the Microsoft 365-only check). */
+function materiTexts(card: MateriCard): [string, (string | number)[]][] {
+  return [
+    [card.title, ["title"]],
+    [card.concept, ["concept"]],
+    [card.example.formula, ["example", "formula"]],
+    [card.example.note, ["example", "note"]],
+    ...card.steps.map((step, i): [string, (string | number)[]] => [step, ["steps", i]]),
+    ...card.shortcuts.map((shortcut, i): [string, (string | number)[]] => [shortcut, ["shortcuts", i]]),
+  ];
+}
 
 /** One hint: Indonesian text, not blank. */
 export const hintSchema = z.string().trim().min(1).max(500);
@@ -357,6 +429,7 @@ const levelItemSchema = z.object({
   kind: z.enum(["practice", "test"]),
   number: z.number().int().min(1).max(6),
   generate: z.custom<LevelItem["generate"]>((value) => typeof value === "function", "generate must be a function"),
+  materi: z.array(materiCardSchema).optional(),
 });
 
 /** The static shape of a `LevelModule`, checked when the module loads (Consistency Conventions › Validation). */
@@ -397,6 +470,7 @@ export const levelModuleSchema = z
       scenarioIds.add(scenario.id);
     });
     const seen = new Set<string>();
+    const materiIds = new Set<string>();
     level.items.forEach((item, index) => {
       const expected = item.kind === "practice" ? `L${nn}-P${item.number}` : `L${nn}-T`;
       if (item.kind === "practice" && item.number > 5) {
@@ -412,6 +486,23 @@ export const levelModuleSchema = z
         ctx.addIssue({ code: "custom", path: ["items", index, "id"], message: `Duplicate item ${item.id}` });
       }
       seen.add(item.id);
+      const materi = item.materi ?? [];
+      if (item.kind === "practice" && (materi.length < MIN_MATERI_CARDS || materi.length > MAX_MATERI_CARDS)) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["items", index, "materi"],
+          message: `${item.id} needs ${MIN_MATERI_CARDS}–${MAX_MATERI_CARDS} Materi cards, has ${materi.length}`,
+        });
+      }
+      if (item.kind === "test" && item.materi !== undefined) {
+        ctx.addIssue({ code: "custom", path: ["items", index, "materi"], message: `${item.id} is a Test: no Materi` });
+      }
+      materi.forEach((card, c) => {
+        const at = ["items", index, "materi", c];
+        if (materiIds.has(card.id)) ctx.addIssue({ code: "custom", path: [...at, "id"], message: `Materi card ${card.id} is used twice in the level` });
+        materiIds.add(card.id);
+        for (const [text, path] of materiTexts(card)) addM365Issue(text, [...at, ...path], ctx);
+      });
     });
   });
 
@@ -497,4 +588,25 @@ export function kindFromItemId(id: string): LevelItemKind | null {
 /** UI label of an item: "Practice 1", "Test". */
 export function itemLabel(item: Pick<LevelItem, "kind" | "number">): string {
   return item.kind === "practice" ? `Practice ${item.number}` : "Test";
+}
+
+/** A piece of Materi text: plain Indonesian, a formula/cell/menu (`` `…` ``), or a key (`[[…]]`). */
+export type MateriSegment = { kind: "text" | "code" | "key"; value: string };
+
+/**
+ * Materi text split into its inline markup (`materiCardSchema`): `` `x` `` →
+ * code, `[[Ctrl+D]]` → key, everything else text, in order. Unmarked text is
+ * one text segment.
+ */
+export function materiSegments(text: string): MateriSegment[] {
+  const segments: MateriSegment[] = [];
+  const re = /`([^`]+)`|\[\[(.+?)\]\]/g;
+  let last = 0;
+  for (const match of text.matchAll(re)) {
+    if (match.index > last) segments.push({ kind: "text", value: text.slice(last, match.index) });
+    segments.push(match[1] !== undefined ? { kind: "code", value: match[1] } : { kind: "key", value: match[2] });
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) segments.push({ kind: "text", value: text.slice(last) });
+  return segments;
 }

@@ -82,6 +82,19 @@ afterEach(() => {
 });
 
 describe("Exam page", () => {
+  it("shows a Practice's Materi trigger (L01-P3: 3 cards) and none for the Test or an unknown item", async () => {
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, itemId: "L01-P3" } });
+    const p3 = await render();
+    expect(p3).toContain('data-slot="materi-trigger"');
+    expect(p3).toContain('aria-label="Materi · 3 kartu, Practice 3"');
+
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, itemId: "L01-T" } });
+    expect(await render()).not.toContain('data-slot="materi-trigger"');
+
+    mocks.readAttempt.mockResolvedValue({ ok: true, value: { ...ATTEMPT, itemId: "L09-P1" } });
+    expect(await render()).not.toContain('data-slot="materi-trigger"');
+  });
+
   it("titles a known item 'Level 1 · Practice 1' and shows the status line", async () => {
     mocks.readAttempt.mockResolvedValue({ ok: true, value: ATTEMPT });
     const html = await render();

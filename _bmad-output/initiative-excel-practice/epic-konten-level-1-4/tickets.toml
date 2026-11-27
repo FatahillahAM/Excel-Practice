@@ -22,6 +22,17 @@ hitl = true
 risk = "high"
 
 [[entry]]
+id = 7
+type = "story"
+title = "Materi sebelum Practice"
+description = "Setiap Practice punya bagian Materi (2-4 kartu: konsep, contoh rumus kecil, langkah di Excel) yang dibaca sebelum Mulai dan bisa dibuka lagi saat mengerjakan; kontrak konten diperluas, L01-P1..P5 diberi materi, tanpa penilaian dan tanpa migrasi."
+verify = "Validasi modul menolak Practice tanpa materi; tes DOM halaman detail Practice menampilkan Materi sebelum tombol Mulai."
+covers = ["CAP-6", "R1"]
+after = [2]
+hitl = false
+risk = "low"
+
+[[entry]]
 id = 3
 type = "story"
 title = "Level 2 Logika dan edge case penilaian"

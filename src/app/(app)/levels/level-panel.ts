@@ -1,4 +1,4 @@
-import { itemLabel, type LevelModule } from "@/core/content/level-module";
+import { itemLabel, type LevelModule, type MateriCard } from "@/core/content/level-module";
 import type { LevelProgress } from "@/core/progress";
 
 /**
@@ -22,6 +22,8 @@ export interface PanelPractice {
   status: PracticeStatus;
   /** Done practices can be started again ("Practice again"; never changes pips, gate or level status). */
   practiceAgain: boolean;
+  /** The practice's Materi cards (5.7); empty while it has no content. Never gates Start. */
+  materi: readonly MateriCard[];
 }
 
 export interface PanelTest {
@@ -73,9 +75,9 @@ export function levelPanel(
   const practices: PanelPractice[] = practiceItems.map((item, index) => {
     const number = index + 1;
     const label = itemLabel({ kind: "practice", number });
-    if (!item) return { number, label, itemId: null, status: "unavailable", practiceAgain: false };
+    if (!item) return { number, label, itemId: null, status: "unavailable", practiceAgain: false, materi: [] };
     const status: PracticeStatus = completed.has(item.id) ? "done" : index === nextIndex ? "next" : "not_started";
-    return { number, label, itemId: item.id, status, practiceAgain: status === "done" };
+    return { number, label, itemId: item.id, status, practiceAgain: status === "done", materi: item.materi ?? [] };
   });
 
   const pips: PipState[] = practices.map((practice) =>

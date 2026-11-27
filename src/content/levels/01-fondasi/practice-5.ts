@@ -8,6 +8,7 @@ import {
   type ExamQuestion,
   type GeneratedExam,
   type LevelItem,
+  type MateriCard,
   type Tip,
 } from "@/core/content/level-module";
 import { createRandom } from "@/core/content/random";
@@ -184,9 +185,53 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
   return { cells: { [INSTRUCTIONS_SHEET]: instructions, [DATA_SHEET]: data }, questions };
 }
 
+/** The Materi of L01-P5 (5.7): read before Start and on the Exam screen; its examples use other cells and numbers than the questions. */
+export const P5_MATERI: readonly MateriCard[] = [
+  {
+    id: "l01-p5-tabel-dua-arah",
+    title: "Referensi campuran untuk tabel dua arah",
+    concept:
+      "Di tabel dua arah, satu nilai diambil dari baris judul dan satu dari kolom judul. Kunci barisnya saja pada judul atas (`G$4`) dan kolomnya saja pada judul kiri (`$F5`), supaya rumus tetap benar ke segala arah.",
+    example: { formula: "=G$4*$F5", note: "tarif di judul atas (baris 4) × jam di judul kiri (kolom F)." },
+    steps: [
+      "Ketik rumus di sel kiri-atas tabel (G5).",
+      "Taruh kursor di tiap referensi lalu tekan [[F4]] sampai bentuknya `G$4` dan `$F5`.",
+      "Blok seluruh tabel → [[Ctrl+D]] lalu [[Ctrl+R]].",
+    ],
+    shortcuts: ["F4", "Ctrl+D", "Ctrl+R"],
+  },
+  {
+    id: "l01-p5-bagi-max-baris",
+    title: "Bagi dengan MAX sebaris",
+    concept:
+      "Untuk membandingkan tiap nilai dengan yang terbesar di barisnya, bagi dengan MAX baris itu. Kunci kolomnya saja, supaya range tetap saat di-copy ke kanan tapi ikut pindah baris saat di-copy ke bawah.",
+    example: { formula: "=B3/MAX($B3:$F3)", note: "1 berarti nilai terbesar di baris 3; di-copy ke bawah jadi baris 4." },
+    steps: [
+      "Ketik `=B3/MAX(` → blok B3:F3.",
+      "Tekan [[F4]] sampai jadi `$B3:$F3` → `)` → [[Enter]].",
+      "Isi ke kanan dengan [[Ctrl+R]] dan ke bawah dengan [[Ctrl+D]].",
+    ],
+    shortcuts: ["F4", "Ctrl+D", "Ctrl+R"],
+  },
+  {
+    id: "l01-p5-total-berjalan",
+    title: "Total berjalan dengan range yang memanjang",
+    concept:
+      "Total berjalan menjumlahkan dari sel pertama sampai sel itu. Kunci awal range dengan `$`, biarkan ujungnya bebas supaya range memanjang saat di-copy. Contoh ini berjalan ke kanan, per bulan dalam satu baris.",
+    example: { formula: "=SUM($B$5:B5)", note: "di kolom C jadi `SUM($B$5:C5)`, dan seterusnya ke kanan." },
+    steps: [
+      "Ketik `=SUM(` → klik sel pertama → [[F4]] sampai jadi `$B$5`.",
+      "Ketik `:` → klik sel yang sama lagi → `)` → [[Enter]].",
+      "Blok ke kanan sampai bulan terakhir → [[Ctrl+R]].",
+    ],
+    shortcuts: ["F4", "Ctrl+R"],
+  },
+];
+
 export const practice5: LevelItem<FondasiScenario> = {
   id: "L01-P5",
   kind: "practice",
   number: 5,
+  materi: P5_MATERI,
   generate,
 };

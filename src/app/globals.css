@@ -218,6 +218,37 @@
   inset: 0 100% 0 -48px;
   background: inherit;
 }
+/* Side/bottom Sheet (`side="right"`): up from the bottom on a phone, in from the right at `sm`. */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+@keyframes sheet-down {
+  from { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+@keyframes sheet-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes sheet-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+.sheet-panel[data-state="open"] {
+  animation: sheet-up 0.3s var(--ease-cinematic) both;
+}
+.sheet-panel[data-state="closed"] {
+  animation: sheet-down 0.2s ease-in both;
+}
+@media (min-width: 40rem) {
+  .sheet-panel[data-state="open"] {
+    animation-name: sheet-in-right;
+  }
+  .sheet-panel[data-state="closed"] {
+    animation-name: sheet-out-right;
+  }
+}
 .drawer-scrim[data-state="open"] {
   animation: scrim-in 0.4s ease-out both;
 }
