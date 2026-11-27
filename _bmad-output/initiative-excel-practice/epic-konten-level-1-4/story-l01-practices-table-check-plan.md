@@ -3,7 +3,7 @@ title: 'L01-P2..P5 dan pemeriksa Excel Table / Sort-Filter'
 type: 'feature'
 ticket: '2'
 created: '2026-11-20'
-status: 'built'
+status: done
 route: 'full'
 route_source: 'auto'
 review: ''
