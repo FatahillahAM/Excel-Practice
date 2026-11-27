@@ -74,7 +74,7 @@ export function MateriCards({ cards }: { cards: readonly MateriCard[] }) {
               ))}
             </ol>
             {card.shortcuts.length > 0 ? (
-              <ul aria-label="Shortcuts" lang="en" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
+              <ul aria-label="Pintasan" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1">
                 {card.shortcuts.map((shortcut, i) => (
                   <li key={`${i}-${shortcut}`} data-shortcut={shortcut} className="flex items-center gap-1 text-[12px] text-muted-foreground">
                     <Keys shortcut={shortcut} className="px-[7px] text-[15px] leading-[1.5] font-semibold" />

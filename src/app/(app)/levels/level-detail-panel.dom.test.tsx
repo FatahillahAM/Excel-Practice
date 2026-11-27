@@ -197,7 +197,7 @@ describe("LevelDetailPanel Materi (5.7)", () => {
     const sheet = screen.getByRole("dialog", { name: "Materi Practice 1" });
     expect(within(sheet).getAllByRole("article")).toHaveLength(4);
     expect(within(sheet).getByRole("heading", { name: /Rumus dimulai dengan/ })).toBeTruthy();
-    await userEvent.click(within(sheet).getByRole("button", { name: "Close" }));
+    await userEvent.click(within(sheet).getByRole("button", { name: "Tutup" }));
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -206,5 +206,15 @@ describe("LevelDetailPanel Materi (5.7)", () => {
     for (const n of [1, 2, 3, 4, 5]) {
       expect(screen.getAllByRole("button", { name: `Materi · 2 kartu, Practice ${n}` }), `P${n}`).toHaveLength(1);
     }
+  });
+
+  it("keeps the Materi open under a start lock: not disabled, not aria-disabled, opens the dialog", async () => {
+    const { fondasi } = await import("@/content/levels/01-fondasi");
+    render(<LevelDetailPanel level={fondasi} startLock={{ reason: BLOCKED_MESSAGE }} />);
+    const trigger = screen.getByRole("button", { name: "Materi · 4 kartu, Practice 1" }) as HTMLButtonElement;
+    expect(trigger.disabled).toBe(false);
+    expect(trigger.getAttribute("aria-disabled")).toBeNull();
+    await userEvent.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Materi Practice 1" })).toBeTruthy();
   });
 });

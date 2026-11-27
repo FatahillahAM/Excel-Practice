@@ -191,40 +191,40 @@ export const P5_MATERI: readonly MateriCard[] = [
     id: "l01-p5-tabel-dua-arah",
     title: "Referensi campuran untuk tabel dua arah",
     concept:
-      "Di tabel dua arah, nilai baris ada di kolom kiri dan nilai kolom ada di baris atas. Kunci kolomnya saja di kiri (`$A2`) dan barisnya saja di atas (`B$1`).",
-    example: { formula: "=$A2*B$1", note: "judul kiri × judul atas; tetap benar saat di-copy ke kanan dan ke bawah." },
+      "Di tabel dua arah, satu nilai diambil dari baris judul dan satu dari kolom judul. Kunci barisnya saja pada judul atas (`G$4`) dan kolomnya saja pada judul kiri (`$F5`), supaya rumus tetap benar ke segala arah.",
+    example: { formula: "=G$4*$F5", note: "tarif di judul atas (baris 4) × jam di judul kiri (kolom F)." },
     steps: [
-      "Ketik rumus di sel kiri-atas tabel.",
-      "Di `A2` tekan [[F4]] tiga kali sampai jadi `$A2`; di `B1` dua kali sampai jadi `B$1`.",
+      "Ketik rumus di sel kiri-atas tabel (G5).",
+      "Taruh kursor di tiap referensi lalu tekan [[F4]] sampai bentuknya `G$4` dan `$F5`.",
       "Blok seluruh tabel → [[Ctrl+D]] lalu [[Ctrl+R]].",
     ],
     shortcuts: ["F4", "Ctrl+D", "Ctrl+R"],
   },
   {
-    id: "l01-p5-bagi-max-kolom",
-    title: "Bagi dengan MAX kolom",
+    id: "l01-p5-bagi-max-baris",
+    title: "Bagi dengan MAX sebaris",
     concept:
-      "Untuk membandingkan tiap nilai dengan yang terbesar di kolomnya, bagi dengan MAX kolom itu. Kunci barisnya saja, supaya range tetap saat di-copy ke bawah tapi ikut pindah kolom saat di-copy ke kanan.",
-    example: { formula: "=B3/MAX(B$3:B$9)", note: "1 berarti nilai terbesar di kolom B; di-copy ke kanan jadi kolom C." },
+      "Untuk membandingkan tiap nilai dengan yang terbesar di barisnya, bagi dengan MAX baris itu. Kunci kolomnya saja, supaya range tetap saat di-copy ke kanan tapi ikut pindah baris saat di-copy ke bawah.",
+    example: { formula: "=B3/MAX($B3:$F3)", note: "1 berarti nilai terbesar di baris 3; di-copy ke bawah jadi baris 4." },
     steps: [
-      "Ketik `=B3/MAX(` → blok B3:B9.",
-      "Tekan [[F4]] dua kali sampai jadi `B$3:B$9` → `)` → [[Enter]].",
-      "Isi ke bawah dengan [[Ctrl+D]] dan ke kanan dengan [[Ctrl+R]].",
+      "Ketik `=B3/MAX(` → blok B3:F3.",
+      "Tekan [[F4]] sampai jadi `$B3:$F3` → `)` → [[Enter]].",
+      "Isi ke kanan dengan [[Ctrl+R]] dan ke bawah dengan [[Ctrl+D]].",
     ],
-    shortcuts: ["F4"],
+    shortcuts: ["F4", "Ctrl+D", "Ctrl+R"],
   },
   {
     id: "l01-p5-total-berjalan",
-    title: "Total berjalan dengan `SUM($C$3:C3)`",
+    title: "Total berjalan dengan range yang memanjang",
     concept:
-      "Total berjalan menjumlahkan dari baris pertama sampai baris itu. Kunci awal range dengan `$`, biarkan ujungnya bebas supaya range memanjang saat di-copy ke bawah.",
-    example: { formula: "=SUM($C$3:C3)", note: "di baris 4 jadi `SUM($C$3:C4)`, dan seterusnya." },
+      "Total berjalan menjumlahkan dari sel pertama sampai sel itu. Kunci awal range dengan `$`, biarkan ujungnya bebas supaya range memanjang saat di-copy. Contoh ini berjalan ke kanan, per bulan dalam satu baris.",
+    example: { formula: "=SUM($B$5:B5)", note: "di kolom C jadi `SUM($B$5:C5)`, dan seterusnya ke kanan." },
     steps: [
-      "Ketik `=SUM(` → klik sel pertama → [[F4]] sampai jadi `$C$3`.",
+      "Ketik `=SUM(` → klik sel pertama → [[F4]] sampai jadi `$B$5`.",
       "Ketik `:` → klik sel yang sama lagi → `)` → [[Enter]].",
-      "Klik dua kali fill handle, atau blok ke bawah → [[Ctrl+D]].",
+      "Blok ke kanan sampai bulan terakhir → [[Ctrl+R]].",
     ],
-    shortcuts: ["F4", "Ctrl+D"],
+    shortcuts: ["F4", "Ctrl+R"],
   },
 ];
 

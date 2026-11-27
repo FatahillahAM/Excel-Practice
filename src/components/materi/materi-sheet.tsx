@@ -43,7 +43,7 @@ export function MateriSheet({
         <BookOpen aria-hidden="true" className="size-4 shrink-0" />
         <span lang="id">{materiMessages.row(cards.length)}</span>
       </SheetTrigger>
-      <SheetContent side="right" closeLabel="Close">
+      <SheetContent side="right" closeLabel="Tutup">
         <SheetHeader className="border-b border-border p-4 pr-14">
           <SheetTitle className="text-[20px] leading-[1.2] font-extrabold">
             <span lang="id">Materi</span> {itemLabel}
@@ -52,7 +52,7 @@ export function MateriSheet({
             {materiMessages.helper}
           </SheetDescription>
         </SheetHeader>
-        <div data-slot="materi-sheet-body" className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div data-slot="materi-sheet-body" className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
           <MateriCards cards={cards} />
         </div>
       </SheetContent>

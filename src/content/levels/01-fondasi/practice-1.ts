@@ -236,32 +236,32 @@ function generate(seed: number, scenario: FondasiScenario): GeneratedExam {
   return { cells: { [INSTRUCTIONS_SHEET]: instructions, [DATA_SHEET]: data }, questions };
 }
 
-/** The Materi of L01-P1 (5.7): read before Start and on the Exam screen; its examples use other cells and numbers than the questions. */
+/** The Materi of L01-P1 (5.7): read before Start and on the Exam screen; its examples use other cells than the questions (E/G/L/N/O). */
 export const MATERI: readonly MateriCard[] = [
   {
     id: "l01-p1-rumus-sama-dengan",
     title: "Rumus dimulai dengan `=`",
     concept: "Rumus menghitung dari sel lain, jadi hasilnya ikut berubah kalau datanya ganti.",
-    example: { formula: "=E2*G2", note: "Unit Diproduksi × Biaya per Unit." },
-    steps: ["Klik sel hasil → ketik `=`.", "Klik E2 → ketik `*` → klik G2 → [[Enter]].", "Jangan ketik angkanya manual."],
+    example: { formula: "=C2*D2", note: "Unit Diproduksi × Biaya per Unit." },
+    steps: ["Klik sel hasil → ketik `=`.", "Klik C2 → ketik `*` → klik D2 → [[Enter]].", "Jangan ketik angkanya manual."],
     shortcuts: ["Enter"],
   },
   {
     id: "l01-p1-relatif-absolut",
     title: "Referensi relatif vs absolut (`$`)",
     concept:
-      "Saat rumus di-copy ke bawah, `E2` ikut bergeser jadi `E3`, `E4`. Sel yang harus tetap (misal tarif di `$L$2`) dikunci pakai `$`.",
-    example: { formula: "=E2*$L$2", note: "E2 bergeser saat di-copy, $L$2 tetap." },
-    steps: ["Ketik rumus → taruh kursor di `L2`.", "Tekan [[F4]] sampai jadi `$L$2` (laptop: [[Fn+F4]])."],
+      "Saat rumus di-copy ke bawah, `C2` ikut bergeser jadi `C3`, `C4`. Sel yang harus tetap (misal tarif di `$K$2`) dikunci pakai `$`.",
+    example: { formula: "=C2*$K$2", note: "C2 bergeser saat di-copy, $K$2 tetap." },
+    steps: ["Ketik rumus → taruh kursor di `K2`.", "Tekan [[F4]] sampai jadi `$K$2` (laptop: [[Fn+F4]])."],
     shortcuts: ["F4", "Fn+F4"],
   },
   {
     id: "l01-p1-porsi-sum",
     title: "Porsi dari total dengan `SUM`",
     concept: "Porsi = nilai satu baris ÷ total semua baris; range total dikunci supaya tidak bergeser.",
-    example: { formula: "=E3/SUM($E$2:$E$10)", note: "nilai baris 3 dibagi total E2:E10 yang dikunci." },
+    example: { formula: "=D3/SUM($D$2:$D$10)", note: "nilai baris 3 dibagi total D2:D10 yang dikunci." },
     steps: [
-      "Ketik `=E3/SUM(` → blok E2:E10 → [[F4]] → `)` → [[Enter]].",
+      "Ketik `=D3/SUM(` → blok D2:D10 → [[F4]] → `)` → [[Enter]].",
       "`Home > Percent Style` ([[Ctrl+Shift+%]]).",
     ],
     shortcuts: ["F4", "Ctrl+Shift+%"],
@@ -269,8 +269,8 @@ export const MATERI: readonly MateriCard[] = [
   {
     id: "l01-p1-campuran-isi-cepat",
     title: "Referensi campuran & isi cepat",
-    concept: "Di tabel dua arah, kunci kolom judul kiri (`$N2`) dan baris judul atas (`O$1`).",
-    example: { formula: "=$N2*(1+O$1)", note: "judul kiri × (1 + judul atas)." },
+    concept: "Di tabel dua arah, kunci kolom judul kiri (`$A3`) dan baris judul atas (`B$1`).",
+    example: { formula: "=$A3*(1+B$1)", note: "judul kiri × (1 + judul atas)." },
     steps: [
       "Isi sel kiri-atas.",
       "Blok range sampai bawah → [[Ctrl+D]] (isi ke bawah).",

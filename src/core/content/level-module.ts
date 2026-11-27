@@ -202,12 +202,11 @@ export const MAX_MATERI_CARDS = 4;
 export const MAX_MATERI_STEPS = 5;
 
 /**
- * Inline markup of Materi text: `` `=SUM(A2:A9)` `` is a formula, cell or menu
- * (rendered as `<code lang="en">`), `[[Ctrl+D]]` a key (rendered as `<kbd>`;
- * the inside must match `SHORTCUT_RE`).
+ * Inline markup of Materi text (`materiSegments`): `` `=SUM(A2:A9)` `` is a
+ * formula, cell or menu (rendered as `<code lang="en">`), `[[Ctrl+D]]` a key
+ * (rendered as `<kbd>`; it must match `SHORTCUT_RE`). Inside code, `[[…]]` is
+ * plain code.
  */
-export const MATERI_KEY_RE = /\[\[(.+?)\]\]/g;
-
 const materiTextSchema = (max: number) =>
   z
     .string()
@@ -215,9 +214,15 @@ const materiTextSchema = (max: number) =>
     .min(1)
     .max(max)
     .superRefine((text, ctx) => {
+      if (text.includes("``")) ctx.addIssue({ code: "custom", message: "Empty code span in Materi text" });
       if ((text.match(/`/g)?.length ?? 0) % 2 !== 0) ctx.addIssue({ code: "custom", message: "Unclosed ` in Materi text" });
-      for (const match of text.matchAll(MATERI_KEY_RE)) {
-        if (!SHORTCUT_RE.test(match[1])) ctx.addIssue({ code: "custom", message: `Key [[${match[1]}]] is not Excel key names joined with +` });
+      for (const segment of materiSegments(text)) {
+        if (segment.kind === "key" && !SHORTCUT_RE.test(segment.value)) {
+          ctx.addIssue({ code: "custom", message: `Key [[${segment.value}]] is not Excel key names joined with +` });
+        }
+        if (segment.kind === "text" && (segment.value.includes("[[") || segment.value.includes("]]"))) {
+          ctx.addIssue({ code: "custom", message: "Unclosed [[ ]] in Materi text" });
+        }
       }
     });
 
@@ -232,7 +237,7 @@ export const materiCardSchema = z
     example: z
       .object({
         /** One formula as typed in Excel: starts with `=`. */
-        formula: z.string().trim().startsWith("=").max(120),
+        formula: z.string().trim().min(2).startsWith("=").max(120),
         /** What the formula means (Indonesian). */
         note: materiTextSchema(300),
       })
