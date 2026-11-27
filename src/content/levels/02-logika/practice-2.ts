@@ -1,6 +1,6 @@
 import { DATA_SHEET, type ExamQuestion, type GeneratedExam, type LevelItem, type MateriCard, type Tip } from "@/core/content/level-module";
-import { createRandom } from "@/core/content/random";
-import { BASE_CHECKS, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference } from "./batches";
+import { createRandom, type Random } from "@/core/content/random";
+import { BASE_CHECKS, drawCovering, type Outcomes, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference } from "./batches";
 import type { LogikaScenario } from "./scenarios";
 
 /**
@@ -56,8 +56,15 @@ export const P2_TIPS = {
   },
 } as const satisfies Record<string, Tip>;
 
+/** Every outcome each question's keys must show (`outcomeOf`): every generated exam has them all. */
+export const P2_OUTCOMES: Outcomes = [[P2_TEXT.pass, P2_TEXT.hold], [P2_TEXT.yes, P2_TEXT.no], [P2_TEXT.priority, P2_TEXT.normal], [P2_TEXT.take, P2_TEXT.no]];
+
 function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
   const random = createRandom(seed);
+  return drawCovering(P2_OUTCOMES, () => build(random, scenario));
+}
+
+function build(random: Random, scenario: LogikaScenario): GeneratedExam {
   const batches = drawBatches(random, scenario);
   const target = splitLimit(random, batches.map((b) => b.units), 10);
   const defectLimit = splitLimit(random, batches.map((b) => b.defects), 1);

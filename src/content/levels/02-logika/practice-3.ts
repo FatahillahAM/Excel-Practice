@@ -1,6 +1,6 @@
 import { DATA_SHEET, type ExamQuestion, type GeneratedExam, type LevelItem, type MateriCard, type Tip } from "@/core/content/level-module";
-import { createRandom } from "@/core/content/random";
-import { BASE_CHECKS, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference } from "./batches";
+import { createRandom, type Random } from "@/core/content/random";
+import { BASE_CHECKS, usesIfOrIfs, drawCovering, type Outcomes, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference } from "./batches";
 import type { LogikaScenario } from "./scenarios";
 
 /**
@@ -14,7 +14,7 @@ import type { LogikaScenario } from "./scenarios";
  * | 3 | 30     | J2:J{n+1} | `=IF(AND(E2>=$O$2,F2<=$O$3),3,IF(E2>=$O$2,2,1))`                     |
  *
  * Q1 teaches nested IF and requires IF; Q2 teaches IFS and requires it; Q3
- * accepts either (no `uses_functions`).
+ * requires IF or IFS (`uses_any_function`).
  */
 
 export const P3_HEADERS = { grade: "Grade Cacat", downtime: "Kategori Downtime", score: "Poin Batch" } as const;
@@ -47,11 +47,19 @@ export const P3_TIPS = {
   },
 } as const satisfies Record<string, Tip>;
 
+/** Every outcome each question's keys must show (`outcomeOf`): every generated exam has them all. */
+export const P3_OUTCOMES: Outcomes = [[P3_TEXT.a, P3_TEXT.b, P3_TEXT.c], [P3_TEXT.high, P3_TEXT.medium, P3_TEXT.low], [1, 2, 3]];
+
 function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
   const random = createRandom(seed);
+  return drawCovering(P3_OUTCOMES, () => build(random, scenario));
+}
+
+function build(random: Random, scenario: LogikaScenario): GeneratedExam {
   const batches = drawBatches(random, scenario);
   const target = splitLimit(random, batches.map((b) => b.units), 10);
-  const defectLimit = splitLimit(random, batches.map((b) => b.defects), 1);
+  // Split the batches with defects, so grade B (1 … the limit) and C both occur.
+  const defectLimit = splitLimit(random, batches.map((b) => b.defects).filter((value) => value > 0), 1);
   // Both downtime limits split the batches that stopped (downtime > 0), so every category occurs.
   const stopped = batches.map((b) => b.downtime).filter((value) => value > 0);
   const downtimeHigh = splitLimit(random, stopped, 5);
@@ -112,7 +120,7 @@ function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
       points: 30,
       sheet: DATA_SHEET,
       range: `J2:J${last}`,
-      checks: [...BASE_CHECKS, usesReference("$O$2"), usesReference("$O$3")],
+      checks: [...BASE_CHECKS, usesIfOrIfs, usesReference("$O$2"), usesReference("$O$3")],
       key: columnKey("J", batches, (b) => (b.units >= target && b.defects <= defectLimit ? 3 : b.units >= target ? 2 : 1)),
       hints: [
         "Poin 3 butuh dua syarat sekaligus, jadi syarat pertama memakai AND. Poin 2 cukup satu syarat: targetnya tercapai.",

@@ -61,12 +61,12 @@ Depends on 5.1 (Test pattern); independent of 5.2 but built after it, so Code Ma
 ## Tasks & Acceptance
 
 **Execution:**
-- [ ] `src/core/grading/checkers.ts`, `reasons.ts` (+tests) -- strip `_xludf.` in `functionName`; any called `_xludf.` function → reason `unknown_function` (#NAME?) before `missing_function`.
-- [ ] `src/adapters/workbook/read.ts` (+test) -- formula cell `t="str"` with empty/missing `<v>` → `value: null` (→ `not_calculated`).
-- [ ] `src/content/levels/02-logika/scenarios.ts` -- ≥10 manufacturing scenarios (QC pass/NG, downtime, shift, target).
-- [ ] `02-logika/practice-1..5.ts` (+tests) -- P1 IF, P2 AND/OR, P3 nested IF/IFS, P4 IFERROR, P5 mixed; 100 points each.
-- [ ] `02-logika/test.ts`, `index.ts` -- L02-T 6–8 questions; module registered.
-- [ ] `02-logika/__fixtures__/` (`README.md`, builders), `golden.test.ts` -- Excel fixtures P1 + T; code fixtures P2..P5.
+- [x] `src/core/grading/checkers.ts`, `reasons.ts` (+tests) -- strip `_xludf.` in `functionName`; any called `_xludf.` function → reason `unknown_function` (#NAME?) before `missing_function`.
+- [x] `src/adapters/workbook/read.ts` (+test) -- formula cell `t="str"` with empty/missing `<v>` → `value: null` (→ `not_calculated`).
+- [x] `src/content/levels/02-logika/scenarios.ts` -- ≥10 manufacturing scenarios (QC pass/NG, downtime, shift, target).
+- [x] `02-logika/practice-1..5.ts` (+tests) -- P1 IF, P2 AND/OR, P3 nested IF/IFS, P4 IFERROR, P5 mixed; 100 points each.
+- [x] `02-logika/test.ts`, `index.ts` -- L02-T 6–8 questions; module registered.
+- [x] `02-logika/__fixtures__/` (`README.md`, builders), `golden.test.ts` -- Excel fixtures P1 + T; code fixtures P2..P5.
 
 **Acceptance Criteria:**
 - Given the module, when module validation runs, then every item totals 100, uses only Office 2021 functions, and has ≥10 scenarios.
@@ -76,13 +76,20 @@ Depends on 5.1 (Test pattern); independent of 5.2 but built after it, so Code Ma
 
 ## Plan Change Log
 
-- 2026-11-27 (implementation): "IF or IFS accepted" is done by declaring no `uses_functions` on those questions (L02-P1 all, L02-P3 Q3, L02-P5 Q2, L02-T Q4), not by a new any-of check; questions that teach AND, OR, IFS, nested IF or IFERROR require that function.
-- 2026-11-27: empty `t="str"` cache is read as `value: null, type: "string"`; `value_equals_key` gives `not_calculated`, except where the key is "" (Excel's own "" result passes). No calcChain/app-props test: the L02-P1 Excel fixture (K2) settles whether Excel 2021 writes `<v></v>`.
+- 2026-11-27 (review): "IF or IFS accepted" is a new any-of check `uses_any_function` (`["IF","IFS"]`, reason `missing_any_function` "Rumus di {ref} belum memakai IF atau IFS.") on L02-P1 Q1–Q4, P3 Q3, P5 Q2 and T Q1/Q4/Q6, so MAX, REPT or arithmetic tricks fail; questions that teach AND, OR, IFS, nested IF or IFERROR require that function.
+- 2026-11-27 (review): an empty text result (`t="str"` with `<v></v>` or no `<v>`) reads as `value: null, type: "string"`; `value_equals_key` passes it where the key is "", else `wrong_value`; `not_calculated` stays for other formulas without a value. The L02-P1 Excel fixture (K2) shows what Excel 2021 writes.
+- 2026-11-27 (review): every generated exam shows every outcome of every question (`drawCovering`, redraws from the same Random; tested over seeds 1–300 × all scenarios); P3 and T split the defect limit over batches with defects so grade B occurs. L02-P1/L02-T seed 7 unchanged; L02-P3 limits and L02-P5 data changed (code-built fixtures only).
+- 2026-11-27 (review): `unknown_function` text now ends "…, atau pastikan fungsinya ada di Excel 2021."; L01's template test allows "Excel 2021".
 - 2026-11-27: `unknown_function` is decided in every formula checker (and `spills`) right after the formula-present rule, so it precedes all other checks on that cell; template has no function name (the unknown name may be a declared one, e.g. `_xludf.IFS`).
 - 2026-11-27: L02-T has 6 questions (MAX_QUESTIONS), not 6–8; Materi 2–3 cards per Practice (5.7); NOT left out of `functions` (curriculum lists IF, IFS, AND/OR, IFERROR).
 - 2026-11-27: registering Level 2 changed two existing expectations: `index.test.ts` (registry now L01 + L02) and `level-path.dom.test.tsx` (new account: Level 2 "locked", not "under_construction").
 
 ## Review Triage Log
+
+- Reviews (blind+edge, verification+intent), 2026-11-27: no blocking defects; keys recomputed for 19,800 exams.
+- Fixed: empty `t="str"` result → `wrong_value` unless key is ""; every question's outcomes forced present (`drawCovering`, outcomes test over seeds 1–300 × 11 scenarios); `uses_any_function` IF/IFS (`missing_any_function`); `splitLimit` comment; Test prompt copy uniform; `unknown_function` text mentions Excel 2021.
+- Accepted: exact text comparison (prompts quote the text).
+- Pending (hitl): Excel 2021 fixtures l02-p1-{correct,typed-values}, l02-t-{correct,typed-values,wrong-function}.
 
 ## Design Notes
 
@@ -98,9 +105,9 @@ Depends on 5.1 (Test pattern); independent of 5.2 but built after it, so Code Ma
 
 ## Open Questions
 
-- Does Excel 2021 store a legitimately empty string result as `t="str"` + `<v></v>`? Recommendation: add one such question to the L02-P1 fixture; if yes, treat empty cache as `not_calculated` only when the file lacks Excel's `calcChain`/app props, else keep "".
+- ~~Superseded by the Plan Change Log (2026-11-27, empty text result).~~ Does Excel 2021 store a legitimately empty string result as `t="str"` + `<v></v>`? Recommendation: add one such question to the L02-P1 fixture; if yes, treat empty cache as `not_calculated` only when the file lacks Excel's `calcChain`/app props, else keep "".
 - Should `unknown_function` cost the whole question? Recommendation: yes, same as other failed checks.
-- IFS allowed where IF is taught? Recommendation: accept either (list both in `uses_functions` any-of) except the question explicitly teaching nested IF.
+- ~~Superseded by the Plan Change Log (2026-11-27, `uses_any_function`).~~ IFS allowed where IF is taught? Recommendation: accept either (list both in `uses_functions` any-of) except the question explicitly teaching nested IF.
 
 ## Verification
 

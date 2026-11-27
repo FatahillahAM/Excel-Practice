@@ -3,8 +3,8 @@ import { RIGHT, fixtureToken, itemFixture, wrong, type Cells, type ExpectedGrade
 
 /**
  * Test only: the code-built golden fixtures of L02-P5 (mixed). Seed 7,
- * `kemasan-karton-prima`: rows 2, 3, 6, 9 and 10 have no downtime, row 4 is
- * the first that has; answers H2:K13.
+ * `kemasan-karton-prima` (redrawn until every outcome occurs): 17 batches
+ * (Data A1:G18), rows 5, 6 and 17 without downtime; answers H2:K18.
  */
 
 export const FIXTURE = itemFixture(practice5, fixtureToken("L02-P5 golden fixture token 0001"));
@@ -61,5 +61,5 @@ export const EXPECTED: Readonly<Record<Variant, ExpectedGrade>> = {
   "nested-if": { score: 100, correctCount: 4, questions: ALL_RIGHT },
   recomputed: { score: 100, correctCount: 4, questions: ALL_RIGHT },
   "wrong-function": { score: 75, correctCount: 3, questions: [RIGHT, RIGHT, wrong("Rumus di J2 tidak memakai fungsi IFERROR."), RIGHT] },
-  "no-parentheses": { score: 75, correctCount: 3, questions: [RIGHT, RIGHT, wrong("Hasil di J4 belum sesuai."), RIGHT] },
+  "no-parentheses": { score: 75, correctCount: 3, questions: [RIGHT, RIGHT, wrong("Hasil di J2 belum sesuai."), RIGHT] },
 };

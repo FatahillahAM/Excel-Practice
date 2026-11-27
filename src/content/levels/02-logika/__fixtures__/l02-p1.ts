@@ -22,7 +22,7 @@ export const FIXTURE = itemFixture(practice1, fixtureToken("L02-P1 golden fixtur
 export const FIXTURE_TOKEN = FIXTURE.token;
 export const TIPS_IN_ORDER = [P1_TIPS.args, P1_TIPS.quotes, P1_TIPS.calc, P1_TIPS.blank];
 
-export const VARIANTS = ["blank", "correct", "ifs", "typed-values", "unknown-function", "empty-text-cache"] as const;
+export const VARIANTS = ["blank", "correct", "ifs", "typed-values", "unknown-function", "empty-text-cache", "max-trick"] as const;
 export type Variant = (typeof VARIANTS)[number];
 
 /** As the README asks: one formula per column, filled down (Excel saves a fill as a shared formula). */
@@ -51,8 +51,11 @@ export async function buildFixture(variant: Variant): Promise<Uint8Array> {
     case "unknown-function":
       // A misspelled IF: Excel saves an unknown name with _xludf. and shows #NAME? in every cell.
       return FIXTURE.build({ ...correct(), ...FIXTURE.filled(1, 0, '_xludf.IFF(E2>=$O$2,"Capai","Kurang")', Object.fromEntries(expandRange("H2:H13")!.map((ref) => [ref, { error: "#NAME?" }]))) });
+    case "max-trick":
+      // Unit Lebih without IF: the right values, but neither IF nor IFS (uses_any_function).
+      return FIXTURE.build({ ...correct(), ...FIXTURE.filled(3, 2, "MAX(0,E2-$O$2)") });
     case "empty-text-cache":
-      // A writer that did not calculate: every K cell a text formula with an empty cache (t="str", <v></v>).
+      // Every K cell an empty text result (t="str", <v></v>): right where the key is "", wrong elsewhere.
       return FIXTURE.build({ ...correct(), ...sharedFill("K2:K13", 3, 'IF(G2>$O$4,"Cek mesin","")', () => "") });
   }
 }
@@ -68,10 +71,11 @@ export const EXPECTED: Readonly<Record<Variant, ExpectedGrade>> = {
   "unknown-function": {
     score: 75,
     correctCount: 3,
-    questions: [wrong("Excel tidak mengenali nama fungsi di rumus H2, jadi hasilnya #NAME?. Cek ejaan nama fungsinya."), RIGHT, RIGHT, RIGHT],
+    questions: [wrong("Excel tidak mengenali nama fungsi di rumus H2, jadi hasilnya #NAME?. Cek ejaan nama fungsinya, atau pastikan fungsinya ada di Excel 2021."), RIGHT, RIGHT, RIGHT],
   },
-  // K2 and K3 hold Excel's "" (key ""), so the first cell that should read "Cek mesin" decides: not calculated, not wrong.
-  "empty-text-cache": { score: 75, correctCount: 3, questions: [RIGHT, RIGHT, RIGHT, wrong("Rumus di K4 belum dihitung oleh Excel.")] },
+  "max-trick": { score: 75, correctCount: 3, questions: [RIGHT, RIGHT, wrong("Rumus di J2 belum memakai IF atau IFS."), RIGHT] },
+  // K2 and K3 hold Excel's "" (key ""), so the first cell that should read "Cek mesin" decides: an empty text there is a wrong value.
+  "empty-text-cache": { score: 75, correctCount: 3, questions: [RIGHT, RIGHT, RIGHT, wrong("Hasil di K4 belum sesuai.")] },
 };
 
 // ---------------------------------------------------------------------------

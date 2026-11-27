@@ -170,6 +170,17 @@ export const usesFunctions: Checker<"uses_functions"> = (check, question, cells)
   });
 
 /**
+ * `uses_any_function`: every formula calls at least one declared function
+ * (`IF` or `IFS`); otherwise `missing_any_function`, naming them all ("IF atau IFS").
+ */
+export const usesAnyFunction: Checker<"uses_any_function"> = (check, question, cells) =>
+  everyFormula(question, cells, (formula, _reading, ref) => {
+    const called = calledFunctions(formula);
+    const names = check.functions.map(functionName);
+    return names.some((name) => called.has(name)) ? null : { kind: "missing_any_function", ref, function: names.join(" atau ") };
+  });
+
+/**
  * What `ref` (written for the range's top-left cell) becomes in `cell`,
  * shifted as Excel's fill does (`$` parts stay put), in upper case; `null`
  * when the shift pushes it off the sheet (`#REF!`, which never matches).
@@ -243,16 +254,18 @@ export function valueMatches(reading: CellReading, key: ExamCellValue, tolerance
 /**
  * `value_equals_key`: every answer cell's formula value equals its key. Per
  * cell, in order: `empty`, `typed_value`, `error_value` (an error such as
- * `#DIV/0!`), `not_calculated` (a formula without a cached value; an empty
- * text cache passes only where the key is ""), then
+ * `#DIV/0!`), an empty text result (`t="str"` without a value: right where
+ * the key is "", else `wrong_value`), `not_calculated` (a formula without a
+ * cached value), then
  * `wrong_value` for any other mismatch.
  */
 export const valueEqualsKey: Checker<"value_equals_key"> = (check, question, cells) => {
   const valueReason = (reading: CellReading, ref: string): Reason | null => {
     if (reading.type === "error") return { kind: "error_value", ref };
     const key = Object.hasOwn(question.key, ref) ? question.key[ref] : undefined;
-    // An empty text cache (`t="str"`, `<v></v>`) is Excel's own "" result where the key is "".
-    if (reading.value === null) return key === "" && reading.type === "string" ? null : { kind: "not_calculated", ref };
+    // An empty text result (`t="str"`, `<v></v>` or no `<v>`): Excel's own "", right only where the key is "".
+    if (reading.value === null && reading.type === "string") return key === "" ? null : { kind: "wrong_value", ref };
+    if (reading.value === null) return { kind: "not_calculated", ref };
     return key !== undefined && valueMatches(reading, key, check.tolerance) ? null : { kind: "wrong_value", ref };
   };
   const outcome = everyFormula(question, cells, (_formula, reading, ref) => valueReason(reading, ref));
@@ -337,6 +350,7 @@ export const CHECKER_REGISTRY: { readonly [N in CheckName]: Checker<N> } = {
   not_hard_coded: notHardCoded,
   value_equals_key: valueEqualsKey,
   uses_functions: usesFunctions,
+  uses_any_function: usesAnyFunction,
   uses_reference: usesReference,
   is_table: isTable,
   spills,

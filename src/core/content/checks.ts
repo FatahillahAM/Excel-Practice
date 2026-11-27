@@ -23,6 +23,8 @@ export const FUNCTION_NAME_RE = /^[A-Z][A-Z0-9]*(\.[A-Z0-9]+)*$/;
  * - `value_equals_key`: each cell's value equals the key, within
  *   `tolerance × max(1, |key|)` for numbers (relative), exactly for text.
  * - `uses_functions`: the formula of every answer cell calls each of `functions`.
+ * - `uses_any_function`: the formula of every answer cell calls at least one
+ *   of `functions` (`["IF", "IFS"]`: either is accepted).
  * - `uses_reference`: the formula refers to `ref` as it must appear in the
  *   range's top-left cell; for the other cells the checker shifts it as Excel's
  *   fill does (`$` parts stay fixed). `ref` itself has no sheet; in the
@@ -48,6 +50,9 @@ export const CHECKERS = {
   uses_functions: z
     .object({ name: z.literal("uses_functions"), functions: z.array(z.string().regex(FUNCTION_NAME_RE)).min(1) })
     .strict(),
+  uses_any_function: z
+    .object({ name: z.literal("uses_any_function"), functions: z.array(z.string().regex(FUNCTION_NAME_RE)).min(2) })
+    .strict(),
   uses_reference: z.object({ name: z.literal("uses_reference"), ref: z.string().regex(REFERENCE_RE) }).strict(),
   is_table: z
     .object({
@@ -67,6 +72,7 @@ export const checkSchema = z.discriminatedUnion("name", [
   CHECKERS.not_hard_coded,
   CHECKERS.value_equals_key,
   CHECKERS.uses_functions,
+  CHECKERS.uses_any_function,
   CHECKERS.uses_reference,
   CHECKERS.is_table,
   CHECKERS.spills,

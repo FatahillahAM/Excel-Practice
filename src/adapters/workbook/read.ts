@@ -407,7 +407,8 @@ function cellValue(
     return is === undefined ? EMPTY : { value: richText(is), type: "string" };
   }
   const v = child(node, "v");
-  if (v === undefined) return EMPTY;
+  // A text formula saved without a value: as an empty text cache (`value_equals_key` decides).
+  if (v === undefined) return t === "str" ? { value: null, type: "string" } : EMPTY;
   const raw = text(v);
   switch (t) {
     case "n": {
@@ -424,9 +425,8 @@ function cellValue(
       return { value, type: "string" };
     }
     case "str":
-      // A formula's text result with an empty cache (`<v></v>`): a writer that did not
-      // calculate, or Excel's own "" result. `value: null` keeps it from passing as text;
-      // `value_equals_key` accepts it only where the key is "" (otherwise `not_calculated`).
+      // A formula's text result with an empty cache (`<v></v>`): Excel's own "" result.
+      // `value_equals_key` accepts it only where the key is "" (otherwise `wrong_value`).
       return raw === "" ? { value: null, type: "string" } : { value: decodeEscapes(raw), type: "string" };
     case "b":
       if (raw.trim() !== "0" && raw.trim() !== "1") throw new Error(`Cell ${where}: boolean "${raw}" is not 0 or 1`);

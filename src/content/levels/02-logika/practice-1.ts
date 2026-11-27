@@ -1,6 +1,6 @@
 import { DATA_SHEET, type ExamQuestion, type GeneratedExam, type LevelItem, type MateriCard, type Tip } from "@/core/content/level-module";
-import { createRandom } from "@/core/content/random";
-import { BASE_CHECKS, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesReference } from "./batches";
+import { createRandom, type Random } from "@/core/content/random";
+import { BASE_CHECKS, usesIfOrIfs, drawCovering, type Outcomes, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesReference } from "./batches";
 import type { LogikaScenario } from "./scenarios";
 
 /**
@@ -15,8 +15,8 @@ import type { LogikaScenario } from "./scenarios";
  * | 3 | 25     | J2:J{n+1} | `=IF(E2>$O$2,E2-$O$2,0)`               |
  * | 4 | 25     | K2:K{n+1} | `=IF(G2>$O$4,"Cek mesin","")`          |
  *
- * No question declares `uses_functions`: IFS gives the same answers and is
- * accepted (plan › Open Questions). Q4's key is "" for most rows: Excel's own
+ * Every question requires IF or IFS (`uses_any_function`): either is
+ * accepted, MAX, REPT or arithmetic tricks are not. Q4's key is "" for most rows: Excel's own
  * empty text result (`t="str"`, `<v></v>`), which the Excel fixture pins.
  */
 
@@ -59,8 +59,15 @@ export const P1_TIPS = {
   },
 } as const satisfies Record<string, Tip>;
 
+/** Every outcome each question's keys must show (`outcomeOf`): every generated exam has them all. */
+export const P1_OUTCOMES: Outcomes = [[TEXT.reached, TEXT.short], [TEXT.ng, TEXT.ok], [0, "number"], [TEXT.check, ""]];
+
 function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
   const random = createRandom(seed);
+  return drawCovering(P1_OUTCOMES, () => build(random, scenario));
+}
+
+function build(random: Random, scenario: LogikaScenario): GeneratedExam {
   const batches = drawBatches(random, scenario);
   const target = splitLimit(random, batches.map((b) => b.units), 10);
   const defectLimit = splitLimit(random, batches.map((b) => b.defects), 1);
@@ -82,7 +89,7 @@ function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
       points: 25,
       sheet: DATA_SHEET,
       range: `H2:H${last}`,
-      checks: [...BASE_CHECKS, usesReference("$O$2")],
+      checks: [...BASE_CHECKS, usesIfOrIfs, usesReference("$O$2")],
       key: columnKey("H", batches, (b) => (b.units >= target ? TEXT.reached : TEXT.short)),
       hints: [
         "IF punya tiga bagian: syarat yang dicek, hasil bila syarat benar, dan hasil bila syarat salah. Di sini syaratnya membandingkan Unit Diproduksi dengan target.",
@@ -99,7 +106,7 @@ function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
       points: 25,
       sheet: DATA_SHEET,
       range: `I2:I${last}`,
-      checks: [...BASE_CHECKS, usesReference("$O$3")],
+      checks: [...BASE_CHECKS, usesIfOrIfs, usesReference("$O$3")],
       key: columnKey("I", batches, (b) => (b.defects > defectLimit ? TEXT.ng : TEXT.ok)),
       hints: [
         "Syaratnya: Unit Cacat di baris yang sama dibandingkan dengan batas cacat. Lebih dari berarti tanda >, bukan >=.",
@@ -116,7 +123,7 @@ function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
       points: 25,
       sheet: DATA_SHEET,
       range: `J2:J${last}`,
-      checks: [...BASE_CHECKS, usesReference("$O$2")],
+      checks: [...BASE_CHECKS, usesIfOrIfs, usesReference("$O$2")],
       key: columnKey("J", batches, (b) => (b.units > target ? b.units - target : 0)),
       hints: [
         "Hasil IF tidak harus teks. Bila syarat benar, hasilnya pengurangan: Unit Diproduksi dikurangi target.",
@@ -133,7 +140,7 @@ function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
       points: 25,
       sheet: DATA_SHEET,
       range: `K2:K${last}`,
-      checks: [...BASE_CHECKS, usesReference("$O$4")],
+      checks: [...BASE_CHECKS, usesIfOrIfs, usesReference("$O$4")],
       key: columnKey("K", batches, (b) => (b.downtime > downtimeLimit ? TEXT.check : "")),
       hints: [
         "Sel yang tampak kosong tetap harus berisi rumus. Yang kosong hanya hasilnya, jadi jangan hapus rumus di baris yang downtime-nya rendah.",

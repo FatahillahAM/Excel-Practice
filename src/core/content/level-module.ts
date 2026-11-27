@@ -369,7 +369,7 @@ export const generatedExamSchema = z
         ctx.addIssue({ code: "custom", path: at("prompt"), message: `Instructions!${line} must be "${question.number}. " + the prompt` });
       }
       question.checks.forEach((check, c) => {
-        if (check.name === "uses_functions") addM365Issue(check.functions.join(" "), at("checks", c), ctx);
+        if (check.name === "uses_functions" || check.name === "uses_any_function") addM365Issue(check.functions.join(" "), at("checks", c), ctx);
       });
       if (!question.checks.some((check) => check.name === "value_equals_key")) {
         ctx.addIssue({ code: "custom", path: at("checks"), message: "Every question checks value_equals_key" });

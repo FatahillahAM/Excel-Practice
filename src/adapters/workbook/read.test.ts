@@ -183,7 +183,7 @@ describe("readWorkbook", () => {
     });
     const { sheets } = await readWorkbook(bytes);
     expect(sheets.Instructions.A1).toEqual({ formula: 'IF(B1>0,"Cek","")', value: null, type: "string" });
-    expect(sheets.Instructions.B1).toEqual({ formula: 'IF(C1>0,"Cek","")', value: null, type: "empty" });
+    expect(sheets.Instructions.B1).toEqual({ formula: 'IF(C1>0,"Cek","")', value: null, type: "string" });
     expect(sheets.Instructions.C1).toEqual({ formula: '"x"', value: "x", type: "string" });
   });
 

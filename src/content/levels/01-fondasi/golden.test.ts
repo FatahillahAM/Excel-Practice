@@ -136,7 +136,8 @@ describe("L01-P1 golden fixtures (code-built)", () => {
 
   it("the reason templates name only the cell and the function", () => {
     for (const template of Object.values(REASON_TEMPLATES)) {
-      expect(template.replace("{ref}", "").replace("{function}", "")).not.toMatch(/[{}$]|\d/);
+      // "Excel 2021" (unknown_function, 5.3) names the product, not a value.
+      expect(template.replace("{ref}", "").replace("{function}", "").replace("Excel 2021", "Excel")).not.toMatch(/[{}$]|\d/);
     }
   });
 

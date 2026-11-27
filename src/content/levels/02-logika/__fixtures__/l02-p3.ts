@@ -3,7 +3,8 @@ import { RIGHT, fixtureToken, itemFixture, wrong, type Cells, type ExpectedGrade
 
 /**
  * Test only: the code-built golden fixtures of L02-P3 (nested IF, IFS).
- * Seed 7, `kemasan-karton-prima`; answers H2:J{last}. IFS is saved with the
+ * Seed 7, `kemasan-karton-prima`: O2 = 1250, O3 = 23, O4 = 50, O5 = 20;
+ * answers H2:J13. IFS is saved with the
  * `_xlfn.` prefix, as Excel 2021 does; an Excel older than 2019 saves it with
  * `_xludf.` (#NAME?), the `old-excel-ifs` variant.
  */
@@ -57,6 +58,6 @@ export const EXPECTED: Readonly<Record<Variant, ExpectedGrade>> = {
   "old-excel-ifs": {
     score: 65,
     correctCount: 2,
-    questions: [RIGHT, wrong("Excel tidak mengenali nama fungsi di rumus I2, jadi hasilnya #NAME?. Cek ejaan nama fungsinya."), RIGHT],
+    questions: [RIGHT, wrong("Excel tidak mengenali nama fungsi di rumus I2, jadi hasilnya #NAME?. Cek ejaan nama fungsinya, atau pastikan fungsinya ada di Excel 2021."), RIGHT],
   },
 };

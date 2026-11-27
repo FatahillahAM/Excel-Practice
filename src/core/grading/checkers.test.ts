@@ -44,6 +44,7 @@ const CHECKS: Check[] = [
   { name: "not_hard_coded" },
   { name: "value_equals_key", tolerance: 1e-9 },
   { name: "uses_functions", functions: ["SUM"] },
+  { name: "uses_any_function", functions: ["IF", "IFS"] },
   { name: "uses_reference", ref: "$L$2" },
 ];
 
@@ -305,12 +306,12 @@ describe("value_equals_key", () => {
     expect(reasonText({ kind: "not_calculated", ref: "H2" })).toBe("Rumus di H2 belum dihitung oleh Excel.");
   });
 
-  it("an empty text cache (t=str, <v></v>) is not_calculated, never wrong_value, unless the key is \"\" (5.3)", () => {
+  it("an empty text result (t=str, no value) is right where the key is \"\", else wrong_value (5.3)", () => {
     const emptyText: CellReading = { formula: 'IF(F2>0,"Cek","")', value: null, type: "string" };
-    expect(valueEqualsKey(check, question("H2", { H2: "Cek" }), [at("H2", emptyText)])).toEqual({ ok: false, reason: { kind: "not_calculated", ref: "H2" } });
-    expect(valueEqualsKey(check, question("H2", { H2: 5 }), [at("H2", emptyText)])).toEqual({ ok: false, reason: { kind: "not_calculated", ref: "H2" } });
+    expect(valueEqualsKey(check, question("H2", { H2: "Cek" }), [at("H2", emptyText)])).toEqual({ ok: false, reason: { kind: "wrong_value", ref: "H2" } });
+    expect(valueEqualsKey(check, question("H2", { H2: 5 }), [at("H2", emptyText)])).toEqual({ ok: false, reason: { kind: "wrong_value", ref: "H2" } });
     expect(valueEqualsKey(check, question("H2", { H2: "" }), [at("H2", emptyText)])).toEqual({ ok: true });
-    // No cached value at all is not_calculated even where the key is "".
+    // A non-text formula without a cached value is not_calculated, even where the key is "".
     expect(valueEqualsKey(check, question("H2", { H2: "" }), [at("H2", f('IF(F2>0,"Cek","")', null))])).toEqual({
       ok: false,
       reason: { kind: "not_calculated", ref: "H2" },
@@ -549,6 +550,25 @@ describe("_xludf. functions Excel does not know (5.3)", () => {
   });
 
   it("reads as #NAME?, naming the cell only", () => {
-    expect(reasonText({ kind: "unknown_function", ref: "H3" })).toBe("Excel tidak mengenali nama fungsi di rumus H3, jadi hasilnya #NAME?. Cek ejaan nama fungsinya.");
+    expect(reasonText({ kind: "unknown_function", ref: "H3" })).toBe("Excel tidak mengenali nama fungsi di rumus H3, jadi hasilnya #NAME?. Cek ejaan nama fungsinya, atau pastikan fungsinya ada di Excel 2021.");
+  });
+});
+
+describe("uses_any_function (5.3)", () => {
+  const check: Check = { name: "uses_any_function", functions: ["IF", "IFS"] };
+  it("passes a formula calling any one of the functions, prefixes dropped", () => {
+    for (const text of ['IF(E2>=$O$2,"Capai","Kurang")', '_xlfn.IFS(E2>=$O$2,"Capai",TRUE,"Kurang")', "if(A1>1,1,0)"]) {
+      expect(runCheck(check, q1, [at("H2", f(text))]), text).toEqual({ ok: true });
+    }
+  });
+  it("fails MAX, REPT and arithmetic tricks with missing_any_function, naming every function", () => {
+    for (const text of ["MAX(0,E2-$O$2)", 'REPT("Cek mesin",G2>$O$4)', "(E2>$O$2)*(E2-$O$2)"]) {
+      expect(runCheck(check, q1, [at("H2", f(text))]), text).toEqual({ ok: false, reason: { kind: "missing_any_function", ref: "H2", function: "IF atau IFS" } });
+    }
+    expect(reasonText({ kind: "missing_any_function", ref: "H2", function: "IF atau IFS" })).toBe("Rumus di H2 belum memakai IF atau IFS.");
+  });
+  it("is in the schema with at least two functions", () => {
+    expect(checkSchema.safeParse(check).success).toBe(true);
+    expect(checkSchema.safeParse({ name: "uses_any_function", functions: ["IF"] }).success).toBe(false);
   });
 });

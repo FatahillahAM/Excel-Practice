@@ -56,6 +56,8 @@ export interface Batch {
 export const valueCheck: Check = { name: "value_equals_key", tolerance: KEY_TOLERANCE };
 export const BASE_CHECKS: Check[] = [{ name: "formula_present" }, { name: "not_hard_coded" }, valueCheck];
 export const usesFunctions = (...functions: string[]): Check => ({ name: "uses_functions", functions });
+/** IF or IFS, either accepted (plan › Open Questions 3): MAX, REPT or arithmetic tricks fail. */
+export const usesIfOrIfs: Check = { name: "uses_any_function", functions: ["IF", "IFS"] };
 export const usesReference = (ref: string): Check => ({ name: "uses_reference", ref });
 
 /** A fresh copy (mutable `shortcuts`) of a constant Tip. */
@@ -77,10 +79,10 @@ export function drawBatches(random: Random, scenario: LogikaScenario): Batch[] {
 }
 
 /**
- * A limit between the drawn values: a multiple of `step` strictly between two
- * neighbouring distinct values, so 25–75 % of the values lie above it and none
- * is equal to it (`>` and `>=` give the same answer). When no multiple fits,
- * the lower neighbour itself (equality then follows the prompt's operator).
+ * A limit drawn from the values: preferably a multiple of `step` between two
+ * neighbouring distinct values with 25–75 % of the values above it. When no
+ * multiple fits, it is a drawn value itself, so a batch can equal the limit:
+ * that is intended, the keys follow each prompt's operator (`>=`, `>`, `<=`).
  */
 export function splitLimit(random: Random, values: readonly number[], step: number): number {
   const sorted = [...new Set(values)].sort((a, b) => a - b);
@@ -150,4 +152,36 @@ export function examOf(
   });
   instructions[INSTRUCTIONS_CELLS.lines[questions.length]] = FINISH_LINE;
   return { cells: { [INSTRUCTIONS_SHEET]: instructions, [DATA_SHEET]: data }, questions };
+}
+
+/** Draws of an exam before one covering every outcome is kept (`drawCovering`). */
+export const MAX_COVER_DRAWS = 1000;
+
+/**
+ * A key value as an outcome (a branch of its question): text as is, 0, the
+ * small whole numbers 1–3 (scores), any other number "number".
+ */
+export const outcomeOf = (value: ExamCellValue): string | number =>
+  typeof value === "string" ? value : value === 0 ? 0 : Number.isInteger(value) && value >= 1 && value <= 3 ? value : "number";
+
+/** Per question, every outcome its keys must show (`outcomeOf`). */
+export type Outcomes = readonly (readonly (string | number)[])[];
+
+/** Whether every question's keys show each of its expected outcomes. */
+export function coversOutcomes(questions: readonly ExamQuestion[], outcomes: Outcomes): boolean {
+  return questions.every((question, i) => {
+    const seen = new Set(Object.values(question.key).map(outcomeOf));
+    return (outcomes[i] ?? []).every((outcome) => seen.has(outcome));
+  });
+}
+
+/**
+ * `build()` again (drawing on from the same `Random`, so deterministic) until
+ * the exam shows every outcome of every question, at most `MAX_COVER_DRAWS`
+ * times; the last draw is kept if none does (never seen over the tested seeds).
+ */
+export function drawCovering(outcomes: Outcomes, build: () => GeneratedExam): GeneratedExam {
+  let exam = build();
+  for (let draw = 1; draw < MAX_COVER_DRAWS && !coversOutcomes(exam.questions, outcomes); draw++) exam = build();
+  return exam;
 }

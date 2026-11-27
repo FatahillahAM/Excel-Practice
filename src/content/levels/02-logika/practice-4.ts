@@ -1,6 +1,6 @@
 import { DATA_SHEET, type ExamQuestion, type GeneratedExam, type LevelItem, type MateriCard, type Tip } from "@/core/content/level-module";
 import { createRandom, type Random } from "@/core/content/random";
-import { BASE_CHECKS, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference, type Batch } from "./batches";
+import { BASE_CHECKS, drawCovering, type Outcomes, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference, type Batch } from "./batches";
 import type { LogikaScenario } from "./scenarios";
 
 /**
@@ -55,8 +55,15 @@ function ensureZero(random: Random, batches: Batch[], field: "defects" | "downti
   batches[random.int(0, batches.length - 1)][field] = 0;
 }
 
+/** Every outcome each question's keys must show (`outcomeOf`): every generated exam has them all. */
+export const P4_OUTCOMES: Outcomes = [[P4_TEXT.noDefect, "number"], [0, "number"], [P4_TEXT.noDowntime, P4_TEXT.check, P4_TEXT.ok]];
+
 function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
   const random = createRandom(seed);
+  return drawCovering(P4_OUTCOMES, () => build(random, scenario));
+}
+
+function build(random: Random, scenario: LogikaScenario): GeneratedExam {
   const batches = drawBatches(random, scenario);
   ensureZero(random, batches, "defects");
   ensureZero(random, batches, "downtime");

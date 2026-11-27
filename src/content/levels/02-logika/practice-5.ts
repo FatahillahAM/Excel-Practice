@@ -1,6 +1,6 @@
 import { DATA_SHEET, type ExamQuestion, type GeneratedExam, type LevelItem, type MateriCard, type Tip } from "@/core/content/level-module";
-import { createRandom } from "@/core/content/random";
-import { BASE_CHECKS, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference } from "./batches";
+import { createRandom, type Random } from "@/core/content/random";
+import { BASE_CHECKS, usesIfOrIfs, drawCovering, type Outcomes, PARAM_LABELS, columnKey, dataCells, drawBatches, examOf, splitLimit, tipOf, usesFunctions, usesReference } from "./batches";
 import type { LogikaScenario } from "./scenarios";
 
 /**
@@ -15,7 +15,7 @@ import type { LogikaScenario } from "./scenarios";
  * | 3 | 25     | J2:J{n+1} | `=IFERROR((E2-F2)/G2,"Tanpa Downtime")`                       |
  * | 4 | 25     | K2:K{n+1} | `=IF(OR(H2="Terganggu",F2>$O$3),"Ya","Tidak")`                |
  *
- * Q2 accepts IF or IFS; Q4 may read the answer column H (or recompute it).
+ * Q2 requires IF or IFS (either); Q4 may read the answer column H (or recompute it).
  */
 
 export const P5_HEADERS = { line: "Status Lini", repair: "Prioritas Perbaikan", goodPerMinute: "Unit Baik per Menit", review: "Tinjau" } as const;
@@ -65,8 +65,15 @@ export const P5_TIPS = {
   },
 } as const satisfies Record<string, Tip>;
 
+/** Every outcome each question's keys must show (`outcomeOf`): every generated exam has them all. */
+export const P5_OUTCOMES: Outcomes = [[P5_TEXT.smooth, P5_TEXT.disturbed], [P5_TEXT.high, P5_TEXT.low, P5_TEXT.none], [P5_TEXT.noDowntime, "number"], [P5_TEXT.yes, P5_TEXT.no]];
+
 function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
   const random = createRandom(seed);
+  return drawCovering(P5_OUTCOMES, () => build(random, scenario));
+}
+
+function build(random: Random, scenario: LogikaScenario): GeneratedExam {
   const batches = drawBatches(random, scenario);
   if (!batches.some((b) => b.downtime === 0)) batches[random.int(0, batches.length - 1)].downtime = 0;
   const target = splitLimit(random, batches.map((b) => b.units), 10);
@@ -108,7 +115,7 @@ function generate(seed: number, scenario: LogikaScenario): GeneratedExam {
       points: 25,
       sheet: DATA_SHEET,
       range: `I2:I${last}`,
-      checks: [...BASE_CHECKS, usesReference("$O$4")],
+      checks: [...BASE_CHECKS, usesIfOrIfs, usesReference("$O$4")],
       key: columnKey("I", batches, (b) => (b.downtime > downtimeLimit ? P5_TEXT.high : b.downtime > 0 ? P5_TEXT.low : P5_TEXT.none)),
       hints: [
         "Tiga hasil dari satu kolom Downtime: cek yang paling lama dulu, lalu yang lebih dari nol.",

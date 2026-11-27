@@ -14,6 +14,7 @@ export type ReasonKind =
   | "hard_coded"
   | "missing_function"
   | "unknown_function"
+  | "missing_any_function"
   | "wrong_reference"
   | "error_value"
   | "not_calculated"
@@ -31,7 +32,7 @@ export type ReasonKind =
 export interface Reason {
   kind: ReasonKind;
   ref: string;
-  /** `missing_function`: the declared function the formula does not call (`SUM`). */
+  /** `missing_function` / `missing_any_function`: the declared function the formula does not call (`SUM`). */
   function?: string;
 }
 
@@ -55,7 +56,9 @@ export const REASON_TEMPLATES: Readonly<Record<ReasonKind, string>> = {
    * (saved with the `_xludf.` prefix, shown as #NAME?); decides before the
    * other checks on that cell, so it is never reported as `missing_function`.
    */
-  unknown_function: "Excel tidak mengenali nama fungsi di rumus {ref}, jadi hasilnya #NAME?. Cek ejaan nama fungsinya.",
+  unknown_function: "Excel tidak mengenali nama fungsi di rumus {ref}, jadi hasilnya #NAME?. Cek ejaan nama fungsinya, atau pastikan fungsinya ada di Excel 2021.",
+  /** `uses_any_function`: the formula calls none of the declared functions; `{function}` is them all ("IF atau IFS"). */
+  missing_any_function: "Rumus di {ref} belum memakai {function}.",
   /** `uses_reference`: the formula lacks the declared reference (shifted for this cell); never names it. */
   wrong_reference: "Rumus di {ref} belum memakai referensi sel yang diminta, jadi hasilnya bisa salah saat disalin.",
   /** `value_equals_key`: the formula's value is an error (`#DIV/0!`); never names the code. */
